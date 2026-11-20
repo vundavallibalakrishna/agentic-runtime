@@ -18,6 +18,7 @@ from ar_common.settings import fake_models_allowed, get_settings, loopback_allow
 from ar_common.temporal_worker import temporal_unavailable_fields, temporal_worker_kwargs
 from ar_runtime.activities.advance_chat_step import advance_chat_step
 from ar_runtime.activities.create_child_run import create_child_run
+from ar_runtime.activities.document_section import document_section
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
 from ar_runtime.activities.expire_approval import bind_store, cancel_approval, expire_approval
 from ar_runtime.activities.research_step import (
@@ -53,6 +54,7 @@ def runtime_activities() -> list[Callable[..., Any]]:
     return [
         execute_chat_turn,
         advance_chat_step,
+        document_section,
         finish_chat_turn,
         research_step,
         research_subtask,

@@ -793,6 +793,20 @@ def _knowledge_server(store: Any) -> None:
                             "description": "The maximum number of passages to return. Defaults "
                             "to a small number.",
                         },
+                        "min_score": {
+                            "type": "number",
+                            "description": "Drop passages whose rerank or similarity score is "
+                            "below this. Omit to use the agent's or the install's bar.",
+                        },
+                        "document_ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "description": "A knowledge document id to restrict the search to.",
+                            },
+                            "description": "Search only these documents. Omit to search the "
+                            "collections.",
+                        },
                     },
                     "required": ["query"],
                 },

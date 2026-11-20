@@ -19,7 +19,7 @@ def subtask_via_gateway(
     search_id = _version_id(store, "research.search")
     fetch_id = _version_id(store, "research.fetch")
     if search_id is None or fetch_id is None:
-        return run_subtask(store, run.get("tenant_id"), query)
+        return run_subtask(store, run.get("tenant_id"), query, user_id=run.get("user_id"))
     found = execute_tool(
         store,
         _request(

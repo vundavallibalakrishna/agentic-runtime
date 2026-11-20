@@ -668,11 +668,11 @@ async def _documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         INSERT INTO documents (
             id, tenant_id, collection_id, source_id, external_id, uri, title, mime_type,
             version_hash, size_bytes, classification, acl_principals, acl_hash, summary,
-            status, error, indexed_at, created_at, updated_at
+            status, error, indexed_at, created_at, updated_at, raw_file_id
         ) VALUES (
             :id, :tenant_id, :collection_id, :source_id, :external_id, :uri, :title, :mime_type,
             :version_hash, :size_bytes, :classification, :acl_principals, :acl_hash, :summary,
-            :status, :error, :indexed_at, :created_at, :updated_at
+            :status, :error, :indexed_at, :created_at, :updated_at, :raw_file_id
         )
         ON CONFLICT (id) DO UPDATE SET
             title = EXCLUDED.title,
@@ -685,6 +685,7 @@ async def _documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
             acl_hash = EXCLUDED.acl_hash,
             classification = EXCLUDED.classification,
             size_bytes = EXCLUDED.size_bytes,
+            raw_file_id = EXCLUDED.raw_file_id,
             updated_at = EXCLUDED.updated_at
     """
     for row in rows:
@@ -719,6 +720,7 @@ async def _documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "indexed_at": as_dt(row.get("indexed_at")),
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
+                "raw_file_id": as_uuid(row.get("raw_file_id")),
             },
         )
 

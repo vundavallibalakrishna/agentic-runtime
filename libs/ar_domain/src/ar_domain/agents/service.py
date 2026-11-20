@@ -105,6 +105,7 @@ class AgentLifecycle:
             tool_servers=self._approved_servers(actor.tenant_id),
             sandbox_templates=self._sandbox_templates(actor.tenant_id),
             knowledge_collections=self._knowledge_collections(actor.tenant_id),
+            file_ids=self._file_ids(actor.tenant_id),
             published_agents=agents,
             published_skills=skills,
             skill_versions=versions,
@@ -181,6 +182,19 @@ class AgentLifecycle:
             names = tuple(str(item) for item in allowed) if isinstance(allowed, list) else ()
             edges[slug] = names
         return slugs, edges
+
+    def _file_ids(self, tenant_id: uuid.UUID) -> set[str]:
+        rows = getattr(self.store, "files", {})
+        found: set[str] = set()
+        if not isinstance(rows, dict):
+            return found
+        for file_id, row in rows.items():
+            if not isinstance(row, dict) or row.get("tenant_id") != tenant_id:
+                continue
+            if row.get("deleted_at") or row.get("status") == "deleted":
+                continue
+            found.add(str(file_id))
+        return found
 
     def _knowledge_collections(self, tenant_id: uuid.UUID) -> set[str]:
         names: set[str] = set()

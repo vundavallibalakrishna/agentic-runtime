@@ -25,8 +25,11 @@ def prepare_prompt(
     Each message is shown with the files attached to it, so a later turn still knows a
     file an earlier message brought.
     """
+    from ar_domain.documents.binding import context_window_for  # noqa: PLC0415
+
+    window = context_window_for(store, run.get("tenant_id"), run) if isinstance(run, dict) else None
     attached: dict[object, list[Attachment]] = {}
-    for item in conversation_attachments(store, conversation.get("id")):
+    for item in conversation_attachments(store, conversation.get("id"), context_window=window):
         attached.setdefault(item.message_id, []).append(item)
     history = _history(store, conversation.get("id"), run.get("input_message_id"), attached)
     window = _window(definition)
@@ -74,7 +77,7 @@ def prepare_prompt(
             "definition": definition,
             "user_text": text,
             "channel": str(conversation.get("channel") or ""),
-            "files": attachment_lines(attached.get(run.get("input_message_id"), [])),
+            "files": _files_block(store, run, definition, attached),
             "history": prompt_history,
             "memory": block,
             "summary": str(conversation.get("rolling_summary") or ""),
@@ -85,6 +88,60 @@ def prepare_prompt(
     )
     run["prompt_messages"] = [dict(item) for item in bundle.messages]
     return bundle.prompt_hash
+
+
+def _files_block(
+    store: Any,
+    run: dict[str, object],
+    definition: dict[str, object],
+    attached: dict[object, list[Attachment]],
+) -> str:
+    """Files on this turn, the agent's default files, and a section reduction."""
+    lines = attachment_lines(attached.get(run.get("input_message_id"), []))
+    known = {item.file_id for rows in attached.values() for item in rows}
+    extra = _agent_lines(store, run, definition, known)
+    reduction = run.get("document_reduction")
+    parts = [
+        part for part in (lines, extra, reduction if isinstance(reduction, str) else "") if part
+    ]
+    return "\n".join(parts)
+
+
+def _agent_lines(
+    store: Any,
+    run: dict[str, object],
+    definition: dict[str, object],
+    known: set[uuid.UUID],
+) -> str:
+    knowledge = definition.get("knowledge")
+    raw = (
+        knowledge.get("file_ids", knowledge.get("fileIds")) if isinstance(knowledge, dict) else None
+    )
+    if not isinstance(raw, list):
+        return ""
+    from ar_domain.documents.binding import context_window_for  # noqa: PLC0415
+    from ar_domain.files.attachments import _library_excerpt  # noqa: PLC0415
+
+    window = context_window_for(store, run.get("tenant_id"), run)
+    files = getattr(store, "files", {})
+    lines: list[str] = []
+    if not isinstance(files, dict):
+        return ""
+    for item in raw:
+        try:
+            file_id = uuid.UUID(str(item))
+        except ValueError:
+            continue
+        if file_id in known:
+            continue
+        meta = files.get(file_id)
+        if not isinstance(meta, dict) or meta.get("tenant_id") != run.get("tenant_id"):
+            continue
+        if meta.get("owner_user_id") != run.get("user_id"):
+            continue
+        _document_id, excerpt = _library_excerpt(store, meta, context_window=window)
+        lines.append(f"[file: {meta.get('name')} id={file_id}]\n{excerpt}".strip())
+    return "\n".join(lines)
 
 
 def _history(

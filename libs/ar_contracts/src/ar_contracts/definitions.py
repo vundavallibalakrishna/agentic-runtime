@@ -75,6 +75,7 @@ class ToolSearch(_Model):
 
 class KnowledgeSpec(_Model):
     collections: list[str] = Field(default_factory=list, max_length=20)
+    file_ids: list[str] = Field(default_factory=list, max_length=20)
     auto_retrieve: bool = False
     top_k: int = Field(default=8, ge=1)
     # Unset: the rerank model's own bar (``requestOptions.rerank.min_score``).
@@ -157,6 +158,16 @@ class ChannelFlags(_Model):
     widget: bool = False
 
 
+class TaskTemplateSpec(_Model):
+    """A reusable reading task. Core ships none; an agent or a pack names them."""
+
+    id: str = Field(min_length=1, max_length=80, pattern=_SLUG)
+    prompt: str = Field(default="", max_length=8_000)
+    items: list[str] = Field(default_factory=list, max_length=50)
+    output_schema: dict[str, JsonValue] = Field(default_factory=dict)
+    strategy: str | None = None
+
+
 class AgentDefinition(_Model):
     """Versioned body stored in ``agent_versions.definition``."""
 
@@ -179,6 +190,7 @@ class AgentDefinition(_Model):
     assurance: AssuranceSpec = AssuranceSpec()
     safety: SafetySpec = SafetySpec()
     channels: ChannelFlags = ChannelFlags()
+    task_templates: list[TaskTemplateSpec] = Field(default_factory=list, max_length=30)
 
 
 class ToolAuth(_Model):

@@ -48,7 +48,9 @@ class Attachment:
         return text
 
 
-def conversation_attachments(store: Any, conversation_id: object) -> list[Attachment]:
+def conversation_attachments(
+    store: Any, conversation_id: object, *, context_window: int | None = None
+) -> list[Attachment]:
     """Every file attached in the conversation, oldest first, each with its own path.
 
     Two files with the same name get different paths: the later one carries the start
@@ -80,7 +82,7 @@ def conversation_attachments(store: Any, conversation_id: object) -> list[Attach
             path = _path(str(meta.get("name") or "upload"), file_id, taken)
             taken.add(path)
             message_id = message.get("id")
-            document_id, excerpt = _library_excerpt(store, meta)
+            document_id, excerpt = _library_excerpt(store, meta, context_window=context_window)
             found.append(
                 Attachment(
                     file_id=file_id,
@@ -124,8 +126,14 @@ def _path(name: str, file_id: uuid.UUID, taken: set[str]) -> str:
     return f"{INPUTS}/{pure.stem}-{file_id.hex[:8]}{pure.suffix}"
 
 
-def _library_excerpt(store: Any, meta: dict[str, object]) -> tuple[uuid.UUID | None, str]:
-    """The library document for these bytes, and a short passage the turn can read."""
+def _library_excerpt(
+    store: Any, meta: dict[str, object], *, context_window: int | None = None
+) -> tuple[uuid.UUID | None, str]:
+    """The library document for these bytes, and the passage text the turn can read.
+
+    A document that fits the model's window is included in full, anchors and all.
+    One that does not keeps the short excerpt and says so.
+    """
     digest = str(meta.get("sha256") or "")
     documents = getattr(store, "library_documents", None)
     if not digest or not isinstance(documents, dict):
@@ -137,8 +145,30 @@ def _library_excerpt(store: Any, meta: dict[str, object]) -> tuple[uuid.UUID | N
             continue
         raw = row.get("id")
         document_id = raw if isinstance(raw, uuid.UUID) else None
-        return document_id, _excerpt(row.get("passages"))
+        return document_id, _reading(row.get("passages"), context_window=context_window)
     return None, ""
+
+
+def _reading(passages: object, *, context_window: int | None) -> str:
+    from ar_domain.documents.chunk import RETRIEVAL_BUDGET  # noqa: PLC0415
+    from ar_domain.documents.cited import passage_line  # noqa: PLC0415
+    from ar_domain.documents.strategy import estimate_tokens, usable_tokens  # noqa: PLC0415
+
+    lines: list[str] = []
+    for item in passages if isinstance(passages, list) else []:
+        if not isinstance(item, dict) or not item.get("text") or not item.get("anchor"):
+            continue
+        lines.append(passage_line(item))
+    full = "\n".join(lines)
+    usable = usable_tokens(context_window)
+    fits = (usable is not None and estimate_tokens(full) <= usable) or (
+        usable is None and len(full) <= RETRIEVAL_BUDGET
+    )
+    if fits:
+        return full
+    short = _excerpt(passages)
+    note = "This file was too long for one reading."
+    return f"{short}\n{note}" if short else note
 
 
 def _excerpt(passages: object) -> str:

@@ -19,9 +19,11 @@ def _ids() -> tuple[uuid.UUID, uuid.UUID]:
 
 
 @pytest.mark.asyncio
-async def test_catalogue_agents_and_chat_ops() -> None:
+async def test_catalogue_agents_and_chat_ops(monkeypatch: pytest.MonkeyPatch) -> None:
     tenant, user = _ids()
     service = demo_store(allow_loopback=True, scanner="clamav")
+    service.clamav_address = "clamav:3310"
+    monkeypatch.setattr("ar_domain.files.clamav.instream", lambda *_args, **_kwargs: "clean")
     connect_chat(service, tenant)
     assert merge_params({"temperature": 0.2}, {"max_tokens": 8})["temperature"] == 0.2
     assert process_upload(b"hello", scanner="none")["scan_status"] == "skipped"

@@ -48,7 +48,13 @@ def _search(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     limit = arguments.get("limit")
     count = limit if isinstance(limit, int) and not isinstance(limit, bool) else 4
     tenant_id = arguments.get("_tenant_id")
-    hits = search(store, tenant_id, query, limit=max(1, min(count, 8)))
+    hits = search(
+        store,
+        tenant_id,
+        query,
+        limit=max(1, min(count, 8)),
+        user_id=arguments.get("_user_id"),
+    )
     lines = [f"{row['title']}: {row['url']}" for row in hits]
     where = scope(store, tenant_id)
     return {

@@ -163,9 +163,26 @@ export function LibraryScreen() {
                         {Number(item.pageCount ?? item.page_count ?? 0)}
                       </TableCell>
                       <TableCell>
-                        <Badge tone="success">{t("ready")}</Badge>
+                        <Badge tone={text(item.status) === "failed" ? "danger" : "success"}>
+                          {t(text(item.status) === "failed" ? "failed" : "ready")}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
+                        <Button
+                          className="mr-2 h-8 text-xs"
+                          onClick={() => {
+                            if (!window.confirm(t("deleteConfirm", { name: text(item.title) }))) {
+                              return;
+                            }
+                            void api(`/api/v1/library-documents/${id}`, { method: "DELETE" })
+                              .then(() => load())
+                              .catch(() => setError(t("error")));
+                          }}
+                          type="button"
+                          variant="outline"
+                        >
+                          {t("delete")}
+                        </Button>
                         <Button asChild className="h-8 text-xs" variant="outline">
                           <a
                             aria-label={`${t("open")}: ${text(item.title)}`}
@@ -374,7 +391,10 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
                       {text(passage.page)} · {text(passage.heading)}
                     </p>
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
-                      {text(passage.text)}
+                      <Highlighted
+                        text={text(passage.text)}
+                        active={hashIs(text(passage.anchor))}
+                      />
                     </p>
                   </li>
                 ))}
@@ -518,7 +538,38 @@ export function CompareScreen({ comparisonId }: { comparisonId: string }) {
           {error}
         </p>
       ) : null}
-      {!loading && changes.length === 0 && !error ? <EmptyState title={t("noChanges")} /> : null}
+      {!loading && changes.length === 0 && sectionsOf(body).length === 0 && !error ? (
+        <EmptyState title={t("noChanges")} />
+      ) : null}
+      {sectionsOf(body).length > 0 ? (
+        <ul className="grid gap-3">
+          {sectionsOf(body).map((section) => (
+            <li
+              className="grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 md:grid-cols-2"
+              key={`${text(section.status)}-${text(section.leftAnchor)}-${text(section.rightAnchor)}`}
+            >
+              <p className="md:col-span-2 text-sm font-medium">
+                <Badge tone={text(section.status) === "paired" ? "neutral" : "warning"}>
+                  {t(
+                    text(section.status) === "added"
+                      ? "added"
+                      : text(section.status) === "removed"
+                        ? "removed"
+                        : "paired",
+                  )}
+                </Badge>{" "}
+                {text(section.heading)}
+              </p>
+              <blockquote className="whitespace-pre-wrap text-sm">
+                {text(section.leftQuote) || t("removed")}
+              </blockquote>
+              <blockquote className="whitespace-pre-wrap text-sm">
+                {text(section.rightQuote) || t("added")}
+              </blockquote>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <ul className="row-list">
         {changes.map((change) => {
           const key = `${text(change.op)}-${text(change.leftAnchor || change.left_anchor)}-${text(change.rightAnchor || change.right_anchor)}`;
@@ -802,4 +853,20 @@ export function RewriteScreen({ rewriteId }: { rewriteId: string }) {
       ) : null}
     </AppShell>
   );
+}
+
+function hashIs(anchor: string): boolean {
+  if (!anchor || typeof window === "undefined") return false;
+  return window.location.hash === `#${anchor}`;
+}
+
+function Highlighted({ text: value, active }: { text: string; active: boolean }) {
+  if (!active || !value) return value;
+  return <mark className="bg-[var(--muted)] text-[var(--foreground)]">{value}</mark>;
+}
+
+function sectionsOf(body: Record<string, unknown> | null): Record<string, unknown>[] {
+  const raw = body?.sections;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is Record<string, unknown> => !!item && typeof item === "object");
 }

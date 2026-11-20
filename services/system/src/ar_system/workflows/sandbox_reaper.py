@@ -33,8 +33,10 @@ async def reap_sandboxes() -> dict[str, int]:
     """
     if _STORE is None:
         return {"suspended": 0, "terminated": 0, "removed": 0}
+    from ar_domain.documents.lifecycle import sweep_expired  # noqa: PLC0415
     from ar_domain.sandboxes.lifecycle import sweep  # noqa: PLC0415
 
+    sweep_expired(_STORE)
     return await sweep(_STORE)
 
 

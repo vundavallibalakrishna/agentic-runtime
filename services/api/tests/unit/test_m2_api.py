@@ -1,6 +1,9 @@
 """M2 HTTP behaviour against the in-process chat store."""
 
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
 
 from fastapi.testclient import TestClient
 
@@ -9,6 +12,9 @@ from ar_domain.db.context import Principal
 from ar_domain.files.logic import EICAR
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_testing.demo import demo_application
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def _client(
@@ -80,7 +86,8 @@ def test_chat_round_trip_and_cross_tenant() -> None:
     assert hidden.status_code == 404
 
 
-def test_models_and_files() -> None:
+def test_models_and_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("ar_domain.files.clamav.instream", lambda *_args, **_kwargs: "clean")
     client = _client()
     denied = client.post(
         "/api/v1/model-providers",
@@ -162,7 +169,8 @@ def test_regenerate_share_and_callback_guard() -> None:
     assert missing.status_code == 404
 
 
-def test_catalogue_and_run_surface() -> None:
+def test_catalogue_and_run_surface(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("ar_domain.files.clamav.instream", lambda *_args, **_kwargs: "clean")
     client = _client()
     providers = client.get("/api/v1/model-providers")
     assert providers.status_code == 200

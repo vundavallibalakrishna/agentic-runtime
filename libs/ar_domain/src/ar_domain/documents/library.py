@@ -49,32 +49,36 @@ MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
 _READ_CHARS = 12_000
 
 
-def _with_embeddings(
-    store: object, tenant_id: uuid.UUID, passages: list[dict[str, object]]
-) -> list[dict[str, object]]:
-    """Store one vector per passage at ingest. A missing model leaves the text as it is."""
-    texts = [str(row.get("text") or "") for row in passages]
-    if not any(texts):
-        return passages
-    from ar_domain.models.embedding import (  # noqa: PLC0415
-        EmbeddingFailedError,
-        EmbeddingUnconfiguredError,
-        embed,
-        embedding_model,
-    )
+def _holds_hash(files: object, document: dict[str, object], digest: str | set[str]) -> bool:
+    """Whether this knowledge document is the named bytes.
 
-    try:
-        vectors = embed(embedding_model(store, tenant_id), texts)
-    except EmbeddingUnconfiguredError, EmbeddingFailedError:
-        return passages
-    if len(vectors) != len(passages):
-        return passages
-    stored: list[dict[str, object]] = []
-    for row, vector in zip(passages, vectors, strict=True):
-        copied = dict(row)
-        copied["embedding"] = [float(item) for item in vector]
-        stored.append(copied)
-    return stored
+    ``files`` is keyed by id. The document names one file, or carries the hash
+    itself. Neither path walks the file table.
+    """
+    wanted = {digest} if isinstance(digest, str) else digest
+    version = str(document.get("version_hash") or "")
+    if version and version in wanted:
+        return True
+    file_id = document.get("raw_file_id")
+    meta = files.get(file_id) if isinstance(files, dict) else None
+    if not isinstance(meta, dict) or meta.get("deleted_at"):
+        return False
+    return str(meta.get("sha256") or "") in wanted
+
+
+def _quality(extracted: Extracted) -> dict[str, object]:
+    """The extract's own metadata plus the read-quality record."""
+    from ar_domain.documents.quality import quality_record  # noqa: PLC0415
+
+    pages = extracted.metadata.get("pagesOcr")
+    record = quality_record(
+        page_count=extracted.page_count,
+        passages=list(extracted.passages),
+        tables=list(extracted.tables),
+        pages_ocr=pages if isinstance(pages, int) and not isinstance(pages, bool) else 0,
+        engine=str(extracted.metadata.get("ocrEngine") or "none"),
+    )
+    return {**extracted.metadata, **record}
 
 
 async def ingest_bytes(
@@ -179,10 +183,22 @@ class DocumentLibrary:
             raise PayloadTooLargeError(
                 f"The file is over the {MAX_DOCUMENT_BYTES // (1024 * 1024)} MB limit."
             )
-        scanned = scan_bytes(data, scanner=str(getattr(self.store, "scanner", "none")))
+        scanned = scan_bytes(
+            data,
+            scanner=str(getattr(self.store, "scanner", "none")),
+            address=getattr(self.store, "clamav_address", None),
+        )
         if scanned == "infected":
             self._audit(actor, "library_document.rejected", None, {"reason": "infected"}, "failure")
             raise ValidationFailedError("The file was rejected by the upload scanner.")
+        if scanned == "error":
+            self._audit(
+                actor, "library_document.rejected", None, {"reason": "scan_error"}, "failure"
+            )
+            raise ArError(
+                ErrorCode.UNAVAILABLE,
+                "The malware scanner did not answer. The upload was rejected.",
+            )
         digest = hashlib.sha256(data).hexdigest()
         existing = self._by_hash(actor.tenant_id, digest)
         if existing is not None:
@@ -241,10 +257,8 @@ class DocumentLibrary:
             "error_code": None,
             "error_message": None,
             "page_count": extracted.page_count,
-            "metadata": extracted.metadata,
-            "passages": _with_embeddings(
-                self.store, actor.tenant_id, passage_dicts(extracted.passages)
-            ),
+            "metadata": _quality(extracted),
+            "passages": passage_dicts(extracted.passages),
             "tables": [
                 {
                     "anchor": table.anchor,
@@ -265,7 +279,7 @@ class DocumentLibrary:
         rows = [
             self._view(row)
             for row in self.store.library_documents.values()
-            if isinstance(row, dict) and row.get("tenant_id") == actor.tenant_id
+            if self._visible(actor, row)
         ]
         rows.sort(key=lambda item: str(item.get("title") or ""))
         return rows
@@ -296,8 +310,11 @@ class DocumentLibrary:
     def search(self, actor: Actor, query: str) -> list[dict[str, object]]:
         """One retrieval path: stored passages, scored by ``retrieve``."""
         hits: list[dict[str, object]] = []
+        indexed = self._indexed_hits(actor, query)
+        if indexed is not None:
+            return indexed
         for row in self.store.library_documents.values():
-            if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
+            if not self._visible(actor, row):
                 continue
             passages = _rows(row.get("passages"))
             for passage in retrieve(passages, query):
@@ -780,13 +797,113 @@ class DocumentLibrary:
 
     def _own(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         row = self.store.library_documents.get(document_id)
-        if isinstance(row, dict) and row.get("tenant_id") == actor.tenant_id:
+        if isinstance(row, dict) and self._visible(actor, row):
             return row
         # A chat attachment's id is a file id. The library row is the same bytes.
         matched = self._by_attached_file(actor, document_id)
-        if matched is not None:
+        if matched is not None and self._visible(actor, matched):
             return matched
         raise NotFoundError()
+
+    def _visible(self, actor: Actor, row: object) -> bool:
+        """The owner, or someone who can read a collection the file was shared through."""
+        if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
+            return False
+        if row.get("owner_user_id") == actor.user_id:
+            return True
+        return self._shared(actor, row)
+
+    def _shared(self, actor: Actor, row: dict[str, object]) -> bool:
+        """A collection the caller can read holds these bytes.
+
+        The file is read by its id, the knowledge document's ``raw_file_id``.
+        The hash is compared on that one row. The file table is not scanned.
+        """
+        from ar_domain.knowledge.access import can_read_document  # noqa: PLC0415
+
+        digest = str(row.get("content_hash") or "")
+        if not digest:
+            return False
+        documents = getattr(self.store, "knowledge_documents", {})
+        collections = getattr(self.store, "knowledge_collections", {})
+        files = getattr(self.store, "files", {})
+        if not isinstance(documents, dict) or not isinstance(collections, dict):
+            return False
+        for document in documents.values():
+            if not isinstance(document, dict) or document.get("tenant_id") != actor.tenant_id:
+                continue
+            if document.get("status") == "deleted":
+                continue
+            if not _holds_hash(files, document, digest):
+                continue
+            collection = collections.get(document.get("collection_id"))
+            if isinstance(collection, dict) and can_read_document(
+                self.store, actor, document, collection
+            ):
+                return True
+        return False
+
+    def _indexed_hits(self, actor: Actor, query: str) -> list[dict[str, object]] | None:
+        """Index hits for the caller's documents, or None when nothing is indexed."""
+        documents = getattr(self.store, "knowledge_documents", {})
+        chunks = getattr(self.store, "document_chunks", {})
+        if not isinstance(documents, dict) or not isinstance(chunks, dict) or not query.strip():
+            return None
+        visible = [
+            row for row in self.store.library_documents.values() if self._visible(actor, row)
+        ]
+        hashes = {str(row.get("content_hash") or "") for row in visible if row.get("content_hash")}
+        files = getattr(self.store, "files", {})
+        file_ids = {
+            document.get("raw_file_id")
+            for document in documents.values()
+            if isinstance(document, dict) and _holds_hash(files, document, hashes)
+        }
+        linked = [
+            document
+            for document in documents.values()
+            if isinstance(document, dict)
+            and document.get("tenant_id") == actor.tenant_id
+            and document.get("status") != "deleted"
+            and document.get("raw_file_id") in file_ids
+        ]
+        named = [document.get("id") for document in linked]
+        if not linked or not any(chunk.get("document_id") in named for chunk in chunks.values()):
+            return None
+        from ar_domain.knowledge.searching import search as search_index  # noqa: PLC0415
+        from ar_domain.knowledge.threshold import retrieval_bar  # noqa: PLC0415
+
+        collection_ids = list({document.get("collection_id") for document in linked})
+        try:
+            found = search_index(
+                self.store,
+                actor,
+                query=query,
+                collection_ids=[item for item in collection_ids if isinstance(item, uuid.UUID)],
+                top_k=8,
+                debug=False,
+                min_score=retrieval_bar(self.store, actor.tenant_id, {}),
+                document_ids=[item for item in named if isinstance(item, uuid.UUID)],
+            )
+        except ArError, ValueError, TypeError:
+            return None
+        hits = found.get("hits") if isinstance(found, dict) else None
+        if not isinstance(hits, list):
+            return []
+        return [
+            {
+                "document_id": str(hit.get("library_document_id") or hit.get("document_id") or ""),
+                "title": hit.get("title"),
+                "passage_id": str(hit.get("anchor") or ""),
+                "anchor": str(hit.get("anchor") or ""),
+                "page": hit.get("page"),
+                "heading": hit.get("heading"),
+                "snippet": str(hit.get("snippet") or "")[:240],
+                "score": hit.get("score"),
+            }
+            for hit in hits
+            if isinstance(hit, dict)
+        ]
 
     def _by_attached_file(self, actor: Actor, file_id: uuid.UUID) -> dict[str, object] | None:
         files = getattr(self.store, "files", None)
@@ -827,6 +944,21 @@ class DocumentLibrary:
             if not isinstance(getattr(self.store, name, None), dict):
                 setattr(self.store, name, {})
 
+    def _file_id_for(self, row: dict[str, object]) -> str:
+        digest = str(row.get("content_hash") or "")
+        files = getattr(self.store, "files", {})
+        if not digest or not isinstance(files, dict):
+            return ""
+        for file_id, meta in files.items():
+            if (
+                isinstance(meta, dict)
+                and meta.get("tenant_id") == row.get("tenant_id")
+                and meta.get("sha256") == digest
+                and not meta.get("deleted_at")
+            ):
+                return str(file_id)
+        return ""
+
     def _view(self, row: dict[str, object], *, detail: bool = False) -> dict[str, object]:
         passages = _rows(row.get("passages"))
         preview = "\n".join(str(item.get("text") or "") for item in passages[:2])[:800]
@@ -844,6 +976,8 @@ class DocumentLibrary:
             "page_count": row.get("page_count"),
             "created_at": _iso(row.get("created_at")),
             "deduped": False,
+            "file_id": self._file_id_for(row),
+            "metadata": row.get("metadata") if isinstance(row.get("metadata"), dict) else {},
         }
         if detail:
             body["outline"] = _outline(row)

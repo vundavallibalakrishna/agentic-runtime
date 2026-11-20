@@ -54,12 +54,24 @@ class KeyCreate(ApiModel):
     monthly_quota: int = 10000
 
 
+class TaskItem(ApiModel):
+    id: str = ""
+    text: str = ""
+
+
 class SendBody(ApiModel):
     text: str = Field(examples=["What is 2 + 2?"])
     stream: bool = False
     attachment_ids: list[uuid.UUID] = Field(default_factory=list)
+    file_ids: list[uuid.UUID] = Field(default_factory=list)
+    collection_ids: list[uuid.UUID] = Field(default_factory=list)
+    task_template: str | None = None
+    strategy: str = ""
+    items: list[TaskItem | str] = Field(default_factory=list)
     response_format: dict[str, object] | None = None
     suggest_followups: bool = False
+    wait: bool = True
+    callback_url: str | None = None
 
 
 def _store(request: Request) -> Any:
@@ -405,13 +417,22 @@ async def send_external_message(  # noqa: PLR0917
         idempotency_key.strip(),
         response_format=schema,
         suggest_followups=body.suggest_followups,
+        file_ids=body.file_ids,
+        collection_ids=body.collection_ids,
+        task_template=body.task_template or "",
+        strategy=body.strategy,
+        items=[item.model_dump() if isinstance(item, TaskItem) else item for item in body.items],
+        wait=body.wait,
+        callback_url=body.callback_url,
     )
     headers = dict(getattr(request.state, "rate_headers", {}))
     if replayed:
         headers["Idempotent-Replayed"] = "true"
+    if not body.wait:
+        return JSONResponse(reply, status_code=202, headers=headers)
     if body.stream:
         return StreamingResponse(
-            _stream_run(request, key, uuid.UUID(str(reply["id"]))),
+            _stream_run(request, key, uuid.UUID(str(reply.get("id") or reply.get("run_id")))),
             media_type="text/event-stream",
             headers=headers,
         )
@@ -444,13 +465,22 @@ async def run_agent_once(
         idempotency_key.strip(),
         response_format=schema,
         suggest_followups=body.suggest_followups,
+        file_ids=body.file_ids,
+        collection_ids=body.collection_ids,
+        task_template=body.task_template or "",
+        strategy=body.strategy,
+        items=[item.model_dump() if isinstance(item, TaskItem) else item for item in body.items],
+        wait=body.wait,
+        callback_url=body.callback_url,
     )
     headers = dict(getattr(request.state, "rate_headers", {}))
     if replayed:
         headers["Idempotent-Replayed"] = "true"
+    if not body.wait:
+        return JSONResponse(reply, status_code=202, headers=headers)
     if body.stream:
         return StreamingResponse(
-            _stream_run(request, key, uuid.UUID(str(reply["id"]))),
+            _stream_run(request, key, uuid.UUID(str(reply.get("id") or reply.get("run_id")))),
             media_type="text/event-stream",
             headers=headers,
         )
@@ -459,12 +489,14 @@ async def run_agent_once(
 
 @router.post("/v1/agents/{slug}/files")
 @expose(public=True, permission=None)
-async def upload_external_file(
+async def upload_external_file(  # noqa: PLR0917
     slug: str,
     request: Request,
     response: Response,
     upload: Annotated[UploadFile, File()],
     mime_type: Annotated[str, Form()] = "",
+    expires_after_seconds: Annotated[int | None, Form()] = None,
+    replaces_file_id: Annotated[uuid.UUID | None, Form()] = None,
 ) -> dict[str, object]:
     key = _require_key(request, response)
     data = await upload.read()
@@ -472,7 +504,16 @@ async def upload_external_file(
     name = upload.filename or "upload"
     store = _store(request)
     try:
-        saved = runs.upload_file(store, key, slug, name, mime, data)
+        saved = runs.upload_file(
+            store,
+            key,
+            slug,
+            name,
+            mime,
+            data,
+            expires_after_seconds=expires_after_seconds,
+            replaces_file_id=replaces_file_id,
+        )
     except ArError:
         raise
     except Exception as exc:

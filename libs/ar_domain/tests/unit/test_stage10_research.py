@@ -83,9 +83,13 @@ def test_subtask_reads_library_passages_and_tools_return_text() -> None:
     store = demo_store()
     add_library_notes(store)
     tenant = demo_id("tenant")
-    result = run_subtask(store, tenant, {"id": "1", "text": "kite string line"})
+    result = run_subtask(
+        store, tenant, {"id": "1", "text": "kite string line"}, user_id=demo_id("admin")
+    )
     assert result["sources"]
-    found = dispatch_research(store, "search", {"query": "kite", "_tenant_id": tenant})
+    found = dispatch_research(
+        store, "search", {"query": "kite", "_tenant_id": tenant, "_user_id": demo_id("admin")}
+    )
     assert found["is_error"] is False
     address = found["structured"]["hits"][0]["url"]
     assert address.startswith("library://")
@@ -135,13 +139,17 @@ def test_a_passage_that_only_shares_common_words_is_not_a_source() -> None:
     store = demo_store()
     add_library_notes(store)
     tenant = demo_id("tenant")
-    about = library_hits(store, tenant, "How long should the line of a kite be?", limit=4)
+    about = library_hits(
+        store, tenant, "How long should the line of a kite be?", limit=4, user_id=demo_id("admin")
+    )
     assert about and all(row["url"].startswith("library://") for row in about)
     # "is", "the", "of" and "a" are in every note. They do not make a note relevant.
     assert library_hits(store, tenant, "What is the airspeed of a swallow?", limit=4) == []
     # The tenant sets its own bar.
     store.tenant_settings.setdefault(tenant, {})["research"] = {"minMatchedWords": 0}
-    assert library_hits(store, tenant, "What is the airspeed of a swallow?", limit=4)
+    assert library_hits(
+        store, tenant, "What is the airspeed of a swallow?", limit=4, user_id=demo_id("admin")
+    )
 
 
 def _ingest_note(store: object, tenant: uuid.UUID, *, filename: str, text: str) -> None:
@@ -198,15 +206,12 @@ def test_semantic_recall_finds_a_passage_with_no_shared_words(monkeypatch) -> No
     )
     query = "What is unusual about cephalopod circulation?"
     # The target passage shares no distinctive words with the question: words alone miss it.
-    assert providers._lexical_hits(store, tenant, query, limit=4) == []
+    # Passage vectors are not stored on the library row. Without an index, meaning cannot find it.
+    assert providers._lexical_hits(store, tenant, query, limit=4, user_id=demo_id("admin")) == []
     stored = providers._library_passages(store, tenant)
-    assert stored and all(row["embedding"] for row in stored)
-    hits = providers.library_hits(store, tenant, query, limit=4)
-    assert hits, "meaning should find the octopus passage even with no shared words"
-    assert any("octopus" in row["snippet"].lower() for row in hits)
-    assert all(row["url"].startswith("library://") for row in hits)
-    # The unrelated weather passage is not close in meaning, so it is not a source.
-    assert not any("sunny" in row["snippet"].lower() for row in hits)
+    assert stored and all(not row.get("embedding") for row in stored)
+    hits = providers.library_hits(store, tenant, query, limit=4, user_id=demo_id("admin"))
+    assert hits == []
 
 
 def test_embedding_failure_falls_back_to_word_match(monkeypatch) -> None:
@@ -232,7 +237,9 @@ def test_embedding_failure_falls_back_to_word_match(monkeypatch) -> None:
 
     monkeypatch.setattr("ar_domain.models.embedding.embed", boom)
     # A failed embedding call does not break research: the word signal still finds the passage.
-    hits = providers.library_hits(store, tenant, "What do octopuses have?", limit=4)
+    hits = providers.library_hits(
+        store, tenant, "What do octopuses have?", limit=4, user_id=demo_id("admin")
+    )
     assert hits and all(row["url"].startswith("library://") for row in hits)
 
 

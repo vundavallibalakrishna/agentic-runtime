@@ -1,0 +1,12 @@
+{
+  "id": "outline",
+  "prompt": "Produce an outline of each named document.",
+  "items": [],
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "outline": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["outline"]
+  }
+}

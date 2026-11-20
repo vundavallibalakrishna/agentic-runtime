@@ -99,6 +99,8 @@ def passage_dicts(passages: list[Passage]) -> list[dict[str, object]]:
             "heading": row.heading,
             "level": row.level,
             "text": row.text,
+            "char_from": row.char_from,
+            "char_to": row.char_to or len(row.text),
         }
         for row in passages
     ]

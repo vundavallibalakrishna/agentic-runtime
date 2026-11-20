@@ -83,17 +83,25 @@ def mime_allowed(mime_type: str) -> bool:
     return mime_type.lower() in READABLE_UPLOAD_MIME_TYPES
 
 
-def scan_bytes(data: bytes, *, scanner: str) -> str:
-    """Return ``clean``, ``skipped`` or ``infected``.
+def scan_bytes(data: bytes, *, scanner: str, address: str | None = None) -> str:
+    """Return ``clean``, ``skipped``, ``infected`` or ``error``.
 
-    ``scanner='none'`` skips. ``clamav`` (and any injected scanner name other
-    than ``none``) quarantines the EICAR test string.
+    ``scanner='none'`` skips. ``clamav`` quarantines the EICAR test string and
+    asks clamd about every other file. A scanner that does not answer is
+    ``error``; the upload is rejected.
     """
     if scanner == "none":
         return "skipped"
     if EICAR in data:
         return "infected"
-    return "clean"
+    if scanner != "clamav":
+        return "error"
+    from ar_common.settings import get_settings  # noqa: PLC0415
+    from ar_domain.files.clamav import instream  # noqa: PLC0415
+
+    settings = get_settings()
+    endpoint = settings.clamav_address if address is None else address
+    return instream(data, endpoint, timeout_s=float(settings.clamav_timeout_s))
 
 
 def can_read_file(

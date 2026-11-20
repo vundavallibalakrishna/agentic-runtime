@@ -194,6 +194,8 @@ def _visible(row: IndexedChunk, query: HybridQuery) -> bool:
         return False
     if not acl_overlap(list(row.acl), query.principals):
         return False
+    if query.document_ids and row.document_id not in query.document_ids:
+        return False
     return any(
         row.collection_id == target.collection_id and row.index_version == target.index_version
         for target in query.targets

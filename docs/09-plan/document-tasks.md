@@ -1,13 +1,16 @@
 # Document tasks over stored and inline files
 
-Design only. No product code in this change. Status: proposed, waiting on Bala
-([OQ-151](../open-questions.md)). Date: 2026-11-20.
+Status: accepted and implemented (2026-11-20). Bala's decisions are recorded in
+[OQ-151](../open-questions.md). The library is owner-only; the other defaults
+in §15 were accepted. The task is the instruction text. Core has no task list.
+A model returns a plan, and the registered context window chooses the reading.
+Date: 2026-11-20.
 
 A person or an external application names one or more documents, stored or sent
-with the request, and asks for a task: review, compare, find gaps, compose,
-summarise, extract, or ask a question. The request goes to ordinary chat or to
-a specialised agent. A follow-up stays in the same conversation and does not
-resend the files.
+with the request, and writes the instruction in the message. An optional
+`taskTemplate` names a prompt, a checklist and an output schema from the agent
+or a pack. The request goes to ordinary chat or to a specialised agent. A
+follow-up stays in the same conversation and does not resend the files.
 
 This document says what already exists, what to add, and how hard each piece
 is. It extends the library, the knowledge index, and the `/v1` agent API. It
@@ -360,9 +363,9 @@ Old clients keep working.
 | `attachmentIds` | Unchanged. New uploads, already the on-the-fly path. |
 | `fileIds` | Stored file ids. Same resolution as attachments. Written onto the user message as file content parts, so the next turn finds them without the client sending them again. |
 | `collectionIds` | Extra collections for this turn, added to the agent's. Capped at 20 with the agent's list. |
-| `task` | `question`, `summarise`, `extract`, `review`, `compare`, `gaps`, `compose`, or `auto`. `auto` inspects the text. The value is a hint to the strategy, not a tool name. |
-| `strategy` | `auto`, `full`, `retrieve`, or `mapReduce`. Default `auto`. |
-| `items` | Strings or `{id, text}` for gaps and review. The checklist lives on the request, the agent instructions, or a pack. Core has no checklist. |
+| `taskTemplate` | Optional id of a template on the agent (`taskTemplates`) or in a pack file `task-templates/*.json`. A template carries a prompt, a checklist, an output schema and an optional preferred strategy. Core ships none. An unknown id is a validation error. |
+| `strategy` | Optional override. A registered reading: `full`, `retrieve`, or `mapReduce`. Empty lets the plan and the context window choose. `full` on text that does not fit is 409. A new reading is a registration, not a new value in core. |
+| `items` | Strings or `{id, text}`. The checklist lives on the request, the template, or a pack. Core has no checklist. |
 | `responseFormat` | Unchanged. JSON Schema for extract and for any task that should return structured JSON. |
 | `suggestFollowups` | Unchanged. |
 | `stream` | Unchanged on `/v1`. |
@@ -442,7 +445,6 @@ POST /v1/agents/contract-reviewer/conversations/8a1b…/messages
     "2f1c0b2e-6a0d-4e2a-9c3b-1d5e6f708192",
     "91aa27c0-1111-4222-8333-444455556666"
   ],
-  "task": "compare",
   "responseFormat": {
     "type": "object",
     "properties": {
@@ -470,8 +472,14 @@ POST /v1/agents/contract-reviewer/conversations/8a1b…/messages
   "conversationId": "…",
   "runId": "…",
   "status": "completed",
-  "task": "compare",
   "strategy": "full",
+  "plan": {
+    "coverage": "whole",
+    "scope": "acrossDocuments",
+    "outputShape": "changes",
+    "steps": ["read each document", "pair the sections"],
+    "source": "model"
+  },
   "output": "{\"changes\":[…]}",
   "content": [
     { "type": "text", "text": "{\"changes\":[…]}" },
@@ -501,7 +509,6 @@ POST /v1/agents/contract-reviewer:run
 {
   "text": "Which of these points does the document cover?",
   "fileIds": ["2f1c0b2e-6a0d-4e2a-9c3b-1d5e6f708192"],
-  "task": "gaps",
   "wait": false,
   "items": [
     { "id": "pay-terms", "text": "Payment timing is stated." },
@@ -561,7 +568,7 @@ Audit, in the same transaction as the write:
 | `file.uploaded` | Already. |
 | `library_document.ingested` / `library_document.rejected` | Already. |
 | `document.added` / `document.deleted` | Already for knowledge. |
-| `document_task.started` | New, on the run. Detail is ids, task, strategy, and byte sizes. No passage text, no file bytes. |
+| `document_task.started` | New, on the run. Detail is ids, the plan (coverage, scope, output shape, source), the strategy, the template id, and byte sizes. No passage text, no file bytes. |
 
 ## 8. Large documents
 
