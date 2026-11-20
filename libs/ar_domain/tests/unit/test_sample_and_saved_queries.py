@@ -1099,7 +1099,9 @@ def test_a_file_path_after_from_is_read_as_that_files_table() -> None:
             {
                 **arguments,
                 "path": "inputs/ledger-2026.csv",
-                "sql": f"SELECT COUNT(*) AS n FROM {spelling} WHERE region <> 'ledger-2026.csv'",
+                # The spellings are the fixed ones above, written the way a model writes them.
+                "sql": f"SELECT COUNT(*) AS n FROM {spelling} "  # noqa: S608
+                "WHERE region <> 'ledger-2026.csv'",
             },
         )
         assert asked["is_error"] is False, spelling
