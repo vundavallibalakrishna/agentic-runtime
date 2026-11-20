@@ -3467,15 +3467,18 @@ class ChatBehaviour:
     def resume_run(
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, run_id: uuid.UUID
     ) -> dict[str, object]:
-        """Continue a failed or cancelled run that still has a checkpoint."""
+        """Continue a failed or cancelled run.
+
+        It goes on from the last step it saved. A run that ended before it saved one (stopped
+        while the model wrote its first answer) starts its turn again.
+        """
         run = self.runs.get(run_id)
         if run is None or run["tenant_id"] != tenant_id or run["user_id"] != user_id:
             raise NotFoundError()
         if run.get("status") not in {"failed", "cancelled", "interrupted"}:
             raise ArError(ErrorCode.INVALID_STATE, "run cannot be resumed")
         checkpoint = run.get("checkpoint")
-        if not isinstance(checkpoint, dict) or not checkpoint:
-            raise ArError(ErrorCode.INVALID_STATE, "run has no checkpoint")
+        saved = "present" if isinstance(checkpoint, dict) and checkpoint else "none"
         run["status"] = "running"
         run["ended_at"] = None
         run["cancel_requested"] = False
@@ -3485,7 +3488,7 @@ class ChatBehaviour:
         from ar_domain.runs.dispatch import workflow_id  # noqa: PLC0415
 
         run["temporal_workflow_id"] = workflow_id(run_id)
-        self._emit(run, "run.resumed", {"checkpoint": "present", "workflowId": workflow_id(run_id)})
+        self._emit(run, "run.resumed", {"checkpoint": saved, "workflowId": workflow_id(run_id)})
         self._resume_on_worker(run_id, text)
         return self._public(run)
 

@@ -8,6 +8,7 @@ from ar_common.web.problems import problem_response
 from ar_domain.readmodel.model import RepositoryReadModel, commit_unit
 
 _PROBE_PATHS = frozenset({"/healthz", "/readyz", "/metrics"})
+_HOOK_PREFIX = "/api/v1/hooks/routines/"
 _log = get_logger(__name__)
 
 
@@ -40,6 +41,10 @@ class ReadModelMiddleware:
         state = scope.get("state", {})
         principal = state.get("principal") if isinstance(state, dict) else None
         tenant_id = getattr(principal, "tenant_id", None)
+        path = str(scope.get("path") or "")
+        if tenant_id is None and path.startswith(_HOOK_PREFIX):
+            # A routine's webhook has no sign-in. Its address says whose routine it is.
+            tenant_id = await chat.tenant_of_hook(path.removeprefix(_HOOK_PREFIX))
         if tenant_id is None:
             await self.app(scope, receive, send)
             return
@@ -48,7 +53,6 @@ class ReadModelMiddleware:
         if isinstance(state, dict):
             raw = state.get("request_id")
             request_id = "" if raw is None else str(raw)
-        path = str(scope.get("path") or "")
         async with chat.open(
             tenant_id, user_id=user_id, request_id=request_id, commit=False
         ) as unit:

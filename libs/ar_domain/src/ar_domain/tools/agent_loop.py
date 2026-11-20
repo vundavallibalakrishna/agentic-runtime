@@ -117,16 +117,11 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         restore_checkpoint,
         save_checkpoint,
     )
-    from ar_domain.workspace.turn import has_grounding, opening_messages  # noqa: PLC0415
+    from ar_domain.workspace.turn import opening_messages  # noqa: PLC0415
 
     extra_tools, extra_index = orchestration_tools(store, run, definition)
-    if (
-        not tools
-        and not extra_tools
-        and not has_grounding(definition)
-        and not asked(run, "orchestration_child")
-    ):
-        return False
+    # An agent with no tools takes this loop too: one way to ask the model, so its answer is
+    # written as it arrives, sees the conversation so far and can be stopped and continued.
     by_name = _index(tools)
     by_name.update(extra_index)
     # The model chooses a skill: when the agent has skills, offer skills.load so it can
@@ -323,18 +318,24 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             # reader's copy of the message starts over with this round.
             _restart_message(store, run, assistant, alias)
             deltas = _deltas(store, run, assistant)
-        with listening(deltas.feed):
-            turn = await _ask(
-                store,
-                messages,
-                openai_tools,
-                run=run,
-                alias=alias,
-                limits=limits,
-                started=started,
-                definition=definition,
-                response_format=schema,
-            )
+        try:
+            with listening(deltas.feed):
+                turn = await _ask(
+                    store,
+                    messages,
+                    openai_tools,
+                    run=run,
+                    alias=alias,
+                    limits=limits,
+                    started=started,
+                    definition=definition,
+                    response_format=schema,
+                )
+        except asyncio.CancelledError:
+            # Stopped while the model was writing: the reader keeps what was on the screen.
+            deltas.flush()
+            _keep_written(assistant, "".join(deltas.written))
+            raise
         deltas.flush()
         if isinstance(turn, dict):
             _note_endpoint(store, run, turn, steps)
@@ -1646,6 +1647,14 @@ def _deltas(store: Any, run: dict[str, object], assistant: dict[str, object]) ->
     return Coalescer(
         lambda text: store._emit(run, "message.delta", {"message_id": message_id, "text": text})
     )
+
+
+def _keep_written(assistant: dict[str, object], text: str) -> None:
+    """Save the part of an answer that was written before the run was stopped."""
+    if not text:
+        return
+    assistant["text"] = text
+    assistant["content"] = [{"type": "text", "text": text}]
 
 
 def _restart_message(

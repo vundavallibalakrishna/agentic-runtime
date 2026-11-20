@@ -172,3 +172,18 @@ def test_a_wrapper_tag_split_across_pieces_never_reaches_the_reader() -> None:
     shown = "".join(plain.feed(piece) for piece in pieces) + plain.close()
     assert shown.strip() == "Done. x < y."
     assert "untrusted" not in shown
+
+
+def test_what_was_sent_is_kept_for_a_reply_that_is_stopped() -> None:
+    sent: list[str] = []
+    gathered = Coalescer(sent.append, window_s=0)
+    gathered.feed("Bridges ")
+    gathered.feed("began ")
+    waiting = Coalescer(sent.append, window_s=3600)
+    waiting.feed("as ")
+    waiting.feed("logs")
+    assert "".join(gathered.written) == "Bridges began "
+    # The second piece is still waiting for its window; flushing sends and keeps it.
+    assert "".join(waiting.written) == "as "
+    waiting.flush()
+    assert "".join(waiting.written) == "as logs"

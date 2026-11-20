@@ -283,16 +283,17 @@ def _tables_for_paths(store: Store, arguments: dict[str, object], sql: str) -> s
     """The statement with a file's path after FROM or JOIN put right as its table name.
 
     A model often writes ``FROM 'inputs/ledger.csv'`` or ``FROM ledger.csv`` for the file
-    it was asked about. Only a path the call itself names is changed, and only where a
-    table goes, so nothing else in the statement can be read as a file.
+    it was asked about. Only the path of a file the call reads is changed, and only where
+    a table goes, so nothing else in the statement can be read as a file.
     """
-    paths = _requested_paths(arguments)
-    if not paths or not re.search(r"\.(csv|tsv|json|xlsx)\b", sql, flags=re.IGNORECASE):
+    if not re.search(r"\.(csv|tsv|json|xlsx)\b", sql, flags=re.IGNORECASE):
         return sql
     try:
         root = _root(store, arguments)
     except OSError, ValueError:
         return sql
+    # A call that names no file reads every table file of the conversation.
+    paths = _requested_paths(arguments) or [path.name for path in _workspace_files(root)]
     for raw in paths:
         found = _open_path(root, raw)
         if found is None or found.suffix.lower() == ".xlsx":

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import orjson
@@ -181,6 +182,19 @@ def _work_fingerprint(
     )
 
 
+def _tool_calls(message: dict[str, Any] | None) -> int:
+    calls = message.get("tool_calls") if isinstance(message, dict) else None
+    return len(calls) if isinstance(calls, list) else 0
+
+
+def _elapsed_ms(run: dict[str, Any]) -> int:
+    """How long the run took, from when it was asked for to when it ended."""
+    started, ended = run.get("created_at"), run.get("ended_at")
+    if not isinstance(started, datetime) or not isinstance(ended, datetime):
+        return 0
+    return max(int((ended - started).total_seconds() * 1000), 0)
+
+
 def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
     from ar_domain.exposure.public import public_content  # noqa: PLC0415
 
@@ -226,13 +240,18 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
             "tokensIn": int(usage.get("tokens_in") or usage.get("tokensIn") or 0),
             "tokensOut": int(usage.get("tokens_out") or usage.get("tokensOut") or 0),
             "cachedTokens": int(usage.get("cached_tokens") or usage.get("cachedTokens") or 0),
-            "modelCalls": int(usage.get("model_calls") or usage.get("modelCalls") or 0),
-            "toolCalls": int(usage.get("tool_calls") or usage.get("toolCalls") or 0),
+            # The loop counts a model call as a step, and keeps the tool calls on the answer.
+            "modelCalls": int(
+                usage.get("model_calls") or usage.get("modelCalls") or usage.get("steps") or 0
+            ),
+            "toolCalls": int(
+                usage.get("tool_calls") or usage.get("toolCalls") or _tool_calls(message)
+            ),
             "costMicros": int(usage.get("cost_micros") or usage.get("costMicros") or 0),
             "sandboxCpuSeconds": int(
                 usage.get("sandbox_cpu_seconds") or usage.get("sandboxCpuSeconds") or 0
             ),
-            "elapsedMs": int(usage.get("elapsed_ms") or usage.get("elapsedMs") or 0),
+            "elapsedMs": int(usage.get("elapsed_ms") or usage.get("elapsedMs") or _elapsed_ms(run)),
         },
     }
     if approval_id:

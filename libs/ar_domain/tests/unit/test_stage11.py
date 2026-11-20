@@ -318,6 +318,36 @@ def test_a_failed_run_with_a_checkpoint_can_resume() -> None:
     )
 
 
+def test_a_run_stopped_before_it_saved_a_step_starts_its_turn_again() -> None:
+    """Stopped while the model wrote its first answer: there is no step to go on from."""
+    store = demo_store()
+    tenant = demo_id("tenant")
+    user = demo_id("admin")
+    run_id = uuid.uuid4()
+    store.runs[run_id] = {
+        "id": run_id,
+        "tenant_id": tenant,
+        "user_id": user,
+        "status": "cancelled",
+        "cancel_requested": True,
+        "conversation_id": uuid.uuid4(),
+    }
+    resumed = store.resume_run(tenant, user, run_id)
+    assert resumed["temporal_workflow_id"] == f"run-{run_id}"
+    assert store.runs[run_id]["cancel_requested"] is False
+    told = [
+        event
+        for event in store.events.get(run_id, [])
+        if isinstance(event, dict) and event.get("type") == "run.resumed"
+    ]
+    assert told
+    assert "none" in str(told[-1])
+    # A run that ended well is not started again.
+    store.runs[run_id]["status"] = "completed"
+    with pytest.raises(ArError):
+        store.resume_run(tenant, user, run_id)
+
+
 def test_reset_rejects_unknown_short_expired_and_spent_tokens() -> None:
     store = demo_store()
     request_reset(store, "missing@example.com")

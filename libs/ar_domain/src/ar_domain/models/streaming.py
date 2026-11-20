@@ -127,6 +127,8 @@ class Coalescer:
         # No piece has been sent yet, so the first one goes at once whatever the clock reads.
         self._last = float("-inf")
         self.sent = False
+        # Everything sent so far, so a reply that is stopped half-way keeps what was written.
+        self.written: list[str] = []
 
     def feed(self, piece: str) -> None:
         if not piece:
@@ -142,6 +144,7 @@ class Coalescer:
             return
         text, self._waiting = "".join(self._waiting), []
         self.sent = True
+        self.written.append(text)
         self._send(text)
 
 

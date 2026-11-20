@@ -455,3 +455,39 @@ async def test_durable_exposure_rows_round_trip_sql() -> None:
     assert any(params.get("scope") == "agent" for _sql, params in session.calls)
     store = _store()
     await load_exposure(session, store, tenant)  # type: ignore[arg-type]
+
+
+def test_a_reply_reports_the_model_calls_tool_calls_and_time_of_its_run() -> None:
+    from datetime import timedelta
+
+    from ar_common.time import utcnow
+
+    store = demo_store()
+    run_id, message_id = new_id(), new_id()
+    ended = utcnow()
+    store.messages[message_id] = {
+        "id": message_id,
+        "role": "assistant",
+        "text": "Done.",
+        "content": [{"type": "text", "text": "Done."}],
+        "tool_calls": [{"qualified_name": "general.query_table"}, {"qualified_name": "x.y"}],
+    }
+    store.runs[run_id] = {
+        "id": run_id,
+        "status": "completed",
+        "conversation_id": new_id(),
+        "assistant_message_id": message_id,
+        "created_at": ended - timedelta(seconds=3),
+        "ended_at": ended,
+        "usage": {"tokens_in": 120, "tokens_out": 8, "cost_micros": 5, "steps": 3},
+    }
+    usage = runs._reply(store, run_id)["usage"]
+    assert usage["modelCalls"] == 3
+    assert usage["toolCalls"] == 2
+    assert usage["elapsedMs"] == 3000
+    assert (usage["tokensIn"], usage["tokensOut"], usage["costMicros"]) == (120, 8, 5)
+    # A run that has not ended has no time yet, and no answer means no tool calls.
+    store.runs[run_id]["ended_at"] = None
+    store.runs[run_id]["assistant_message_id"] = None
+    waiting = runs._reply(store, run_id)["usage"]
+    assert (waiting["elapsedMs"], waiting["toolCalls"]) == (0, 0)

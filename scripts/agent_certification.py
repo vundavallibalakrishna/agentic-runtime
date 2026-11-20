@@ -19,13 +19,17 @@ one, so it can be opened in the product.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import os
 import sys
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import httpx
 import orjson
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -62,6 +66,7 @@ class Bench:
     stamp: int = field(default_factory=lambda: int(time.time()))
     count: int = 0
     seen: list[str] = field(default_factory=list)
+    routines: list[str] = field(default_factory=list)
 
     def slug(self, name: str) -> str:
         self.count += 1
@@ -149,7 +154,12 @@ class Bench:
         messages = seen.get("messages") if isinstance(seen, dict) else []
         for row in messages if isinstance(messages, list) else []:
             if row.get("role") == "assistant" and str(row.get("runId")) == run:
-                return str(row.get("text") or "")
+                parts = row.get("content")
+                return "".join(
+                    str(part.get("text") or "")
+                    for part in (parts if isinstance(parts, list) else [])
+                    if isinstance(part, dict) and part.get("type") == "text"
+                ) or str(row.get("text") or "")
         return ""
 
     def others(self, conversation: str, run: str) -> list[Body]:
@@ -1183,6 +1193,774 @@ def case_child_needs_approval(bench: Bench) -> str:
     return f"through a lead: refused in words ({text[:60]!r}); asked directly: approved and written"
 
 
+# --- Stage: engine -----------------------------------------------------------------------
+
+_ESSAY = "Write a 3000 word essay about the history of bridges."
+
+
+def _stop_and_continue(bench: Bench, slug: str, tools: list[Body]) -> str:
+    agent, _ = bench.agent(slug, {"instructions": "Do what the person asks.", "tools": tools})
+    conversation, run = bench.start(agent, _ESSAY)
+    time.sleep(12)
+    status, body = bench.stack.post(f"/api/v1/runs/{run}:cancel")
+    expect(status < OK, f"the stop was refused ({status}): {_said(body)}")
+    asked = time.monotonic()
+    final = bench.run_status(run, until=_DONE, wait_s=60)
+    took = time.monotonic() - asked
+    expect(final == "cancelled", f"the stopped run ended as {final}")
+    expect(took < 10, f"the stop took {took:.0f}s to take effect")
+    kept = bench.reply(conversation, run)
+    status, resumed = bench.stack.post(f"/api/v1/runs/{run}:resume")
+    expect(status < OK, f"continue was refused ({status}): {_said(resumed)[:80]}")
+    again = bench.run_status(run, until=_DONE, wait_s=300)
+    expect(again == "completed", f"the continued run ended as {again}")
+    whole = bench.reply(conversation, run)
+    chat = Chat(bench.stack, agent)
+    follow = chat.send(conversation, "Reply with the single word ready.")
+    expect(
+        "ready" in follow.text.lower(),
+        f"the conversation was not usable after a stop: {follow.status}",
+    )
+    expect(len(kept) > 0, "nothing the model had written was kept when it was stopped")
+    return (
+        f"stopped in {took:.0f}s with {len(kept)} characters kept; continued to "
+        f"{len(whole)} characters; next message answered"
+    )
+
+
+def case_stop_and_continue(bench: Bench) -> str:
+    """A run a person stops ends at once, keeps its text and can be continued."""
+    return _stop_and_continue(bench, "stoppable", [_GENERAL])
+
+
+def case_stop_without_tools(bench: Bench) -> str:
+    """The same for an agent that has no tools."""
+    return _stop_and_continue(bench, "stoppable-plain", [])
+
+
+def case_one_run_at_a_time(bench: Bench) -> str:
+    """A second message while a run is going is refused in words, and the first run goes on."""
+    agent, _ = bench.agent("busy", {"instructions": "Do what the person asks.", "tools": []})
+    conversation, run = bench.start(agent, _ESSAY)
+    time.sleep(2)
+    status, body = bench.stack.post(
+        f"/api/v1/conversations/{conversation}/messages", text="And another thing."
+    )
+    expect(status == 409, f"a second message got {status}: {_said(body)}")
+    said = _said(body)
+    bench.stack.post(f"/api/v1/runs/{run}:cancel")
+    bench.run_status(run, until=_DONE, wait_s=60)
+    return f"refused with 409: {said[:80]!r}"
+
+
+def _held_write(bench: Bench) -> tuple[str, str, Body]:
+    """A write that waits for the second person. Returns the conversation, the run, the request."""
+    if bench.second is None:
+        raise Blocked("a second person (AR_SECOND_EMAIL, AR_SECOND_PASSWORD)")
+    me = bench.second.get("/api/v1/me")
+    writer, problem = _approval_agent(bench.stack, str(_body(me).get("id") or ""))
+    if problem:
+        raise Blocked(f"an agent whose writes need approval ({problem})")
+    conversation, run = bench.start(
+        writer, "Save a file named decision.txt that holds only the word APPROVED."
+    )
+    waiting, problem = _request_for(bench.stack, bench.second, conversation)
+    expect(waiting is not None, f"no approval request was made ({problem})")
+    return conversation, run, _body(waiting)
+
+
+def case_approval_refused(bench: Bench) -> str:
+    """A write the second person refuses does not happen, and the reply says so."""
+    conversation, run, waiting = _held_write(bench)
+    status, body = bench.second.post(  # type: ignore[union-attr]
+        f"/api/v1/approvals/{waiting['id']}:decide",
+        decision="reject",
+        comment="not this one",
+        argsHash=str(waiting.get("argsHash") or ""),
+    )
+    expect(status < OK, f"the refusal was not taken ({status}): {_said(body)}")
+    final = bench.run_status(run, until=_DONE, wait_s=180)
+    text = bench.reply(conversation, run)
+    expect(final in {"completed", "failed"}, f"after a refusal the run is {final}")
+    expect(not _has_file(bench.stack, conversation, "decision.txt"), "the refused write happened")
+    return f"refused, nothing written, run {final}: {text[:80]!r}"
+
+
+def case_approval_withdrawn(bench: Bench) -> str:
+    """The person who asked can withdraw a request, and the write does not happen."""
+    conversation, run, waiting = _held_write(bench)
+    status, body = bench.stack.post(f"/api/v1/approvals/{waiting['id']}:cancel")
+    expect(status < OK, f"the request could not be withdrawn ({status}): {_said(body)}")
+    final = bench.run_status(run, until=_DONE, wait_s=180)
+    expect(final in _DONE, f"after the request was withdrawn the run is {final}")
+    expect(not _has_file(bench.stack, conversation, "decision.txt"), "the withdrawn write happened")
+    late, _late = bench.second.post(  # type: ignore[union-attr]
+        f"/api/v1/approvals/{waiting['id']}:decide",
+        decision="approve",
+        comment="too late",
+        argsHash=str(waiting.get("argsHash") or ""),
+    )
+    expect(late >= 400, "a withdrawn request could still be approved")
+    return f"withdrawn, nothing written, run {final}; a late approval is refused ({late})"
+
+
+def case_many_steps(bench: Bench) -> str:
+    """A run that needs many tool calls in a row gets through them within its limits."""
+    agent, _ = bench.agent(
+        "patient",
+        {
+            "instructions": "Answer each question with its own query. Never combine questions.",
+            "tools": [_GENERAL],
+        },
+    )
+    turn = bench.ask(
+        agent,
+        "From the attached file, with a separate query for each: the count for North, for "
+        "South, for East, for West, the largest count, the smallest count, the average "
+        "count, and the total. List all eight answers.",
+        files=_TABLE,
+    )
+    made = [row for row in turn.calls if row.get("qualifiedName") == "general.query_table"]
+    expect(turn.status == "completed", f"the run ended as {turn.status}: {turn.text[:120]}")
+    expect("53" in turn.text and "19" in turn.text, f"answers are missing: {turn.text[:160]}")
+    expect(len(made) >= 5, f"only {len(made)} queries were made")
+    return f"{len(made)} queries in one run, all eight answers given"
+
+
+def case_worker_restart(bench: Bench) -> str:
+    """A run survives the worker that carries it out being restarted."""
+    del bench
+    raise Blocked(
+        "a stack whose worker can be restarted alone: this one starts every process together"
+    )
+
+
+# --- Stage: routines ---------------------------------------------------------------------
+
+
+def _routine(bench: Bench, name: str, trigger: Body, **more: object) -> tuple[str, Body]:
+    """A routine on a plain agent that answers with one known word."""
+    agent, _ = bench.agent(
+        f"routine-{name}", {"instructions": "Do exactly what is asked. Be brief.", "tools": []}
+    )
+    status, made = bench.stack.post(
+        "/api/v1/routines",
+        name=f"{name} {uuid.uuid4().hex[:6]}",
+        agentId=agent,
+        instructions="Reply with the single word DELIVERED and nothing else.",
+        trigger=trigger,
+        **more,
+    )
+    expect(status < OK, f"the routine was not created ({status}): {_said(made)}")
+    routine = _body(made)
+    bench.routines.append(str(routine.get("id")))
+    return str(routine.get("id")), routine
+
+
+def _hook_of(made: Body) -> tuple[str, str]:
+    """The address and secret a new webhook routine shows once."""
+    shown = _body(made.get("webhook"))
+    return str(shown.get("webhookUrl") or ""), str(shown.get("webhookSecret") or "")
+
+
+def _routine_events(bench: Bench, routine: str) -> list[Body]:
+    return _rows(bench.stack.get(f"/api/v1/routines/{routine}/events"))
+
+
+def _wait_event(bench: Bench, routine: str, wanted: int, wait_s: int) -> list[Body]:
+    """The routine's events once ``wanted`` of them have a run that ended."""
+    deadline = time.monotonic() + wait_s
+    rows: list[Body] = []
+    while time.monotonic() < deadline:
+        rows = _routine_events(bench, routine)
+        done = [
+            row
+            for row in rows
+            if row.get("runId")
+            and _body(bench.stack.get(f"/api/v1/runs/{row['runId']}")).get("status") in _DONE
+        ]
+        if len(done) >= wanted:
+            return rows
+        time.sleep(3)
+    return rows
+
+
+def _run_text(bench: Bench, run: str) -> tuple[str, str]:
+    seen = _body(bench.stack.get(f"/api/v1/runs/{run}"))
+    conversation = str(seen.get("conversationId") or "")
+    if conversation:
+        bench.seen.append(conversation)
+    return str(seen.get("status")), bench.reply(conversation, run) if conversation else ""
+
+
+def case_routine_by_hand(bench: Bench) -> str:
+    """A routine a person runs now does its work and the result can be read."""
+    routine, _ = _routine(bench, "by-hand", {"type": "manual"})
+    status, started = bench.stack.post(f"/api/v1/routines/{routine}:run")
+    expect(status < OK, f"run now was refused ({status}): {_said(started)}")
+    run = str(_body(started).get("runId") or "")
+    final = bench.run_status(run, until=_DONE, wait_s=180)
+    expect(final == "completed", f"the run ended as {final}")
+    _, text = _run_text(bench, run)
+    expect("DELIVERED" in text.upper(), f"the answer was {text[:80]!r}")
+    listed = _body(bench.stack.get(f"/api/v1/routines/{routine}"))
+    expect(listed.get("lastRun"), "the routine does not show its last run")
+    return f"ran and answered {text.strip()[:30]!r}; last run shown"
+
+
+def case_routine_by_schedule(bench: Bench) -> str:
+    """A routine on a one-minute schedule runs by the clock with nobody asking."""
+    routine, made = _routine(
+        bench, "by-schedule", {"type": "schedule", "cron": "* * * * *", "timezone": "UTC"}
+    )
+    expect(made.get("nextRunAt") or made.get("nextFires"), "no next run time is shown")
+    rows = _wait_event(bench, routine, 1, 200)
+    fired = [row for row in rows if row.get("runId")]
+    expect(fired, f"nothing ran in 200 seconds; events: {[row.get('status') for row in rows]}")
+    final, text = _run_text(bench, str(fired[0]["runId"]))
+    bench.stack.post(f"/api/v1/routines/{routine}:pause")
+    expect(final == "completed", f"the scheduled run ended as {final}")
+    expect("DELIVERED" in text.upper(), f"the scheduled answer was {text[:80]!r}")
+    return f"fired by the clock ({fired[0].get('source')}), answered {text.strip()[:30]!r}"
+
+
+def _hook(bench: Bench, url: str, secret: str, payload: bytes, **headers: str) -> tuple[int, Body]:
+    sent = {"content-type": "application/json", **headers}
+    if secret:
+        stamp = int(time.time())
+        digest = hmac.new(secret.encode(), f"{stamp}.".encode() + payload, hashlib.sha256)
+        sent["x-ar-signature"] = f"t={stamp},v1={digest.hexdigest()}"
+    response = httpx.post(f"{bench.stack.api}{url}", content=payload, headers=sent, timeout=30)
+    try:
+        return response.status_code, _body(response.json())
+    except ValueError:
+        return response.status_code, {"raw": response.text[:200]}
+
+
+def case_routine_by_webhook(bench: Bench) -> str:
+    """A signed call from outside starts the routine; a repeat and a bad signature do not."""
+    routine, made = _routine(bench, "by-webhook", {"type": "webhook"})
+    url, secret = _hook_of(made)
+    expect(url and secret, "the routine gave no webhook address or secret")
+    payload = orjson.dumps({"type": "order.created", "data": {"n": 1}})
+    key = uuid.uuid4().hex
+    first, body = _hook(bench, url, secret, payload, **{"x-idempotency-key": key})
+    expect(first == 202, f"a signed call got {first}: {_said(body)}")
+    again, _ = _hook(bench, url, secret, payload, **{"x-idempotency-key": key})
+    forged, _ = _hook(bench, url, "not-the-secret", payload)
+    unsigned, _ = _hook(bench, url, "", payload)
+    rows = _wait_event(bench, routine, 1, 180)
+    fired = [row for row in rows if row.get("runId")]
+    expect(fired, f"the signed call started no run; events: {[r.get('status') for r in rows]}")
+    final, text = _run_text(bench, str(fired[0]["runId"]))
+    expect(final == "completed", f"the run ended as {final}")
+    expect(again in {200, 202, 409}, f"the repeated call got {again}")
+    expect(len(fired) == 1, f"the repeated call started a second run ({len(fired)} runs)")
+    expect(forged in {401, 403}, f"a wrong signature got {forged}")
+    expect(unsigned in {401, 403}, f"an unsigned call got {unsigned}")
+    return (
+        f"signed 202 and answered {text.strip()[:20]!r}; repeat {again} with no second run; "
+        f"wrong signature {forged}; unsigned {unsigned}"
+    )
+
+
+def case_routine_pause_resume(bench: Bench) -> str:
+    """A paused routine does not run, by hand or from outside; resumed, it runs again."""
+    routine, made = _routine(bench, "pause", {"type": "webhook"})
+    url, secret = _hook_of(made)
+    status, paused = bench.stack.post(f"/api/v1/routines/{routine}:pause")
+    expect(status < OK and _body(paused).get("status") == "paused", f"pause: {_said(paused)}")
+    by_hand, said = bench.stack.post(f"/api/v1/routines/{routine}:run")
+    outside, _ = _hook(bench, url, secret, orjson.dumps({"type": "x", "n": 1}))
+    time.sleep(5)
+    ran = [row for row in _routine_events(bench, routine) if row.get("runId")]
+    expect(not ran, f"a paused routine ran ({len(ran)} runs)")
+    status, resumed = bench.stack.post(f"/api/v1/routines/{routine}:resume")
+    expect(status < OK and _body(resumed).get("status") == "active", f"resume: {_said(resumed)}")
+    status, started = bench.stack.post(f"/api/v1/routines/{routine}:run")
+    expect(status < OK, f"run after resume was refused ({status}): {_said(started)}")
+    final = bench.run_status(str(_body(started).get("runId")), until=_DONE, wait_s=180)
+    expect(final == "completed", f"the run after resume ended as {final}")
+    return (
+        f"paused: run now {by_hand} ({_said(said)[:40]}), outside call {outside}, no run; "
+        "resumed and ran"
+    )
+
+
+def case_routine_daily_cap(bench: Bench) -> str:
+    """A routine allowed one run a day refuses the second in words."""
+    routine, _ = _routine(bench, "cap", {"type": "manual"}, maxRunsPerDay=1)
+    status, started = bench.stack.post(f"/api/v1/routines/{routine}:run")
+    expect(status < OK, f"the first run was refused ({status}): {_said(started)}")
+    bench.run_status(str(_body(started).get("runId")), until=_DONE, wait_s=180)
+    status, refused = bench.stack.post(f"/api/v1/routines/{routine}:run")
+    expect(status >= 400, f"a second run in the day was accepted ({status})")
+    return f"second run refused with {status}: {_said(refused)[:80]!r}"
+
+
+def case_routine_overlap(bench: Bench) -> str:
+    """A second call while a run is going is skipped, not run beside it."""
+    agent, _ = bench.agent(
+        "routine-slow", {"instructions": "Do what the person asks.", "tools": []}
+    )
+    status, made = bench.stack.post(
+        "/api/v1/routines",
+        name=f"overlap {uuid.uuid4().hex[:6]}",
+        agentId=agent,
+        instructions="Write a 600 word essay about canals.",
+        trigger={"type": "webhook"},
+        concurrencyPolicy="skip",
+    )
+    expect(status < OK, f"the routine was not created ({status}): {_said(made)}")
+    routine = str(_body(made).get("id"))
+    bench.routines.append(routine)
+    url, secret = _hook_of(_body(made))
+    one, _ = _hook(bench, url, secret, orjson.dumps({"type": "x", "n": 1}))
+    time.sleep(3)
+    two, _ = _hook(bench, url, secret, orjson.dumps({"type": "x", "n": 2}))
+    expect(one == 202, f"the first call got {one}")
+    rows = _wait_event(bench, routine, 1, 240)
+    time.sleep(5)
+    rows = _routine_events(bench, routine)
+    ran = [row for row in rows if row.get("runId")]
+    expect(len(ran) == 1, f"{len(ran)} runs for two overlapping calls")
+    return f"second call {two}; events: {sorted(str(row.get('status')) for row in rows)}; one run"
+
+
+def case_routine_transfer(bench: Bench) -> str:
+    """A routine handed to another person is theirs: they see it and can run it."""
+    if bench.second is None:
+        raise Blocked("a second person (AR_SECOND_EMAIL, AR_SECOND_PASSWORD)")
+    routine, _ = _routine(bench, "transfer", {"type": "manual"})
+    me = str(_body(bench.second.get("/api/v1/me")).get("id") or "")
+    before = [row.get("id") for row in _rows(bench.second.get("/api/v1/routines"))]
+    status, moved = bench.stack.post(f"/api/v1/routines/{routine}:transfer", newOwnerUserId=me)
+    expect(status < OK, f"the transfer was refused ({status}): {_said(moved)}")
+    after = [row.get("id") for row in _rows(bench.second.get("/api/v1/routines"))]
+    expect(routine in after, "the new owner does not see the routine")
+    owner = _body(_body(bench.stack.get(f"/api/v1/routines/{routine}")).get("owner")).get("id")
+    expect(owner == me, f"the owner shown is {owner}")
+    held, _ = bench.second.post(f"/api/v1/routines/{routine}:run")
+    expect(held >= 400, "a routine waiting for its new owner's review ran")
+    bench.second.post(f"/api/v1/routines/{routine}:resume")
+    status, started = bench.second.post(f"/api/v1/routines/{routine}:run")
+    how = f"refused ({status}): {_said(started)[:60]}"
+    if status < OK:
+        how = bench.run_status(str(_body(started).get("runId")), until=_DONE, wait_s=180)
+    seen = f"seen by the new owner (before: {routine in before})"
+    return f"{seen}; status {_body(moved).get('status')}; their run: {how}"
+
+
+def _mail(subject_has: str = "") -> list[Body]:
+    port = os.environ.get("AR_MAILPIT_UI_HOST_PORT", "8025")
+    try:
+        found = httpx.get(f"http://127.0.0.1:{port}/api/v1/messages", timeout=10).json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise Blocked(f"the local mail server ({type(exc).__name__})") from exc
+    rows = [row for row in found.get("messages", []) if isinstance(row, dict)]
+    return [row for row in rows if subject_has in str(row.get("Subject") or "")]
+
+
+def case_routine_delivery_email(bench: Bench) -> str:
+    """A routine's result goes out by email: held for the owner first, sent once approved."""
+    before = len(_mail())
+    to = f"reader-{uuid.uuid4().hex[:6]}@example.test"
+    routine, _ = _routine(
+        bench, "email", {"type": "manual"}, delivery=[{"type": "email", "channel": to}]
+    )
+    status, started = bench.stack.post(f"/api/v1/routines/{routine}:run")
+    expect(status < OK, f"run now was refused ({status}): {_said(started)}")
+    final = bench.run_status(str(_body(started).get("runId")), until=_DONE, wait_s=180)
+    expect(final == "completed", f"the run ended as {final}")
+    time.sleep(6)
+    expect(len(_mail()) == before, "the email left before the owner approved it")
+    waiting = [
+        row
+        for row in _rows(bench.stack.get("/api/v1/approvals", status="pending"))
+        if str(row.get("routineId") or "") == routine
+    ]
+    expect(waiting, "no approval was raised for the email")
+    status, decided = bench.stack.post(
+        f"/api/v1/approvals/{waiting[0]['id']}:decide", decision="approve"
+    )
+    expect(status < OK, f"the approval was refused ({status}): {_said(decided)}")
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline and len(_mail()) == before:
+        time.sleep(2)
+    got = [row for row in _mail() if to in str(row.get("To"))]
+    expect(got, "no email arrived after the approval")
+    return f"held for approval, then delivered to {to}"
+
+
+def case_routine_delivery_preapproved(bench: Bench) -> str:
+    """A delivery the owner approved in advance goes out with no further question."""
+    to = f"reader-{uuid.uuid4().hex[:6]}@example.test"
+    routine, _ = _routine(
+        bench,
+        "email-standing",
+        {"type": "manual"},
+        delivery=[{"type": "email", "channel": to, "preApproved": True}],
+    )
+    _mail()
+    status, started = bench.stack.post(f"/api/v1/routines/{routine}:run")
+    expect(status < OK, f"run now was refused ({status}): {_said(started)}")
+    final = bench.run_status(str(_body(started).get("runId")), until=_DONE, wait_s=180)
+    expect(final == "completed", f"the run ended as {final}")
+    deadline = time.monotonic() + 40
+    got: list[Body] = []
+    while time.monotonic() < deadline and not got:
+        got = [row for row in _mail() if to in str(row.get("To"))]
+        time.sleep(2)
+    expect(got, "no email arrived")
+    return f"delivered to {to}: {str(got[0].get('Snippet') or '')[:40]!r}"
+
+
+def case_routine_made_by_agent(bench: Bench) -> str:
+    """An agent asked in chat to do something every day sets up a routine for it."""
+    agent, _ = bench.agent(
+        "routine-maker",
+        {
+            "instructions": "When the person asks for recurring work, set up a routine for it.",
+            "tools": [{"server": "routines", "include": ["*"]}],
+        },
+    )
+    before = {row.get("id") for row in _rows(bench.stack.get("/api/v1/routines"))}
+    turn = bench.ask(
+        agent, "Every weekday at 9am UTC, send me a one line summary of the day's date."
+    )
+    made = [
+        row for row in _rows(bench.stack.get("/api/v1/routines")) if row.get("id") not in before
+    ]
+    for row in made:
+        bench.routines.append(str(row.get("id")))
+    expect(made, f"no routine was made; the agent said: {turn.text[:120]!r}")
+    return f"made {made[0].get('name')!r}: {made[0].get('triggerSummary')}"
+
+
+# --- Stage: outside ----------------------------------------------------------------------
+
+
+def _caller(bench: Bench, name: str, **key: object) -> tuple[httpx.Client, str, str, Body]:
+    """A published agent and a client that calls it from outside with its own key."""
+    agent, slug = bench.agent(
+        f"outside-{name}", {"instructions": "Answer in one short sentence.", "tools": []}
+    )
+    status, made = bench.stack.post(f"/api/v1/agents/{agent}/api-keys", label=name, **key)
+    expect(status < OK, f"no key was issued ({status}): {_said(made)}")
+    issued = _body(made)
+    client = httpx.Client(
+        base_url=bench.stack.api,
+        headers={"authorization": f"Bearer {issued.get('key')}"},
+        timeout=240,
+    )
+    return client, agent, slug, issued
+
+
+def _json(response: httpx.Response) -> Body:
+    try:
+        return _body(response.json())
+    except ValueError:
+        return {"raw": response.text[:200]}
+
+
+def case_api_one_shot(bench: Bench) -> str:
+    """One call from outside gets one answer, with what it used."""
+    client, _, slug, _ = _caller(bench, "one-shot")
+    response = client.post(
+        f"/v1/agents/{slug}:run", json={"text": "What is 12 + 30?", "wait": True}
+    )
+    reply = _json(response)
+    expect(response.status_code == 200, f"got {response.status_code}: {_said(reply)}")
+    bench.seen.append(str(reply.get("conversationId")))
+    expect("42" in str(reply.get("output")), f"the answer was {str(reply.get('output'))[:80]!r}")
+    usage = _body(reply.get("usage"))
+    expect(usage.get("tokensIn") and usage.get("tokensOut"), f"no token counts: {usage}")
+    gaps = [name for name in ("modelCalls", "elapsedMs") if not usage.get(name)]
+    expect(not gaps, f"answered 42, but the usage on the reply shows no {' or '.join(gaps)}")
+    return f"answered {reply.get('output')!r}; usage {usage}"
+
+
+def case_api_conversation(bench: Bench) -> str:
+    """A conversation held from outside keeps what was said earlier in it."""
+    client, _, slug, _ = _caller(bench, "conversation")
+    opened = client.post(f"/v1/agents/{slug}/conversations", json={})
+    conversation = str(_json(opened).get("id") or _json(opened).get("conversationId") or "")
+    expect(conversation, f"no conversation ({opened.status_code}): {_said(_json(opened))}")
+    bench.seen.append(conversation)
+    path = f"/v1/agents/{slug}/conversations/{conversation}/messages"
+    first = client.post(
+        path, json={"text": "Please remember that my order number is 77412.", "wait": True}
+    )
+    expect(first.status_code == 200, f"first message got {first.status_code}")
+    second = client.post(path, json={"text": "What is my order number?", "wait": True})
+    said = str(_json(second).get("output"))
+    expect("77412" in said, f"the second answer did not recall the first: {said[:80]!r}")
+    return f"second answer recalled the number: {said[:50]!r}"
+
+
+def case_api_async_events(bench: Bench) -> str:
+    """A call that does not wait gets a run to follow, its events and its answer."""
+    client, _, slug, _ = _caller(bench, "async")
+    response = client.post(
+        f"/v1/agents/{slug}:run", json={"text": "Name one colour.", "wait": False}
+    )
+    started = _json(response)
+    expect(response.status_code == 202, f"got {response.status_code}: {_said(started)}")
+    run = str(started.get("runId"))
+    deadline = time.monotonic() + 120
+    seen: Body = {}
+    while time.monotonic() < deadline:
+        seen = _json(client.get(f"/v1/agents/{slug}/runs/{run}"))
+        if seen.get("status") in _DONE:
+            break
+        time.sleep(2)
+    expect(seen.get("status") == "completed", f"the run ended as {seen.get('status')}")
+    expect(seen.get("output"), "the finished run shows no answer")
+    with client.stream("GET", str(started.get("eventsUrl"))) as events:
+        expect(events.status_code == 200, f"events got {events.status_code}")
+        kinds = [
+            line.removeprefix("event:").strip()
+            for line in events.iter_lines()
+            if line.startswith("event:")
+        ]
+    expect("run.completed" in kinds, f"the events do not end the run: {kinds[-5:]}")
+    return f"202, then completed with {seen.get('output')!r}; {len(kinds)} events"
+
+
+def case_api_stream(bench: Bench) -> str:
+    """A streamed call gets the answer piece by piece."""
+    client, _, slug, _ = _caller(bench, "stream")
+    kinds: list[str] = []
+    with client.stream(
+        "POST",
+        f"/v1/agents/{slug}:run",
+        json={"text": "Count from one to twenty in words.", "wait": True, "stream": True},
+    ) as events:
+        expect(events.status_code == 200, f"got {events.status_code}")
+        kinds.extend(
+            line.removeprefix("event:").strip()
+            for line in events.iter_lines()
+            if line.startswith("event:")
+        )
+    pieces = kinds.count("message.delta")
+    expect(pieces > 1, f"the answer came in {pieces} piece(s): {sorted(set(kinds))}")
+    expect("run.completed" in kinds, f"the stream did not end the run: {kinds[-4:]}")
+    return f"{pieces} pieces, then run.completed"
+
+
+def _rpc(client: httpx.Client, path: str, method: str, params: Body | None = None) -> Body:
+    sent: Body = {"jsonrpc": "2.0", "id": uuid.uuid4().hex, "method": method}
+    if params is not None:
+        sent["params"] = params
+    response = client.post(path, json=sent)
+    reply = _json(response)
+    expect(response.status_code == 200, f"{method} got {response.status_code}: {_said(reply)}")
+    return reply
+
+
+def case_api_mcp(bench: Bench) -> str:
+    """Another product's assistant finds the agent as a tool and calls it."""
+    client, _, slug, _ = _caller(bench, "mcp")
+    path = f"/v1/agents/{slug}/mcp"
+    hello = _rpc(
+        client,
+        path,
+        "initialize",
+        {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {"name": "certification", "version": "1"},
+        },
+    )
+    expect(_body(hello.get("result")).get("serverInfo"), f"no greeting: {hello}")
+    listed = _body(_rpc(client, path, "tools/list").get("result")).get("tools")
+    names = [str(row.get("name")) for row in listed] if isinstance(listed, list) else []
+    mine = next((name for name in names if name.startswith("agent_")), "")
+    expect(mine, f"the agent is not offered as a tool: {names}")
+    called = _rpc(
+        client, path, "tools/call", {"name": mine, "arguments": {"message": "What is 6 times 7?"}}
+    )
+    result = _body(called.get("result"))
+    text = " ".join(
+        str(part.get("text") or "")
+        for part in (result.get("content") if isinstance(result.get("content"), list) else [])
+        if isinstance(part, dict)
+    )
+    expect("42" in text, f"the tool answered {text[:100]!r} ({called.get('error')})")
+    return f"tools {names}; {mine} answered {text[:40]!r}"
+
+
+def case_api_a2a(bench: Bench) -> str:
+    """Another agent reads this agent's card, sends it a message and reads the task back."""
+    client, _, slug, _ = _caller(bench, "a2a")
+    card = _json(client.get(f"/v1/agents/{slug}/.well-known/agent-card.json"))
+    expect(str(card.get("url") or "").endswith(f"/v1/agents/{slug}/a2a"), f"card: {card}")
+    path = f"/v1/agents/{slug}/a2a"
+    message = {
+        "role": "user",
+        "messageId": uuid.uuid4().hex,
+        "parts": [{"kind": "text", "text": "What is 9 times 9?"}],
+    }
+    task = _body(_rpc(client, path, "message/send", {"message": message}).get("result"))
+    state = _body(task.get("status")).get("state")
+    parts = _body(_body(task.get("status")).get("message")).get("parts")
+    text = " ".join(str(part.get("text")) for part in parts) if isinstance(parts, list) else ""
+    expect(state == "completed" and "81" in text, f"the task was {state}: {text[:80]!r}")
+    again = _rpc(client, path, "tasks/get", {"id": task.get("id")})
+    kept = _body(_body(again.get("result")).get("status")).get("state")
+    expect(kept == "completed", f"the task read back as {kept} ({again.get('error')})")
+    return f"card read; answered {text[:30]!r}; task read back as {kept}"
+
+
+def case_api_openai(bench: Bench) -> str:
+    """A program written for the OpenAI chat API talks to an agent by naming it as the model."""
+    _, _, slug, _ = _caller(bench, "openai")
+    status, made = bench.stack.post(
+        "/api/v1/api-keys", name=f"certification {uuid.uuid4().hex[:6]}"
+    )
+    expect(status < OK, f"no personal key was issued ({status}): {_said(made)}")
+    issued = _body(made)
+    token = str(issued.get("key") or issued.get("secret") or issued.get("token") or "")
+    try:
+        client = httpx.Client(
+            base_url=bench.stack.api, headers={"authorization": f"Bearer {token}"}, timeout=240
+        )
+        models = _json(client.get("/api/v1/openai/models"))
+        offered = [str(row.get("id")) for row in _rows(models)]
+        expect(slug in offered, f"the agent is not offered as a model: {offered or models}")
+        response = client.post(
+            "/api/v1/openai/chat/completions",
+            json={"model": slug, "messages": [{"role": "user", "content": "What is 50 + 50?"}]},
+        )
+        reply = _json(response)
+        expect(response.status_code == 200, f"got {response.status_code}: {_said(reply)}")
+        choices = reply.get("choices")
+        text = str(_body(_body(choices[0]).get("message")).get("content")) if choices else ""
+        expect("100" in text, f"the answer was {text[:80]!r}")
+        return f"offered as a model; answered {text[:40]!r}; usage {reply.get('usage')}"
+    finally:
+        if issued.get("id"):
+            bench.stack.client.delete(f"/api/v1/api-keys/{issued['id']}")
+
+
+def case_api_key_limits(bench: Bench) -> str:
+    """A key reaches only its own agent, and stops working the moment it is revoked."""
+    client, agent, slug, issued = _caller(bench, "limits")
+    _, _, other, _ = _caller(bench, "limits-other")
+    wrong = client.post(f"/v1/agents/{other}:run", json={"text": "Hello.", "wait": True})
+    expect(wrong.status_code in {401, 403, 404}, f"another agent answered ({wrong.status_code})")
+    nobody = httpx.post(
+        f"{bench.stack.api}/v1/agents/{slug}:run", json={"text": "Hello.", "wait": True}, timeout=30
+    )
+    expect(nobody.status_code == 401, f"a call with no key got {nobody.status_code}")
+    revoked = bench.stack.client.delete(f"/api/v1/agents/{agent}/api-keys/{issued.get('id')}")
+    expect(revoked.status_code < OK, f"the key was not revoked ({revoked.status_code})")
+    after = client.post(f"/v1/agents/{slug}:run", json={"text": "Hello.", "wait": True})
+    expect(after.status_code == 401, f"a revoked key got {after.status_code}")
+    return f"other agent {wrong.status_code}; no key 401; revoked key {after.status_code}"
+
+
+def case_api_rate_and_quota(bench: Bench) -> str:
+    """A key with a small allowance is told to slow down, and then that its month is used up."""
+    client, _, slug, _ = _caller(bench, "rate", rateLimitRpm=3)
+    codes = [
+        client.get(f"/v1/agents/{slug}/.well-known/agent-card.json").status_code for _ in range(8)
+    ]
+    slowed = client.post(f"/v1/agents/{slug}:run", json={"text": "Hello.", "wait": True})
+    expect(
+        429 in codes or slowed.status_code == 429,
+        f"eight calls on a key allowed three a minute all went through: {codes}",
+    )
+    capped, _, capped_slug, _ = _caller(bench, "quota", monthlyQuota=1)
+    first = capped.post(f"/v1/agents/{capped_slug}:run", json={"text": "Say hi.", "wait": True})
+    second = capped.post(f"/v1/agents/{capped_slug}:run", json={"text": "Say hi.", "wait": True})
+    expect(first.status_code == 200, f"the first call on the quota got {first.status_code}")
+    expect(
+        second.status_code in {402, 403, 429}, f"past its quota the key got {second.status_code}"
+    )
+    return (
+        f"rate: {codes.count(429)} of 8 refused with 429; quota: second call "
+        f"{second.status_code} {_said(_json(second))[:60]!r}"
+    )
+
+
+def case_api_callback(bench: Bench) -> str:
+    """A caller that leaves an address is told there when the run ends."""
+    client, _, slug, _ = _caller(bench, "callback")
+    response = client.post(
+        f"/v1/agents/{slug}:run",
+        json={"text": "Hello.", "wait": False, "callbackUrl": "https://example.com/hook"},
+    )
+    reply = _json(response)
+    if response.status_code >= 400:
+        return f"refused in words ({response.status_code}): {_said(reply)[:100]!r}"
+    raise Blocked("an address outside this machine that can receive the call")
+
+
+# --- Stage: research ---------------------------------------------------------------------
+
+
+def _research(bench: Bench, question: str, **bounds: object) -> tuple[str, str]:
+    status, started = bench.stack.post("/api/v1/research/runs", question=question, **bounds)
+    expect(status < OK, f"research was not started ({status}): {_said(started)}")
+    view = _body(started)
+    bench.seen.append(str(view.get("conversationId")))
+    return str(view.get("runId")), str(view.get("conversationId"))
+
+
+def _research_end(bench: Bench, run: str, wait_s: int) -> Body:
+    deadline = time.monotonic() + wait_s
+    view: Body = {}
+    while time.monotonic() < deadline:
+        view = _body(bench.stack.get(f"/api/v1/research/runs/{run}"))
+        if view.get("status") in _DONE:
+            break
+        time.sleep(4)
+    return view
+
+
+def case_research_report(bench: Bench) -> str:
+    """A research question gets a plan, sources that were read, and a report that cites them."""
+    run, _ = _research(
+        bench,
+        "What is the Model Context Protocol and who maintains it?",
+        maxDepth=1,
+        maxBreadth=2,
+        maxWallClockS=240,
+    )
+    view = _research_end(bench, run, 300)
+    status, report = str(view.get("status")), str(view.get("report") or "")
+    sources = view.get("sources") if isinstance(view.get("sources"), list) else []
+    said = str(view.get("error") or "")
+    if status != "completed":
+        expect(said, f"research ended as {status} at phase {view.get('phase')!r} with no reason")
+        if "search" in said.lower() or "provider" in said.lower():
+            raise Blocked(f"a web search provider; the product said: {said[:120]!r}")
+        raise AssertionError(f"research ended as {status}: {said[:160]}")
+    expect(report, "research completed with no report")
+    if not sources and "not configured" in report:
+        raise Blocked(f"a web search provider; the product said: {report[:150]!r}")
+    expect(sources, f"a {len(report)} character report was written with no source read")
+    cited = view.get("citations") if isinstance(view.get("citations"), list) else []
+    expect(cited, "the report cites none of its sources")
+    return f"{len(report)} character report, {len(sources)} sources, {len(cited)} citations"
+
+
+def case_research_cancel(bench: Bench) -> str:
+    """Research a person stops ends, and says it was stopped."""
+    run, _ = _research(bench, "Compare three approaches to database replication.")
+    time.sleep(5)
+    if _body(bench.stack.get(f"/api/v1/research/runs/{run}")).get("status") in _DONE:
+        raise Blocked("a web search provider: with none, research ends before it can be stopped")
+    status, body = bench.stack.post(f"/api/v1/research/runs/{run}:cancel")
+    expect(status < OK, f"the stop was refused ({status}): {_said(body)}")
+    asked = time.monotonic()
+    view = _research_end(bench, run, 60)
+    took = time.monotonic() - asked
+    expect(view.get("status") == "cancelled", f"stopped research ended as {view.get('status')}")
+    return f"stopped in {took:.0f}s at phase {view.get('phase')!r}"
+
+
 STAGES: dict[str, dict[str, Callable[[Bench], str]]] = {
     "build": {
         "templates": case_templates,
@@ -1224,6 +2002,43 @@ STAGES: dict[str, dict[str, Callable[[Bench], str]]] = {
         "slow-specialist": case_slow_child,
         "stopping-the-lead": case_cancel_parent,
         "specialist-needs-approval": case_child_needs_approval,
+    },
+    "engine": {
+        "stop-and-continue": case_stop_and_continue,
+        "stop-without-tools": case_stop_without_tools,
+        "one-run-at-a-time": case_one_run_at_a_time,
+        "approval-refused": case_approval_refused,
+        "approval-withdrawn": case_approval_withdrawn,
+        "many-steps": case_many_steps,
+        "worker-restart": case_worker_restart,
+    },
+    "routines": {
+        "routine-by-hand": case_routine_by_hand,
+        "routine-by-schedule": case_routine_by_schedule,
+        "routine-by-webhook": case_routine_by_webhook,
+        "routine-pause-resume": case_routine_pause_resume,
+        "routine-daily-cap": case_routine_daily_cap,
+        "routine-overlap": case_routine_overlap,
+        "routine-transfer": case_routine_transfer,
+        "routine-delivery-email": case_routine_delivery_email,
+        "routine-delivery-preapproved": case_routine_delivery_preapproved,
+        "routine-made-by-agent": case_routine_made_by_agent,
+    },
+    "research": {
+        "research-report": case_research_report,
+        "research-cancel": case_research_cancel,
+    },
+    "outside": {
+        "api-one-shot": case_api_one_shot,
+        "api-conversation": case_api_conversation,
+        "api-async-events": case_api_async_events,
+        "api-stream": case_api_stream,
+        "api-mcp": case_api_mcp,
+        "api-a2a": case_api_a2a,
+        "api-openai": case_api_openai,
+        "api-key-limits": case_api_key_limits,
+        "api-rate-and-quota": case_api_rate_and_quota,
+        "api-callback": case_api_callback,
     },
 }
 
@@ -1272,6 +2087,8 @@ def main() -> None:
     try:
         rows = run(bench, options.stage or list(STAGES), options.case)
     finally:
+        for routine in bench.routines:
+            stack.client.delete(f"/api/v1/routines/{routine}")
         stack.put_away()
     Path(options.out).write_bytes(orjson.dumps({"cases": rows}, option=orjson.OPT_INDENT_2))
     counts: dict[str, int] = {}

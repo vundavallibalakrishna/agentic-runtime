@@ -83,3 +83,67 @@ eight pass after the fixes.
 | A specialist whose action needs approval | fail (internal error) | pass (refused in words; approved and run when asked directly) |
 
 What was wrong and what changed is in [OQ-157](../../open-questions.md).
+
+## Third pass: the run engine, routines, research and outside callers
+
+Four more stages on the same stack (`--stage engine`, `routines`, `research`, `outside`),
+21 November 2026. What was wrong and what changed is in [OQ-159](../../open-questions.md).
+
+### The run engine
+
+| Check | First run | After the fixes |
+|---|---|---|
+| Stop a reply, then continue it | fail (stopped after about 20 s, text lost, continue refused) | pass (stopped in 3 s, text kept, continued to the full answer) |
+| The same for an agent with no tools | fail (nothing was written until the model had finished) | pass |
+| A second message while a run is going | pass (409, in words) | pass |
+| A write the approver refuses | pass | pass |
+| A write whose request is withdrawn | pass | pass |
+| Eight questions of one file in one run | fail (a query that named the file by its path) | pass |
+| A worker restarted during a run | not run: the stack's workers are started together | not run |
+
+### Routines
+
+| Check | First run | After the fixes |
+|---|---|---|
+| Run now | pass | pass |
+| A one-minute schedule, by the clock | pass | pass |
+| A signed call from outside | fail (`not found` for every call) | pass (202; a repeat is refused; a wrong or missing signature gets 401) |
+| Pause and resume | pass | pass |
+| One run a day | pass (second refused) | pass |
+| A second call while one runs | fail (same cause as the signed call) | pass (skipped) |
+| Hand over to another person | pass (waits for the new owner's review) | pass |
+| An agent sets up a routine when asked in chat | pass | pass |
+| Result sent by email, approved first | fail | fail: nothing sends it (OQ-159 a) |
+| Result sent by email, approved in advance | fail | fail: recorded as sent, no email arrives (OQ-159 a) |
+
+### Research
+
+Both checks are not run: no web search provider is set on this stack, and research ends at
+once with "Web search is not configured: an administrator sets a search provider and its
+key to add the web." It says so in words and writes no uncited report.
+
+### Outside callers
+
+| Check | First run | After the fixes |
+|---|---|---|
+| One call, one answer, with usage | fail (zero model calls and zero time reported) | pass |
+| A conversation that keeps what was said | pass | pass |
+| A call that does not wait, followed by run id | fail (the finished run showed no answer) | pass |
+| A streamed answer | pass | pass |
+| The agent as a tool (MCP) | pass | pass |
+| Agent to agent (A2A): card, message, task read back | pass | pass |
+| The OpenAI chat API, naming the agent as the model | pass | pass |
+| A key reaches only its agent; a revoked key stops | pass | pass |
+| A key's rate limit and monthly quota | pass | pass |
+| A callback to the caller's address | not run: needs an address outside the machine | not run |
+
+### Seen and not changed
+
+- A routine's result is not delivered by email or webhook; the conversation and the file
+  are (OQ-159 a).
+- An archived agent counts against the plan's agent limit (OQ-159 b). The test tenant
+  reached 200 this way and its limit was raised by hand to go on.
+- A routine handed to a person who may not use its agent cannot run (OQ-159 c).
+- Run-now on a paused routine answers `failed`, and the daily cap answers `rate_limited`
+  (OQ-159 d).
+- The cost on a reply is 0 because the test model has no price set.

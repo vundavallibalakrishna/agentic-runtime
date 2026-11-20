@@ -543,11 +543,12 @@ async def get_external_trace(
     slug: str, run_id: uuid.UUID, request: Request, response: Response
 ) -> dict[str, object]:
     key = _require_key(request, response)
-    from ar_domain.durable.hydrate import load_run_events  # noqa: PLC0415
+    from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
     from ar_domain.exposure.public import include_reasoning  # noqa: PLC0415
 
     store = _store(request)
-    await load_run_events(store, run_id)
+    # The run, its answer and its events as they are saved now: a worker wrote them.
+    await reload_run(store, run_id)
     return runs.trace(
         store,
         key,
