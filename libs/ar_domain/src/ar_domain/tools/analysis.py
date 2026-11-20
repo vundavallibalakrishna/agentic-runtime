@@ -24,6 +24,7 @@ from ar_domain.spreadsheet.source import (
     TableSource,
     max_table_rows,
     read_book,
+    table_name,
 )
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
 
@@ -68,7 +69,8 @@ def dispatch_analysis(
     except SheetQueryError as exc:
         if exc.rejected:
             # The engine refuses to open a file. The statement named a path, not a table.
-            return _error("sql_rejected", _naming_tables(store, arguments, exc.reason))
+            reads = _reads(arguments, export=name == "export_table")
+            return _error("sql_rejected", _naming_tables(store, reads, exc.reason))
         return _error("validation_failed", exc.reason)
     except (OSError, ValueError, ET.ParseError, zipfile.BadZipFile) as exc:
         return _error("validation_failed", str(exc)[:300])
@@ -143,8 +145,7 @@ def _export(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         sql = str(arguments.get("sql") or "")
         if not sql.strip():
             return _error("validation_failed", "pass rows or a sql query over a workspace file")
-        # ``path`` is where the file is written. What the statement reads is ``paths``.
-        reads = {**arguments, "path": ""} if arguments.get("paths") else arguments
+        reads = _reads(arguments)
         if not arguments.get("paths") and not _exists(store, arguments):
             return _error(
                 "validation_failed",
@@ -171,6 +172,16 @@ def _export(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         f"Wrote {saved['name']} with {len(rows)} rows.",
         {"kind": "file", "files": [saved], "columns": columns, "truncated": False},
     )
+
+
+def _reads(arguments: dict[str, object], *, export: bool = True) -> dict[str, object]:
+    """The arguments that name what an export's statement reads.
+
+    For an export ``path`` is the file to write. What the statement reads is ``paths``.
+    """
+    if export and arguments.get("paths"):
+        return {**arguments, "path": ""}
+    return arguments
 
 
 def _exists(store: Store, arguments: dict[str, object]) -> bool:
@@ -254,6 +265,7 @@ def _checked(
     A model often writes the file's path after FROM. The table is named after the file
     or its sheet, so the refusal says which names exist.
     """
+    sql = _tables_for_paths(store, arguments, sql)
     try:
         return check_sql(
             sql,
@@ -267,11 +279,38 @@ def _checked(
         raise SqlRejected(_naming_tables(store, arguments, exc.reason)) from exc
 
 
+def _tables_for_paths(store: Store, arguments: dict[str, object], sql: str) -> str:
+    """The statement with a file's path after FROM or JOIN put right as its table name.
+
+    A model often writes ``FROM 'inputs/ledger.csv'`` or ``FROM ledger.csv`` for the file
+    it was asked about. Only a path the call itself names is changed, and only where a
+    table goes, so nothing else in the statement can be read as a file.
+    """
+    paths = _requested_paths(arguments)
+    if not paths or not re.search(r"\.(csv|tsv|json|xlsx)\b", sql, flags=re.IGNORECASE):
+        return sql
+    try:
+        root = _root(store, arguments)
+    except OSError, ValueError:
+        return sql
+    for raw in paths:
+        found = _open_path(root, raw)
+        if found is None or found.suffix.lower() == ".xlsx":
+            # A workbook has a table for each sheet, so its path names no one table.
+            continue
+        spellings = {raw, found.name, f"inputs/{found.name}", f"/workspace/inputs/{found.name}"}
+        for spelling in sorted(spellings, key=len, reverse=True):
+            pattern = r"(?i)\b(from|join)(\s+)(['\"`]?)" + re.escape(spelling) + r"\3(?![\w./-])"
+            sql = re.sub(pattern, rf"\1\2{table_name(found.stem)}", sql)
+    return sql
+
+
 def _naming_tables(store: Store, arguments: dict[str, object], reason: str) -> str:
     """A refusal, followed by the table names the statement can use."""
     try:
         names = [source.name for source in _load_requested(store, arguments)]
-    except OSError, ValueError, ET.ParseError, zipfile.BadZipFile:
+    except SqlRejected, OSError, ValueError, ET.ParseError, zipfile.BadZipFile:
+        # A file the call names is not there. The refusal stands without the list.
         names = []
     if not names:
         return reason
