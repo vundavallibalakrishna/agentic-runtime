@@ -1,7 +1,7 @@
 """Layout columns on the one document row.
 
-Revision ID: 0056
-Revises: 0055
+Revision ID: 0057
+Revises: 0056
 Create Date: 2026-11-20
 
 Library extracts and knowledge documents are one row. ``documents`` gains the
@@ -20,8 +20,8 @@ from sqlalchemy.dialects import postgresql
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-revision: str = "0056"
-down_revision: str | None = "0055"
+revision: str = "0057"
+down_revision: str | None = "0056"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

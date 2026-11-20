@@ -35,7 +35,7 @@ def parse_bytes(data: bytes, *, mime_type: str, name: str, max_bytes: int) -> st
         code = "too_large" if exc.code == "too_many_pages" else "unsupported_format"
         raise ParseError(code, exc.message) from exc
     parts = [
-        f"<!-- page:{passage.page} -->\n\n{passage.text}"
+        _as_markdown(passage.page, passage.heading, passage.level, passage.text)
         for passage in extracted.passages
         if passage.text.strip()
     ]
@@ -45,6 +45,21 @@ def parse_bytes(data: bytes, *, mime_type: str, name: str, max_bytes: int) -> st
         if table.csv_text.strip()
     )
     return "\n\n".join(parts)
+
+
+def _as_markdown(page: int, heading: str, level: int, text: str) -> str:
+    """One passage as markdown, with its heading level when the text does not already show it."""
+    body = text.strip()
+    name = heading.strip()
+    marks = "#" * max(1, min(level or 1, 6))
+    if name and body.startswith(name):
+        rest = body[len(name) :].lstrip()
+        body = f"{marks} {name}"
+        if rest:
+            body = f"{body}\n\n{rest}"
+    elif name and not body.startswith("#"):
+        body = f"{marks} {name}\n\n{body}"
+    return f"<!-- page:{page} -->\n\n{body}"
 
 
 def _kind(mime_type: str, name: str) -> str:  # noqa: PLR0911
@@ -124,7 +139,7 @@ def _office(data: bytes, name: str) -> str:
         code = "too_large" if exc.code == "too_many_pages" else "unsupported_format"
         raise ParseError(code, exc.message) from exc
     parts = [
-        f"<!-- page:{passage.page} -->\n\n{passage.text}"
+        _as_markdown(passage.page, passage.heading, passage.level, passage.text)
         for passage in extracted.passages
         if passage.text.strip()
     ]

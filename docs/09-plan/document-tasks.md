@@ -1,6 +1,6 @@
 # Document tasks over stored and inline files
 
-Status: revised (2026-11-20). The behaviour is [OQ-152](../open-questions.md).
+Status: revised (2026-11-20). The behaviour is [OQ-154](../open-questions.md).
 Review, compare, gaps and compose are sample instructions. They are not
 actions in core. The model plans in the existing tool loop and calls general
 document tools. Measured facts (tokens, pages, outline size, table count, and
@@ -48,9 +48,9 @@ still runs. Writes still need the documents binding.
 
 ## 3. Stores and formats
 
-Migration `0056` copies library layout onto `documents` and makes
+Migration `0057` copies library layout onto `documents` and makes
 `collection_id` and `source_id` nullable. `library_documents` remains because
-judgements and rule sets still reference it ([OQ-152](../open-questions.md)).
+judgements and rule sets still reference it ([OQ-154](../open-questions.md)).
 
 The library extractor is the layout parser. Knowledge `parse_bytes` calls it.
 `.doc`, `.xls`, `.odt`, `.rtf` and `.msg` convert with LibreOffice in the

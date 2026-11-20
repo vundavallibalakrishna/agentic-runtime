@@ -331,7 +331,7 @@ def _select(
                 continue
             found.append(
                 {
-                    "fileId": str(row.get("file_id") or ""),
+                    "fileId": library._file_id_for(row),
                     "documentId": str(row.get("id") or ""),
                     "anchor": anchor,
                     "page": passage.get("page"),
