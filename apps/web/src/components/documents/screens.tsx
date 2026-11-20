@@ -408,9 +408,7 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
                       ))}
                   </select>
                 </label>
-                <Button type="submit">
-                  {t("check")}
-                </Button>
+                <Button type="submit">{t("check")}</Button>
               </form>
               <form
                 className="detail-panel space-y-3 p-5"
