@@ -326,6 +326,9 @@ def _durable_copy(store: object, tenant_id: object, digest: str) -> dict[str, ob
             continue
         if row.get("sha256") != digest or row.get("deleted_at") or row.get("retention_until"):
             continue
+        if row.get("kind") not in {None, "upload"}:
+            # A file an agent wrote with the same bytes is not this person's upload.
+            continue
         if row.get("status") != "ready":
             continue
         return row
@@ -1653,10 +1656,12 @@ class ChatBehaviour:
             if row["conversation_id"] == conversation_id
         ]
         # Return every message so the branch switcher can see siblings, active first.
+        # A message a run wrote for itself (what a lead asked a specialist, and what the
+        # specialist answered) belongs to that run, not to the person's conversation.
         rows = [
             self._public(row)
             for row in self.messages.values()
-            if row["conversation_id"] == conversation_id
+            if row["conversation_id"] == conversation_id and row.get("scope") != "run"
         ]
         rows.sort(key=lambda item: str(item["created_at"]))
         del nodes

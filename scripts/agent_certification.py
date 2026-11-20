@@ -955,7 +955,8 @@ def case_call_one(bench: Bench) -> str:
         bench,
         "lead-one",
         [_specialist(bench, "code-desk", word)],
-        "You do not know the code word. Ask the code desk agent for it, then report it.",
+        "You do not know the code word. For every message, call the code desk agent at once "
+        "with the task 'What is the code word?' and report its answer.",
     )
     _conversation, run, status, text = _finish(bench, lead, "What is the code word?")
     expect(status == "completed" and word in text, f"{status}: {text[:140]}")
@@ -971,9 +972,11 @@ def case_own_conversation(bench: Bench) -> str:
         bench,
         "lead-tidy",
         [_specialist(bench, "back-office", word)],
-        "Ask the back office agent for the code word, then report it.",
+        "You are a front desk. The back office agent holds the order reference. For every "
+        "message, call the back office agent at once with the task 'What is the order "
+        "reference?' and report its answer. Never ask the person anything first.",
     )
-    conversation, run, status, text = _finish(bench, lead, "What is the code word?")
+    conversation, run, status, text = _finish(bench, lead, "What is my order reference?")
     expect(status == "completed" and word in text, f"{status}: {text[:140]}")
     seen = bench.stack.get(f"/api/v1/conversations/{conversation}")
     messages = seen.get("messages") if isinstance(seen, dict) else []
@@ -996,7 +999,9 @@ def case_parallel(bench: Bench) -> str:
         bench,
         "lead-three",
         slugs,
-        "Ask all three desk agents for their word in one parallel call, then list all three.",
+        "For every message, call all three desk agents in one agents_parallel call, each "
+        "with the task 'What is your word?', then list the three answers exactly as given. "
+        "Never ask the person anything first.",
         max_parallel=3,
     )
     _conversation, run, status, text = _finish(bench, lead, "Collect the three words.")
@@ -1096,26 +1101,38 @@ def case_cancel_parent(bench: Bench) -> str:
         "Ask the long desk agent for an essay on mountains and return it in full.",
         child_timeout_s=300,
     )
-    conversation, run = bench.start(lead, "Get me the essay.")
-    # Long enough for the lead to have asked, short enough that the essay is not done.
-    time.sleep(12)
+    _conversation, run = bench.start(lead, "Get me the essay.")
+    # A specialist is on the run's record as soon as it starts, while the lead still waits.
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline and not _children(bench, run):
+        time.sleep(1)
+    started = _children(bench, run)
+    expect(started, "the run shows no specialist while the lead is waiting for one")
+    expect(
+        any(str(row.get("status")) == "running" for row in started),
+        f"the specialist is not shown as running: {[row.get('status') for row in started]}",
+    )
     status, body = bench.stack.post(f"/api/v1/runs/{run}:cancel")
     expect(status < OK, f"the stop was refused ({status}): {_said(body)}")
     final = bench.run_status(run, until=_DONE, wait_s=60)
     expect(final == "cancelled", f"the lead ended as {final}")
-    time.sleep(5)
-    started = {str(row.get("runId")) for row in bench.others(conversation, run) if row.get("runId")}
-    expect(started, "the lead had not asked its specialist before it was stopped")
-    states = []
-    for child in started:
-        seen = bench.stack.get(f"/api/v1/runs/{child}")
-        states.append(str(seen.get("status") if isinstance(seen, dict) else "unknown"))
+    deadline = time.monotonic() + 60
+    states: list[str] = []
+    while time.monotonic() < deadline:
+        states = [str(row.get("status")) for row in _children(bench, run)]
+        if all(state in _DONE for state in states):
+            break
+        time.sleep(2)
     expect(all(state in _DONE for state in states), f"a specialist is still going: {states}")
-    return f"the lead stopped and its specialist ended as {states}"
+    return f"the specialist showed as running, and ended as {states} when the lead was stopped"
 
 
 def case_child_needs_approval(bench: Bench) -> str:
-    """A specialist whose action needs approval holds the lead until a second person decides."""
+    """A specialist's action that needs approval is refused in words, not left hanging.
+
+    A run another agent started has nobody to come back to after a decision, so no
+    approval request is made for it. The lead says the person must ask the agent directly.
+    """
     if bench.second is None:
         raise Blocked("a second person (AR_SECOND_EMAIL, AR_SECOND_PASSWORD)")
     me = bench.second.get("/api/v1/me")
@@ -1130,27 +1147,40 @@ def case_child_needs_approval(bench: Bench) -> str:
         bench,
         "lead-approval",
         [slug],
-        f"You cannot write files yourself. For any request, call the {slug} agent with "
-        "the person's request word for word, and report what it says.",
-        child_timeout_s=300,
+        f"You are a coordinator. Your helper agent {slug} saves files for people. Whenever "
+        "the person asks for a file to be saved, call that agent with the request, word "
+        "for word, and report exactly what it says, including any reason it gives.",
+        child_timeout_s=120,
     )
-    conversation, run = bench.start(
-        lead, "Save a file named handover.txt that holds only the word AGREED."
+    conversation, _run, status, text = _finish(
+        bench, lead, "Save a file named handover.txt that holds only the word AGREED."
     )
-    waiting, problem = _request_for(bench.stack, bench.second, conversation)
-    if waiting is None:
-        status = bench.run_status(run, until=_DONE, wait_s=5)
-        raise AssertionError(
-            f"no approval request reached the second person ({problem}); the lead's run is "
-            f"{status}: {bench.last(conversation).text[:120]}"
-        )
-    expect(not _has_file(bench.stack, conversation, "handover.txt"), "written before approval")
-    problem = _decide(bench.stack, bench.second, waiting)
+    expect(status == "completed", f"the lead ended as {status}: {text[:120]}")
+    expect(not _has_file(bench.stack, conversation, "handover.txt"), "written without approval")
+    waiting = [
+        row
+        for row in _rows(bench.second.get("/api/v1/approvals"))
+        if row.get("status") == "pending" and str(row.get("conversationId")) == conversation
+    ]
+    expect(not waiting, "an approval request was made that nothing will act on")
+    expect("approv" in text.lower(), f"the lead does not say approval is needed: {text[:160]}")
+    # Asked directly, the same agent holds the action for the second person and then runs it.
+    direct = Chat(bench.stack, writer)
+    own = direct.open()
+    bench.seen.append(own)
+    bench.stack.post(
+        f"/api/v1/conversations/{own}/messages",
+        text="Save a file named handover.txt that holds only the word AGREED.",
+    )
+    request, problem = _request_for(bench.stack, bench.second, own)
+    expect(request is not None, f"asked directly, no approval request was made ({problem})")
+    problem = _decide(bench.stack, bench.second, _body(request))
     expect(not problem, problem)
-    final = bench.run_status(run, until=_DONE, wait_s=180)
-    text = bench.last(conversation).text
-    expect(final == "completed", f"after the approval the lead ended as {final}: {text[:120]}")
-    return f"held for the second person, then finished: {text[:80]!r}"
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline and not _has_file(bench.stack, own, "handover.txt"):
+        time.sleep(2)
+    expect(_has_file(bench.stack, own, "handover.txt"), "the approved write did not happen")
+    return f"through a lead: refused in words ({text[:60]!r}); asked directly: approved and written"
 
 
 STAGES: dict[str, dict[str, Callable[[Bench], str]]] = {

@@ -1198,11 +1198,11 @@ async def _messages(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         INSERT INTO messages (
             id, tenant_id, conversation_id, run_id, parent_message_id, role, content, status,
             is_active_branch, author_user_id, model_id, model_alias, answered_model,
-            created_at, updated_at
+            scope, created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :conversation_id, :run_id, :parent_message_id, :role,
             CAST(:content AS jsonb), :status, :is_active_branch, :author_user_id, :model_id,
-            :model_alias, :answered_model, :created_at, :updated_at
+            :model_alias, :answered_model, :scope, :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             content = EXCLUDED.content,
@@ -1249,6 +1249,8 @@ async def _messages(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "model_id": as_uuid(row.get("model_id")),
                 "model_alias": as_text(row.get("model_alias")) or None,
                 "answered_model": as_text(row.get("answered_model")) or None,
+                # A message a run wrote for itself is kept apart from the conversation's.
+                "scope": "run" if row.get("scope") == "run" else "conversation",
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
             },

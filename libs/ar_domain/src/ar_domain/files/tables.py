@@ -51,7 +51,8 @@ class File(Base):
             "sha256",
             unique=True,
             postgresql_where=text(
-                "deleted_at IS NULL AND retention_until IS NULL AND sha256 IS NOT NULL"
+                "deleted_at IS NULL AND retention_until IS NULL AND sha256 IS NOT NULL "
+                "AND kind = 'upload'"
             ),
         ),
     )

@@ -212,6 +212,18 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
             run["step_kind"] = "paused"
             return "paused"
         if outcome.get("stop"):
+            # A handoff ends this agent's turn with the other agent's answer. Without this
+            # the turn was left unfinished, and the next step handed over again.
+            from ar_domain.tools.agent_loop import _finish  # noqa: PLC0415
+
+            previews = state.get("previews")
+            _finish(
+                store,
+                run,
+                assistant,
+                str(outcome.get("answer") or ""),
+                previews if isinstance(previews, list) else [],
+            )
             return "final"
     else:
         from ar_domain.loop.repair import output_repair_limit  # noqa: PLC0415
