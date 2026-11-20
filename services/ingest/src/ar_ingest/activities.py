@@ -48,6 +48,12 @@ async def ingest_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
     await reload_document(store, document_id)
     raw = bytes(store.knowledge_blobs.get(document_id, b""))
+    if not raw:
+        # A large upload does not travel with the request: it is read from the file store.
+        from ar_domain.knowledge.pipeline import stored_bytes  # noqa: PLC0415
+
+        raw = stored_bytes(store, document_id)
+        store.knowledge_blobs[document_id] = raw
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
     try:

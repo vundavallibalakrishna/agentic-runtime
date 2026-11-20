@@ -104,24 +104,57 @@ async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) 
     return "indexed"
 
 
+# How long a request waits for the worker to finish a large file before it answers.
+_WORKER_WAIT_S = 120
+
+
 def _inline_max_bytes() -> int:
     from ar_common.settings import get_settings  # noqa: PLC0415
 
     return int(get_settings().ingest_inline_max_bytes)
 
 
+def stored_bytes(store: Any, document_id: uuid.UUID) -> bytes:
+    """The bytes of the stored file a document was made from. Empty when there is none."""
+    file_id = _stored_file(store, document_id)
+    if not isinstance(file_id, uuid.UUID):
+        return b""
+    from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+    return bytes(read_blob(store, file_id) or b"")
+
+
+def _stored_file(store: Any, document_id: uuid.UUID) -> object:
+    """The stored file a document was made from, when it was made from one."""
+    document = getattr(store, "knowledge_documents", {}).get(document_id)
+    return document.get("raw_file_id") if isinstance(document, dict) else None
+
+
 async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
-    """Index inline, or wait for the ingest worker when Temporal is connected."""
+    """Index here, or hand the file to the ingest worker when one is connected.
+
+    A connected worker parses: its image has the layout parser and the converters, the
+    API's has not, and reading a file there does not hold up the API. A small
+    file travels with the request to the worker. A file over
+    ``AR_INGEST_INLINE_MAX_BYTES`` is too large for that, so the worker reads it from
+    the file store, where an upload already is. Only a large file that is in no file
+    store is still parsed here.
+    """
     client = getattr(store, "temporal_client", None)
     if (
         client is None
-        or len(raw) > _inline_max_bytes()
         or getattr(store, "_ingest_worker", False)
         or not hasattr(client, "start_workflow")
     ):
         return await ingest_document_async(store, document_id, raw)
-    import base64  # noqa: PLC0415
+    payload: dict[str, object] = {"document_id": str(document_id)}
+    large = len(raw) > _inline_max_bytes()
+    if not large:
+        import base64  # noqa: PLC0415
 
+        payload["raw_b64"] = base64.b64encode(raw).decode("ascii")
+    elif _stored_file(store, document_id) is None:
+        return await ingest_document_async(store, document_id, raw)
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
     from ar_domain.durable.hydrate import reload_document  # noqa: PLC0415
 
@@ -129,14 +162,20 @@ async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> s
     digest = hashlib.sha256(raw).hexdigest()[:16]
     handle = await client.start_workflow(
         "IngestDocumentWorkflow",
-        {"document_id": str(document_id), "raw_b64": base64.b64encode(raw).decode("ascii")},
+        payload,
         id=f"ingest-{document_id}-{digest}",
         task_queue="ar-ingest",
     )
     try:
-        await asyncio.wait_for(handle.result(), timeout=20)
+        await asyncio.wait_for(handle.result(), timeout=_WORKER_WAIT_S if large else 20)
     except TimeoutError:
-        return await ingest_document_async(store, document_id, raw)
+        if not large:
+            return await ingest_document_async(store, document_id, raw)
+        # The worker is still reading a large file. It finishes on its own; parsing the
+        # same file here as well would only produce a second, poorer reading.
+        await reload_document(store, document_id)
+        waiting = store.knowledge_documents.get(document_id)
+        return str(waiting.get("status") or "pending") if isinstance(waiting, dict) else "missing"
     except Exception:  # the worker wrote the reason on the document
         await reload_document(store, document_id)
         raise_embedding_error(store.knowledge_documents.get(document_id))
