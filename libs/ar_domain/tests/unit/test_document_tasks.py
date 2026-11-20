@@ -317,17 +317,19 @@ def test_clamav_fail_closed_and_a_live_socket(monkeypatch: pytest.MonkeyPatch) -
         conn, _addr = server.accept()
         conn.settimeout(2)
         try:
-            chunks: list[bytes] = []
-            while True:
+            held = b""
+            # Answer only once the whole stream is in: the command, then chunks that each
+            # start with their length, ended by a chunk of length zero. Four zero bytes
+            # also appear where the command's terminator meets the first length, so
+            # looking for them anywhere answers, and closes, while the client still sends.
+            while not _stream_ended(held):
                 try:
                     piece = conn.recv(65536)
                 except TimeoutError:
                     break
                 if not piece:
                     break
-                chunks.append(piece)
-                if b"\x00\x00\x00\x00" in b"".join(chunks):
-                    break
+                held += piece
             conn.sendall(b"stream: OK\0")
         finally:
             conn.close()
@@ -335,6 +337,20 @@ def test_clamav_fail_closed_and_a_live_socket(monkeypatch: pytest.MonkeyPatch) -
 
     threading.Thread(target=serve, daemon=True).start()
     assert scan_bytes(b"%PDF hello", scanner="clamav", address=f"127.0.0.1:{port}") == "clean"
+
+
+def _stream_ended(held: bytes) -> bool:
+    """Whether a clamd INSTREAM request has arrived whole."""
+    command = b"zINSTREAM\0"
+    if not held.startswith(command):
+        return False
+    at = len(command)
+    while at + 4 <= len(held):
+        size = int.from_bytes(held[at : at + 4], "big")
+        if size == 0:
+            return True
+        at += 4 + size
+    return False
 
 
 def _store() -> object:
