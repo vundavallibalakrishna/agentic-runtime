@@ -708,3 +708,32 @@ def _run(
         "depth": 0,
         "created_at": utcnow(),
     }
+
+
+def test_the_newest_standing_preferences_are_the_ones_a_turn_carries() -> None:
+    # A person who already has four preferences states a fifth. The turn has room for
+    # four beside what the question brings up, and the newest four are the ones it takes.
+    from datetime import timedelta
+
+    store = demo_store()
+    tenant, user = uuid.uuid4(), uuid.uuid4()
+    actor = Actor(tenant, user, frozenset({"chat:use"}))
+    book = MemoryBook(store)
+    started = utcnow() - timedelta(days=10)
+    topics = ["tea", "margins", "fonts", "greetings", "sign-offs", "bullet points"]
+    for index, topic in enumerate(topics):
+        made = book.create_user(
+            actor, {"content": f"Prefers {topic} in every answer.", "category": "preference"}
+        )
+        row = store.memory_facts[uuid.UUID(str(made["id"]))]
+        row["created_at"] = row["updated_at"] = started + timedelta(days=index)
+    recalled = book.recall(
+        actor,
+        query="What is the weather in the harbour today?",
+        agent_id=None,
+        definition={"memory": {"enabled": True, "read_scopes": ["user"]}},
+    )
+    carried = [str(row["content"]) for row in recalled]
+    assert any("bullet points" in text for text in carried), carried
+    assert not any("tea" in text for text in carried), carried
+    assert len(carried) == 4
