@@ -982,7 +982,9 @@ def prepare_peer(stack: Stack, ctx: Ctx) -> None:
         definition={"instructions": "Answer in one short sentence."},
         changeNote="certification",
     )
-    stack.post(f"/api/v1/agents/{agent}:publish", changeNote="certification")
+    published, _body = stack.post(f"/api/v1/agents/{agent}:publish", changeNote="certification")
+    if published >= 300:
+        return
     _status, key = stack.post(f"/api/v1/agents/{agent}/api-keys", label="certification")
     token = str(key.get("key") or "") if isinstance(key, dict) else ""
     if not token:
@@ -1460,6 +1462,51 @@ def _request_for(
     return None, "no approval request appeared"
 
 
+def flow_agent_to_agent(chat: Chat) -> str | None:
+    """An agent asks a second agent a question over its public address and passes on the answer.
+
+    The second agent is reached with a key kept as a secret. The run is carried out by the
+    worker, so the call leaves one process and arrives at another, as it would between two
+    installs. The tool-test endpoint cannot show this for a peer on the same API: it holds
+    the API while the tool runs, so the call back into it is never answered.
+    """
+    ctx = Ctx()
+    prepare_peer(chat.stack, ctx)
+    if not ctx["peer_url"]:
+        return "no second agent could be published and given a key"
+    stamp = int(time.time())
+    _status, made = chat.stack.post(
+        "/api/v1/agents", slug=f"cert-caller-{stamp}", name="Certification caller", template="blank"
+    )
+    agent = str(made.get("id") or "") if isinstance(made, dict) else ""
+    if not agent:
+        return "the calling agent was not created"
+    chat.stack.remember("agent", agent)
+    chat.stack.put(
+        f"/api/v1/agents/{agent}/versions/draft",
+        definition={
+            "instructions": "When asked to consult the other agent, call session.a2a_call "
+            "with the address and the secret name you are given, and report its answer.",
+            "tools": [{"server": "session", "include": ["a2a_call"]}],
+        },
+        changeNote="certification",
+    )
+    status, body = chat.stack.post(f"/api/v1/agents/{agent}:publish", changeNote="certification")
+    if status >= 300:
+        detail = body.get("detail") if isinstance(body, dict) else body
+        return f"the calling agent was not published: {detail}"
+    caller = Chat(chat.stack, agent)
+    turn = caller.send(
+        caller.open(),
+        f"Consult the other agent at {ctx['peer_url']} using the secret named "
+        f"{ctx['peer_secret']}. Ask it: what is the capital of France, in one word? "
+        "Tell me exactly what it answered.",
+    )
+    if not turn.called("session.a2a_call"):
+        return f"session.a2a_call did not succeed ({turn.status}): {turn.text[:160]}"
+    return None if turn.says("paris") else f"the answer was not passed on: {turn.text[:160]}"
+
+
 def flow_approval_waits(chat: Chat) -> str | None:
     """A write that needs approval pauses the run, and runs once a second person approves it.
 
@@ -1616,6 +1663,7 @@ FLOWS: dict[str, Callable[[Chat], str | None]] = {
     "refused-tool-is-reported": flow_refused_tool_is_reported,
     "structured-output": flow_structured_output,
     "approval-pauses-the-run": flow_approval_waits,
+    "agent-asks-another-agent": flow_agent_to_agent,
     "research-cites-real-sources": flow_research,
     "external-api-run-and-bad-key": flow_external_api,
     "stop-then-continue": flow_stop,

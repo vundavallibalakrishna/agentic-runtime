@@ -73,7 +73,7 @@ def serve_demo_tenant(app: Any) -> Any:
     """Make an API application serve the demo tenant from memory.
 
     The store gets the demo tenant, the application is told which tenant it serves, and
-    identity is read from memory in place of the database.
+    identity and secrets are kept in memory in place of the database.
     """
     from ar_domain.durable.bind import TenantBinding  # noqa: PLC0415
     from ar_testing.memory_identity import memory_identity  # noqa: PLC0415
@@ -93,6 +93,9 @@ def serve_demo_tenant(app: Any) -> Any:
         users={email: person.user_id for email, person in catalogue().items()},
     )
     app.state.identity_provider = lambda ctx: memory_identity(store, ctx).store
+    from ar_testing.memory_secrets import provider  # noqa: PLC0415
+
+    app.state.secret_provider = provider(store)
     return app
 
 
@@ -117,6 +120,7 @@ def rebuild_demo_store(app: Any) -> Any:
     fresh = demo_application()
     app.state.chat = fresh.state.chat
     app.state.identity_provider = fresh.state.identity_provider
+    app.state.secret_provider = fresh.state.secret_provider
     return app
 
 

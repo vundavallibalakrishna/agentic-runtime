@@ -83,13 +83,6 @@ def dispatch_general(store: Any, name: str, arguments: dict[str, object]) -> dic
     return handler(store, arguments)
 
 
-def remember_named_secret(store: Any, tenant_id: uuid.UUID, name: str, value: str) -> None:
-    """Keep a secret for tools. The value is encrypted and is not returned by any API."""
-    from ar_domain.tools.named_secrets import write_named_secret  # noqa: PLC0415
-
-    write_named_secret(store, tenant_id, name, value)
-
-
 def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     source = str(arguments.get("source") or "")
     if not source.strip():

@@ -77,7 +77,6 @@ from ar_api.routers.usage import router as usage_router
 from ar_api.routers.users import router as users_router
 from ar_api.routers.webhooks import router as webhooks_router
 from ar_api.routers.widget import router as widget_router
-from ar_api.secrets_runtime import MemorySecretApi
 from ar_api.state import AuditApi, NotificationApi, PlatformApi, WebhookApi
 from ar_common.host_ports import api_listen_port
 from ar_common.settings import (
@@ -430,7 +429,8 @@ def create_application() -> FastAPI:
     app.state.identity_override = None
     # Identity is read from the database. Test setup may plug in another source here.
     app.state.identity_provider = None
-    app.state.secret_api = MemorySecretApi()
+    # Secrets are read from the database. Test setup may plug in another source here.
+    app.state.secret_provider = None
     app.state.audit_api = AuditApi()
     app.state.platform = PlatformApi()
     app.state.notifications = NotificationApi()

@@ -11,6 +11,7 @@ from ar_domain.db.context import Principal, TenantContext
 from ar_domain.db.session import platform_session, tenant_session
 from ar_domain.identity.repository import IdentityRepository
 from ar_domain.identity.service import IdentityService, IdentityStore
+from ar_domain.secrets.book import SecretBook
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
@@ -87,6 +88,26 @@ async def get_identity(request: Request) -> AsyncIterator[IdentityService]:
 
 
 IdentityDep = Annotated[IdentityService, Depends(get_identity)]
+
+
+async def get_secrets(request: Request) -> AsyncIterator[SecretBook]:
+    """Open a tenant transaction and yield the tenant's secrets.
+
+    The rows and the values come from the database and the install's secret store.
+    ``app.state.secret_provider`` is a seam the application leaves empty; test setup
+    fills it to keep secrets in memory.
+    """
+    principal = current_principal(request)
+    ctx = TenantContext.from_principal(principal, str(request.state.request_id))
+    provider = getattr(request.app.state, "secret_provider", None)
+    if provider is not None:
+        yield provider(ctx)
+        return
+    async with tenant_session(ctx) as session:
+        yield SecretBook(session, ctx)
+
+
+SecretsDep = Annotated[SecretBook, Depends(get_secrets)]
 PrincipalDep = Annotated[Principal, Depends(current_principal)]
 
 

@@ -3,10 +3,9 @@
 import uuid
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 
-from ar_api.deps import expose, require_permission
-from ar_common.errors import NotFoundError
+from ar_api.deps import SecretsDep, expose, require_permission
 from ar_contracts.api_model import ApiModel
 
 if TYPE_CHECKING:
@@ -37,30 +36,22 @@ def _out(item: SecretMetadata) -> dict[str, object]:
 
 @router.get("/api/v1/secrets", dependencies=[Depends(require_permission("secrets:use"))])
 @expose(public=False, permission="secrets:use")
-async def list_secrets(request: Request) -> dict[str, object]:
-    rows = await request.app.state.secret_api.list()
-    return {"data": [_out(row) for row in rows]}
+async def list_secrets(secrets: SecretsDep) -> dict[str, object]:
+    return {"data": [_out(row) for row in await secrets.list()]}
 
 
 @router.post("/api/v1/secrets", dependencies=[Depends(require_permission("secrets:manage"))])
 @expose(public=False, permission="secrets:manage")
-async def create_secret(body: SecretCreate, request: Request) -> dict[str, object]:
-    created = await request.app.state.secret_api.create(
-        body.name, body.kind, body.value, body.description
-    )
-    _remember(request, body.name, body.value)
-    return _out(created)
+async def create_secret(body: SecretCreate, secrets: SecretsDep) -> dict[str, object]:
+    return _out(await secrets.create(body.name, body.kind, body.value, body.description))
 
 
 @router.get(
     "/api/v1/secrets/{secret_id}", dependencies=[Depends(require_permission("secrets:use"))]
 )
 @expose(public=False, permission="secrets:use")
-async def get_secret(secret_id: uuid.UUID, request: Request) -> dict[str, object]:
-    found = await request.app.state.secret_api.get(secret_id)
-    if found is None:
-        raise NotFoundError("secret not found")
-    return _out(found)
+async def get_secret(secret_id: uuid.UUID, secrets: SecretsDep) -> dict[str, object]:
+    return _out(await secrets.get(secret_id))
 
 
 @router.patch(
@@ -68,20 +59,17 @@ async def get_secret(secret_id: uuid.UUID, request: Request) -> dict[str, object
 )
 @expose(public=False, permission="secrets:manage")
 async def patch_secret(
-    secret_id: uuid.UUID, body: SecretCreate, request: Request
+    secret_id: uuid.UUID, body: SecretCreate, secrets: SecretsDep
 ) -> dict[str, object]:
-    found = await request.app.state.secret_api.update(secret_id, body.description)
-    if found is None:
-        raise NotFoundError("secret not found")
-    return _out(found)
+    return _out(await secrets.describe(secret_id, body.description))
 
 
 @router.delete(
     "/api/v1/secrets/{secret_id}", dependencies=[Depends(require_permission("secrets:manage"))]
 )
 @expose(public=False, permission="secrets:manage")
-async def delete_secret(secret_id: uuid.UUID, request: Request) -> dict[str, bool]:
-    await request.app.state.secret_api.delete(secret_id)
+async def delete_secret(secret_id: uuid.UUID, secrets: SecretsDep) -> dict[str, bool]:
+    await secrets.delete(secret_id)
     return {"deleted": True}
 
 
@@ -91,21 +79,6 @@ async def delete_secret(secret_id: uuid.UUID, request: Request) -> dict[str, boo
 )
 @expose(public=False, permission="secrets:manage")
 async def rotate_secret(
-    secret_id: uuid.UUID, body: SecretRotate, request: Request
+    secret_id: uuid.UUID, body: SecretRotate, secrets: SecretsDep
 ) -> dict[str, object]:
-    found = await request.app.state.secret_api.rotate(secret_id, body.value)
-    if found is None:
-        raise NotFoundError("secret not found")
-    _remember(request, found.name, body.value)
-    return _out(found)
-
-
-def _remember(request: Request, name: str, value: str) -> None:
-    """Copy a secret onto the chat store by name. The value is not logged."""
-    from ar_domain.tools.general import remember_named_secret  # noqa: PLC0415
-
-    principal = getattr(request.state, "principal", None)
-    tenant_id = getattr(principal, "tenant_id", None)
-    if not isinstance(tenant_id, uuid.UUID):
-        return
-    remember_named_secret(request.app.state.chat, tenant_id, name, value)
+    return _out(await secrets.rotate(secret_id, body.value))
