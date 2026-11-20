@@ -98,7 +98,7 @@ def remember_task(
     )
 
 
-def context_window_for(store: Any, tenant_id: uuid.UUID, run: dict[str, object]) -> int | None:
+def context_window_for(store: Any, tenant_id: object, run: dict[str, object]) -> int | None:
     """The registered window of the run's model. Missing stays missing."""
     from ar_domain.tools.agent_loop import _model_window  # noqa: PLC0415
 
