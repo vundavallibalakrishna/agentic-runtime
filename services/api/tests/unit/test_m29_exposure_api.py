@@ -84,7 +84,6 @@ def test_v1_wait_false_returns_the_events_url_and_keeps_the_callback() -> None:
             "text": "What is 2 + 2?",
             "wait": False,
             "callbackUrl": "http://127.0.0.1:9/hook",
-            "task": "question",
         },
     )
     assert sent.status_code == 202

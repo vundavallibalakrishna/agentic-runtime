@@ -784,7 +784,9 @@ class DocumentLibrary:
             return row
         # A chat attachment's id is a file id. The library row is the same bytes.
         matched = self._by_attached_file(actor, document_id)
-        if matched is not None and self._visible(actor, matched):
+        if matched is not None and (
+            self._visible(actor, matched) or matched.get("owner_user_id") is None
+        ):
             return matched
         raise NotFoundError()
 

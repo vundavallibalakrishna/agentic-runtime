@@ -1920,9 +1920,9 @@ export type MessageBody = {
      */
     collectionIds?: Array<string>;
     /**
-     * Task
+     * Tasktemplate
      */
-    task?: string;
+    taskTemplate?: string | null;
     /**
      * Strategy
      */
@@ -2797,9 +2797,9 @@ export type RunBody = {
      */
     collectionIds?: Array<string>;
     /**
-     * Task
+     * Tasktemplate
      */
-    task?: string;
+    taskTemplate?: string | null;
     /**
      * Strategy
      */
@@ -2903,9 +2903,9 @@ export type SendBody = {
      */
     collectionIds?: Array<string>;
     /**
-     * Task
+     * Tasktemplate
      */
-    task?: string;
+    taskTemplate?: string | null;
     /**
      * Strategy
      */

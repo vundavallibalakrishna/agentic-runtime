@@ -1533,10 +1533,11 @@ def _with_trace(store: Any, answer: str, run: dict[str, object]) -> list[dict[st
 
     retrieved = citation_parts(run.get("retrieval"))
     cited = cited_parts(store, run, answer, start=len(retrieved) + 1)
-    from ar_domain.documents.sections import review_part  # noqa: PLC0415
+    from ar_domain.documents.sections import reading_part, review_part  # noqa: PLC0415
 
     review = review_part(run)
-    extra = [review] if review else []
+    reading = reading_part(run)
+    extra = [part for part in (reading, review) if part]
     return [{"type": "text", "text": answer}, *retrieved, *cited, *extra]
 
 

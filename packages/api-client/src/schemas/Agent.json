@@ -528,6 +528,57 @@
       "title": "SubagentSpec",
       "type": "object"
     },
+    "TaskTemplateSpec": {
+      "additionalProperties": false,
+      "description": "A reusable reading task. Core ships none; an agent or a pack names them.",
+      "properties": {
+        "id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "prompt": {
+          "default": "",
+          "maxLength": 8000,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Items",
+          "type": "array"
+        },
+        "outputSchema": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Outputschema",
+          "type": "object"
+        },
+        "strategy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Strategy"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "TaskTemplateSpec",
+      "type": "object"
+    },
     "ToolBinding": {
       "additionalProperties": false,
       "properties": {
@@ -857,6 +908,14 @@
         "api": true,
         "widget": false
       }
+    },
+    "taskTemplates": {
+      "items": {
+        "$ref": "#/$defs/TaskTemplateSpec"
+      },
+      "maxItems": 30,
+      "title": "Tasktemplates",
+      "type": "array"
     }
   },
   "required": [

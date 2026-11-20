@@ -237,6 +237,7 @@ class TurnWorkflow:
                     {"run_id": payload.get("run_id"), "section": item},
                     start_to_close_timeout=timedelta(minutes=5),
                     heartbeat_timeout=timedelta(seconds=30),
+                    cancellation_type=workflow.ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
                     retry_policy=RetryPolicy(maximum_attempts=2),
                 )
                 for item in batch

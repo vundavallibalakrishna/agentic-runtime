@@ -129,6 +129,7 @@
     "uploadError": "{name} could not be attached.",
     "pickDocuments": "Documents",
     "reading": "Reading",
+    "readingPlan": "Reading: {strategy}. Coverage {coverage}, scope {scope}.",
     "reviewItem": "Item",
     "reviewStatus": "Result",
     "reviewQuote": "Passage",

@@ -119,7 +119,10 @@ def test_research_adds_web_results_from_the_shared_provider() -> None:
     store = demo_store()
     add_library_notes(store)
     tenant = demo_id("tenant")
-    assert all(row["url"].startswith("library://") for row in search(store, tenant, "kite"))
+    admin = demo_id("admin")
+    assert all(
+        row["url"].startswith("library://") for row in search(store, tenant, "kite", user_id=admin)
+    )
 
     class Web:
         def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
@@ -127,7 +130,7 @@ def test_research_adds_web_results_from_the_shared_provider() -> None:
             return [{"title": "W", "url": "https://example.com/w", "snippet": query}]
 
     store.search_provider = Web()
-    hits = search(store, tenant, "kite", limit=2)
+    hits = search(store, tenant, "kite", limit=2, user_id=admin)
     assert hits[0]["url"].startswith("library://")
     assert hits[-1]["url"] == "https://example.com/w"
     assert search(store, tenant, "nothing matches this", limit=2) == [

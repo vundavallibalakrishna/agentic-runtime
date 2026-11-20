@@ -148,9 +148,9 @@ def test_two_files_with_one_name_get_two_paths() -> None:
 def test_a_deleted_file_and_another_tenants_file_are_not_listed() -> None:
     store = demo_store()
     conversation_id = _conversation(store)
-    kept = _upload(store, "kept.csv")
-    gone = _upload(store, "gone.csv")
-    theirs = _upload(store, "theirs.csv")
+    kept = _upload(store, "kept.csv", data=b"kept\n")
+    gone = _upload(store, "gone.csv", data=b"gone\n")
+    theirs = _upload(store, "theirs.csv", data=b"theirs\n")
     _send(store, conversation_id, "Three files", [kept, gone, theirs])
     store.files[gone]["deleted_at"] = "2026-11-06T00:00:00+00:00"
     store.files[theirs]["tenant_id"] = uuid.uuid4()

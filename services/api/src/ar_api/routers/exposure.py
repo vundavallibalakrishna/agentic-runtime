@@ -65,8 +65,8 @@ class SendBody(ApiModel):
     attachment_ids: list[uuid.UUID] = Field(default_factory=list)
     file_ids: list[uuid.UUID] = Field(default_factory=list)
     collection_ids: list[uuid.UUID] = Field(default_factory=list)
-    task: str = "auto"
-    strategy: str = "auto"
+    task_template: str | None = None
+    strategy: str = ""
     items: list[TaskItem | str] = Field(default_factory=list)
     response_format: dict[str, object] | None = None
     suggest_followups: bool = False
@@ -419,7 +419,7 @@ async def send_external_message(  # noqa: PLR0917
         suggest_followups=body.suggest_followups,
         file_ids=body.file_ids,
         collection_ids=body.collection_ids,
-        task=body.task,
+        task_template=body.task_template or "",
         strategy=body.strategy,
         items=[item.model_dump() if isinstance(item, TaskItem) else item for item in body.items],
         wait=body.wait,
@@ -467,7 +467,7 @@ async def run_agent_once(
         suggest_followups=body.suggest_followups,
         file_ids=body.file_ids,
         collection_ids=body.collection_ids,
-        task=body.task,
+        task_template=body.task_template or "",
         strategy=body.strategy,
         items=[item.model_dump() if isinstance(item, TaskItem) else item for item in body.items],
         wait=body.wait,

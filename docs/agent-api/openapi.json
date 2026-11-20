@@ -4031,15 +4031,21 @@
             "type": "array",
             "title": "Collectionids"
           },
-          "task": {
-            "type": "string",
-            "title": "Task",
-            "default": "auto"
+          "taskTemplate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasktemplate"
           },
           "strategy": {
             "type": "string",
             "title": "Strategy",
-            "default": "auto"
+            "default": ""
           },
           "items": {
             "items": {
@@ -5571,15 +5577,21 @@
             "type": "array",
             "title": "Collectionids"
           },
-          "task": {
-            "type": "string",
-            "title": "Task",
-            "default": "auto"
+          "taskTemplate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasktemplate"
           },
           "strategy": {
             "type": "string",
             "title": "Strategy",
-            "default": "auto"
+            "default": ""
           },
           "items": {
             "items": {
@@ -5746,15 +5758,21 @@
             "type": "array",
             "title": "Collectionids"
           },
-          "task": {
-            "type": "string",
-            "title": "Task",
-            "default": "auto"
+          "taskTemplate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasktemplate"
           },
           "strategy": {
             "type": "string",
             "title": "Strategy",
-            "default": "auto"
+            "default": ""
           },
           "items": {
             "items": {

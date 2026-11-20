@@ -378,6 +378,17 @@ export type Teams = boolean;
 export type Email = boolean;
 export type Api = boolean;
 export type Widget = boolean;
+export type Id = string;
+export type Prompt = string;
+/**
+ * @maxItems 50
+ */
+export type Items = string[];
+export type Strategy = string | null;
+/**
+ * @maxItems 30
+ */
+export type Tasktemplates = TaskTemplateSpec[];
 export type Kind2 = "ToolServer";
 export type Kind3 = "remote_mcp" | "openapi" | "sql";
 export type Version1 = string;
@@ -448,7 +459,7 @@ export type Kind8 = "Policy";
 export type Description5 = string;
 export type Status = "active" | "disabled";
 export type Priority = number;
-export type Id = string;
+export type Id1 = string;
 export type Effect = "allow" | "deny" | "require_approval";
 export type Tools2 = string[];
 export type Riskclasses = string[];
@@ -554,6 +565,7 @@ export interface AgentDefinition {
   assurance?: AssuranceSpec;
   safety?: SafetySpec;
   channels?: ChannelFlags;
+  taskTemplates?: Tasktemplates;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -706,6 +718,22 @@ export interface ChannelFlags {
   email?: Email;
   api?: Api;
   widget?: Widget;
+}
+/**
+ * A reusable reading task. Core ships none; an agent or a pack names them.
+ *
+ * This interface was referenced by `Bundle`'s JSON-Schema
+ * via the `definition` "TaskTemplateSpec".
+ */
+export interface TaskTemplateSpec {
+  id: Id;
+  prompt?: Prompt;
+  items?: Items;
+  outputSchema?: Outputschema1;
+  strategy?: Strategy;
+}
+export interface Outputschema1 {
+  [k: string]: JsonValue;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -922,7 +950,7 @@ export interface PolicyDefinition {
  * via the `definition` "PolicyRule".
  */
 export interface PolicyRule {
-  id: Id;
+  id: Id1;
   effect: Effect;
   match?: PolicyMatch;
   message?: Message;

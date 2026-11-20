@@ -1670,8 +1670,8 @@ class ChatBehaviour:
         attachment_ids: list[uuid.UUID] | None = None,
         file_ids: list[uuid.UUID] | None = None,
         collection_ids: list[uuid.UUID] | None = None,
-        task: str = "auto",
-        strategy: str = "auto",
+        task_template: str = "",
+        strategy: str = "",
         items: list[object] | None = None,
         parent_message_id: uuid.UUID | None = None,
         schedule: bool = True,
@@ -1692,43 +1692,49 @@ class ChatBehaviour:
         from ar_domain.usage.service import UsageBook  # noqa: PLC0415
 
         UsageBook(self).assert_run(tenant_id, user_id, agent_id)
-        explicit = bool(
-            file_ids
-            or collection_ids
-            or items
-            or task not in {"", "auto"}
-            or strategy not in {"", "auto"}
-        )
+        explicit = bool(file_ids or collection_ids or items or task_template.strip() or strategy)
         bound = list(attachment_ids or [])
         plan = None
+        chosen_items = list(items or [])
         if explicit:
             from ar_domain.documents.binding import (  # noqa: PLC0415
                 bind_turn,
                 context_window_for,
                 remember_task,
             )
+            from ar_domain.documents.planner import model_ask  # noqa: PLC0415
 
-            window = context_window_for(
-                self,
-                tenant_id,
-                {
-                    "tenant_id": tenant_id,
-                    "conversation_id": conversation_id,
-                    "agent_version_id": conversation.get("agent_version_id"),
-                },
-            )
-            bound, plan = bind_turn(
+            probe = {
+                "tenant_id": tenant_id,
+                "conversation_id": conversation_id,
+                "agent_version_id": conversation.get("agent_version_id"),
+            }
+            window = context_window_for(self, tenant_id, probe)
+            version_key = conversation.get("agent_version_id")
+            version = self.versions.get(version_key) if isinstance(version_key, uuid.UUID) else None
+            definition = version.get("definition") if isinstance(version, dict) else None
+            bound, plan, chosen_items, schema, instruction = bind_turn(
                 self,
                 tenant_id=tenant_id,
                 user_id=user_id,
                 attachment_ids=list(attachment_ids or []),
                 file_ids=list(file_ids or []),
                 collection_ids=list(collection_ids or []),
-                task=task,
+                instruction=text,
+                task_template=task_template,
                 strategy=strategy,
                 items=list(items or []),
+                response_format=response_format,
                 context_window=window,
+                definition=definition if isinstance(definition, dict) else None,
+                ask=model_ask(self, tenant_id, probe),
             )
+            if instruction.strip():
+                text = instruction
+            if schema and response_format is None:
+                from ar_domain.tools.structured import check_response_format  # noqa: PLC0415
+
+                response_format = check_response_format(schema)
         names = self._attachment_names(tenant_id, user_id, bound)
         now = utcnow()
         message_id = new_id()
@@ -1795,7 +1801,7 @@ class ChatBehaviour:
                 user_id=user_id,
                 file_ids=bound,
                 collection_ids=list(collection_ids or []),
-                items=list(items or []),
+                items=chosen_items,
                 plan=plan,
             )
         if research:
@@ -3582,8 +3588,8 @@ class ChatBehaviour:
         attachment_ids: list[uuid.UUID] | None = None,
         file_ids: list[uuid.UUID] | None = None,
         collection_ids: list[uuid.UUID] | None = None,
-        task: str = "auto",
-        strategy: str = "auto",
+        task_template: str = "",
+        strategy: str = "",
         items: list[object] | None = None,
         response_format: dict[str, object] | None = None,
     ) -> dict[str, object]:
@@ -3600,7 +3606,7 @@ class ChatBehaviour:
             attachment_ids=attachment_ids,
             file_ids=file_ids,
             collection_ids=collection_ids,
-            task=task,
+            task_template=task_template,
             strategy=strategy,
             items=items,
             response_format=response_format,

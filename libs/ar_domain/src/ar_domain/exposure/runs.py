@@ -163,8 +163,8 @@ def _work_fingerprint(
     suggest_followups: bool,
     file_ids: list[uuid.UUID] | None = None,
     collection_ids: list[uuid.UUID] | None = None,
-    task: str = "auto",
-    strategy: str = "auto",
+    task_template: str = "",
+    strategy: str = "",
     items: list[object] | None = None,
 ) -> str:
     extra = orjson.dumps(
@@ -173,8 +173,8 @@ def _work_fingerprint(
             "suggestFollowups": suggest_followups,
             "fileIds": [str(item) for item in file_ids or []],
             "collectionIds": [str(item) for item in collection_ids or []],
-            "task": task or "auto",
-            "strategy": strategy or "auto",
+            "taskTemplate": task_template or "",
+            "strategy": strategy or "",
             "items": items or [],
         }
     ).decode()
@@ -239,10 +239,15 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
     }
     if approval_id:
         body["approval_id"] = approval_id
-    task = asked_value(run, "task")
     strategy = asked_value(run, "strategy")
-    if task:
-        body["task"] = task
+    template = asked_value(run, "task_template")
+    from ar_domain.runs.request import asked as asked_option  # noqa: PLC0415
+
+    plan = asked_option(run, "plan")
+    if isinstance(plan, dict):
+        body["plan"] = plan
+    if template:
+        body["task_template"] = template
     if strategy:
         body["strategy"] = "mapReduce" if strategy == "map_reduce" else strategy
     body["run_id"] = str(run_id)
@@ -401,8 +406,8 @@ async def send_message(  # noqa: PLR0917
     suggest_followups: bool = False,
     file_ids: list[uuid.UUID] | None = None,
     collection_ids: list[uuid.UUID] | None = None,
-    task: str = "auto",
-    strategy: str = "auto",
+    task_template: str = "",
+    strategy: str = "",
     items: list[object] | None = None,
     wait: bool = True,
     callback_url: str | None = None,
@@ -421,7 +426,7 @@ async def send_message(  # noqa: PLR0917
         suggest_followups=suggest_followups,
         file_ids=file_ids,
         collection_ids=collection_ids,
-        task=task,
+        task_template=task_template,
         strategy=strategy,
         items=items,
     )
@@ -454,7 +459,7 @@ async def send_message(  # noqa: PLR0917
         suggest_followups=suggest_followups,
         file_ids=file_ids,
         collection_ids=collection_ids,
-        task=task,
+        task_template=task_template,
         strategy=strategy,
         items=items,
     )
@@ -475,8 +480,8 @@ async def begin_message(  # noqa: PLR0917
     suggest_followups: bool = False,
     file_ids: list[uuid.UUID] | None = None,
     collection_ids: list[uuid.UUID] | None = None,
-    task: str = "auto",
-    strategy: str = "auto",
+    task_template: str = "",
+    strategy: str = "",
     items: list[object] | None = None,
 ) -> tuple[uuid.UUID, dict[str, Any] | None]:
     """Open a run, or return the stored reply when the idempotency key already finished."""
@@ -490,7 +495,7 @@ async def begin_message(  # noqa: PLR0917
         suggest_followups=suggest_followups,
         file_ids=file_ids,
         collection_ids=collection_ids,
-        task=task,
+        task_template=task_template,
         strategy=strategy,
         items=items,
     )
@@ -521,7 +526,7 @@ async def begin_message(  # noqa: PLR0917
         attachment_ids=attachment_ids,
         file_ids=file_ids,
         collection_ids=collection_ids,
-        task=task,
+        task_template=task_template,
         strategy=strategy,
         items=items,
         schedule=False,
@@ -560,8 +565,8 @@ async def finish_message(  # noqa: PLR0917
     suggest_followups: bool = False,
     file_ids: list[uuid.UUID] | None = None,
     collection_ids: list[uuid.UUID] | None = None,
-    task: str = "auto",
-    strategy: str = "auto",
+    task_template: str = "",
+    strategy: str = "",
     items: list[object] | None = None,
 ) -> dict[str, Any]:
     """Store the finished reply under the idempotency key."""
@@ -576,7 +581,7 @@ async def finish_message(  # noqa: PLR0917
         suggest_followups=suggest_followups,
         file_ids=file_ids,
         collection_ids=collection_ids,
-        task=task,
+        task_template=task_template,
         strategy=strategy,
         items=items,
     )
@@ -609,8 +614,8 @@ async def run_once(  # noqa: PLR0917
     suggest_followups: bool = False,
     file_ids: list[uuid.UUID] | None = None,
     collection_ids: list[uuid.UUID] | None = None,
-    task: str = "auto",
-    strategy: str = "auto",
+    task_template: str = "",
+    strategy: str = "",
     items: list[object] | None = None,
     wait: bool = True,
     callback_url: str | None = None,
@@ -631,7 +636,7 @@ async def run_once(  # noqa: PLR0917
         suggest_followups=suggest_followups,
         file_ids=file_ids,
         collection_ids=collection_ids,
-        task=task,
+        task_template=task_template,
         strategy=strategy,
         items=items,
     )
@@ -652,7 +657,7 @@ async def run_once(  # noqa: PLR0917
         suggest_followups=suggest_followups,
         file_ids=file_ids,
         collection_ids=collection_ids,
-        task=task,
+        task_template=task_template,
         strategy=strategy,
         items=items,
         wait=wait,

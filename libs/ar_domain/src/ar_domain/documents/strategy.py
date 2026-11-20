@@ -1,24 +1,48 @@
 """Choose how a turn reads the documents it names.
 
-The choice uses the model's registered ``context_window``. A missing window is
-not replaced with a constant: a document over the retrieval budget is not read
-in one prompt.
+A model plan says whether the reading is whole or targeted, and whether it
+stays inside one document or crosses them. The registered context window
+decides whether that plan is a full read, a scoped search, or a section
+map-reduce. Strategies are a registry: a new one is a registration, not a
+new branch on the instruction text.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+
+from jsonschema import Draft202012Validator
 
 from ar_common.errors import ArError, ErrorCode
 from ar_common.settings import get_settings
 from ar_domain.documents.chunk import RETRIEVAL_BUDGET
 from ar_domain.knowledge.chunker import token_count
 
-TASKS = frozenset(
-    {"question", "summarise", "extract", "review", "compare", "gaps", "compose", "auto"}
-)
-STRATEGIES = frozenset({"auto", "full", "retrieve", "map_reduce"})
-_QUESTION_WORDS = ("what", "which", "who", "when", "where", "why", "how", "?")
+# The planner's answer. Coverage and scope are the schema, not words taken
+# from the caller's instruction.
+PLAN_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["coverage", "scope", "outputShape", "steps"],
+    "properties": {
+        "coverage": {"type": "string", "enum": ["whole", "targeted"]},
+        "scope": {"type": "string", "enum": ["perDocument", "acrossDocuments"]},
+        "outputShape": {"type": "string"},
+        "steps": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+
+@dataclass(frozen=True, slots=True)
+class Fit:
+    """The plan's coverage and whether the measured text fits the window."""
+
+    coverage: str
+    fits: bool
+
+
+When = Callable[[Fit], bool]
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,34 +54,54 @@ class NamedText:
     tokens: int
     characters: int
     headings: int
+    title: str = ""
+    page_count: int = 0
+    outline: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class ReadingPlan:
-    """The reading the turn will use. ``strategy`` is ``full``, ``retrieve`` or ``map_reduce``."""
+    """The reading the turn will use, and the plan that chose it."""
 
-    task: str
     strategy: str
     reason: str
     usable_tokens: int | None
     fits: bool
+    coverage: str
+    scope: str
+    output_shape: str
+    steps: tuple[str, ...]
+    source: str
+    template_id: str = ""
 
 
-def normalise_task(value: object) -> str:
-    """A task hint. Anything outside the set is rejected."""
-    text = str(value or "auto").strip()
-    if text not in TASKS:
-        raise ArError(ErrorCode.VALIDATION_FAILED, "task is not one this runtime knows")
-    return text
+@dataclass(frozen=True, slots=True)
+class _Strategy:
+    name: str
+    when: When
 
 
-def normalise_strategy(value: object) -> str:
-    """``mapReduce`` on the wire is ``map_reduce`` in Python."""
-    text = str(value or "auto").strip()
+_REGISTRY: dict[str, _Strategy] = {}
+_ORDER: list[str] = []
+
+
+def register_strategy(name: str, when: When) -> None:
+    """Add or replace a strategy. Later registrations of the same name keep their place."""
+    if name not in _REGISTRY:
+        _ORDER.append(name)
+    _REGISTRY[name] = _Strategy(name, when)
+
+
+def registered_strategies() -> tuple[str, ...]:
+    """Names in the order they are considered when the caller does not override."""
+    return tuple(_ORDER)
+
+
+def canonical_strategy(value: object) -> str:
+    """The registry name for a wire value. Empty means the caller did not override."""
+    text = str(value or "").strip()
     if text == "mapReduce":
-        text = "map_reduce"
-    if text not in STRATEGIES:
-        raise ArError(ErrorCode.VALIDATION_FAILED, "strategy is not one this runtime knows")
+        return "map_reduce"
     return text
 
 
@@ -90,73 +134,133 @@ def usable_tokens(context_window: int | None) -> int | None:
     return max(0, left)
 
 
-def infer_task(text: str, *, items: bool, documents: int) -> str:  # noqa: PLR0911
-    """A hint from the words of the request. Core has no checklist of its own."""
-    lowered = " ".join(text.lower().split())
-    if items or any(word in lowered for word in ("gap", "missing", "checklist", "not covered")):
-        return "gaps"
-    if documents >= 2 and any(
-        word in lowered for word in ("compare", "difference", "changed", "versus", "vs ")
-    ):
-        return "compare"
-    if any(word in lowered for word in ("summarise", "summarize", "summary", "bullet")):
-        return "summarise"
-    if lowered.startswith("extract") or " extract " in f" {lowered} ":
-        return "extract"
-    if any(word in lowered for word in ("review", "finding", "rubric")):
-        return "review"
-    if any(word in lowered for word in ("draft", "compose", "write a")):
-        return "compose"
-    if any(word in lowered for word in _QUESTION_WORDS):
-        return "question"
-    return "question"
+def parse_plan(raw: object) -> dict[str, object] | None:
+    """A plan object that matches ``PLAN_SCHEMA``, or None when it does not."""
+    if isinstance(raw, str):
+        import orjson  # noqa: PLC0415
+
+        try:
+            raw = orjson.loads(raw)
+        except orjson.JSONDecodeError:
+            return None
+    if not isinstance(raw, dict):
+        return None
+    errors = list(Draft202012Validator(PLAN_SCHEMA).iter_errors(raw))
+    if errors:
+        return None
+    steps = raw.get("steps")
+    return {
+        "coverage": str(raw.get("coverage") or ""),
+        "scope": str(raw.get("scope") or ""),
+        "outputShape": str(raw.get("outputShape") or ""),
+        "steps": tuple(str(item) for item in steps) if isinstance(steps, list) else (),
+    }
 
 
-def choose(
-    task: str,
-    strategy: str,
-    documents: list[NamedText],
-    context_window: int | None,
-) -> ReadingPlan:
-    """Pick ``full``, ``retrieve`` or ``map_reduce``. Forced ``full`` that does not fit is a 409."""
-    kind = task if task != "auto" else infer_task("", items=False, documents=len(documents))
+def documents_fit(
+    documents: list[NamedText], context_window: int | None
+) -> tuple[bool, int | None]:
+    """Whether the measured text fits the usable budget."""
     usable = usable_tokens(context_window)
     total_tokens = sum(item.tokens for item in documents)
     total_chars = sum(item.characters for item in documents)
-    many = len(documents) > 3
     if usable is None:
-        fits = total_chars <= RETRIEVAL_BUDGET and not many and bool(documents or total_chars == 0)
-    else:
-        fits = total_tokens <= usable and not many
-    half = usable is not None and any(item.tokens > usable / 2 for item in documents)
-    heading_cap = int(get_settings().document_heading_cap)
-    many_headings = any(item.headings > heading_cap for item in documents)
-    chosen, reason = _auto(kind, fits=fits, many=many, half=half, many_headings=many_headings)
-    if strategy == "full" and chosen != "full":
-        raise ArError(
-            ErrorCode.INVALID_STATE,
-            "The documents do not fit one reading. Send strategy auto.",
-        )
-    if strategy == "retrieve":
-        chosen, reason = "retrieve", "the request asked to retrieve"
-    elif strategy == "map_reduce":
-        chosen, reason = "map_reduce", "the request asked to read section by section"
-    return ReadingPlan(task=kind, strategy=chosen, reason=reason, usable_tokens=usable, fits=fits)
+        return total_chars <= RETRIEVAL_BUDGET, None
+    return total_tokens <= usable, usable
 
 
-def _auto(  # noqa: PLR0911
-    task: str, *, fits: bool, many: bool, half: bool, many_headings: bool
-) -> tuple[str, str]:
-    if task == "gaps":
-        return "retrieve", "a gap check searches once per item"
-    if task == "compare" and (not fits or half or many_headings or many):
-        return "map_reduce", "the documents are aligned section by section"
-    if task == "compare":
-        return "full", "both documents fit one reading"
-    if not fits or many:
-        if task in {"summarise", "review"}:
-            return "map_reduce", "the text does not fit one reading"
-        if task == "compose":
-            return "retrieve", "the draft reads the references it needs"
-        return "retrieve", "the question is answered from the named documents"
-    return "full", "the named text fits the model's window"
+def choose(
+    plan: dict[str, object] | None,
+    documents: list[NamedText],
+    context_window: int | None,
+    override: str = "",
+) -> ReadingPlan:
+    """Pick a registered strategy from the plan and the measured window.
+
+    An invalid or missing plan is whole-document coverage: full when the text
+    fits, otherwise map-reduce. ``override`` must name a registered strategy.
+    ``full`` on text that does not fit is a 409.
+    """
+    fits, usable = documents_fit(documents, context_window)
+    parsed = plan if isinstance(plan, dict) and plan.get("coverage") else None
+    coverage = str(parsed.get("coverage")) if parsed else "whole"
+    scope = str(parsed.get("scope") or "perDocument") if parsed else "perDocument"
+    shape = str(parsed.get("outputShape") or "") if parsed else ""
+    steps = parsed.get("steps") if parsed else ()
+    step_list = tuple(steps) if isinstance(steps, tuple) else ()
+    source = "model" if parsed else "fallback"
+    name, reason = _select(Fit(coverage, fits), override)
+    return ReadingPlan(
+        strategy=name,
+        reason=reason,
+        usable_tokens=usable,
+        fits=fits,
+        coverage=coverage,
+        scope=scope,
+        output_shape=shape,
+        steps=step_list,
+        source=source,
+    )
+
+
+def _select(fit: Fit, override: str) -> tuple[str, str]:
+    named = canonical_strategy(override)
+    if named:
+        if named not in _REGISTRY:
+            raise ArError(ErrorCode.VALIDATION_FAILED, "strategy is not registered")
+        if named == "full" and not fit.fits:
+            raise ArError(
+                ErrorCode.INVALID_STATE,
+                "The documents do not fit one reading. Omit strategy to let the plan choose.",
+            )
+        return named, "the caller named this strategy"
+    for name in _ORDER:
+        spec = _REGISTRY[name]
+        if spec.when(fit):
+            return name, _reason(name, fits=fit.fits)
+    raise ArError(ErrorCode.INVALID_STATE, "no reading strategy is registered")
+
+
+def _reason(name: str, *, fits: bool) -> str:
+    if name == "retrieve":
+        return "the plan asks for targeted passages"
+    if name == "full":
+        return "the named text fits the model's window"
+    if fits:
+        return "the plan fits one reading"
+    return "the text does not fit one reading"
+
+
+def _targeted(fit: Fit) -> bool:
+    return fit.coverage == "targeted"
+
+
+def _full(fit: Fit) -> bool:
+    return fit.fits and fit.coverage != "targeted"
+
+
+def _map_reduce(fit: Fit) -> bool:
+    return not fit.fits
+
+
+def _install_defaults() -> None:
+    if _ORDER:
+        return
+    register_strategy("retrieve", _targeted)
+    register_strategy("full", _full)
+    register_strategy("map_reduce", _map_reduce)
+
+
+_install_defaults()
+
+
+# Kept so a registration made after import can be inspected in tests.
+def reset_strategies(specs: list[tuple[str, When]] | None = None) -> None:
+    """Replace the registry. Tests use this; the product keeps the defaults."""
+    _REGISTRY.clear()
+    _ORDER.clear()
+    if specs is None:
+        _install_defaults()
+        return
+    for name, when in specs:
+        register_strategy(name, when)

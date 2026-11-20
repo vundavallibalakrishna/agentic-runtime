@@ -24,7 +24,14 @@ import { create } from "zustand";
 
 import { AppShell } from "@/components/app-shell";
 import { type Attached, AttachmentList, attachedOf } from "@/components/chat/attachment-list";
-import { CitationList, citationsOf, ReviewTable, reviewsOf } from "@/components/chat/citations";
+import {
+  CitationList,
+  citationsOf,
+  ReadingNote,
+  ReviewTable,
+  readingOf,
+  reviewsOf,
+} from "@/components/chat/citations";
 import { FailedReply } from "@/components/chat/failed-reply";
 import { FeedbackButtons } from "@/components/chat/feedback-buttons";
 import { MarkdownView } from "@/components/chat/markdown-view";
@@ -1097,6 +1104,7 @@ export function ChatScreen() {
                               })}
                             </p>
                           ) : null}
+                          <ReadingNote reading={readingOf(message)} />
                           <ReviewTable rows={reviewsOf(message)} />
                           <CitationList
                             citations={

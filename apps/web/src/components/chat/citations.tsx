@@ -38,6 +38,31 @@ export function citationsOf(message: Record<string, unknown>): CitationChip[] {
   return chips;
 }
 
+export function readingOf(message: Record<string, unknown>): Record<string, unknown> | null {
+  const content = message.content;
+  if (!Array.isArray(content)) return null;
+  for (const part of content) {
+    if (!part || typeof part !== "object") continue;
+    const row = part as { type?: string };
+    if (row.type === "reading") return row as Record<string, unknown>;
+  }
+  return null;
+}
+
+export function ReadingNote({ reading }: { reading: Record<string, unknown> | null }) {
+  const t = useTranslations("chat");
+  if (!reading) return null;
+  return (
+    <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+      {t("readingPlan", {
+        strategy: String(reading.strategy || ""),
+        coverage: String(reading.coverage || ""),
+        scope: String(reading.scope || ""),
+      })}
+    </p>
+  );
+}
+
 export function reviewsOf(message: Record<string, unknown>): Record<string, unknown>[] {
   const content = message.content;
   if (!Array.isArray(content)) return [];

@@ -33,8 +33,8 @@ class RunBody:
         attachment_ids (list[UUID] | Unset):
         file_ids (list[UUID] | Unset):
         collection_ids (list[UUID] | Unset):
-        task (str | Unset):  Default: 'auto'.
-        strategy (str | Unset):  Default: 'auto'.
+        task_template (None | str | Unset):
+        strategy (str | Unset):  Default: ''.
         items (list[MessageItem | str] | Unset):
         response_format (None | RunBodyResponseFormatType0 | Unset):
     """
@@ -48,8 +48,8 @@ class RunBody:
     attachment_ids: list[UUID] | Unset = UNSET
     file_ids: list[UUID] | Unset = UNSET
     collection_ids: list[UUID] | Unset = UNSET
-    task: str | Unset = "auto"
-    strategy: str | Unset = "auto"
+    task_template: None | str | Unset = UNSET
+    strategy: str | Unset = ""
     items: list[MessageItem | str] | Unset = UNSET
     response_format: None | RunBodyResponseFormatType0 | Unset = UNSET
 
@@ -100,7 +100,11 @@ class RunBody:
                 collection_ids_item = str(collection_ids_item_data)
                 collection_ids.append(collection_ids_item)
 
-        task = self.task
+        task_template: None | str | Unset
+        if isinstance(self.task_template, Unset):
+            task_template = UNSET
+        else:
+            task_template = self.task_template
 
         strategy = self.strategy
 
@@ -145,8 +149,8 @@ class RunBody:
             field_dict["fileIds"] = file_ids
         if collection_ids is not UNSET:
             field_dict["collectionIds"] = collection_ids
-        if task is not UNSET:
-            field_dict["task"] = task
+        if task_template is not UNSET:
+            field_dict["taskTemplate"] = task_template
         if strategy is not UNSET:
             field_dict["strategy"] = strategy
         if items is not UNSET:
@@ -223,7 +227,14 @@ class RunBody:
 
                 collection_ids.append(collection_ids_item)
 
-        task = d.pop("task", UNSET)
+        def _parse_task_template(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        task_template = _parse_task_template(d.pop("taskTemplate", UNSET))
 
         strategy = d.pop("strategy", UNSET)
 
@@ -275,7 +286,7 @@ class RunBody:
             attachment_ids=attachment_ids,
             file_ids=file_ids,
             collection_ids=collection_ids,
-            task=task,
+            task_template=task_template,
             strategy=strategy,
             items=items,
             response_format=response_format,

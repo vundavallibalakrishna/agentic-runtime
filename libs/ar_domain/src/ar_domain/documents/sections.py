@@ -75,6 +75,24 @@ def run_section(
     return result
 
 
+def reading_part(run: dict[str, object]) -> dict[str, object] | None:
+    """The plan and the strategy, so the transcript can show what was chosen."""
+    strategy = str(asked(run, "strategy") or "")
+    stored = asked(run, "plan")
+    if not strategy and not isinstance(stored, dict):
+        return None
+    body: dict[str, object] = {
+        "type": "reading",
+        "strategy": "mapReduce" if strategy == "map_reduce" else strategy,
+    }
+    if isinstance(stored, dict):
+        body["coverage"] = stored.get("coverage")
+        body["scope"] = stored.get("scope")
+        body["outputShape"] = stored.get("outputShape")
+        body["source"] = stored.get("source")
+    return body
+
+
 def review_part(run: dict[str, object]) -> dict[str, object] | None:
     """The gap or compare table for the message, when this turn produced one."""
     plan = _checkpoint(run).get("document_task")
@@ -83,7 +101,9 @@ def review_part(run: dict[str, object]) -> dict[str, object] | None:
     rows = plan.get("review")
     if not isinstance(rows, list) or not rows:
         return None
-    return {"type": "review", "task": str(asked(run, "task") or ""), "rows": rows}
+    stored = asked(run, "plan")
+    shape = stored.get("outputShape") if isinstance(stored, dict) else ""
+    return {"type": "review", "outputShape": str(shape or ""), "rows": rows}
 
 
 def run_pending(store: Any, run: dict[str, object]) -> None:
@@ -156,18 +176,44 @@ def _reduce(run: dict[str, object], plan: dict[str, object]) -> None:
     note = "\n".join(lines)
     run["document_reduction"] = wrap_untrusted(source="document", content=note) if note else ""
     plan["reduced"] = True
-    if str(asked(run, "task") or "") == "compare":
-        plan["review"] = [
-            {
-                "status": "paired",
-                "heading": row.get("heading"),
-                "quote": row.get("quote"),
-                "anchor": row.get("anchor"),
-                "page": row.get("page"),
-            }
-            for row in rows
-            if isinstance(row, dict)
-        ]
+    stored = asked(run, "plan")
+    scope = stored.get("scope") if isinstance(stored, dict) else ""
+    if scope == "acrossDocuments":
+        plan["review"] = _across(rows)
+
+
+def _across(rows: list[object]) -> list[dict[str, object]]:
+    """Pair two documents by their headings. Any other count stays a list of sections."""
+    groups: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        groups.setdefault(str(row.get("fileId") or ""), []).append(row)
+    sides = list(groups.values())
+    if len(sides) != 2:
+        return [_section_row(row) for row in rows if isinstance(row, dict)]
+    from ar_domain.documents.align import align  # noqa: PLC0415
+
+    return align([_passage(row) for row in sides[0]], [_passage(row) for row in sides[1]])
+
+
+def _passage(row: dict[str, object]) -> dict[str, object]:
+    return {
+        "anchor": row.get("anchor"),
+        "page": row.get("page"),
+        "heading": row.get("heading"),
+        "text": row.get("quote") or row.get("summary") or "",
+    }
+
+
+def _section_row(row: dict[str, object]) -> dict[str, object]:
+    return {
+        "status": "paired",
+        "heading": row.get("heading"),
+        "quote": row.get("quote"),
+        "anchor": row.get("anchor"),
+        "page": row.get("page"),
+    }
 
 
 def _summarise(store: Any, run: dict[str, object], section: dict[str, object], text: str) -> str:

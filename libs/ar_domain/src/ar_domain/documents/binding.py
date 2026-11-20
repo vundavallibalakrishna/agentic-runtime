@@ -1,26 +1,21 @@
-"""Name stored files on a turn and remember that the turn did.
+"""Name stored files on a turn and remember the reading that was chosen.
 
 File parts are written on the user message. A later turn finds them without
-the caller sending the ids again. The audit row records ids, the task, the
+the caller sending the ids again. The audit row records ids, the plan, the
 strategy and byte sizes. It does not record the text.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from ar_common.errors import ArError, ErrorCode, NotFoundError
 from ar_domain.agents.access import Actor
 from ar_domain.audit.memory import remember
-from ar_domain.documents.strategy import (
-    NamedText,
-    ReadingPlan,
-    choose,
-    estimate_tokens,
-    infer_task,
-    normalise_strategy,
-    normalise_task,
-)
+from ar_domain.documents.planner import plan_reading
+from ar_domain.documents.strategy import NamedText, ReadingPlan, choose, estimate_tokens
+from ar_domain.documents.templates import apply_template, resolve_template
 from ar_domain.files.logic import FileView, can_read_file
 from ar_domain.knowledge.access import can_see
 from ar_domain.runs.request import ask
@@ -39,23 +34,38 @@ def bind_turn(
     attachment_ids: list[uuid.UUID],
     file_ids: list[uuid.UUID],
     collection_ids: list[uuid.UUID],
-    task: str,
+    instruction: str,
+    task_template: str,
     strategy: str,
     items: list[object],
+    response_format: dict[str, object] | None,
     context_window: int | None,
-) -> tuple[list[uuid.UUID], ReadingPlan]:
-    """Resolve every id, choose a reading, and return the file ids to attach."""
+    definition: dict[str, object] | None,
+    ask: Any,
+) -> tuple[list[uuid.UUID], ReadingPlan, list[object], dict[str, object] | None, str]:
+    """Resolve every id, plan the reading, and return the file ids to attach.
+
+    The last three values are the checklist, the output schema and the
+    instruction after a template has filled anything the request left empty.
+    """
     files = _unique(attachment_ids + file_ids)
     for file_id in files:
         _require_file(store, tenant_id, user_id, file_id)
-    collections = _collections(store, tenant_id, user_id, collection_ids)
+    _collections(store, tenant_id, user_id, collection_ids)
     named = _named(store, tenant_id, files)
-    kind = normalise_task(task)
-    if kind == "auto":
-        kind = infer_task("", items=bool(items), documents=len(named))
-    plan = choose(kind, normalise_strategy(strategy), named, context_window)
-    del collections
-    return files, plan
+    template = resolve_template(definition, task_template) if task_template.strip() else None
+    text, chosen_items, schema, chosen = apply_template(
+        template,
+        instruction=instruction,
+        items=items,
+        response_format=response_format,
+        strategy=strategy,
+    )
+    planned = plan_reading(text, named, ask)
+    reading = choose(planned, named, context_window, chosen)
+    if template is not None:
+        reading = replace(reading, template_id=template.id)
+    return files, reading, chosen_items, schema, text
 
 
 def remember_task(
@@ -70,8 +80,19 @@ def remember_task(
     plan: ReadingPlan,
 ) -> None:
     """Store the turn's request and write ``document_task.started``."""
-    ask(run, "task", plan.task)
+    ask(
+        run,
+        "plan",
+        {
+            "coverage": plan.coverage,
+            "scope": plan.scope,
+            "outputShape": plan.output_shape,
+            "steps": list(plan.steps),
+            "source": plan.source,
+        },
+    )
     ask(run, "strategy", plan.strategy)
+    ask(run, "task_template", plan.template_id)
     ask(run, "items", [_item(item) for item in items])
     ask(run, "collection_ids", [str(item) for item in collection_ids])
     ask(run, "file_ids", [str(item) for item in file_ids])
@@ -91,8 +112,14 @@ def remember_task(
         detail={
             "fileIds": [str(item) for item in file_ids],
             "collectionIds": [str(item) for item in collection_ids],
-            "task": plan.task,
             "strategy": plan.strategy,
+            "plan": {
+                "coverage": plan.coverage,
+                "scope": plan.scope,
+                "outputShape": plan.output_shape,
+                "source": plan.source,
+            },
+            "taskTemplate": plan.template_id,
             "bytes": sizes,
         },
     )
@@ -236,22 +263,36 @@ def _named(store: Any, tenant_id: uuid.UUID, file_ids: list[uuid.UUID]) -> list[
             if isinstance(passages, list)
             else ""
         )
-        headings = (
-            {
-                str(item.get("heading") or "")
-                for item in passages
-                if isinstance(item, dict) and item.get("heading")
-            }
-            if isinstance(passages, list)
-            else set()
-        )
+        outline: list[str] = []
+        pages = 0
+        if isinstance(passages, list):
+            for item in passages:
+                if not isinstance(item, dict):
+                    continue
+                page = item.get("page")
+                if isinstance(page, int):
+                    pages = max(pages, page)
+                heading = str(item.get("heading") or "")
+                if heading and heading not in outline:
+                    outline.append(heading)
+        title = ""
+        if isinstance(library, dict) and library.get("title"):
+            title = str(library.get("title"))
+        elif isinstance(meta, dict):
+            title = str(meta.get("filename") or "")
+        counted = library.get("page_count") if isinstance(library, dict) else None
+        if isinstance(counted, int) and not isinstance(counted, bool):
+            pages = counted
         named.append(
             NamedText(
                 file_id=str(file_id),
                 document_id=str(library.get("id")) if isinstance(library, dict) else "",
                 tokens=estimate_tokens(text),
                 characters=len(text),
-                headings=len(headings),
+                headings=len(outline),
+                title=title,
+                page_count=pages,
+                outline=tuple(outline),
             )
         )
     return named

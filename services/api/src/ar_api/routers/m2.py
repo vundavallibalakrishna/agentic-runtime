@@ -115,8 +115,8 @@ class MessageBody(ApiModel):
     attachment_ids: list[uuid.UUID] = Field(default_factory=list)
     file_ids: list[uuid.UUID] = Field(default_factory=list)
     collection_ids: list[uuid.UUID] = Field(default_factory=list)
-    task: str = "auto"
-    strategy: str = "auto"
+    task_template: str | None = None
+    strategy: str = ""
     items: list[MessageItem | str] = Field(default_factory=list)
     research_mode: bool = False
     suggest_followups: bool = False
@@ -147,8 +147,8 @@ class RunBody(ApiModel):
     attachment_ids: list[uuid.UUID] = Field(default_factory=list)
     file_ids: list[uuid.UUID] = Field(default_factory=list)
     collection_ids: list[uuid.UUID] = Field(default_factory=list)
-    task: str = "auto"
-    strategy: str = "auto"
+    task_template: str | None = None
+    strategy: str = ""
     items: list[MessageItem | str] = Field(default_factory=list)
     response_format: dict[str, object] | None = None
 
@@ -683,7 +683,7 @@ async def post_message(
         attachment_ids=body.attachment_ids,
         file_ids=body.file_ids,
         collection_ids=body.collection_ids,
-        task=body.task,
+        task_template=body.task_template or "",
         strategy=body.strategy,
         items=[item.model_dump() if isinstance(item, MessageItem) else item for item in body.items],
         schedule=not await_runs,
@@ -990,7 +990,7 @@ async def create_run(body: RunBody, request: Request) -> dict[str, object]:
         attachment_ids=body.attachment_ids,
         file_ids=body.file_ids,
         collection_ids=body.collection_ids,
-        task=body.task,
+        task_template=body.task_template or "",
         strategy=body.strategy,
         items=[item.model_dump() if isinstance(item, MessageItem) else item for item in body.items],
         response_format=body.response_format,
