@@ -77,27 +77,10 @@ async def parse_library_activity(payload: dict[str, Any]) -> dict[str, Any]:
     from ar_domain.agents.access import Actor  # noqa: PLC0415
     from ar_domain.documents.library import DocumentLibrary  # noqa: PLC0415
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
-    from ar_domain.durable.hydrate import _merge  # noqa: PLC0415
-    from ar_domain.durable.m24 import library_view  # noqa: PLC0415
+    from ar_domain.durable.m24 import load_library_row  # noqa: PLC0415
 
-    engine = getattr(store, "durable_engine", None)
-    if engine is not None:
-        from sqlalchemy import text  # noqa: PLC0415
-        from sqlalchemy.ext.asyncio import AsyncSession  # noqa: PLC0415
-
-        async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
-            await session.execute(
-                text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
-                {"tenant_id": str(tenant_id)},
-            )
-            found = await session.execute(
-                text("SELECT * FROM documents WHERE id = :id AND tenant_id = :tenant_id"),
-                {"id": document_id, "tenant_id": tenant_id},
-            )
-            mapped = found.mappings().first()
-        if mapped is not None:
-            row = library_view(dict(mapped))
-            _merge(store, "library_documents", row["id"], row)
+    # The row was staged by another process: read it before it is parsed here.
+    await load_library_row(store, tenant_id, document_id)
     library = DocumentLibrary(store)
     row = store.library_documents.get(document_id)
     owner = row.get("owner_user_id") if isinstance(row, dict) else None
