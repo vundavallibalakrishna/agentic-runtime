@@ -8,7 +8,7 @@ import pytest
 from ar_common.errors import ArError, ConflictError, NotFoundError
 from ar_domain.agents.logic import assistant_definition
 from ar_domain.chat.service import demo_id
-from ar_domain.files.logic import EICAR, MAX_UPLOAD_BYTES
+from ar_domain.files.logic import EICAR, max_upload_bytes
 from ar_ingest.workflows.file_process import process_upload, thumbnail_png
 from ar_model_gateway.router import merge_params
 from ar_testing.demo import connect_chat, demo_store
@@ -96,7 +96,7 @@ async def test_catalogue_agents_and_chat_ops(monkeypatch: pytest.MonkeyPatch) ->
             schedule=False,
         )
     with pytest.raises(ArError):
-        service.upload(tenant, user, "big.pdf", "application/pdf", b"x" * (MAX_UPLOAD_BYTES + 1))
+        service.upload(tenant, user, "big.pdf", "application/pdf", b"x" * (max_upload_bytes() + 1))
     posted = service.post_message(
         tenant,
         user,

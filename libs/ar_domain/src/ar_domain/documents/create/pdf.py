@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ar_domain.documents.create.spec import MAX_PAGES, Cell, CreateError
+from ar_domain.documents.create.spec import Cell, CreateError, max_pages
 
 if TYPE_CHECKING:
     from ar_domain.documents.create.spec import DocumentSpec, Table
@@ -77,8 +77,8 @@ class _Cursor:
             self._table_row(row, widths, height)
 
     def finish(self) -> list[bytes]:
-        if len(self.pages) > MAX_PAGES:
-            raise CreateError(f"The document is over {MAX_PAGES} pages. Split it.")
+        if len(self.pages) > max_pages():
+            raise CreateError(f"The document is over {max_pages()} pages. Split it.")
         streams: list[bytes] = []
         total = len(self.pages)
         for index, ops in enumerate(self.pages, start=1):
@@ -129,8 +129,8 @@ class _Cursor:
         self._new_page()
 
     def _new_page(self) -> None:
-        if len(self.pages) >= MAX_PAGES:
-            raise CreateError(f"The document is over {MAX_PAGES} pages. Split it.")
+        if len(self.pages) >= max_pages():
+            raise CreateError(f"The document is over {max_pages()} pages. Split it.")
         self.pages.append([])
         self.y = _PAGE_H - _MARGIN
         if self.running_header and self.title:

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from ar_common.sandboxkit import PathEscapeError, confine, virtual_path
 from ar_domain.documents.create.render import render
-from ar_domain.documents.create.spec import MAX_FILE_BYTES, MEDIA, CreateError, parse
+from ar_domain.documents.create.spec import MEDIA, CreateError, max_file_bytes, parse
 
 if TYPE_CHECKING:
     from typing import Any
@@ -58,13 +58,13 @@ def publish(store: Any, arguments: dict[str, object]) -> dict[str, object]:
 
 def _cap(store: Any, arguments: dict[str, object]) -> int:
     if not isinstance(getattr(store, "versions", None), dict):
-        return MAX_FILE_BYTES
+        return max_file_bytes()
     from ar_domain.tools.general import _limits  # noqa: PLC0415
 
     limit = _limits(store, arguments, "write_file")["max_file_bytes"]
     if isinstance(limit, int) and not isinstance(limit, bool):
         return limit
-    return MAX_FILE_BYTES
+    return max_file_bytes()
 
 
 def _ok(text: str, presentation: dict[str, object]) -> dict[str, object]:

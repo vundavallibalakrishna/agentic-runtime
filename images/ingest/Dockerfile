@@ -1,4 +1,4 @@
-# Ingest image. Docling models stay out of this image; parsers fall back when the extra is absent.
+# Ingest image. Docling is the layout parser. The API image does not install it.
 FROM ghcr.io/astral-sh/uv:0.13.3 AS uvbin
 FROM python:3.14.8-slim-bookworm
 COPY --from=uvbin /uv /uvx /usr/local/bin/

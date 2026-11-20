@@ -14,6 +14,7 @@ from collections.abc import Callable
 
 import orjson
 
+from ar_common.errors import UnavailableError
 from ar_common.wrapping import wrap_untrusted
 from ar_domain.documents.chunk import retrieve
 from ar_domain.documents.model import ask_each, prompt_hash
@@ -49,6 +50,8 @@ def judge_items(
     ``aggressive`` masks the text shown to the model. The quote is still checked
     against the stored passage, so a masked quote is not a verdict.
     """
+    if ask is None:
+        raise UnavailableError("No model is configured, so the statements were not judged.")
     passages = _passages(document)
     wanted = [(item_id, statement.strip()) for item_id, statement in items if statement.strip()]
     prompts = [
@@ -59,7 +62,7 @@ def judge_items(
         for _item_id, text in wanted
     ]
     # Each statement is its own question, so they are all asked at the same time.
-    answers = [None] * len(wanted) if ask is None else ask_each(ask, prompts)
+    answers = ask_each(ask, prompts)
     return [
         _one(
             document,
@@ -104,20 +107,9 @@ def _one(
         "model": False,
     }
     if raw is None:
-        located = _statement_in_passage(passages, statement)
-        if located is None:
-            reason = (
-                "The model did not answer. Overlap is not a verdict."
-                if asked
-                else "Lexical overlap is not a verdict."
-            )
-            return _row(base, "not_judged", reason)
-        passage, quote = located
-        row = _row(base, "supported", "The statement is a substring of the stored passage.")
-        row["passage_id"] = str(passage.get("anchor") or "")
-        row["quote"] = quote
-        row["citation"] = _citation(document, passage, quote)
-        return row
+        failed = _row(base, "failed", "The model did not answer, so the statement was not judged.")
+        failed["model"] = asked
+        return failed
     parsed = _schema(raw)
     if parsed is None:
         failed = _row(base, "failed", "The model response did not match the judgement schema.")
@@ -237,17 +229,6 @@ def _passages(document: dict[str, object]) -> list[dict[str, object]]:
     if not isinstance(raw, list):
         return []
     return [row for row in raw if isinstance(row, dict)]
-
-
-def _statement_in_passage(
-    passages: list[dict[str, object]], statement: str
-) -> tuple[dict[str, object], str] | None:
-    """A statement that is itself stored text, not a word-overlap score."""
-    for row in passages:
-        text = str(row.get("text") or "")
-        if statement in text:
-            return row, text
-    return None
 
 
 def _by_anchor(passages: list[dict[str, object]], anchor: str) -> dict[str, object] | None:

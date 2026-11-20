@@ -12,7 +12,7 @@ from pydantic import JsonValue
 from ar_common.errors import ArError, ErrorCode, NotFoundError, PayloadTooLargeError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
-from ar_domain.files.logic import MAX_UPLOAD_BYTES
+from ar_domain.files.logic import max_upload_bytes
 from ar_domain.records.access import audit, missing, own, public, require
 from ar_domain.records.memory import blobs, bucket
 from records_pack.crypto import public_pem, sign_manifest, signing_material, verify_manifest
@@ -55,7 +55,7 @@ class EvidenceBook:
         require(actor, "evidence:capture")
         if actor.kind == "guest":
             raise ArError(ErrorCode.GUEST_FORBIDDEN, "guest_forbidden")
-        if len(data) > MAX_UPLOAD_BYTES:
+        if len(data) > max_upload_bytes():
             raise PayloadTooLargeError("evidence object is too large")
         method = str(payload.get("collection_method") or "api")
         if method not in _METHODS:

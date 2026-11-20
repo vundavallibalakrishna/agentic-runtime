@@ -126,7 +126,7 @@ class _HashSession:
 
     async def execute(self, statement: object, params: object = None) -> _Result:
         sql = str(statement)
-        if "SELECT id FROM library_documents" in sql:
+        if "SELECT id FROM documents" in sql:
             return _Result((uuid.UUID("11111111-1111-4111-8111-111111111111"),))
         if sql.strip().upper().startswith("INSERT"):
             self.inserted += 1

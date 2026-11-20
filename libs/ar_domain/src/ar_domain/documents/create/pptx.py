@@ -17,7 +17,7 @@ the same slides:
 - A section with text and a table puts both on one slide when both fit in the
   body area. Otherwise the text slides come first and the table follows on
   slides titled "<heading> (table)" and then "<heading> (table, continued)".
-- A deck is at most ``MAX_SLIDES`` slides.
+- A deck is at most ``max_slides()`` slides.
 
 ``package`` and ``picture_slide`` are shared with the chart tool, which writes
 its one-slide deck through the same master, layouts and theme.
@@ -30,7 +30,7 @@ import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ar_domain.documents.create.spec import FONT, MAX_SLIDES, MUTED, RULE, SECOND, CreateError
+from ar_domain.documents.create.spec import FONT, MUTED, RULE, SECOND, CreateError, max_slides
 from ar_domain.documents.create.xmlpack import PRODUCER, pack, xml_escape
 
 if TYPE_CHECKING:
@@ -119,8 +119,8 @@ def render_pptx(spec: DocumentSpec) -> bytes:
     slides = [_cover(spec)]
     for section in spec.sections:
         slides.extend(_section(section, spec.theme))
-        if len(slides) > MAX_SLIDES:
-            raise CreateError(f"The presentation is over {MAX_SLIDES} slides. Split it.")
+        if len(slides) > max_slides():
+            raise CreateError(f"The presentation is over {max_slides()} slides. Split it.")
     return package(
         title=spec.title,
         subtitle=spec.subtitle,

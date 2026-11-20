@@ -16,12 +16,7 @@ from ar_common.errors import ArError, NotFoundError, PayloadTooLargeError, Valid
 from ar_domain.agents.access import Actor
 from ar_domain.documents.chunk import retrieve
 from ar_domain.documents.extract import ExtractError, extract_bytes
-from ar_domain.documents.grounding import (
-    apply_hunks,
-    check,
-    line_hunks,
-    summarise,
-)
+from ar_domain.documents.grounding import apply_hunks, line_hunks
 from ar_domain.documents.library import DocumentLibrary, max_document_bytes
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.handlers import dispatch
@@ -198,32 +193,32 @@ def test_check_says_when_evidence_is_missing_and_cites_when_present() -> None:
             }
         ],
     }
-    report = check(
-        document,
-        ["Staff must use badges", "The organisation shall operate a colony on Mars"],
-        None,
-    )
-    rows = report["rows"]
-    assert isinstance(rows, list)
-    found = rows[0]
-    missing = rows[1]
-    assert isinstance(found, dict)
-    assert isinstance(missing, dict)
-    assert found["verdict"] == "not_judged"
-    assert found["citation"] is None
-    assert missing["verdict"] == "not_judged"
-    assert missing["citation"] is None
-    assert "not a verdict" in str(found["reason"])
+    from ar_common.errors import UnavailableError
+    from ar_domain.documents.judgement import judge_items
+
+    with pytest.raises(UnavailableError):
+        judge_items(
+            document,
+            [("1", "Staff must use badges")],
+            None,
+            model_id="",
+            rule_set_id="",
+            rule_set_version="",
+        )
 
     def invent(_task: str, _evidence: str) -> str:
-        return '{"claims":[{"text":"There is a Mars base.","anchor":"nope","quote":"Mars"}]}'
+        return '{"verdict":"supported","passageId":"nope","quote":"Mars"}'
 
-    summary = summarise(document, invent)
-    claims = summary["claims"]
-    assert isinstance(claims, list)
-    assert claims
-    assert all(row["anchor"] == "p1-s0" for row in claims if isinstance(row, dict))
-    assert "Mars" not in str(claims)
+    judged = judge_items(
+        document,
+        [("1", "Staff must use badges")],
+        invent,
+        model_id="test",
+        rule_set_id="",
+        rule_set_version="",
+    )
+    assert judged[0]["verdict"] == "not_supported"
+    assert "Mars" not in str(judged[0].get("quote") or "")
 
 
 def test_rewrite_is_not_saved_until_accepted() -> None:
@@ -282,15 +277,17 @@ def test_compare_tables_and_long_retrieval() -> None:
     from ar_domain.documents.judgement import judge_items
 
     document = store.library_documents[uuid.UUID(str(right["id"]))]
-    rows = judge_items(
-        document,
-        [("1", "Trips need approval"), ("2", "Operate a colony on Mars")],
-        None,
-        model_id="",
-        rule_set_id="",
-        rule_set_version="",
-    )
-    assert rows[1]["verdict"] == "not_judged"
+    from ar_common.errors import UnavailableError
+
+    with pytest.raises(UnavailableError):
+        judge_items(
+            document,
+            [("1", "Trips need approval"), ("2", "Operate a colony on Mars")],
+            None,
+            model_id="",
+            rule_set_id="",
+            rule_set_version="",
+        )
 
 
 def test_tools_and_hunks() -> None:
@@ -430,7 +427,7 @@ def test_hydrate_library_rows() -> None:
         async def execute(self, statement: object, params: dict[str, object]) -> Result:
             del params
             sql = str(statement)
-            if "library_documents" in sql:
+            if "FROM documents" in sql and "library://" in sql:
                 return Result(
                     [
                         {
@@ -475,8 +472,8 @@ def test_hydrate_library_rows() -> None:
     assert store.library_documents[document_id]["title"] == "Access"  # type: ignore[index]
 
 
-def test_model_summary_compare_and_rewrite() -> None:
-    from ar_domain.documents.grounding import compare, extract_fields, gaps, rewrite_text
+def test_a_model_quote_is_kept_only_when_it_is_in_the_passage() -> None:
+    from ar_domain.documents.judgement import judge_items
 
     document = {
         "id": "d",
@@ -491,41 +488,26 @@ def test_model_summary_compare_and_rewrite() -> None:
             }
         ],
     }
-    other = {
-        "id": "e",
-        "title": "Access",
-        "passages": [
-            {
-                "anchor": "p1-s0",
-                "page": 1,
-                "heading": "Access",
-                "level": 1,
-                "text": "Staff use passes at every door.",
-            }
-        ],
-    }
 
     def ask(task: str, evidence: str) -> str:
         assert "untrusted" in evidence
-        if "claims" in task:
-            return (
-                '{"claims":[{"text":"Staff use badges.","anchor":"p1-s0",'
-                '"quote":"Staff use badges"}]}'
-            )
-        if "notes" in task:
-            return '{"notes":[{"heading":"Access","text":"The wording changed."}]}'
-        return '{"text":"Visitors sign the book. Staff use badges at every door."}'
+        if "Mars" in task:
+            return '{"verdict":"not_supported","passageId":"","quote":""}'
+        return (
+            '{"verdict":"supported","passageId":"p1-s0","quote":"Staff use badges at every door."}'
+        )
 
-    summary = summarise(document, ask)
-    assert summary["model_used"] is True
-    result = compare(document, other, ask)
-    assert result["notes"]
-    proposed = rewrite_text(str(document["passages"][0]["text"]), "rephrase", ask)  # type: ignore[index]
-    assert "badges" in proposed
-    fields = extract_fields(document, ["door"], ask)
-    assert fields["fields"]
-    found = gaps(document, ["Operate a colony on Mars"], ask)
-    assert found["rows"]
+    rows = judge_items(
+        document,
+        [("1", "Staff use badges"), ("2", "Operate a colony on Mars")],
+        ask,
+        model_id="test",
+        rule_set_id="",
+        rule_set_version="",
+    )
+    assert rows[0]["verdict"] == "supported"
+    assert rows[0]["model"] is True
+    assert rows[1]["verdict"] == "not_supported"
 
 
 def test_long_text_is_chunked_and_model_can_judge() -> None:
@@ -554,8 +536,17 @@ def test_long_text_is_chunked_and_model_can_judge() -> None:
             + '","quote":"staff use badges"}'
         )
 
-    report = check(row, ["staff use badges"], judge, model_id="fixture-model")
-    first = report["rows"][0]  # type: ignore[index]
+    from ar_domain.documents.judgement import judge_items
+
+    rows = judge_items(
+        row,
+        [("1", "staff use badges")],
+        judge,
+        model_id="fixture-model",
+        rule_set_id="",
+        rule_set_version="",
+    )
+    first = rows[0]
     assert isinstance(first, dict)
     assert first["model"] is True
     assert first["verdict"] == "supported"
@@ -662,6 +653,6 @@ def test_durable_document_sql() -> None:
         )
     )
     joined = "\n".join(sql for sql, _params in session.calls)
-    assert "library_documents" in joined
+    assert "INSERT INTO documents" in joined
     assert "document_checks" in joined
     assert "document_rewrites" in joined

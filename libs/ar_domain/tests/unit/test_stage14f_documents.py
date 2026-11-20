@@ -9,9 +9,9 @@ import uuid
 
 import pytest
 
-from ar_common.errors import ValidationFailedError
+from ar_common.errors import UnavailableError, ValidationFailedError
 from ar_domain.agents.access import Actor
-from ar_domain.documents.grounding import extract_fields
+from ar_domain.documents.judgement import judge_items
 from ar_domain.documents.library import DocumentLibrary
 from ar_domain.loop.context import context_limits, fit_messages, has_shortened, read_part
 from ar_domain.research.handlers import dispatch_context
@@ -114,42 +114,47 @@ def test_the_retrieve_tool_is_offered_once_a_result_was_shortened() -> None:
     assert answer["structured"]["next_offset"]  # type: ignore[index]
 
 
-def test_extraction_does_not_guess_a_value_from_a_nearby_passage() -> None:
-    result = extract_fields(_POLICY, ["log retention period", "version"], None)
-    by_field = {row["field"]: row for row in result["fields"]}  # type: ignore[index, union-attr]
-    assert by_field["log retention period"]["value"] is None
-    assert by_field["log retention period"]["citation"] is None
-    assert by_field["version"]["value"] is None
-
-
-def test_extraction_keeps_a_labelled_value_without_a_model() -> None:
-    result = extract_fields(_POLICY, ["owner"], None)
-    row = result["fields"][0]  # type: ignore[index]
-    assert row["value"] == "Security."
-    assert row["citation"]["anchor"] == "p1-s0"
-
-
-def test_extraction_reads_a_value_worded_differently_from_the_field_name() -> None:
-    def ask(_system: str, evidence: str) -> str:
-        assert "retained for 365 days" in evidence
-        return (
-            '{"value": "365 days", "quote": "Security logs are retained for 365 days.", '
-            '"anchor": "p1-s1"}'
+def test_a_missing_model_is_an_error_and_a_quote_must_be_stored() -> None:
+    with pytest.raises(UnavailableError):
+        judge_items(
+            _POLICY,
+            [("1", "Logs are retained")],
+            None,
+            model_id="",
+            rule_set_id="",
+            rule_set_version="",
         )
 
-    row = extract_fields(_POLICY, ["log retention period"], ask)["fields"][0]  # type: ignore[index]
-    assert row["value"] == "365 days"
-    assert row["citation"]["anchor"] == "p1-s1"
-    assert row["citation"]["quote"] == "Security logs are retained for 365 days."
+    def ask(_task: str, evidence: str) -> str:
+        assert "retained for 365 days" in evidence
+        if "90 days" in _task:
+            return (
+                '{"verdict":"supported","passageId":"p1-s1","quote":"Logs are kept for 90 days."}'
+            )
+        return (
+            '{"verdict":"supported","passageId":"p1-s1",'
+            '"quote":"Security logs are retained for 365 days."}'
+        )
 
-
-def test_extraction_refuses_a_value_the_document_does_not_state() -> None:
-    def ask(_system: str, _evidence: str) -> str:
-        return '{"value": "90 days", "quote": "Logs are kept for 90 days.", "anchor": "p1-s1"}'
-
-    row = extract_fields(_POLICY, ["log retention period"], ask)["fields"][0]  # type: ignore[index]
-    assert row["value"] is None
-    assert row["confidence"] == 0
+    kept = judge_items(
+        _POLICY,
+        [("1", "How long are logs retained")],
+        ask,
+        model_id="test",
+        rule_set_id="",
+        rule_set_version="",
+    )
+    assert kept[0]["verdict"] == "supported"
+    assert kept[0]["citation"]["anchor"] == "p1-s1"  # type: ignore[index]
+    refused = judge_items(
+        _POLICY,
+        [("1", "kept for 90 days")],
+        ask,
+        model_id="test",
+        rule_set_id="",
+        rule_set_version="",
+    )
+    assert refused[0]["verdict"] == "not_supported"
 
 
 def test_reading_an_anchor_the_document_does_not_have_says_so() -> None:
@@ -241,11 +246,15 @@ def _checked(arguments: dict[str, object]) -> tuple[dict[str, object], str]:
             if isinstance(item, dict)
         ]
     document = store.library_documents[uuid.UUID(str(policy["id"]))]
+
+    def ask(_task: str, _evidence: str) -> str:
+        return '{"verdict":"not_supported","passageId":"","quote":""}'
+
     rows = judge_items(
         document,
         items,
-        None,
-        model_id="",
+        ask,
+        model_id="test",
         rule_set_id=str(controls["id"]),
         rule_set_version="1",
     )
@@ -325,8 +334,8 @@ def test_a_document_id_given_as_the_rule_set_is_read_as_the_list() -> None:
     rows = judge_items(
         document,
         table_items("controls.csv", _CONTROLS),
-        None,
-        model_id="",
+        lambda _task, _evidence: '{"verdict":"not_supported","passageId":"","quote":""}',
+        model_id="test",
         rule_set_id=str(controls["id"]),
         rule_set_version="1",
     )
@@ -399,7 +408,7 @@ def test_the_statements_of_a_check_are_asked_together() -> None:
     assert ask.batches == [2]
     assert [(row["item_id"], row["verdict"]) for row in rows] == [
         ("L-1", "supported"),
-        ("X-1", "not_judged"),
+        ("X-1", "failed"),
     ]
 
 
@@ -458,23 +467,42 @@ def test_a_call_a_busy_provider_turned_away_is_asked_again(
 
 
 def test_comparing_a_text_with_a_list_points_at_the_tool_for_that() -> None:
-    from ar_domain.documents.grounding import compare
     from ar_domain.tools.documents import _change_text
 
-    policy = {"id": "a", "title": "Policy", "passages": _POLICY["passages"]}
-    controls = {
-        "id": "b",
-        "title": "controls",
-        "passages": [{"anchor": "p1-s0", "page": 1, "heading": "controls", "text": "AC-1,Badges"}],
-    }
-    unrelated = _change_text(compare(policy, controls, None))
+    unrelated = _change_text(
+        {
+            "changes": [
+                {
+                    "op": "added",
+                    "heading": "controls",
+                    "left_anchor": "",
+                    "right_anchor": "p1-s0",
+                    "before": "",
+                    "after": "AC-1",
+                }
+            ],
+            "left_title": "Policy",
+            "right_title": "controls",
+            "shared_sections": 0,
+        }
+    )
     assert "no section in common" in unrelated
     assert "documents.judge" in unrelated
-    later = {
-        "id": "c",
-        "title": "Policy",
-        "passages": [
-            dict(row, text=str(row["text"]) + " Reviewed.") for row in _POLICY["passages"]
-        ],  # type: ignore[union-attr, call-overload]
-    }
-    assert "no section in common" not in _change_text(compare(policy, later, None))
+    changed = _change_text(
+        {
+            "changes": [
+                {
+                    "op": "changed",
+                    "heading": "Policy",
+                    "left_anchor": "p1-s0",
+                    "right_anchor": "p1-s0",
+                    "before": "Version 1.0.",
+                    "after": "Version 1.0. Reviewed.",
+                }
+            ],
+            "left_title": "Policy",
+            "right_title": "Policy",
+            "shared_sections": 1,
+        }
+    )
+    assert "no section in common" not in changed

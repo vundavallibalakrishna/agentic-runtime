@@ -1926,39 +1926,16 @@ Core total is 97 tables: 74 in §19 plus these 23. Retired pack schemas are not 
 
 ## 31. Document library (`ar_domain.documents`)
 
-Revision `0026`, extended by `0038`. Tenant owned, with the RLS policy from [rls §3](rls.md). `library_documents.object_key` is the object-store key of the original bytes. `content_hash` is their sha256. `document_chunks.embedding_model_id` is the model that embedded that chunk. A search whose collection model does not match a chunk is HTTP 409.
+Revision `0026`, extended by `0038`, folded into `documents` by `0057` and `0058`. `library_documents` is gone. A library extract is a `documents` row with a nullable `collection_id`. `content_hash` is the sha256 of the original bytes and is unique per tenant when it is set. `object_key` is the object-store key. `source` is `upload`, `workspace` or `connection` for a library extract and empty for a knowledge row. Judgements, rule sets, checks, comparisons and rewrites reference `documents(id)`. The read policy is [rls §3.5](rls.md). `document_chunks.embedding_model_id` is the model that embedded that chunk. A search whose collection model does not match a chunk is HTTP 409.
 
 `rule_sets` stores one immutable version (`set_id`, `version`, `items`, `source_file_id`, `sha256`). `judgements` stores one quote check (`rule_set_id`, `rule_set_version`, `item_id`, `verdict`, `passage_id`, `quote`, `model_id`, `prompt_hash`). Both tables are append-only. Verdicts are `supported`, `not_supported`, `not_judged` and `failed`.
 
 ```sql
-CREATE TABLE library_documents (
-  id            uuid PRIMARY KEY DEFAULT uuidv7(),
-  tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  owner_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title         text NOT NULL,
-  filename      text NOT NULL,
-  media_type    text NOT NULL,
-  source        text NOT NULL CHECK (source IN ('upload','workspace','connection')),
-  source_ref    text NOT NULL DEFAULT '',
-  content_hash  text NOT NULL,
-  size_bytes    bigint NOT NULL,
-  status        text NOT NULL DEFAULT 'ready' CHECK (status IN ('ready','failed')),
-  error_code    text,
-  error_message text,
-  page_count    int NOT NULL DEFAULT 0,
-  metadata      jsonb NOT NULL DEFAULT '{}',
-  passages      jsonb NOT NULL DEFAULT '[]',
-  tables        jsonb NOT NULL DEFAULT '[]',
-  created_at    timestamptz NOT NULL DEFAULT now(),
-  updated_at    timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (tenant_id, content_hash)
-);
-
 CREATE TABLE document_checks (
   id uuid PRIMARY KEY DEFAULT uuidv7(),
   tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  document_id uuid NOT NULL REFERENCES library_documents(id) ON DELETE CASCADE,
-  standard_document_id uuid REFERENCES library_documents(id) ON DELETE SET NULL,
+  document_id uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  standard_document_id uuid REFERENCES documents(id) ON DELETE SET NULL,
   label text NOT NULL DEFAULT '',
   rows jsonb NOT NULL DEFAULT '{}',
   created_by uuid REFERENCES users(id) ON DELETE SET NULL,
@@ -1969,8 +1946,8 @@ CREATE TABLE document_checks (
 CREATE TABLE document_comparisons (
   id uuid PRIMARY KEY DEFAULT uuidv7(),
   tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  left_id uuid NOT NULL REFERENCES library_documents(id) ON DELETE CASCADE,
-  right_id uuid NOT NULL REFERENCES library_documents(id) ON DELETE CASCADE,
+  left_id uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  right_id uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   changes jsonb NOT NULL DEFAULT '{}',
   created_by uuid REFERENCES users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -1980,7 +1957,7 @@ CREATE TABLE document_comparisons (
 CREATE TABLE document_rewrites (
   id uuid PRIMARY KEY DEFAULT uuidv7(),
   tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  document_id uuid NOT NULL REFERENCES library_documents(id) ON DELETE CASCADE,
+  document_id uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   anchor text NOT NULL DEFAULT '',
   passage_anchors jsonb NOT NULL DEFAULT '[]',
   instruction text NOT NULL DEFAULT '',
@@ -1997,7 +1974,7 @@ CREATE TABLE document_rewrites (
 
 | Tables | Module | Section |
 |---|---|---|
-| library_documents, document_checks, document_comparisons, document_rewrites | documents | 31 |
+| document_checks, document_comparisons, document_rewrites, rule_sets, judgements | documents | 31 |
 
 ## 32. Saved table queries (`ar_domain.spreadsheet`)
 

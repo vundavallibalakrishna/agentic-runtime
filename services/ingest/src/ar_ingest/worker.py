@@ -23,6 +23,7 @@ from ar_ingest.activities import (
     delete_document_activity,
     ingest_document_activity,
     migrate_activity,
+    parse_library_activity,
     reindex_activity,
     sync_source_activity,
 )
@@ -30,6 +31,7 @@ from ar_ingest.main import TASK_QUEUE
 from ar_ingest.workflows.acl_sync import AclSyncWorkflow
 from ar_ingest.workflows.delete_document import DeleteDocumentWorkflow
 from ar_ingest.workflows.ingest_document import IngestDocumentWorkflow
+from ar_ingest.workflows.library_parse import LibraryParseWorkflow
 from ar_ingest.workflows.migrate_retrieval_store import MigrateRetrievalStoreWorkflow
 from ar_ingest.workflows.reindex_collection import ReindexCollectionWorkflow
 from ar_ingest.workflows.retrieval_store_audit import RetrievalStoreAuditWorkflow
@@ -42,6 +44,7 @@ def ingest_workflows() -> list[type]:
     """Workflows the ingest worker polls. Tests register this same list."""
     return [
         IngestDocumentWorkflow,
+        LibraryParseWorkflow,
         DeleteDocumentWorkflow,
         SourceSyncWorkflow,
         AclSyncWorkflow,
@@ -55,6 +58,7 @@ def ingest_activities() -> list[Callable[..., Any]]:
     """Activities the ingest worker polls. Tests register this same list."""
     return [
         ingest_document_activity,
+        parse_library_activity,
         sync_source_activity,
         acl_sync_activity,
         delete_document_activity,

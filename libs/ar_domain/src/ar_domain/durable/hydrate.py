@@ -296,17 +296,16 @@ async def _library_for_files(session: AsyncSession, store: object, tenant_id: uu
         return
     found = await session.execute(
         text(
-            "SELECT * FROM library_documents "
-            "WHERE tenant_id = :tenant_id AND content_hash IN :hashes"
+            "SELECT * FROM documents "
+            "WHERE tenant_id = :tenant_id AND content_hash IN :hashes "
+            "AND content_hash <> ''"
         ).bindparams(bindparam("hashes", expanding=True)),
         {"tenant_id": tenant_id, "hashes": hashes},
     )
+    from ar_domain.durable.m24 import library_view  # noqa: PLC0415
+
     for mapping in found.mappings():
-        row = dict(mapping)
-        for key in ("metadata", "passages", "tables"):
-            value = row.get(key)
-            if isinstance(value, str):
-                row[key] = orjson.loads(value)
+        row = library_view(dict(mapping))
         _merge(store, "library_documents", row["id"], row)
 
 

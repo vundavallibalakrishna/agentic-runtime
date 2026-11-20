@@ -331,7 +331,9 @@ def main() -> None:
     )
     _record("chat", chat)
     with psycopg.connect(DSN) as conn:
-        count = conn.execute("SELECT count(*) FROM library_documents").fetchone()
+        count = conn.execute(
+            "SELECT count(*) FROM documents WHERE uri LIKE 'library://%'"
+        ).fetchone()
     _record("durable", {"rows": count[0] if count else 0})
 
 

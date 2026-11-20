@@ -2,19 +2,18 @@
 
 The model reads every stored passage of the document at once and names the places
 that give the same thing two values. Each place is a quote with its anchor. A quote
-that is not in the stored passage is discarded, and so is a finding whose quotes
-say the same thing. The result is what was found. It is never proof that the rest
-of the document agrees with itself.
+that is not in the stored passage is discarded. The code does not decide that two
+quotes say the same thing. The result is what the model returned. It is never proof
+that the rest of the document agrees with itself.
 
 Label: unit. This module does not call a model itself.
 """
 
 from __future__ import annotations
 
-import re
-
 from ar_common.errors import UnavailableError, ValidationFailedError
 from ar_common.offload import blocking_all
+from ar_common.settings import get_settings
 from ar_domain.documents.grounding import (
     Ask,
     _by_anchor,
@@ -24,19 +23,21 @@ from ar_domain.documents.grounding import (
     _prepare_passages,
 )
 
-# The whole document goes to the model in one request, so its text has a ceiling.
-CROSSCHECK_BUDGET = 40_000
+
+def _budget() -> int:
+    """Characters of one document the model reads in a single pass."""
+    return int(get_settings().document_crosscheck_max_chars)
+
+
 KINDS = ("value_mismatch", "count_mismatch", "summary_mismatch", "other")
 _FINDINGS = 12
 _QUOTES = 4
 _QUOTE = 300
 _STATEMENT = 400
 _FOCUS = 300
-_NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 # A model reads a long document unevenly, so one reading misses things another finds.
 # The document is read this many times and what stands in any reading is kept.
 _PASSES = 3
-_WORD = re.compile(r"[^\W_]+(?:[.,]\d+)*")
 _TASK = (
     "Find the places inside this one document that disagree with each other. "
     "Every block below is one passage of the same document, named by its anchor. "
@@ -79,7 +80,7 @@ def crosscheck(
     if not passages:
         raise ValidationFailedError("This document has no stored text to check.")
     size = sum(len(str(row.get("text") or "")) for row in passages)
-    if size > CROSSCHECK_BUDGET:
+    if size > _budget():
         return _by_sections(document, passages, ask, focus=focus, aggressive=aggressive)
     task = _TASK
     wanted = " ".join(focus.split())[:_FOCUS]
@@ -109,7 +110,7 @@ def crosscheck(
                 proposed.add(written)
                 candidates.append(item)
     findings: list[dict[str, object]] = []
-    seen: set[frozenset[tuple[str, str]]] = set()
+    seen: set[frozenset[tuple[str, str, str]]] = set()
     discarded = 0
     for item in candidates:
         found = _finding(passages, item)
@@ -118,7 +119,8 @@ def crosscheck(
             continue
         # The same disagreement worded differently in two readings is reported once.
         mark = frozenset(
-            (str(row["anchor"]), _folded(str(row["value"]))) for row in _rows(found["quotes"])
+            (str(row["anchor"]), str(row["quote"]), str(row["value"]))
+            for row in _rows(found["quotes"])
         )
         if mark in seen:
             continue
@@ -153,7 +155,7 @@ def _by_sections(
     used = 0
     for row in passages:
         text = str(row.get("text") or "")
-        if current and used + len(text) > CROSSCHECK_BUDGET:
+        if current and used + len(text) > _budget():
             groups.append(current)
             current = []
             used = 0
@@ -221,12 +223,10 @@ def _finding(passages: list[dict[str, object]], item: object) -> dict[str, objec
         # A quote that is not in the named stored passage is not evidence of anything.
         if passage is None or not _contains(str(passage.get("text") or ""), quote):
             continue
-        # The value must be words of the quote, so "they differ" can be checked here and
-        # is not taken on the model's word.
-        value = " ".join(str(entry.get("value") or "").split())
-        if not value or _folded(value) not in _folded(quote):
+        value = str(entry.get("value") or "").strip()
+        if not value or value not in quote:
             continue
-        key = (anchor, _folded(quote))
+        key = (anchor, quote)
         if key in seen:
             continue
         seen.add(key)
@@ -242,37 +242,9 @@ def _finding(passages: list[dict[str, object]], item: object) -> dict[str, objec
     kind = str(item.get("kind") or "")
     if kind not in KINDS:
         kind = "other"
-    if len(quotes) < 2 or _agree(kind, [str(row["quote"]) for row in quotes]):
-        return None
-    # Places that give the same value agree, whatever the statement says about them.
-    if not _differ([str(row["value"]) for row in quotes]):
+    if len(quotes) < 2:
         return None
     return {"statement": statement[:_STATEMENT], "kind": kind, "quotes": quotes}
-
-
-def _differ(values: list[str]) -> bool:
-    """True when some two of the values are different things.
-
-    "one High" beside "High" is the same rating said with a count, so a value whose words
-    are all in the other value agrees with it.
-    """
-    words = [set(_WORD.findall(_folded(value))) for value in values]
-    return any(
-        not (left <= right or right <= left)
-        for index, left in enumerate(words)
-        for right in words[index + 1 :]
-    )
-
-
-def _agree(kind: str, quotes: list[str]) -> bool:
-    """True when the quoted places plainly say the same thing, so nothing disagrees."""
-    if len({_folded(quote) for quote in quotes}) == 1:
-        return True
-    if kind != "value_mismatch":
-        return False
-    numbers = [_NUMBER.findall(quote) for quote in quotes]
-    # Two places that each give one number, and the same one, do not differ on a value.
-    return all(len(found) == 1 for found in numbers) and len({found[0] for found in numbers}) == 1
 
 
 def _whole(document: dict[str, object]) -> list[dict[str, object]]:
@@ -298,7 +270,3 @@ def _whole(document: dict[str, object]) -> list[dict[str, object]]:
             }
         )
     return passages
-
-
-def _folded(text: str) -> str:
-    return " ".join(text.split()).lower()

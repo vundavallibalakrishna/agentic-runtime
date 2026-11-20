@@ -134,7 +134,7 @@ def test_a_finding_whose_quote_is_not_in_the_document_is_dropped() -> None:
     assert result["discarded"] == 3
 
 
-def test_quotes_that_say_the_same_thing_are_dropped() -> None:
+def test_the_model_keeps_two_quotes_that_use_the_same_words() -> None:
     model = _Model(
         _answer(
             _finding("other", ("p1-s1", "Grade: Red."), ("p1-s1", "grade:  red.")),
@@ -152,10 +152,13 @@ def test_quotes_that_say_the_same_thing_are_dropped() -> None:
     )
     result = crosscheck(_document(), model)
     findings = _found(result)
-    # Different words in two places stay: only a person or the model can weigh them. A
-    # value whose words are all in the other ("one Red" beside "Red") is the same value.
-    assert [row["quotes"][0]["quote"] for row in findings] == ["one Green"]
-    assert result["discarded"] == 6
+    assert [row["quotes"][0]["quote"] for row in findings] == [
+        "Grade: Red.",
+        "one Red",
+        "one Green",
+        "Four of 25 shelves",
+    ]
+    assert result["discarded"] == 3
 
 
 def test_an_unknown_kind_is_kept_as_other() -> None:
@@ -241,7 +244,7 @@ def _call(store: Any, actor: Actor, arguments: dict[str, object]) -> dict[str, o
     )
 
 
-def test_places_that_give_the_same_value_are_not_a_finding() -> None:
+def test_a_repeated_value_stays_when_the_model_returns_it() -> None:
     answer = _answer(
         _finding(
             "value_mismatch",
@@ -256,8 +259,10 @@ def test_places_that_give_the_same_value_are_not_a_finding() -> None:
         ),
     )
     result = crosscheck(_document(), lambda _task, _evidence: answer)
-    assert _found(result) == []
-    assert result["discarded"] == 2
+    found = _found(result)
+    assert len(found) == 1
+    assert [row["value"] for row in found[0]["quotes"]] == ["Red", "Red"]
+    assert result["discarded"] == 1
 
 
 def test_what_any_reading_finds_is_kept_and_reported_once() -> None:
@@ -274,7 +279,7 @@ def test_what_any_reading_finds_is_kept_and_reported_once() -> None:
     assert [row["value"] for row in found[0]["quotes"]] == ["Amber", "Red"]
 
 
-def test_a_rating_said_with_a_count_agrees_with_the_same_rating() -> None:
+def test_a_rating_said_with_a_count_stays_when_the_model_returns_it() -> None:
     answer = _answer(
         _finding(
             "summary_mismatch",
@@ -289,5 +294,7 @@ def test_a_rating_said_with_a_count_agrees_with_the_same_rating() -> None:
     )
     result = crosscheck(_document(), lambda _task, _evidence: answer)
     found = _found(result)
-    assert [row["value"] for row in found[0]["quotes"]] == ["25", "30 shelves"]
-    assert len(found) == 1
+    assert [[row["value"] for row in item["quotes"]] for item in found] == [
+        ["one Red", "Red"],
+        ["25", "30 shelves"],
+    ]

@@ -152,15 +152,21 @@ class CatalogueBook:
     def judge(
         self, actor: Actor, catalogue_id: uuid.UUID, passages: list[dict[str, object]]
     ) -> list[dict[str, object]]:
-        """Judge each imported statement with the core document judge. No model is required."""
+        """Judge each imported statement. A missing model is an error."""
+        from ar_common.errors import UnavailableError  # noqa: PLC0415
+        from ar_domain.documents.model import ModelAsk, model_id_for  # noqa: PLC0415
+
         rows = self.items(actor, catalogue_id)
         document: dict[str, object] = {"id": str(catalogue_id), "passages": passages}
         pairs = [(str(row["item_key"]), str(row["statement"])) for row in rows]
+        model_id = model_id_for(self.store, actor.tenant_id, "reasoning")
+        if not model_id:
+            raise UnavailableError("No model is configured, so the statements were not judged.")
         return judge_items(
             document,
             pairs,
-            None,
-            model_id="none",
+            ModelAsk(self.store, actor.tenant_id, "reasoning"),
+            model_id=model_id,
             rule_set_id=str(catalogue_id),
             rule_set_version="1",
         )
