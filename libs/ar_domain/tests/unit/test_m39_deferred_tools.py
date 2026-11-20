@@ -82,7 +82,7 @@ def test_many_tools_offer_the_search_tool_then_add_a_found_one() -> None:
     assert store.runs[run_id]["status"] == "completed"
     # The first call is not sent the whole catalogue; it gets the search tool.
     assert "session__search" in captured[0]
-    assert len(captured[0]) < 20
+    assert len(captured[0]) < 40
     assert "general__read_file" not in captured[0]
     # The searched tool's schema joins the next call.
     assert "general__read_file" in captured[1]

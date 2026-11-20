@@ -137,6 +137,15 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             tools = [*tools, load_row]
             by_name["skills__load"] = load_row
             by_name["skills.load"] = load_row
+    from ar_domain.documents.binding import turn_has_documents  # noqa: PLC0415
+    from ar_domain.documents.sections import carry_outputs  # noqa: PLC0415
+
+    carry_outputs(store, run)
+    documents_turn = turn_has_documents(
+        store, run, definition if isinstance(definition, dict) else None
+    )
+    if documents_turn:
+        tools, by_name = _offer_document_tools(store, tools, by_name, definition)
     openai_tools = [_openai_tool(row) for row in tools]
     openai_tools.extend(extra_tools)
     # Above the threshold, offer the core tools, the tools closest to what the person asked
@@ -270,7 +279,12 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             usage_source = str(applied["usage_source"] or usage_source)
             run["step_kind"] = kind
             saved_loop = read_worker_loop(run)
-            if one_step or kind in {"paused", "final"}:
+            if kind == "sections" and not one_step:
+                from ar_domain.documents.sections import run_pending  # noqa: PLC0415
+
+                run_pending(store, run)
+                continue
+            if one_step or kind in {"paused", "final", "sections"}:
                 return True
             if kind == "tools":
                 continue
@@ -283,7 +297,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             )
             _stop_budget(store, run, assistant, limit, previews)
             return True
-        if planning_enabled(definition) and (not planned or run.get("needs_replan")):
+        if planning_enabled(definition, documents=documents_turn) and (
+            not planned or run.get("needs_replan")
+        ):
             planned = await _take_plan(
                 store,
                 run,
@@ -635,7 +651,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 batch_images.extend(produced)
             if deferred and str(call.get("name")) in _SEARCH_TOOL_NAMES:
                 _add_found_tools(outcome.get("structured"), by_name, openai_tools, offered)
-            if failed and planning_enabled(definition):
+            if failed and planning_enabled(definition, documents=documents_turn):
                 run["needs_replan"] = True
                 planned = False
             if consecutive_errors >= failure_cap:
@@ -817,7 +833,30 @@ def _openai_tool(row: dict[str, object]) -> dict[str, object]:
 # search tool; it finds the rest with a search, and a found tool's schema is added to the
 # next call (M39-T04).
 _CORE_WHEN_SEARCHING = frozenset(
-    {"files.read", "files.list", "session.plan_update", "session.search", "skills.load"}
+    {
+        "files.read",
+        "files.list",
+        "session.plan_update",
+        "session.search",
+        "skills.load",
+        "documents.list",
+        "documents.outline",
+        "documents.read",
+        "documents.search",
+        "documents.tables",
+        "documents.map",
+        "documents.extract",
+        "image.ask",
+    }
+)
+_DOCUMENT_READ = (
+    ("documents.list", "documents__list"),
+    ("documents.outline", "documents__outline"),
+    ("documents.read", "documents__read"),
+    ("documents.search", "documents__search"),
+    ("documents.tables", "documents__tables"),
+    ("documents.map", "documents__map"),
+    ("documents.extract", "documents__extract"),
 )
 _SEARCH_TOOL_NAMES = frozenset({"session__search", "tools__search"})
 
@@ -882,6 +921,37 @@ def _model_text(
     if not failed and isinstance(whole, str) and whole:
         return whole
     return wrap_tool_result(tool=qualified, call_id=call_id, content=text or "empty")
+
+
+def _offer_document_tools(
+    store: Any,
+    tools: list[dict[str, object]],
+    by_name: dict[str, dict[str, object]],
+    definition: dict[str, object],
+) -> tuple[list[dict[str, object]], dict[str, dict[str, object]]]:
+    """Offer the read-side document tools on a turn that has files, without a binding."""
+    offered = list(tools)
+    for qualified, model_name in _DOCUMENT_READ:
+        if qualified in by_name:
+            continue
+        row = _catalogue_row(store, qualified, model_name)
+        if row is None:
+            continue
+        offered.append(row)
+        by_name[model_name] = row
+        by_name[qualified] = row
+    model = definition.get("model") if isinstance(definition, dict) else None
+    alias = ""
+    if isinstance(model, dict):
+        raw = model.get("vision_alias") or model.get("visionAlias")
+        alias = str(raw or "").strip()
+    if alias and "image.ask" not in by_name:
+        row = _catalogue_row(store, "image.ask", "image__ask")
+        if row is not None:
+            offered.append(row)
+            by_name["image__ask"] = row
+            by_name["image.ask"] = row
+    return offered, by_name
 
 
 def _offer_retrieve(
@@ -1338,6 +1408,11 @@ def _act(  # noqa: PLR0917
             ),
         }
     qualified = str(bound.get("qualified_name") or name)
+    used_tools = run.get("tools_used")
+    names = [str(item) for item in used_tools] if isinstance(used_tools, list) else []
+    if qualified not in names:
+        names.append(qualified)
+    run["tools_used"] = names
     version_id = uuid.UUID(str(bound["tool_version_id"]))
     digest = call_args_hash(str(version_id), payload)
     store._emit(
@@ -1533,11 +1608,10 @@ def _with_trace(store: Any, answer: str, run: dict[str, object]) -> list[dict[st
 
     retrieved = citation_parts(run.get("retrieval"))
     cited = cited_parts(store, run, answer, start=len(retrieved) + 1)
-    from ar_domain.documents.sections import reading_part, review_part  # noqa: PLC0415
+    from ar_domain.documents.sections import tools_part  # noqa: PLC0415
 
-    review = review_part(run)
-    reading = reading_part(run)
-    extra = [part for part in (reading, review) if part]
+    reading = tools_part(run)
+    extra = [reading] if reading else []
     return [{"type": "text", "text": answer}, *retrieved, *cited, *extra]
 
 

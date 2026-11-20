@@ -15,7 +15,7 @@ from ar_common.errors import NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
-from ar_domain.documents.chunk import RETRIEVAL_BUDGET
+from ar_domain.documents.chunk import retrieval_budget
 from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.acl import collection_acl
 from ar_domain.knowledge.book import KnowledgeBook
@@ -208,11 +208,11 @@ async def retrieve(
     used = 0
     for hit in hits:
         text = str(hit.get("text") or hit.get("snippet") or "")
-        if used and used + len(text) > RETRIEVAL_BUDGET:
+        if used and used + len(text) > retrieval_budget():
             break
         used += len(text)
         kept.append(hit)
-        if used >= RETRIEVAL_BUDGET:
+        if used >= retrieval_budget():
             break
     model = ""
     if collection_ids:
@@ -225,7 +225,7 @@ async def retrieve(
         "collection_ids": [str(item) for item in collection_ids],
         "embedding_model": model,
         "rerank_model": str(found.get("rerank_model") or ""),
-        "budget_chars": RETRIEVAL_BUDGET,
+        "budget_chars": retrieval_budget(),
         "used_chars": used,
         "min_score": min_score,
         "below_threshold": min_score is not None and not kept,

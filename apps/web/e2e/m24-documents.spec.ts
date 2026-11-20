@@ -38,7 +38,7 @@ async function capture(page: Page, name: string) {
   await page.setViewportSize({ width: 1440, height: 900 });
 }
 
-test("document library, comparison, check and rewrite", async ({ page }) => {
+test("document library and a stored file", async ({ page }) => {
   await signIn(page);
   await page.goto("/documents");
   await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
@@ -60,38 +60,17 @@ test("document library, comparison, check and rewrite", async ({ page }) => {
   await expect(page.getByText("Staff use badges at every door.")).toBeVisible();
   await capture(page, "document");
 
-  await page.goto("/documents");
-  await page.getByLabel("Left document").selectOption({ label: "Access" });
-  await page.getByLabel("Right document").selectOption({ label: "Travel" });
-  await page.getByRole("button", { name: "Compare" }).click();
-  await expect(page.getByRole("heading", { name: "Comparison" })).toBeVisible();
-  await capture(page, "compare");
-
   const cookies = await page.context().cookies();
   const csrf = cookies.find((cookie) => cookie.name === "ar_csrf")?.value ?? "";
   const listed = await page.request.get("/api/v1/library-documents");
   expect(listed.ok()).toBeTruthy();
   const items = ((await listed.json()) as { items: { id: string; title: string }[] }).items;
   const access = items.find((item) => item.title === "Access");
-  const checked = await page.request.post(`/api/v1/library-documents/${access?.id}:judge`, {
-    data: { statements: ["Staff use badges", "Operate a colony on Mars"] },
+  const removed = await page.request.post(`/api/v1/library-documents/${access?.id}:judge`, {
+    data: { statements: ["Staff use badges"] },
     headers: { "x-csrf-token": csrf },
   });
-  expect(checked.ok()).toBeTruthy();
-  const check = (await checked.json()) as { id: string };
-  await page.goto(`/documents/checks/${check.id}`);
-  await expect(page.getByText(/not_judged|not_supported|failed/).first()).toBeVisible();
-  await capture(page, "check");
-
-  const rewrite = await page.request.post(`/api/v1/library-documents/${access?.id}:rewrite`, {
-    data: { instruction: 'replace "badges" with "passes"' },
-    headers: { "x-csrf-token": csrf },
-  });
-  expect(rewrite.ok()).toBeTruthy();
-  const proposal = (await rewrite.json()) as { id: string };
-  await page.goto(`/documents/rewrites/${proposal.id}`);
-  await expect(page.getByRole("heading", { name: "Rewrite review" })).toBeVisible();
-  await capture(page, "rewrite");
+  expect(removed.status()).toBeGreaterThanOrEqual(400);
 
   const axe = await new AxeBuilder({ page }).analyze();
   expect(

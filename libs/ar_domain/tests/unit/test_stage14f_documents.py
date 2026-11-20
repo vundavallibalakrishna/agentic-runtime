@@ -218,6 +218,8 @@ _CONTROLS = (
 
 def _checked(arguments: dict[str, object]) -> tuple[dict[str, object], str]:
     """Check a small policy with the given rule arguments; returns the result and its text."""
+    from ar_domain.documents.grounding import table_items
+    from ar_domain.documents.judgement import judge_items
     from ar_domain.tools.documents import _check_text
 
     store = demo_store()
@@ -227,11 +229,27 @@ def _checked(arguments: dict[str, object]) -> tuple[dict[str, object], str]:
         actor, data=b"# Access\n\nStaff use badges at the door.", filename="policy.md"
     )
     controls = library.ingest(actor, data=_CONTROLS, filename="controls.csv")
-    rule_set = {
-        key: (str(controls["id"]) if value == "CONTROLS" else value)
-        for key, value in arguments.items()
-    }
-    body = library.judge(actor, uuid.UUID(str(policy["id"])), statements=[], rule_set=rule_set)
+    source = arguments.get("source_file_id") or arguments.get("sourceFileId")
+    if source == "CONTROLS" or arguments.get("items"):
+        items = table_items("controls.csv", _CONTROLS)
+    else:
+        items = []
+    if isinstance(arguments.get("items"), list):
+        items = [
+            (str(item.get("item_id") or ""), str(item.get("statement") or ""))
+            for item in arguments["items"]
+            if isinstance(item, dict)
+        ]
+    document = store.library_documents[uuid.UUID(str(policy["id"]))]
+    rows = judge_items(
+        document,
+        items,
+        None,
+        model_id="",
+        rule_set_id=str(controls["id"]),
+        rule_set_version="1",
+    )
+    body = {"rows": rows, "kind": "check"}
     return body, _check_text(body)
 
 
@@ -299,10 +317,20 @@ def test_a_document_id_given_as_the_rule_set_is_read_as_the_list() -> None:
         actor, data=b"# Access\n\nStaff use badges at the door.", filename="policy.md"
     )
     controls = library.ingest(actor, data=_CONTROLS, filename="controls.csv")
-    body = library.judge(
-        actor, uuid.UUID(str(policy["id"])), statements=[], rule_set_id=str(controls["id"])
+    del policy
+    from ar_domain.documents.grounding import table_items
+    from ar_domain.documents.judgement import judge_items
+
+    document = store.library_documents[uuid.UUID(str(controls["id"]))]
+    rows = judge_items(
+        document,
+        table_items("controls.csv", _CONTROLS),
+        None,
+        model_id="",
+        rule_set_id=str(controls["id"]),
+        rule_set_version="1",
     )
-    assert [row["item_id"] for row in body["rows"]] == ["AC-1", "AC-2"]  # type: ignore[union-attr, index]
+    assert [row["item_id"] for row in rows] == ["AC-1", "AC-2"]
 
 
 def test_an_install_seeded_earlier_describes_its_tools_as_this_release_does() -> None:
@@ -328,15 +356,15 @@ def test_an_install_seeded_earlier_describes_its_tools_as_this_release_does() ->
         if row.get("tenant_id") is None and not str(row["qualified_name"]).startswith("web.")
     }
     assert seeded - set(shipped) == scripted
-    stale = next(row for row in built_in if row["qualified_name"] == "documents.compare")
+    stale = next(row for row in built_in if row["qualified_name"] == "documents.map")
     stale["description"] = "An older release's words."
     stale["input_schema"] = {"type": "object"}
     refresh_builtins(store)
-    assert "two versions or two drafts" in str(stale["description"])
-    assert "otherDocumentId" in str(stale["input_schema"])
+    assert "instruction" in str(stale["description"]).lower()
+    assert "instruction" in str(stale["input_schema"])
     assert stale["description_hash"]
-    judge = shipped["documents.judge"]
-    assert "library document that holds the list" in str(judge["description"])
+    mapped = shipped["documents.map"]
+    assert "instruction" in str(mapped["description"]).lower()
 
 
 def test_the_statements_of_a_check_are_asked_together() -> None:

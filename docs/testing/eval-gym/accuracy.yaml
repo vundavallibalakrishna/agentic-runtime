@@ -92,7 +92,7 @@ tasks:
       There is a document in the library with id {document_id}. Give me a short summary of
       it and quote the token it contains.
     expect:
-      tool: documents.summarise
+      tool: documents.read
       answer:
         contains: ["VAULT-42"]
 

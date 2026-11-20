@@ -77,7 +77,7 @@ def test_ingest_keeps_original_bytes_and_citations_use_stored_passages() -> None
     assert row["object_key"]
     assert read_original(store, str(row["object_key"])) == raw
     assert library.original(actor, document_id) == raw
-    hits = library.search(actor, "badges")
+    hits = library.search(actor, "badges")["hits"]
     assert hits
     assert hits[0]["passage_id"] == hits[0]["anchor"]
     assert hits[0]["content_hash"] == row["content_hash"]

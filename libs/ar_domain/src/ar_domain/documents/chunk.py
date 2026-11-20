@@ -13,10 +13,25 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ar_domain.documents.extract import Passage
 
-TARGET_CHARS = 1000
-OVERLAP = 120
-RETRIEVAL_BUDGET = 12_000
 _TOKEN = re.compile(r"[a-z0-9]{3,}")
+
+
+def _target_chars() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().document_chunk_chars)
+
+
+def _overlap() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().document_chunk_overlap)
+
+
+def retrieval_budget() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().document_retrieval_budget)
 
 
 def split_passage(passages: list[Passage]) -> list[Passage]:
@@ -26,13 +41,15 @@ def split_passage(passages: list[Passage]) -> list[Passage]:
     pieces: list[Row] = []
     for passage in passages:
         text = passage.text.strip()
-        if len(text) <= TARGET_CHARS:
+        target = _target_chars()
+        overlap = _overlap()
+        if len(text) <= target:
             pieces.append(passage)
             continue
         start = 0
         part = 0
         while start < len(text):
-            end = min(len(text), start + TARGET_CHARS)
+            end = min(len(text), start + target)
             chunk = text[start:end].strip()
             if chunk:
                 suffix = "" if part == 0 else f"-{part}"
@@ -48,14 +65,16 @@ def split_passage(passages: list[Passage]) -> list[Passage]:
                 part += 1
             if end >= len(text):
                 break
-            start = max(0, end - OVERLAP)
+            start = max(0, end - overlap)
     return pieces
 
 
 def retrieve(
-    passages: list[dict[str, object]], query: str, *, budget: int = RETRIEVAL_BUDGET
+    passages: list[dict[str, object]], query: str, *, budget: int | None = None
 ) -> list[dict[str, object]]:
     """Return the best passages that fit ``budget`` characters."""
+    if budget is None:
+        budget = retrieval_budget()
     scored = [
         (score(query, str(row.get("text") or "")), index, row) for index, row in enumerate(passages)
     ]

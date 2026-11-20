@@ -144,7 +144,9 @@ def _passages(library: Any, actor: Any, arguments: dict[str, object]) -> list[di
         body = library.read(actor, _uuid(document_id))
         _extend(found, body.get("passages"), str(body.get("title") or ""))
     if _flag(arguments.get("searchLibrary") or arguments.get("search_library")):
-        _extend(found, library.search(actor, _questions_query(arguments)), "")
+        searched = library.search(actor, _questions_query(arguments))
+        rows = searched.get("hits") if isinstance(searched, dict) else searched
+        _extend(found, rows, "")
     _extend(found, arguments.get("sources"), "")
     if not found and not _answers(arguments.get("answers")):
         raise CreateError("pass answers, sources, or documentId")

@@ -123,10 +123,6 @@ from .child_runs_api_v1_runs_run_id_children_get_response_child_runs_api_v1_runs
 from .collection_body import CollectionBody
 from .collection_body_chunking_type_0 import CollectionBodyChunkingType0
 from .collection_patch import CollectionPatch
-from .compare_body import CompareBody
-from .compare_documents_api_v1_library_documents_document_id_compare_post_response_compare_documents_api_v1_library_documents_document_id_compare_post import (
-    CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponseCompareDocumentsApiV1LibraryDocumentsDocumentIdComparePost,
-)
 from .connection_body import ConnectionBody
 from .connection_body_allowlist_type_0 import ConnectionBodyAllowlistType0
 from .connection_patch import ConnectionPatch
@@ -300,16 +296,8 @@ from .credential_provider_body_extra_type_0 import CredentialProviderBodyExtraTy
 from .credential_provider_patch import CredentialProviderPatch
 from .credential_provider_patch_extra_type_0 import CredentialProviderPatchExtraType0
 from .credentials_body import CredentialsBody
-from .crosscheck_body import CrosscheckBody
-from .crosscheck_document_api_v1_library_documents_document_id_crosscheck_post_response_crosscheck_document_api_v1_library_documents_document_id_crosscheck_post import (
-    CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponseCrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPost,
-)
 from .decide_approval_api_v1_approvals_approval_id_decide_post_response_decide_approval_api_v1_approvals_approval_id_decide_post import (
     DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponseDecideApprovalApiV1ApprovalsApprovalIdDecidePost,
-)
-from .decide_body import DecideBody
-from .decide_document_rewrite_api_v1_document_rewrites_rewrite_id_decide_post_response_decide_document_rewrite_api_v1_document_rewrites_rewrite_id_decide_post import (
-    DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostResponseDecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePost,
 )
 from .decide_item_api_v1_review_items_review_item_id_decide_post_response_decide_item_api_v1_review_items_review_item_id_decide_post import (
     DecideItemApiV1ReviewItemsReviewItemIdDecidePostResponseDecideItemApiV1ReviewItemsReviewItemIdDecidePost,
@@ -470,9 +458,6 @@ from .document_body import DocumentBody
 from .document_chunks_api_v1_knowledge_documents_document_id_chunks_get_response_document_chunks_api_v1_knowledge_documents_document_id_chunks_get import (
     DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetResponseDocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGet,
 )
-from .document_missing_api_v1_library_documents_document_id_missing_post_response_document_missing_api_v1_library_documents_document_id_missing_post import (
-    DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostResponseDocumentMissingApiV1LibraryDocumentsDocumentIdMissingPost,
-)
 from .document_outline_api_v1_library_documents_document_id_outline_get_response_document_outline_api_v1_library_documents_document_id_outline_get import (
     DocumentOutlineApiV1LibraryDocumentsDocumentIdOutlineGetResponseDocumentOutlineApiV1LibraryDocumentsDocumentIdOutlineGet,
 )
@@ -529,10 +514,6 @@ from .export_sandbox_file_api_v1_sandboxes_sandbox_id_files_export_post_response
 from .export_skill_api_v1_skills_skill_id_export_post_response_export_skill_api_v1_skills_skill_id_export_post import (
     ExportSkillApiV1SkillsSkillIdExportPostResponseExportSkillApiV1SkillsSkillIdExportPost,
 )
-from .extract_body import ExtractBody
-from .extract_document_fields_api_v1_library_documents_document_id_extract_post_response_extract_document_fields_api_v1_library_documents_document_id_extract_post import (
-    ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostResponseExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPost,
-)
 from .favourite_body import FavouriteBody
 from .feedback_body import FeedbackBody
 from .forget_memory_api_v1_memory_delete_response_forget_memory_api_v1_memory_delete import (
@@ -572,15 +553,6 @@ from .get_conversation_api_v1_conversations_conversation_id_get_response_get_con
 )
 from .get_document_api_v1_knowledge_documents_document_id_get_response_get_document_api_v1_knowledge_documents_document_id_get import (
     GetDocumentApiV1KnowledgeDocumentsDocumentIdGetResponseGetDocumentApiV1KnowledgeDocumentsDocumentIdGet,
-)
-from .get_document_check_api_v1_document_checks_check_id_get_response_get_document_check_api_v1_document_checks_check_id_get import (
-    GetDocumentCheckApiV1DocumentChecksCheckIdGetResponseGetDocumentCheckApiV1DocumentChecksCheckIdGet,
-)
-from .get_document_comparison_api_v1_document_comparisons_comparison_id_get_response_get_document_comparison_api_v1_document_comparisons_comparison_id_get import (
-    GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetResponseGetDocumentComparisonApiV1DocumentComparisonsComparisonIdGet,
-)
-from .get_document_rewrite_api_v1_document_rewrites_rewrite_id_get_response_get_document_rewrite_api_v1_document_rewrites_rewrite_id_get import (
-    GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetResponseGetDocumentRewriteApiV1DocumentRewritesRewriteIdGet,
 )
 from .get_eval_run_api_v1_eval_runs_eval_run_id_get_response_get_eval_run_api_v1_eval_runs_eval_run_id_get import (
     GetEvalRunApiV1EvalRunsEvalRunIdGetResponseGetEvalRunApiV1EvalRunsEvalRunIdGet,
@@ -752,10 +724,6 @@ from .internal_test_internal_v1_connections_test_post_response_internal_test_int
 from .invitation_create import InvitationCreate
 from .item_body import ItemBody
 from .item_body_subjectref import ItemBodySubjectref
-from .judge_body import JudgeBody
-from .judge_document_api_v1_library_documents_document_id_judge_post_response_judge_document_api_v1_library_documents_document_id_judge_post import (
-    JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponseJudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePost,
-)
 from .jwks_api_v1_well_known_jwks_json_get_response_jwks_api_v1_well_known_jwks_json_get import (
     JwksApiV1WellKnownJwksJsonGetResponseJwksApiV1WellKnownJwksJsonGet,
 )
@@ -1013,7 +981,6 @@ from .message_item import MessageItem
 from .meta_api_v1_meta_get_response_meta_api_v1_meta_get import (
     MetaApiV1MetaGetResponseMetaApiV1MetaGet,
 )
-from .missing_body import MissingBody
 from .model_body import ModelBody
 from .model_body_request_options_type_0 import ModelBodyRequestOptionsType0
 from .model_patch import ModelPatch
@@ -1233,9 +1200,6 @@ from .read_session_api_v1_builder_sessions_session_id_get_response_read_session_
     ReadSessionApiV1BuilderSessionsSessionIdGetResponseReadSessionApiV1BuilderSessionsSessionIdGet,
 )
 from .reason_body import ReasonBody
-from .redact_document_api_v1_library_documents_document_id_redact_post_response_redact_document_api_v1_library_documents_document_id_redact_post import (
-    RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostResponseRedactDocumentApiV1LibraryDocumentsDocumentIdRedactPost,
-)
 from .redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post_response_redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post import (
     RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost,
 )
@@ -1306,10 +1270,6 @@ from .revoke_invitation_api_v1_invitations_invitation_id_delete_response_revoke_
 )
 from .revoke_standing_api_v1_standing_approvals_standing_approval_id_revoke_post_response_revoke_standing_api_v1_standing_approvals_standing_approval_id_revoke_post import (
     RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostResponseRevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePost,
-)
-from .rewrite_body import RewriteBody
-from .rewrite_document_api_v1_library_documents_document_id_rewrite_post_response_rewrite_document_api_v1_library_documents_document_id_rewrite_post import (
-    RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostResponseRewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePost,
 )
 from .role_create import RoleCreate
 from .role_patch import RolePatch
@@ -1435,10 +1395,6 @@ from .suite_body import SuiteBody
 from .suite_body_gate_type_0 import SuiteBodyGateType0
 from .suite_patch import SuitePatch
 from .suite_patch_gate_type_0 import SuitePatchGateType0
-from .summarise_body import SummariseBody
-from .summarise_document_api_v1_library_documents_document_id_summarise_post_response_summarise_document_api_v1_library_documents_document_id_summarise_post import (
-    SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostResponseSummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePost,
-)
 from .suspend_api_v1_platform_tenants_tenant_id_suspend_post_response_suspend_api_v1_platform_tenants_tenant_id_suspend_post import (
     SuspendApiV1PlatformTenantsTenantIdSuspendPostResponseSuspendApiV1PlatformTenantsTenantIdSuspendPost,
 )
@@ -1657,8 +1613,6 @@ __all__ = (
     "CollectionBody",
     "CollectionBodyChunkingType0",
     "CollectionPatch",
-    "CompareBody",
-    "CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponseCompareDocumentsApiV1LibraryDocumentsDocumentIdComparePost",
     "ConnectionBody",
     "ConnectionBodyAllowlistType0",
     "ConnectionPatch",
@@ -1730,11 +1684,7 @@ __all__ = (
     "CredentialProviderPatch",
     "CredentialProviderPatchExtraType0",
     "CredentialsBody",
-    "CrosscheckBody",
-    "CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponseCrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPost",
     "DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponseDecideApprovalApiV1ApprovalsApprovalIdDecidePost",
-    "DecideBody",
-    "DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostResponseDecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePost",
     "DecideItemApiV1ReviewItemsReviewItemIdDecidePostResponseDecideItemApiV1ReviewItemsReviewItemIdDecidePost",
     "DeleteAgentApiV1AgentsAgentIdDeleteResponseDeleteAgentApiV1AgentsAgentIdDelete",
     "DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteResponseDeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDelete",
@@ -1792,7 +1742,6 @@ __all__ = (
     "DiscoverApiV1ToolServersServerIdVersionsVersionIdDiscoverPostResponseDiscoverApiV1ToolServersServerIdVersionsVersionIdDiscoverPost",
     "DocumentBody",
     "DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetResponseDocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGet",
-    "DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostResponseDocumentMissingApiV1LibraryDocumentsDocumentIdMissingPost",
     "DocumentOutlineApiV1LibraryDocumentsDocumentIdOutlineGetResponseDocumentOutlineApiV1LibraryDocumentsDocumentIdOutlineGet",
     "DocumentTablesApiV1LibraryDocumentsDocumentIdTablesGetResponseDocumentTablesApiV1LibraryDocumentsDocumentIdTablesGet",
     "DomainCreate",
@@ -1817,8 +1766,6 @@ __all__ = (
     "ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetResponseExportRuleSetRouteApiV1RuleSetsRuleSetIdGet",
     "ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponseExportSandboxFileApiV1SandboxesSandboxIdFilesExportPost",
     "ExportSkillApiV1SkillsSkillIdExportPostResponseExportSkillApiV1SkillsSkillIdExportPost",
-    "ExtractBody",
-    "ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostResponseExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPost",
     "FavouriteBody",
     "FeedbackBody",
     "ForgetMemoryApiV1MemoryDeleteResponseForgetMemoryApiV1MemoryDelete",
@@ -1835,9 +1782,6 @@ __all__ = (
     "GetConstraintApiV1SodConstraintsConstraintIdGetResponseGetConstraintApiV1SodConstraintsConstraintIdGet",
     "GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet",
     "GetDocumentApiV1KnowledgeDocumentsDocumentIdGetResponseGetDocumentApiV1KnowledgeDocumentsDocumentIdGet",
-    "GetDocumentCheckApiV1DocumentChecksCheckIdGetResponseGetDocumentCheckApiV1DocumentChecksCheckIdGet",
-    "GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetResponseGetDocumentComparisonApiV1DocumentComparisonsComparisonIdGet",
-    "GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetResponseGetDocumentRewriteApiV1DocumentRewritesRewriteIdGet",
     "GetEvalRunApiV1EvalRunsEvalRunIdGetResponseGetEvalRunApiV1EvalRunsEvalRunIdGet",
     "GetEvalSuiteApiV1EvalSuitesSuiteIdGetResponseGetEvalSuiteApiV1EvalSuitesSuiteIdGet",
     "GetEventApiV1AuditEventsEventIdGetResponseGetEventApiV1AuditEventsEventIdGet",
@@ -1910,8 +1854,6 @@ __all__ = (
     "InvitationCreate",
     "ItemBody",
     "ItemBodySubjectref",
-    "JudgeBody",
-    "JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponseJudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePost",
     "JwksApiV1WellKnownJwksJsonGetResponseJwksApiV1WellKnownJwksJsonGet",
     "KeyCreate",
     "LinkBody",
@@ -2009,7 +1951,6 @@ __all__ = (
     "MessageItem",
     "MetaApiV1MetaGetResponseMetaApiV1MetaGet",
     "MeTeamsItem",
-    "MissingBody",
     "ModelBody",
     "ModelBodyRequestOptionsType0",
     "ModelPatch",
@@ -2103,7 +2044,6 @@ __all__ = (
     "ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetResponseReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGet",
     "ReadSessionApiV1BuilderSessionsSessionIdGetResponseReadSessionApiV1BuilderSessionsSessionIdGet",
     "ReasonBody",
-    "RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostResponseRedactDocumentApiV1LibraryDocumentsDocumentIdRedactPost",
     "RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost",
     "RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostResponseRefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPost",
     "RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostResponseRefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPost",
@@ -2131,8 +2071,6 @@ __all__ = (
     "RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponseRevokeGrantApiV1TenantSupportAccessGrantIdRevokePost",
     "RevokeInvitationApiV1InvitationsInvitationIdDeleteResponseRevokeInvitationApiV1InvitationsInvitationIdDelete",
     "RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostResponseRevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePost",
-    "RewriteBody",
-    "RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostResponseRewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePost",
     "RoleCreate",
     "RolePatch",
     "RollbackAgentApiV1AgentsAgentIdRollbackPostResponseRollbackAgentApiV1AgentsAgentIdRollbackPost",
@@ -2205,8 +2143,6 @@ __all__ = (
     "SuiteBodyGateType0",
     "SuitePatch",
     "SuitePatchGateType0",
-    "SummariseBody",
-    "SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostResponseSummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePost",
     "SuspendApiV1PlatformTenantsTenantIdSuspendPostResponseSuspendApiV1PlatformTenantsTenantIdSuspendPost",
     "SwitchTenantApiV1AuthSwitchTenantPostBody",
     "SyncBody",

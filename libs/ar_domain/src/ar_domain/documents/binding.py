@@ -1,20 +1,18 @@
-"""Name stored files on a turn and remember the reading that was chosen.
+"""Name stored files on a turn.
 
 File parts are written on the user message. A later turn finds them without
-the caller sending the ids again. The audit row records ids, the plan, the
-strategy and byte sizes. It does not record the text.
+the caller sending the ids again. The audit row records ids and byte sizes.
+It does not record the text. The model plans the reading in the tool loop.
 """
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from ar_common.errors import ArError, ErrorCode, NotFoundError
 from ar_domain.agents.access import Actor
 from ar_domain.audit.memory import remember
-from ar_domain.documents.planner import plan_reading
-from ar_domain.documents.strategy import NamedText, ReadingPlan, choose, estimate_tokens
+from ar_domain.documents.strategy import NamedText, estimate_tokens
 from ar_domain.documents.templates import apply_template, resolve_template
 from ar_domain.files.logic import FileView, can_read_file
 from ar_domain.knowledge.access import can_see
@@ -22,8 +20,6 @@ from ar_domain.runs.request import ask
 
 if TYPE_CHECKING:
     import uuid
-
-_CAP = 20
 
 
 def bind_turn(
@@ -36,36 +32,25 @@ def bind_turn(
     collection_ids: list[uuid.UUID],
     instruction: str,
     task_template: str,
-    strategy: str,
     items: list[object],
     response_format: dict[str, object] | None,
     context_window: int | None,
     definition: dict[str, object] | None,
-    ask: Any,
-) -> tuple[list[uuid.UUID], ReadingPlan, list[object], dict[str, object] | None, str]:
-    """Resolve every id, plan the reading, and return the file ids to attach.
-
-    The last three values are the checklist, the output schema and the
-    instruction after a template has filled anything the request left empty.
-    """
+) -> tuple[list[uuid.UUID], list[NamedText], list[object], dict[str, object] | None, str]:
+    """Resolve every id and return the files, the measured facts, the checklist and the schema."""
     files = _unique(attachment_ids + file_ids)
     for file_id in files:
-        _require_file(store, tenant_id, user_id, file_id)
+        _require_file(store, tenant_id, user_id, file_id, definition)
     _collections(store, tenant_id, user_id, collection_ids)
-    named = _named(store, tenant_id, files)
+    named = _named(store, tenant_id, files, context_window)
     template = resolve_template(definition, task_template) if task_template.strip() else None
-    text, chosen_items, schema, chosen = apply_template(
+    text, chosen_items, schema = apply_template(
         template,
         instruction=instruction,
         items=items,
         response_format=response_format,
-        strategy=strategy,
     )
-    planned = plan_reading(text, named, ask)
-    reading = choose(planned, named, context_window, chosen)
-    if template is not None:
-        reading = replace(reading, template_id=template.id)
-    return files, reading, chosen_items, schema, text
+    return files, named, chosen_items, schema, text
 
 
 def remember_task(
@@ -77,22 +62,10 @@ def remember_task(
     file_ids: list[uuid.UUID],
     collection_ids: list[uuid.UUID],
     items: list[object],
-    plan: ReadingPlan,
+    template_id: str = "",
 ) -> None:
-    """Store the turn's request and write ``document_task.started``."""
-    ask(
-        run,
-        "plan",
-        {
-            "coverage": plan.coverage,
-            "scope": plan.scope,
-            "outputShape": plan.output_shape,
-            "steps": list(plan.steps),
-            "source": plan.source,
-        },
-    )
-    ask(run, "strategy", plan.strategy)
-    ask(run, "task_template", plan.template_id)
+    """Store the turn's files, collections, checklist and template."""
+    ask(run, "task_template", template_id)
     ask(run, "items", [_item(item) for item in items])
     ask(run, "collection_ids", [str(item) for item in collection_ids])
     ask(run, "file_ids", [str(item) for item in file_ids])
@@ -112,14 +85,7 @@ def remember_task(
         detail={
             "fileIds": [str(item) for item in file_ids],
             "collectionIds": [str(item) for item in collection_ids],
-            "strategy": plan.strategy,
-            "plan": {
-                "coverage": plan.coverage,
-                "scope": plan.scope,
-                "outputShape": plan.output_shape,
-                "source": plan.source,
-            },
-            "taskTemplate": plan.template_id,
+            "taskTemplate": template_id,
             "bytes": sizes,
         },
     )
@@ -148,7 +114,11 @@ def _unique(ids: list[uuid.UUID]) -> list[uuid.UUID]:
 
 
 def _require_file(
-    store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID, file_id: uuid.UUID
+    store: Any,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    file_id: uuid.UUID,
+    definition: dict[str, object] | None = None,
 ) -> dict[str, object]:
     files = getattr(store, "files", {})
     row = files.get(file_id) if isinstance(files, dict) else None
@@ -164,9 +134,11 @@ def _require_file(
     )
     owner = view.owner_user_id == str(user_id)
     shared = _file_in_readable_collection(store, tenant_id, user_id, row)
+    granted = _on_agent(definition, file_id, row)
     if (
         not owner
         and not shared
+        and not granted
         and not can_read_file(
             view,
             tenant_id=str(tenant_id),
@@ -233,14 +205,53 @@ def _library_for(store: Any, tenant_id: uuid.UUID, digest: str) -> dict[str, obj
     return None
 
 
+def _on_agent(
+    definition: dict[str, object] | None, file_id: uuid.UUID, row: dict[str, object]
+) -> bool:
+    """True when this agent names the file and the file has an owner."""
+    if row.get("owner_user_id") is None or not isinstance(definition, dict):
+        return False
+    knowledge = definition.get("knowledge")
+    raw = (
+        knowledge.get("file_ids", knowledge.get("fileIds")) if isinstance(knowledge, dict) else None
+    )
+    if not isinstance(raw, list):
+        return False
+    return str(file_id) in {str(item) for item in raw}
+
+
+def turn_has_documents(
+    store: Any, run: dict[str, object], definition: dict[str, object] | None
+) -> bool:
+    """True when this turn has files, collections, or the agent's default files."""
+    from ar_domain.runs.request import asked  # noqa: PLC0415
+
+    if asked(run, "file_ids") or asked(run, "collection_ids"):
+        return True
+    if _agent_file_ids(definition):
+        return True
+    messages = getattr(store, "messages", {})
+    message = messages.get(run.get("input_message_id")) if isinstance(messages, dict) else None
+    content = message.get("content") if isinstance(message, dict) else None
+    return isinstance(content, list) and any(
+        isinstance(part, dict) and part.get("type") == "file" for part in content
+    )
+
+
+def _agent_file_ids(definition: dict[str, object] | None) -> list[object]:
+    knowledge = definition.get("knowledge") if isinstance(definition, dict) else None
+    raw = (
+        knowledge.get("file_ids", knowledge.get("fileIds")) if isinstance(knowledge, dict) else None
+    )
+    return raw if isinstance(raw, list) else []
+
+
 def _collections(
     store: Any,
     tenant_id: uuid.UUID,
     user_id: uuid.UUID,
     collection_ids: list[uuid.UUID],
 ) -> list[uuid.UUID]:
-    if len(collection_ids) > _CAP:
-        raise ArError(ErrorCode.VALIDATION_FAILED, "name at most 20 collections")
     rows = getattr(store, "knowledge_collections", {})
     actor = Actor(tenant_id, user_id, frozenset({"chat:use", "knowledge:read"}))
     for collection_id in collection_ids:
@@ -250,7 +261,11 @@ def _collections(
     return collection_ids
 
 
-def _named(store: Any, tenant_id: uuid.UUID, file_ids: list[uuid.UUID]) -> list[NamedText]:
+def _named(
+    store: Any, tenant_id: uuid.UUID, file_ids: list[uuid.UUID], context_window: int | None
+) -> list[NamedText]:
+    from ar_domain.documents.strategy import documents_fit  # noqa: PLC0415
+
     named: list[NamedText] = []
     for file_id in file_ids:
         files = getattr(store, "files", {})
@@ -283,16 +298,33 @@ def _named(store: Any, tenant_id: uuid.UUID, file_ids: list[uuid.UUID]) -> list[
         counted = library.get("page_count") if isinstance(library, dict) else None
         if isinstance(counted, int) and not isinstance(counted, bool):
             pages = counted
+        tables = library.get("tables") if isinstance(library, dict) else None
+        table_count = len(tables) if isinstance(tables, list) else 0
+        tokens = estimate_tokens(text)
+        fits, _usable = documents_fit(
+            [
+                NamedText(
+                    file_id=str(file_id),
+                    document_id="",
+                    tokens=tokens,
+                    characters=len(text),
+                    headings=len(outline),
+                )
+            ],
+            context_window,
+        )
         named.append(
             NamedText(
                 file_id=str(file_id),
                 document_id=str(library.get("id")) if isinstance(library, dict) else "",
-                tokens=estimate_tokens(text),
+                tokens=tokens,
                 characters=len(text),
                 headings=len(outline),
                 title=title,
                 page_count=pages,
                 outline=tuple(outline),
+                tables=table_count,
+                fits=fits,
             )
         )
     return named

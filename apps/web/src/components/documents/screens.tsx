@@ -78,20 +78,9 @@ export function LibraryScreen() {
     }
   }
 
-  async function compare() {
-    if (!left || !right || busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      const result = await api<{ id?: string }>(`/api/v1/library-documents/${left}:compare`, {
-        method: "POST",
-        body: JSON.stringify({ otherDocumentId: right }),
-      });
-      window.location.assign(`/documents/compare?comparisonId=${result.id ?? ""}`);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
-      setBusy(false);
-    }
+  function compare() {
+    if (!left || !right) return;
+    setError("Compare documents in chat. The library does not run a fixed compare action.");
   }
 
   return (
@@ -259,7 +248,6 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
   const [standard, setStandard] = useState("");
   const [anchor, setAnchor] = useState("");
   const [instruction, setInstruction] = useState("");
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
@@ -298,45 +286,13 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
     };
   }, [documentId, t]);
 
-  async function runCheck() {
-    setBusy(true);
-    setError("");
-    try {
-      const statements = requirements
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
-      const result = await api<{ id?: string }>(`/api/v1/library-documents/${documentId}:judge`, {
-        method: "POST",
-        body: JSON.stringify({
-          statements,
-          ruleSet: standard
-            ? { id: "inline", version: "1", items: [], sourceFileId: standard }
-            : null,
-          label: "Judge",
-        }),
-      });
-      window.location.assign(`/documents/checks/${result.id ?? ""}`);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
-      setBusy(false);
-    }
+  function runCheck() {
+    setError("Check a document in chat. The library does not run a fixed judge action.");
   }
 
-  async function runRewrite() {
+  function runRewrite() {
     if (!instruction.trim()) return;
-    setBusy(true);
-    setError("");
-    try {
-      const result = await api<{ id?: string }>(`/api/v1/library-documents/${documentId}:rewrite`, {
-        method: "POST",
-        body: JSON.stringify({ anchor, instruction }),
-      });
-      window.location.assign(`/documents/rewrites/${result.id ?? ""}`);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
-      setBusy(false);
-    }
+    setError("Edit a document in chat. The library does not change the stored original.");
   }
 
   const outline = rowsOf(doc?.outline);
@@ -452,9 +408,7 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
                       ))}
                   </select>
                 </label>
-                <Button disabled={busy} type="submit">
-                  {t("check")}
-                </Button>
+                <Button type="submit">{t("check")}</Button>
               </form>
               <form
                 className="detail-panel space-y-3 p-5"
@@ -483,7 +437,7 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
                     onChange={(event) => setInstruction(event.target.value)}
                   />
                 </label>
-                <Button disabled={busy || !instruction.trim()} type="submit">
+                <Button disabled={!instruction.trim()} type="submit">
                   {t("previewRewrite")}
                 </Button>
               </form>

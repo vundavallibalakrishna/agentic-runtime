@@ -12,115 +12,20 @@ from ar_common.errors import ArError, NotFoundError
 from ar_domain.agents.access import Actor
 from ar_domain.documents.align import align
 from ar_domain.documents.library import DocumentLibrary
-from ar_domain.documents.planner import plan_reading
 from ar_domain.documents.sections import run_section
-from ar_domain.documents.strategy import (
-    Fit,
-    NamedText,
-    choose,
-    register_strategy,
-    reset_strategies,
-    usable_tokens,
-)
+from ar_domain.documents.strategy import NamedText, documents_fit, usable_tokens
 from ar_domain.documents.templates import apply_template, resolve_template
 from ar_domain.files.logic import EICAR, scan_bytes
-from ar_domain.runs.request import ask
 
 
-def _whole() -> dict[str, object]:
-    return {"coverage": "whole", "scope": "perDocument", "outputShape": "note", "steps": ()}
-
-
-def _targeted() -> dict[str, object]:
-    return {"coverage": "targeted", "scope": "perDocument", "outputShape": "note", "steps": ()}
-
-
-def test_strategy_follows_the_plan_and_the_registered_window() -> None:
+def test_the_window_is_measured_and_not_assumed() -> None:
     short = NamedText("f", "d", tokens=100, characters=400, headings=2)
     long = NamedText("f", "d", tokens=50_000, characters=200_000, headings=2)
-    assert choose(_whole(), [short], 32_768).strategy == "full"
-    assert choose(_targeted(), [short], 32_768).strategy == "retrieve"
-    assert choose(_targeted(), [long], 32_768).strategy == "retrieve"
-    assert choose(_whole(), [long], 262_144).strategy == "full"
-    assert choose(None, [long], None).strategy == "map_reduce"
-    assert choose(None, [short], 32_768).strategy == "full"
-    assert choose(None, [long], 32_768).strategy == "map_reduce"
-    assert choose(None, [long], 32_768).source == "fallback"
+    assert documents_fit([short], 32_768)[0] is True
+    assert documents_fit([long], 32_768)[0] is False
+    assert documents_fit([long], 262_144)[0] is True
     assert usable_tokens(None) is None
     assert usable_tokens(32_768) != usable_tokens(262_144)
-    with pytest.raises(ArError) as refused:
-        choose(_whole(), [long], 32_768, "full")
-    assert refused.value.code.value == "invalid_state"
-
-
-def test_a_caller_override_and_a_registered_strategy() -> None:
-    short = NamedText("f", "d", tokens=100, characters=400, headings=1)
-    assert choose(_whole(), [short], 32_768, "retrieve").strategy == "retrieve"
-    assert choose(_whole(), [short], 32_768, "mapReduce").strategy == "map_reduce"
-    with pytest.raises(ArError) as unknown:
-        choose(_whole(), [short], 32_768, "sideways")
-    assert unknown.value.code.value == "validation_failed"
-
-    def sketch(fit: Fit) -> bool:
-        return fit.coverage == "sketch"
-
-    reset_strategies([("sketch", sketch), ("full", lambda fit: fit.fits)])
-    try:
-        register_strategy("retrieve", lambda fit: fit.coverage == "targeted")
-        chosen = choose(
-            {"coverage": "sketch", "scope": "perDocument", "outputShape": "", "steps": ()},
-            [short],
-            32_768,
-        )
-        assert chosen.strategy == "sketch"
-    finally:
-        reset_strategies()
-
-
-def test_the_planner_trusts_the_model_in_any_language() -> None:
-    seen: dict[str, str] = {}
-
-    def ask(task: str, evidence: str) -> str:
-        del task
-        seen["evidence"] = evidence
-        return (
-            '{"coverage":"targeted","scope":"acrossDocuments",'
-            '"outputShape":"note","steps":["read"]}'
-        )
-
-    document = NamedText(
-        "f",
-        "d",
-        tokens=100,
-        characters=400,
-        headings=1,
-        title="notes",
-        page_count=2,
-        outline=("Hours",),
-    )
-    instruction = "文書の違いを教えてください"
-    plan = plan_reading(instruction, [document], ask)
-    assert instruction in seen["evidence"]
-    assert "title=notes" in seen["evidence"]
-    assert plan is not None
-    reading = choose(plan, [document], 32_768)
-    assert reading.strategy == "retrieve"
-    assert reading.scope == "acrossDocuments"
-    again = plan_reading("Quelles sont les différences ?", [document], ask)
-    assert choose(again, [document], 32_768).strategy == reading.strategy
-
-
-def test_an_invalid_plan_falls_back_to_the_window() -> None:
-    short = NamedText("f", "d", tokens=100, characters=400, headings=1)
-    long = NamedText("f", "d", tokens=50_000, characters=200_000, headings=1)
-
-    def ask(task: str, evidence: str) -> str:
-        del task, evidence
-        return "summarise the gaps and compare what which who"
-
-    assert plan_reading("要約して比較する", [short], ask) is None
-    assert choose(None, [short], 32_768).strategy == "full"
-    assert choose(None, [long], 32_768).strategy == "map_reduce"
 
 
 def test_a_template_comes_from_the_agent_or_a_pack(tmp_path: object) -> None:
@@ -134,18 +39,16 @@ def test_a_template_comes_from_the_agent_or_a_pack(tmp_path: object) -> None:
                 "prompt": "Outline each document.",
                 "items": ["hours"],
                 "output_schema": {"type": "object"},
-                "strategy": "retrieve",
             }
         ]
     }
     found = resolve_template(definition, "outline", packs_dir=str(root))
-    text, items, schema, strategy = apply_template(
-        found, instruction="Please.", items=[], response_format=None, strategy=""
+    text, items, schema = apply_template(
+        found, instruction="Please.", items=[], response_format=None
     )
     assert text.startswith("Outline each document.")
     assert items == [{"id": "", "text": "hours"}]
     assert schema == {"type": "object"}
-    assert strategy == "retrieve"
     folder = root / "sample" / "task-templates"
     folder.mkdir(parents=True)
     (folder / "outline.json").write_text(
@@ -186,8 +89,8 @@ def test_library_list_is_owner_only_inside_one_tenant() -> None:
     other = Actor(tenant, uuid.uuid4(), frozenset({"chat:use"}))
     library = DocumentLibrary(_store())
     saved = library.ingest(owner, data=b"# Note\n\nThe desk opens at eight.", filename="note.md")
-    assert library.list_items(owner)
-    assert library.list_items(other) == []
+    assert library.list_items(owner)["documents"]
+    assert library.list_items(other)["documents"] == []
     with pytest.raises(NotFoundError):
         library.get(other, uuid.UUID(str(saved["id"])))
 
@@ -263,7 +166,8 @@ def test_a_section_retry_does_not_call_the_model_again() -> None:
         "user_id": uuid.uuid4(),
         "conversation_id": uuid.uuid4(),
         "checkpoint": {
-            "document_task": {
+            "document_map": {
+                "instruction": "Say when the desk opens.",
                 "sections": [
                     {
                         "fileId": "file-1",
@@ -274,28 +178,33 @@ def test_a_section_retry_does_not_call_the_model_again() -> None:
                     }
                 ],
                 "done": {},
-                "reduced": False,
+                "delivered": False,
             }
         },
     }
-    ask(run, "strategy", "map_reduce")
     store.runs[run["id"]] = run
 
-    def model(store: object, run: dict[str, object], section: dict[str, object], text: str) -> str:
-        del store, run, section
+    def model(
+        store: object,
+        run: dict[str, object],
+        job: dict[str, object],
+        section: dict[str, object],
+        text: str,
+    ) -> str:
+        del store, run, job, section, text
         calls["n"] += 1
         return "Opens at eight."
 
     from ar_domain.documents import sections as mod
 
-    original = mod._summarise
-    mod._summarise = model  # type: ignore[assignment]
+    original = mod._read_model
+    mod._read_model = model  # type: ignore[assignment]
     try:
         section = {"fileId": "file-1", "anchor": "p1-s0"}
         first = run_section(store, run, section)
         second = run_section(store, run, section)
     finally:
-        mod._summarise = original  # type: ignore[assignment]
+        mod._read_model = original  # type: ignore[assignment]
     assert first["quote"] == "The desk opens at eight."
     assert second == first
     assert calls["n"] == 1

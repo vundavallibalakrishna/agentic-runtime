@@ -1,0 +1,23 @@
+{
+  "id": "obligations",
+  "prompt": "List the obligations in the named documents. Use documents.extract or documents.map with the output schema. Cite the anchor for each obligation.",
+  "outputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["obligations"],
+    "properties": {
+      "obligations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["text", "owner", "anchor"],
+          "properties": {
+            "text": {"type": "string"},
+            "owner": {"type": "string"},
+            "anchor": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}

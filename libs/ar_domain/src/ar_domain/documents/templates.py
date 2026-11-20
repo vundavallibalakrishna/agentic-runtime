@@ -1,8 +1,8 @@
 """Named reading tasks from agent config or a pack file.
 
-A template is a prompt, an optional checklist, an optional output schema and
-an optional preferred strategy. Core does not ship one. A missing id is an
-error; a file that is not the schema is ignored.
+A template is a prompt, an optional checklist and an optional output schema.
+Core does not ship one. A missing id is an error; a file that is not the
+schema is ignored.
 """
 
 from __future__ import annotations
@@ -25,20 +25,18 @@ TEMPLATE_SCHEMA: dict[str, object] = {
         "prompt": {"type": "string"},
         "items": {"type": "array", "items": {"type": "string"}},
         "outputSchema": {"type": "object"},
-        "strategy": {"type": "string"},
     },
 }
 
 
 @dataclass(frozen=True, slots=True)
 class TaskTemplate:
-    """One reusable task. ``strategy`` is empty when the template does not prefer one."""
+    """One reusable task. The instruction is still the request."""
 
     id: str
     prompt: str
     items: tuple[str, ...]
     output_schema: dict[str, object] | None
-    strategy: str
 
 
 def resolve_template(
@@ -63,18 +61,16 @@ def apply_template(
     instruction: str,
     items: list[object],
     response_format: dict[str, object] | None,
-    strategy: str,
-) -> tuple[str, list[object], dict[str, object] | None, str]:
+) -> tuple[str, list[object], dict[str, object] | None]:
     """Fill only the fields the request left empty. The instruction is still the request."""
     if template is None:
-        return instruction, items, response_format, strategy
+        return instruction, items, response_format
     text = instruction
     if template.prompt.strip():
         text = f"{template.prompt.strip()}\n\n{instruction}".strip()
     chosen_items = items or [{"id": "", "text": item} for item in template.items]
     schema = response_format if response_format else template.output_schema
-    chosen_strategy = strategy or template.strategy
-    return text, chosen_items, schema, chosen_strategy
+    return text, chosen_items, schema
 
 
 def _from_definition(definition: dict[str, object] | None) -> dict[str, TaskTemplate]:
@@ -118,13 +114,11 @@ def _parse(raw: object) -> TaskTemplate | None:
     raw = wired
     items = raw.get("items")
     schema = raw.get("outputSchema")
-    strategy = str(raw.get("strategy") or "").strip()
     return TaskTemplate(
         id=str(raw.get("id") or "").strip(),
         prompt=str(raw.get("prompt") or ""),
         items=tuple(str(item) for item in items) if isinstance(items, list) else (),
         output_schema=schema if isinstance(schema, dict) and schema else None,
-        strategy=strategy,
     )
 
 
@@ -138,7 +132,6 @@ def _wire(raw: object) -> dict[str, object] | None:
         "items": "items",
         "output_schema": "outputSchema",
         "outputSchema": "outputSchema",
-        "strategy": "strategy",
     }
     wired: dict[str, object] = {}
     for key, value in raw.items():

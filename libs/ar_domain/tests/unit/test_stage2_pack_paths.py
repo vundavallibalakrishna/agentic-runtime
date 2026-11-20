@@ -376,54 +376,34 @@ def test_judge_stores_a_rule_set_and_reads_it_back() -> None:
     )
     source_id = uuid.UUID(str(source["id"]))
     subject_id = uuid.UUID(str(subject["id"]))
+    from ar_domain.documents.rules import export_rule_set, import_rule_set
+
     with pytest.raises(ValidationFailedError):
-        library.judge(actor, subject_id, statements=["  "])
-    library.judge(
+        import_rule_set(store, actor, {"id": "access-rules", "version": "3", "items": []})
+    report = import_rule_set(
+        store,
         actor,
-        subject_id,
-        statements=["Trips need approval"],
-        rule_set={"items": []},
-    )
-    report = library.judge(
-        actor,
-        subject_id,
-        statements=["  ", "Trips need approval"],
-        rule_set={
+        {
             "id": "access-rules",
             "version": "3",
-            "items": [{"statement": "Badges are required"}, "Visitors sign in", "", 4],
-            "source_file_id": source_id,
+            "items": [{"statement": "Badges are required"}],
+            "source_file_id": str(source_id),
             "sha256": "abc",
         },
     )
-    assert report["rule_set_version"] == "3"
-    assert report["kind"] == "judge"
+    assert report["version"] == "3"
     stored = next(
         row
         for row in store.rule_sets.values()
         if isinstance(row, dict) and row.get("set_id") == "access-rules"
     )
     assert stored["sha256"] == "abc"
-    store.rule_sets[uuid.uuid4()] = "nope"  # type: ignore[assignment]
-    library.judge(actor, subject_id, statements=["Trips need approval"], rule_set_id="broken")
-    named = library.missing(
-        actor,
-        subject_id,
-        statements=["Trips need approval"],
-        rule_set={
-            "id": "travel-rules",
-            "version": "1",
-            "items": "not-a-list",
-            "sourceFileId": "not-a-uuid",
-            "sha256": "",
-        },
-    )
-    assert named["rule_set_id"] == "travel-rules"
-    again = library.judge(actor, subject_id, statements=[], rule_set_id="travel-rules")
-    assert again["rule_set_id"] == "travel-rules"
-    rows = again["rows"]
+    again = export_rule_set(store, actor, "access-rules", "3")
+    assert again["id"] == "access-rules"
+    rows = again["items"]
     assert isinstance(rows, list)
     assert rows
+    del subject_id
 
 
 def _memory_store() -> Any:

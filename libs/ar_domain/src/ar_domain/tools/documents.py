@@ -43,14 +43,39 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
         return _error("validation_failed", "The document tool needs a tenant.")
     try:
         if name == "list":
-            rows = library.list_items(actor)
-            text = "\n".join(
-                f"{row['id']} {row['title']} ({row['page_count']} pages)" for row in rows
+            body = library.list_items(
+                actor,
+                scope=str(arguments.get("scope") or "library"),
+                run=_run(store, arguments),
+                cursor=str(arguments.get("cursor") or ""),
             )
-            return _ok(text or "No documents yet.", {"kind": "document", "documents": rows})
+            rows = body.get("documents")
+            listed = rows if isinstance(rows, list) else []
+            text = "\n".join(
+                f"{row['id']} {row['title']} ({row.get('page_count')} pages)"
+                for row in listed
+                if isinstance(row, dict)
+            )
+            return _ok(text or "No documents yet.", {"kind": "document", **body})
         if name == "search":
-            hits = library.search(actor, str(arguments.get("query") or ""))
-            return _ok(_OPEN + "\n" + _lines(hits), {"kind": "document", "hits": hits})
+            found = library.search(
+                actor,
+                str(arguments.get("query") or ""),
+                document_ids=_id_list(
+                    arguments.get("documentIds") or arguments.get("document_ids")
+                ),
+                file_ids=_id_list(arguments.get("fileIds") or arguments.get("file_ids")),
+                collection_ids=_id_list(
+                    arguments.get("collectionIds") or arguments.get("collection_ids")
+                ),
+                top_k=_as_int(arguments.get("topK") or arguments.get("top_k"), 0),
+                run=_run(store, arguments),
+            )
+            hits = found.get("hits")
+            return _ok(
+                _OPEN + "\n" + _lines(hits if isinstance(hits, list) else []),
+                {"kind": "document", **found},
+            )
         if name == "ingest":
             return _ingest(library, store, actor, arguments)
         if name == "ocr":
@@ -62,90 +87,53 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 page_from=_as_int(arguments.get("pageFrom") or arguments.get("page_from"), 1),
                 page_to=_as_int(arguments.get("pageTo") or arguments.get("page_to"), 0),
                 anchor=str(arguments.get("anchor") or ""),
+                heading=str(arguments.get("heading") or ""),
+                anchor_from=str(arguments.get("anchorFrom") or arguments.get("anchor_from") or ""),
+                anchor_to=str(arguments.get("anchorTo") or arguments.get("anchor_to") or ""),
+                cursor=str(arguments.get("cursor") or ""),
+                limit=_as_int(arguments.get("limit"), 0),
             )
             return _ok(f"{_OPEN}\n\n{body.get('text')}", {"kind": "document", **body})
         if name == "outline":
             body = library.outline(
-                actor, _uuid(arguments.get("documentId") or arguments.get("document_id"))
+                actor,
+                _uuid(arguments.get("documentId") or arguments.get("document_id")),
+                cursor=str(arguments.get("cursor") or ""),
             )
             return _ok(_lines(body["outline"]), {"kind": "document", **body})
         if name == "tables":
             body = library.tables(
-                actor, _uuid(arguments.get("documentId") or arguments.get("document_id"))
+                actor,
+                _uuid(arguments.get("documentId") or arguments.get("document_id")),
+                table=str(arguments.get("table") or arguments.get("anchor") or ""),
+                offset=_as_int(arguments.get("offset"), 0),
+                limit=_as_int(arguments.get("limit"), 0),
             )
             return _ok(_table_text(body["tables"]), {"kind": "table", "tables": body["tables"]})
-        if name == "summarise":
-            body = library.summarise(
-                actor,
-                _required_id(arguments),
-                alias=_alias(arguments),
-                agent_version_id=_agent_version(arguments),
-            )
-            return _ok(_claim_text(body), body)
-        if name == "compare":
-            body = library.compare(
-                actor,
-                _required_id(arguments),
-                _uuid(arguments.get("otherDocumentId") or arguments.get("other_document_id")),
-                alias=_alias(arguments),
-                agent_version_id=_agent_version(arguments),
-            )
-            return _ok(_change_text(body), body)
-        if name == "crosscheck":
-            body = library.crosscheck(
-                actor,
-                _required_id(arguments),
-                focus=str(arguments.get("focus") or ""),
-                alias=_alias(arguments),
-                agent_version_id=_agent_version(arguments),
-            )
-            return _ok(_crosscheck_text(body), body)
-        if name == "judge":
-            body = library.judge(
-                actor,
-                _required_id(arguments),
-                statements=_statements(arguments),
-                rule_set_id=str(arguments.get("ruleSetId") or arguments.get("rule_set_id") or ""),
-                rule_set=_rule_set(arguments),
-                label=str(arguments.get("label") or ""),
-                alias=_alias(arguments),
-                agent_version_id=_agent_version(arguments),
-            )
-            return _ok(_check_text(body), body)
-        if name == "missing":
-            body = library.missing(
-                actor,
-                _required_id(arguments),
-                statements=_statements(arguments),
-                rule_set_id=str(arguments.get("ruleSetId") or arguments.get("rule_set_id") or ""),
-                rule_set=_rule_set(arguments),
-                alias=_alias(arguments),
-                agent_version_id=_agent_version(arguments),
-            )
-            return _ok(_check_text(body), body)
-        if name == "rewrite":
-            body = library.propose_rewrite(
-                actor,
-                _required_id(arguments),
-                anchor=str(arguments.get("anchor") or ""),
-                instruction=str(arguments.get("instruction") or ""),
-                alias=_alias(arguments),
-                agent_version_id=_agent_version(arguments),
-            )
-            return _ok(_rewrite_text(body), body)
-        if name == "redact":
-            body = library.redact(actor, _required_id(arguments))
-            redacted = str(body.get("redacted") or "")
-            return _ok(redacted[:4000], body)
+        if name == "map":
+            return _map(library, store, arguments)
         if name == "extract":
+            schema = arguments.get("schema") or arguments.get("outputSchema")
+            if not isinstance(schema, dict):
+                return _error("validation_failed", "extract needs a JSON Schema.")
             body = library.extract(
                 actor,
                 _required_id(arguments),
-                _strings(arguments.get("fields")),
+                schema,
                 alias=_alias(arguments),
-                agent_version_id=_agent_version(arguments),
             )
             return _ok(_field_text(body), body)
+        if name == "edit":
+            changes = arguments.get("changes")
+            body = library.edit(
+                actor,
+                _required_id(arguments),
+                [item for item in changes if isinstance(item, dict)]
+                if isinstance(changes, list)
+                else [],
+                redline=arguments.get("redline") is True,
+            )
+            return _ok(str(body.get("id") or ""), {"kind": "file", **body})
         if name == "create":
             from ar_domain.documents.create import publish  # noqa: PLC0415
 
@@ -588,20 +576,51 @@ def _rewrite_text(body: dict[str, object]) -> str:
 
 
 def _field_text(body: dict[str, object]) -> str:
-    rows = body.get("fields")
-    if not isinstance(rows, list):
+    import orjson  # noqa: PLC0415
+
+    result = body.get("result")
+    if result is None:
         return ""
-    lines = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        if row.get("value") is None:
-            lines.append(f"{row.get('field')}: {row.get('reason')}")
-        else:
-            citation = row.get("citation")
-            anchor = citation.get("anchor") if isinstance(citation, dict) else ""
-            lines.append(f"{row.get('field')}: {row.get('value')} [{anchor}]")
-    return _OPEN + "\n" + "\n".join(lines)
+    return _OPEN + "\n" + orjson.dumps(result).decode()
+
+
+def _map(_library: object, store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    from ar_domain.documents.sections import begin_map, deliver_map, map_ready, run_pending  # noqa: PLC0415
+
+    run = _run(store, arguments)
+    if run is None:
+        return _error("validation_failed", "documents.map needs the run it was called from.")
+    begin_map(store, run, arguments)
+    if not map_ready(run):
+        run_pending(store, run)
+    body = deliver_map(store, run)
+    import orjson  # noqa: PLC0415
+
+    return _ok(_OPEN + "\n" + orjson.dumps(body).decode(), body)
+
+
+def _run(store: Any, arguments: dict[str, object]) -> dict[str, object] | None:
+    runs = getattr(store, "runs", None)
+    if not isinstance(runs, dict):
+        return None
+    run_id = arguments.get("_run_id")
+    row = runs.get(run_id)
+    if isinstance(row, dict):
+        return row
+    try:
+        parsed = uuid.UUID(str(run_id))
+    except ValueError:
+        return None
+    found = runs.get(parsed)
+    return found if isinstance(found, dict) else None
+
+
+def _id_list(value: object) -> list[str]:
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
 
 
 def _table_text(tables: object) -> str:

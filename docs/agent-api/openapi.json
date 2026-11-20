@@ -1859,26 +1859,6 @@
         "type": "object",
         "title": "CollectionPatch"
       },
-      "CompareBody": {
-        "properties": {
-          "otherDocumentId": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Otherdocumentid"
-          },
-          "modelAlias": {
-            "type": "string",
-            "title": "Modelalias",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "otherDocumentId"
-        ],
-        "title": "CompareBody"
-      },
       "ConnectionBody": {
         "properties": {
           "name": {
@@ -2609,42 +2589,6 @@
         "type": "object",
         "title": "CredentialsBody"
       },
-      "CrosscheckBody": {
-        "properties": {
-          "focus": {
-            "type": "string",
-            "title": "Focus",
-            "default": ""
-          },
-          "modelAlias": {
-            "type": "string",
-            "title": "Modelalias",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "CrosscheckBody"
-      },
-      "DecideBody": {
-        "properties": {
-          "decision": {
-            "type": "string",
-            "title": "Decision"
-          },
-          "hunkId": {
-            "type": "string",
-            "title": "Hunkid",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "decision"
-        ],
-        "title": "DecideBody"
-      },
       "DeliveryBody": {
         "properties": {
           "type": {
@@ -2974,25 +2918,6 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ExportBody"
-      },
-      "ExtractBody": {
-        "properties": {
-          "fields": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Fields"
-          },
-          "modelAlias": {
-            "type": "string",
-            "title": "Modelalias",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "ExtractBody"
       },
       "FavouriteBody": {
         "properties": {
@@ -3585,45 +3510,6 @@
         ],
         "title": "ItemBody"
       },
-      "JudgeBody": {
-        "properties": {
-          "ruleSetId": {
-            "type": "string",
-            "title": "Rulesetid",
-            "default": ""
-          },
-          "statements": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Statements"
-          },
-          "ruleSet": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RuleSetBody"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "label": {
-            "type": "string",
-            "title": "Label",
-            "default": ""
-          },
-          "modelAlias": {
-            "type": "string",
-            "title": "Modelalias",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "JudgeBody"
-      },
       "KeyCreate": {
         "properties": {
           "label": {
@@ -4042,11 +3928,6 @@
             ],
             "title": "Tasktemplate"
           },
-          "strategy": {
-            "type": "string",
-            "title": "Strategy",
-            "default": ""
-          },
           "items": {
             "items": {
               "anyOf": [
@@ -4107,40 +3988,6 @@
         "additionalProperties": false,
         "type": "object",
         "title": "MessageItem"
-      },
-      "MissingBody": {
-        "properties": {
-          "ruleSetId": {
-            "type": "string",
-            "title": "Rulesetid",
-            "default": ""
-          },
-          "statements": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Statements"
-          },
-          "ruleSet": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RuleSetBody"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "modelAlias": {
-            "type": "string",
-            "title": "Modelalias",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "MissingBody"
       },
       "ModelBody": {
         "properties": {
@@ -5065,30 +4912,6 @@
         ],
         "title": "ReviewDecideBody"
       },
-      "RewriteBody": {
-        "properties": {
-          "anchor": {
-            "type": "string",
-            "title": "Anchor",
-            "default": ""
-          },
-          "instruction": {
-            "type": "string",
-            "title": "Instruction"
-          },
-          "modelAlias": {
-            "type": "string",
-            "title": "Modelalias",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "instruction"
-        ],
-        "title": "RewriteBody"
-      },
       "RoleCreate": {
         "properties": {
           "key": {
@@ -5588,11 +5411,6 @@
             ],
             "title": "Tasktemplate"
           },
-          "strategy": {
-            "type": "string",
-            "title": "Strategy",
-            "default": ""
-          },
           "items": {
             "items": {
               "anyOf": [
@@ -5768,11 +5586,6 @@
               }
             ],
             "title": "Tasktemplate"
-          },
-          "strategy": {
-            "type": "string",
-            "title": "Strategy",
-            "default": ""
           },
           "items": {
             "items": {
@@ -6753,18 +6566,6 @@
         "additionalProperties": false,
         "type": "object",
         "title": "SuitePatch"
-      },
-      "SummariseBody": {
-        "properties": {
-          "modelAlias": {
-            "type": "string",
-            "title": "Modelalias",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "SummariseBody"
       },
       "SyncBody": {
         "properties": {

@@ -29,7 +29,6 @@ class MessageBody:
         file_ids (list[UUID] | Unset):
         collection_ids (list[UUID] | Unset):
         task_template (None | str | Unset):
-        strategy (str | Unset):  Default: ''.
         items (list[MessageItem | str] | Unset):
         research_mode (bool | Unset):  Default: False.
         suggest_followups (bool | Unset):  Default: False.
@@ -41,7 +40,6 @@ class MessageBody:
     file_ids: list[UUID] | Unset = UNSET
     collection_ids: list[UUID] | Unset = UNSET
     task_template: None | str | Unset = UNSET
-    strategy: str | Unset = ""
     items: list[MessageItem | str] | Unset = UNSET
     research_mode: bool | Unset = False
     suggest_followups: bool | Unset = False
@@ -79,8 +77,6 @@ class MessageBody:
             task_template = UNSET
         else:
             task_template = self.task_template
-
-        strategy = self.strategy
 
         items: list[dict[str, Any] | str] | Unset = UNSET
         if not isinstance(self.items, Unset):
@@ -120,8 +116,6 @@ class MessageBody:
             field_dict["collectionIds"] = collection_ids
         if task_template is not UNSET:
             field_dict["taskTemplate"] = task_template
-        if strategy is not UNSET:
-            field_dict["strategy"] = strategy
         if items is not UNSET:
             field_dict["items"] = items
         if research_mode is not UNSET:
@@ -177,8 +171,6 @@ class MessageBody:
 
         task_template = _parse_task_template(d.pop("taskTemplate", UNSET))
 
-        strategy = d.pop("strategy", UNSET)
-
         _items = d.pop("items", UNSET)
         items: list[MessageItem | str] | Unset = UNSET
         if _items is not UNSET:
@@ -227,7 +219,6 @@ class MessageBody:
             file_ids=file_ids,
             collection_ids=collection_ids,
             task_template=task_template,
-            strategy=strategy,
             items=items,
             research_mode=research_mode,
             suggest_followups=suggest_followups,

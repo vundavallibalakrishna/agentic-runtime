@@ -213,16 +213,25 @@ def test_tool_result_keeps_evidence_unless_the_setting_is_on(
         data=b"# Transfers\n\nPersonal data is stored in Ireland.\n",
         filename="ireland.md",
     )
-    compared = dispatch_documents(
+    ireland_text = dispatch_documents(
         store,
-        "compare",
+        "read",
         {
             "_tenant_id": tenant,
             "_user_id": demo_id("admin"),
             "documentId": ireland["id"],
-            "otherDocumentId": other["id"],
         },
     )
+    other_text = dispatch_documents(
+        store,
+        "read",
+        {
+            "_tenant_id": tenant,
+            "_user_id": demo_id("admin"),
+            "documentId": other["id"],
+        },
+    )
+    compared = {"text": f"{ireland_text['text']}\n{other_text['text']}"}
     cleaned, _flag = apply_result_safety(
         store, str(compared["text"]), open_world=True, analysis=True, tenant_id=tenant
     )

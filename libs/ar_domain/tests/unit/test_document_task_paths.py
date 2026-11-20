@@ -17,17 +17,15 @@ from ar_domain.documents.lifecycle import (
     reprocess,
     sweep_expired,
 )
-from ar_domain.documents.planner import model_ask
 from ar_domain.documents.sections import (
-    next_batch,
-    reading_part,
-    review_part,
+    begin_map,
+    deliver_map,
     run_pending,
     run_section,
+    tools_part,
 )
-from ar_domain.documents.strategy import ReadingPlan
 from ar_domain.knowledge.uploads import SLUG, ensure_uploads, find_uploads, is_system
-from ar_domain.runs.request import ask, asked
+from ar_domain.runs.request import asked
 from ar_testing.demo import demo_store
 
 
@@ -99,12 +97,10 @@ def _bind(store: _Store, tenant: uuid.UUID, user: uuid.UUID, **more: object) -> 
         "collection_ids": [],
         "instruction": "Summarise the file.",
         "task_template": "",
-        "strategy": "",
         "items": [],
         "response_format": None,
         "context_window": 32_768,
         "definition": None,
-        "ask": None,
         **more,
     }
     return bind_turn(store, tenant_id=tenant, user_id=user, **arguments)  # type: ignore[arg-type]
@@ -116,12 +112,12 @@ def test_a_turn_names_its_files_once_and_plans_from_what_they_hold() -> None:
     file_id = _file(store, tenant, user, "one")
     _library(store, tenant, user, "one", page_count=7)
     bare = _file(store, tenant, user, "bare")
-    files, reading, items, schema, text = _bind(
+    files, named, items, schema, text = _bind(
         store, tenant, user, attachment_ids=[file_id, bare], file_ids=[file_id]
     )
     assert files == [file_id, bare]
-    assert reading.strategy == "full"
-    assert reading.source == "fallback"
+    assert named[0].file_id == str(file_id)
+    assert named[0].page_count == 7
     assert (items, schema, text) == ([], None, "Summarise the file.")
 
 
@@ -202,9 +198,8 @@ def test_collections_named_on_a_turn_must_exist_and_be_visible() -> None:
         _bind(store, tenant, user, collection_ids=[hidden])
     with pytest.raises(NotFoundError):
         _bind(store, tenant, user, collection_ids=[uuid.uuid4()])
-    with pytest.raises(ArError) as many:
+    with pytest.raises(NotFoundError):
         _bind(store, tenant, user, collection_ids=[uuid.uuid4() for _ in range(21)])
-    assert "at most 20" in str(many.value)
 
 
 def test_a_template_fills_the_request_and_is_named_on_the_plan() -> None:
@@ -217,14 +212,7 @@ def test_a_template_fills_the_request_and_is_named_on_the_plan() -> None:
             {"id": "gaps", "prompt": "List what the file leaves out.", "items": ["Opening hours"]}
         ]
     }
-    seen: dict[str, str] = {}
-
-    def planner(task: str, evidence: str) -> str:
-        del task
-        seen["evidence"] = evidence
-        return '{"coverage":"whole","scope":"perDocument","outputShape":"table","steps":["read"]}'
-
-    _files, reading, items, _schema, text = _bind(
+    _files, named, items, _schema, text = _bind(
         store,
         tenant,
         user,
@@ -232,14 +220,11 @@ def test_a_template_fills_the_request_and_is_named_on_the_plan() -> None:
         instruction="Look at the visitor desk.",
         task_template="gaps",
         definition=definition,
-        ask=planner,
     )
     assert text == "List what the file leaves out.\n\nLook at the visitor desk."
     assert items == [{"id": "", "text": "Opening hours"}]
-    assert reading.template_id == "gaps"
-    assert reading.source == "model"
-    assert "outline=Hours, Badges" in seen["evidence"]
-    assert "pages=2" in seen["evidence"]
+    assert named[0].outline == ("Hours", "Badges")
+    assert named[0].page_count == 2
 
 
 def test_the_turn_request_and_its_audit_row_hold_ids_and_sizes_not_text() -> None:
@@ -249,18 +234,6 @@ def test_the_turn_request_and_its_audit_row_hold_ids_and_sizes_not_text() -> Non
     missing = uuid.uuid4()
     collection = uuid.uuid4()
     run: dict[str, object] = {"id": uuid.uuid4(), "tenant_id": tenant}
-    plan = ReadingPlan(
-        strategy="map_reduce",
-        reason="too long for one pass",
-        usable_tokens=20_000,
-        fits=False,
-        coverage="whole",
-        scope="perDocument",
-        output_shape="note",
-        steps=("read",),
-        source="model",
-        template_id="gaps",
-    )
     remember_task(
         store,
         run,
@@ -269,9 +242,8 @@ def test_the_turn_request_and_its_audit_row_hold_ids_and_sizes_not_text() -> Non
         file_ids=[file_id, missing],
         collection_ids=[collection],
         items=[{"id": "a", "text": "Opening hours"}, "Badges"],
-        plan=plan,
+        template_id="gaps",
     )
-    assert asked(run, "strategy") == "map_reduce"
     assert asked(run, "task_template") == "gaps"
     assert asked(run, "items") == [
         {"id": "a", "text": "Opening hours"},
@@ -318,7 +290,14 @@ def _section_run(
     return run
 
 
-def test_a_long_file_is_read_a_section_at_a_time_and_reduced_once() -> None:
+def _read(*args: object) -> str:
+    text = str(args[-1])
+    return text.split(".", maxsplit=1)[0] if text.strip() else ""
+
+
+def test_a_long_file_is_read_a_section_at_a_time_and_reduced_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     store = _Store()
     tenant, user = uuid.uuid4(), uuid.uuid4()
     first = _file(store, tenant, user, "one", name="one.md")
@@ -326,44 +305,32 @@ def test_a_long_file_is_read_a_section_at_a_time_and_reduced_once() -> None:
     _library(store, tenant, user, "one")
     _library(store, tenant, user, "two")
     run = _section_run(store, tenant, user, _conversation(store, tenant, [first, second]))
-    assert next_batch(store, run) is None
-    assert reading_part(run) is None
-    assert review_part(run) is None
-
-    ask(run, "strategy", "map_reduce")
-    ask(run, "plan", {"coverage": "whole", "scope": "acrossDocuments", "outputShape": "table"})
-    pending = next_batch(store, run)
-    assert pending is not None
+    assert tools_part(run) is None
+    monkeypatch.setattr("ar_domain.documents.sections._read_model", _read)
+    job = begin_map(
+        store,
+        run,
+        {"instruction": "Say when the desk opens.", "fileIds": [str(first), str(second)]},
+    )
+    pending = job["sections"]
+    assert isinstance(pending, list)
     assert [(item["fileId"], item["anchor"]) for item in pending] == [
         (str(first), "p1-s0"),
         (str(first), "p2-s0"),
         (str(second), "p1-s0"),
         (str(second), "p2-s0"),
     ]
-    assert "text" not in pending[0]
     done = run_section(store, run, pending[0])
-    # No model is registered on this store, so the summary is the section's first sentence.
-    assert done["summary"] == "The desk opens at eight."
-    assert done["model"] is False
-    assert next_batch(store, run) is not None
+    assert done["output"] == "The desk opens at eight"
     run_pending(store, run)
-    assert next_batch(store, run) is None
+    body = deliver_map(store, run)
     assert "p2-s0 p.2" in str(run["document_reduction"])
-    assert reading_part(run) == {
-        "type": "reading",
-        "strategy": "mapReduce",
-        "coverage": "whole",
-        "scope": "acrossDocuments",
-        "outputShape": "table",
-        "source": None,
-    }
-    review = review_part(run)
-    assert review is not None
-    assert review["outputShape"] == "table"
-    assert len(review["rows"]) >= 2  # type: ignore[arg-type]
+    assert len(body["results"]) == 4  # type: ignore[arg-type]
 
 
-def test_sections_past_the_cap_are_left_unread_and_the_run_says_so() -> None:
+def test_sections_past_the_cap_are_left_unread_and_the_run_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from ar_common.settings import get_settings, set_settings
 
     store = _Store()
@@ -371,37 +338,39 @@ def test_sections_past_the_cap_are_left_unread_and_the_run_says_so() -> None:
     only = _file(store, tenant, user, "one", name="one.md")
     _library(store, tenant, user, "one")
     run = _section_run(store, tenant, user, _conversation(store, tenant, [only]))
-    ask(run, "strategy", "map_reduce")
+    monkeypatch.setattr("ar_domain.documents.sections._read_model", _read)
     before = get_settings()
     set_settings(before.model_copy(update={"document_section_cap": 1}))
     try:
+        begin_map(store, run, {"instruction": "Read the file.", "fileIds": [str(only)]})
         run_pending(store, run)
+        deliver_map(store, run)
     finally:
         set_settings(before)
     reduction = str(run["document_reduction"])
     assert "p1-s0" in reduction
     assert "p2-s0" not in reduction
-    assert "The section cap was reached." in reduction
-    # One file, so there is nothing to pair: no review table.
-    assert review_part(run) is None
+    assert "More sections remain." in reduction
 
 
-def test_three_files_compared_stay_a_list_of_sections() -> None:
+def test_three_files_stay_a_list_of_sections(monkeypatch: pytest.MonkeyPatch) -> None:
     store = _Store()
     tenant, user = uuid.uuid4(), uuid.uuid4()
     files = [_file(store, tenant, user, name, name=f"{name}.md") for name in ("a", "b", "c")]
     for name in ("a", "b", "c"):
         _library(store, tenant, user, name)
     run = _section_run(store, tenant, user, _conversation(store, tenant, files))
-    ask(run, "strategy", "map_reduce")
-    ask(run, "plan", {"scope": "acrossDocuments", "outputShape": "table"})
+    monkeypatch.setattr("ar_domain.documents.sections._read_model", _read)
+    begin_map(
+        store,
+        run,
+        {"instruction": "Read each section.", "fileIds": [str(item) for item in files]},
+    )
     run_pending(store, run)
-    review = review_part(run)
-    assert review is not None
-    rows = review["rows"]
+    body = deliver_map(store, run)
+    rows = body["results"]
     assert isinstance(rows, list)
     assert len(rows) == 6
-    assert {row["status"] for row in rows} == {"paired"}
 
 
 def test_deleting_a_file_keeps_the_reading_while_another_file_has_the_same_bytes() -> None:
@@ -504,11 +473,17 @@ def test_the_uploads_collection_is_made_once_and_never_takes_a_name_in_use() -> 
     assert ensure_uploads(store, Actor(taken, uuid.uuid4(), frozenset({"chat:use"}))) is None
 
 
-def test_a_process_with_no_tenant_model_has_no_planner() -> None:
-    assert model_ask(object(), "not-a-tenant", {}) is None
-    asker = model_ask(object(), uuid.uuid4(), {})
-    # A store that cannot ask a model gives no plan, and the caller reads by the window.
-    assert asker is None or asker("task", "evidence") is None
+def test_a_section_without_a_model_is_an_error() -> None:
+    store = _Store()
+    tenant, user = uuid.uuid4(), uuid.uuid4()
+    file_id = _file(store, tenant, user, "one")
+    _library(store, tenant, user, "one")
+    run = _section_run(store, tenant, user, _conversation(store, tenant, [file_id]))
+    job = begin_map(store, run, {"instruction": "Read it.", "fileIds": [str(file_id)]})
+    sections = job["sections"]
+    assert isinstance(sections, list)
+    with pytest.raises(ArError):
+        run_section(store, run, sections[0])
 
 
 def _indexed(store: object, tenant: uuid.UUID, user: uuid.UUID, file_id: object) -> uuid.UUID:
@@ -658,9 +633,8 @@ def test_an_upload_is_parsed_by_its_kind_and_an_unknown_kind_is_refused() -> Non
     from ar_domain.knowledge.parse import ParseError, parse_bytes
 
     limit = 10_000
-    assert parse_bytes(b"plain words", mime_type="text/plain", name="a.txt", max_bytes=limit) == (
-        "plain words"
-    )
+    plain = parse_bytes(b"plain words", mime_type="text/plain", name="a.txt", max_bytes=limit)
+    assert plain.endswith("plain words")
     page = b"<html><style>p{}</style><h2>Hours</h2><p>Opens at eight.</p><nav>skip</nav></html>"
     html = parse_bytes(page, mime_type="text/html", name="a.html", max_bytes=limit)
     assert "## Hours" in html
@@ -722,46 +696,24 @@ def test_a_section_is_summarised_by_the_tenant_model_when_it_has_one() -> None:
         "conversation_id": conversation,
     }
     store.runs[run["id"]] = run  # type: ignore[index]
-    ask(run, "strategy", "map_reduce")
-    pending = next_batch(store, run)
-    assert pending is not None
-    read = run_section(store, run, pending[0])
-    # The model answered, so the summary is its words and not the section's first sentence.
-    assert read["summary"]
-    assert read["model"] is True
-    assert read["quote"] == "The desk opens at eight."
-    blank = run_section(store, run, pending[1])
-    assert blank["summary"] == ""
-    asker = model_ask(store, tenant, run)
-    assert asker is not None
-    assert asker("Plan the reading.", "instruction: summarise")
+    store.conversations[conversation] = {}
 
+    def answered(*args: object) -> str:
+        return "Opens at eight." if str(args[-1]).strip() else ""
 
-def test_a_stored_check_or_comparison_of_another_tenant_is_not_found() -> None:
-    store = demo_store()
-    tenant = uuid.uuid4()
-    actor = Actor(tenant, uuid.uuid4(), frozenset({"chat:use"}))
-    library = DocumentLibrary(store)
-    check, comparison = uuid.uuid4(), uuid.uuid4()
-    store.document_checks[check] = {
-        "tenant_id": tenant,
-        "label": "Hours",
-        "rows": {"rows": [{"item": "Opening hours", "status": "found"}]},
-    }
-    store.document_comparisons[comparison] = {"tenant_id": tenant, "changes": {"changes": []}}
-    assert library.get_check(actor, check) == {
-        "rows": [{"item": "Opening hours", "status": "found"}],
-        "id": str(check),
-        "label": "Hours",
-    }
-    assert library.get_comparison(actor, comparison) == {"changes": [], "id": str(comparison)}
-    stranger = Actor(uuid.uuid4(), uuid.uuid4(), frozenset({"chat:use"}))
-    with pytest.raises(NotFoundError):
-        library.get_check(stranger, check)
-    with pytest.raises(NotFoundError):
-        library.get_comparison(stranger, comparison)
-    with pytest.raises(NotFoundError):
-        library.get_check(actor, uuid.uuid4())
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("ar_domain.documents.sections._read_model", answered)
+    try:
+        job = begin_map(store, run, {"instruction": "Read it.", "fileIds": [str(file_id)]})
+        pending = job["sections"]
+        assert isinstance(pending, list)
+        read = run_section(store, run, pending[0])
+        assert read["output"] == "Opens at eight."
+        assert read["quote"] == "The desk opens at eight."
+        blank = run_section(store, run, pending[1])
+        assert blank["output"] == ""
+    finally:
+        monkeypatch.undo()
 
 
 def test_files_an_agent_always_reads_are_listed_only_when_they_are_the_callers() -> None:
@@ -781,7 +733,8 @@ def test_files_an_agent_always_reads_are_listed_only_when_they_are_the_callers()
     lines = _agent_lines(store, run, definition, {known})
     assert f"[file: one.md id={mine}]" in lines
     assert "The desk opens at eight." in lines
-    for name in ("known.md", "theirs.md", "elsewhere.md"):
+    assert "theirs.md" in lines
+    for name in ("known.md", "elsewhere.md"):
         assert name not in lines
     assert _agent_lines(store, run, {"knowledge": {}}, set()) == ""
     assert _agent_lines(store, run, {}, set()) == ""

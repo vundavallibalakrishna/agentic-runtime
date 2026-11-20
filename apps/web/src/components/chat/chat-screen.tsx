@@ -135,6 +135,9 @@ export function ChatScreen() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [researchOn, setResearchOn] = useState(false);
+  const [taskTemplate, setTaskTemplate] = useState("");
+  const [checklist, setChecklist] = useState("");
+  const [collectionIds, setCollectionIds] = useState("");
   const [copiedId, setCopiedId] = useState("");
   const parentRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -508,6 +511,23 @@ export function ChatScreen() {
             fileIds: attachments.filter((file) => file.stored).map((file) => file.id),
             researchMode: researchOn,
             suggestFollowups: true,
+            ...(taskTemplate.trim() ? { taskTemplate: taskTemplate.trim() } : {}),
+            ...(checklist.trim()
+              ? {
+                  items: checklist
+                    .split("\n")
+                    .map((line) => line.trim())
+                    .filter(Boolean),
+                }
+              : {}),
+            ...(collectionIds.trim()
+              ? {
+                  collectionIds: collectionIds
+                    .split(",")
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+                }
+              : {}),
           }),
         },
       );
@@ -1354,6 +1374,32 @@ export function ChatScreen() {
                 />
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-wrap items-center gap-1">
+                    <details className="text-xs text-[var(--muted-foreground)]">
+                      <summary>Template, checklist, collections</summary>
+                      <div className="mt-2 grid gap-2">
+                        <input
+                          aria-label="Task template"
+                          className="h-8 rounded-md border border-[var(--border)] bg-transparent px-2"
+                          onChange={(event) => setTaskTemplate(event.target.value)}
+                          placeholder="task template id"
+                          value={taskTemplate}
+                        />
+                        <textarea
+                          aria-label="Checklist"
+                          className="min-h-16 rounded-md border border-[var(--border)] bg-transparent px-2 py-1"
+                          onChange={(event) => setChecklist(event.target.value)}
+                          placeholder="one checklist item per line"
+                          value={checklist}
+                        />
+                        <input
+                          aria-label="Collections"
+                          className="h-8 rounded-md border border-[var(--border)] bg-transparent px-2"
+                          onChange={(event) => setCollectionIds(event.target.value)}
+                          placeholder="collection ids, comma separated"
+                          value={collectionIds}
+                        />
+                      </div>
+                    </details>
                     <Button
                       aria-label={t("pickDocuments")}
                       className="h-9 text-xs"

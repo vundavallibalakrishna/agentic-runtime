@@ -55,6 +55,9 @@ class DryRunCompleter:
         del tools, tenant_id, model_alias
         tool_text = _last_tool(messages)
         if tool_text is not None:
+            requirement = _requirement(_user_text(messages))
+            if requirement and requirement.lower() not in tool_text.lower():
+                return _turn("The document does not contain that requirement: not_found", [])
             return _turn(quote_result(tool_text), [])
         call = choose(_user_text(messages))
         if call is None:
@@ -79,10 +82,7 @@ def _requirement_call(
 ) -> dict[str, object] | None:
     if "requirement:" not in lowered or document_id is None or requirement is None:
         return None
-    return _call(
-        "documents__judge",
-        {"documentId": document_id, "statements": [requirement]},
-    )
+    return _call("documents__read", {"documentId": document_id})
 
 
 def _summarise_call(
@@ -93,7 +93,7 @@ def _summarise_call(
         return None
     if document_id is None:
         return None
-    return _call("documents__summarise", {"documentId": document_id})
+    return _call("documents__read", {"documentId": document_id})
 
 
 def _knowledge_call(
