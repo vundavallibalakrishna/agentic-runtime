@@ -783,44 +783,12 @@ class DocumentLibrary:
         raise NotFoundError()
 
     def _visible(self, actor: Actor, row: object) -> bool:
-        """The owner, or someone who can read a collection the file was shared through."""
+        """The owner, or a user of a published agent whose default files name this file."""
         if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
             return False
         if row.get("owner_user_id") == actor.user_id:
             return True
-        if self._shared(actor, row):
-            return True
         return self._agent_granted(actor, row)
-
-    def _shared(self, actor: Actor, row: dict[str, object]) -> bool:
-        """A collection the caller can read holds these bytes.
-
-        The file is read by its id, the knowledge document's ``raw_file_id``.
-        The hash is compared on that one row. The file table is not scanned.
-        """
-        from ar_domain.knowledge.access import can_read_document  # noqa: PLC0415
-
-        digest = str(row.get("content_hash") or "")
-        if not digest:
-            return False
-        documents = getattr(self.store, "knowledge_documents", {})
-        collections = getattr(self.store, "knowledge_collections", {})
-        files = getattr(self.store, "files", {})
-        if not isinstance(documents, dict) or not isinstance(collections, dict):
-            return False
-        for document in documents.values():
-            if not isinstance(document, dict) or document.get("tenant_id") != actor.tenant_id:
-                continue
-            if document.get("status") == "deleted":
-                continue
-            if not _holds_hash(files, document, digest):
-                continue
-            collection = collections.get(document.get("collection_id"))
-            if isinstance(collection, dict) and can_read_document(
-                self.store, actor, document, collection
-            ):
-                return True
-        return False
 
     def _agent_granted(self, actor: Actor, row: dict[str, object]) -> bool:
         """A file named on an agent in this tenant is readable by that agent's users.

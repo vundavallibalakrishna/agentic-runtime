@@ -82,7 +82,7 @@ Writes only via `platform_session()`. Tenant lookup by slug or Keycloak organiza
 
 ### 3.5 `documents`
 
-`tenant_isolation` still limits every row to the tenant. Four restrictive policies sit on top. A row in a collection stays readable and writable inside that tenant policy. A library extract (`collection_id` null) is readable by its owner, by a user of a published agent whose `knowledge.fileIds` names the file when both the document and the file have an owner, or by a reader of a collection document that holds the same bytes. Writes and deletes of a library extract require `owner_user_id = app_user_id()`. A row with no owner and no collection matches none of these and is not visible.
+`tenant_isolation` still limits every row to the tenant. Four restrictive policies sit on top. A row in a collection stays readable and writable inside that tenant policy. A library extract (`collection_id` null) is readable by its owner, or by a user of a published agent whose `knowledge.fileIds` names the file when both the document and the file have an owner. Sharing the same bytes through a collection does not grant the library extract. Writes and deletes of a library extract require `owner_user_id = app_user_id()`. A row with no owner and no collection matches none of these and is not visible.
 
 ## 4. Non-tenant lookups that must work before a tenant is known
 

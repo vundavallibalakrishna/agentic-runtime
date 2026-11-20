@@ -26,7 +26,7 @@ def delete_library(store: Any, actor: Actor, document_id: uuid.UUID) -> None:
 
     library = DocumentLibrary(store)
     row = library._own(actor, document_id)
-    if row.get("owner_user_id") != actor.user_id and not library._shared(actor, row):
+    if row.get("owner_user_id") != actor.user_id:
         raise NotFoundError()
     _drop_vectors(store, actor, row)
     store.library_documents.pop(document_id, None)

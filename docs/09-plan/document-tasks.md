@@ -54,11 +54,10 @@ Migration `0057` copies library layout onto `documents` and makes
 `collection_id` and `source_id` nullable. Migration `0058` moves judgements,
 rule sets and the other library child rows onto `documents`, drops
 `library_documents`, and adds SQL policies: a collection document stays
-visible inside the tenant; a library extract is visible to its owner, to a
+visible inside the tenant; a library extract is visible to its owner, or to a
 user of a published agent whose default files name it when that file has an
-owner, or to a reader of a collection that holds the same bytes. A row with
-no owner and no collection is not visible. Content-hash dedupe stays on
-`documents`.
+owner. A row with no owner and no collection is not visible. Content-hash
+dedupe stays on `documents`.
 
 Docling is the layout parser for PDF, Office and HTML on every ingest path.
 `documents/extract.py` reads a format Docling cannot, and it is what a process

@@ -151,10 +151,15 @@ async def test_library_rows_are_owner_only_under_rls(database_url: str) -> None:
                 "INSERT INTO documents (id, tenant_id, owner_user_id, title, filename, "
                 "mime_type, source, content_hash, version_hash, size_bytes, external_id, uri) "
                 "VALUES (:id, :tenant, :owner, 'Note', 'note.md', 'text/markdown', 'upload', "
-                ":hash, :hash, 12, 'library:' || CAST(:id AS text), "
-                "'library://' || CAST(:id AS text))"
+                ":hash, :hash, 12, 'library:' || :external, 'library://' || :external)"
             ),
-            {"id": document, "tenant": tenant, "owner": owner, "hash": uuid.uuid4().hex},
+            {
+                "id": document,
+                "tenant": tenant,
+                "owner": owner,
+                "hash": uuid.uuid4().hex,
+                "external": str(document),
+            },
         )
     async with engine.begin() as connection:
         await connection.execute(
@@ -183,7 +188,7 @@ async def test_library_rows_are_owner_only_under_rls(database_url: str) -> None:
     assert owned == 1
 
 
-async def test_a_collection_reader_sees_the_library_row_under_rls(database_url: str) -> None:
+async def test_a_collection_reader_does_not_see_the_library_extract(database_url: str) -> None:
     tenant = uuid.uuid4()
     owner = uuid.uuid4()
     reader = uuid.uuid4()
@@ -238,10 +243,15 @@ async def test_a_collection_reader_sees_the_library_row_under_rls(database_url: 
                 "INSERT INTO documents (id, tenant_id, owner_user_id, title, filename, "
                 "mime_type, source, content_hash, version_hash, size_bytes, external_id, uri) "
                 "VALUES (:id, :tenant, :owner, 'Note', 'note.md', 'text/markdown', 'upload', "
-                ":hash, :hash, 12, 'library:' || CAST(:id AS text), "
-                "'library://' || CAST(:id AS text))"
+                ":hash, :hash, 12, 'library:' || :external, 'library://' || :external)"
             ),
-            {"id": document, "tenant": tenant, "owner": owner, "hash": digest},
+            {
+                "id": document,
+                "tenant": tenant,
+                "owner": owner,
+                "hash": digest,
+                "external": str(document),
+            },
         )
         await connection.execute(
             text(
@@ -286,8 +296,12 @@ async def test_a_collection_reader_sees_the_library_row_under_rls(database_url: 
         shared = await connection.scalar(
             text("SELECT count(*) FROM documents WHERE id = :id"), {"id": document}
         )
+        visible = await connection.scalar(
+            text("SELECT count(*) FROM documents WHERE id = :id"), {"id": knowledge}
+        )
     await engine.dispose()
-    assert shared == 1
+    assert shared == 0
+    assert visible == 1
 
 
 def _chunk(

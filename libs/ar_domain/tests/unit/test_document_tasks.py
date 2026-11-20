@@ -95,7 +95,7 @@ def test_library_list_is_owner_only_inside_one_tenant() -> None:
         library.get(other, uuid.UUID(str(saved["id"])))
 
 
-def test_an_ownerless_row_is_hidden_and_a_collection_share_is_not() -> None:
+def test_an_ownerless_row_stays_hidden_and_a_collection_does_not_share_it() -> None:
     tenant = uuid.uuid4()
     owner = Actor(tenant, uuid.uuid4(), frozenset({"chat:use"}))
     reader = Actor(tenant, uuid.uuid4(), frozenset({"chat:use"}))
@@ -147,7 +147,8 @@ def test_an_ownerless_row_is_hidden_and_a_collection_share_is_not() -> None:
             "acl_principals": [f"user:{reader.user_id}"],
         }
     }
-    assert library.get(reader, document_id)["id"] == str(document_id)
+    with pytest.raises(NotFoundError):
+        library.get(reader, document_id)
 
 
 def test_a_section_retry_does_not_call_the_model_again() -> None:

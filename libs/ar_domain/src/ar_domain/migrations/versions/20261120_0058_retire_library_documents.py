@@ -81,23 +81,6 @@ USING (
             )
           )
       )
-      OR EXISTS (
-        SELECT 1
-        FROM documents AS indexed
-        JOIN files AS shared
-          ON shared.id = indexed.raw_file_id
-         AND shared.tenant_id = indexed.tenant_id
-        WHERE indexed.tenant_id = documents.tenant_id
-          AND indexed.collection_id IS NOT NULL
-          AND shared.sha256 = documents.content_hash
-          AND documents.content_hash <> ''
-          AND shared.deleted_at IS NULL
-          AND indexed.status <> 'deleted'
-          AND indexed.acl_principals && ARRAY[
-            'user:' || app_user_id()::text,
-            'tenant:*'
-          ]::text[]
-      )
     )
   )
 )
