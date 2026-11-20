@@ -88,6 +88,8 @@ class HybridQuery(_Frozen):
     lexical_k: int = 50
     fused_k: int = 50
     rrf_k: int = 60
+    # Empty searches the collections. A non-empty list is an AND on those documents.
+    document_ids: tuple[uuid.UUID, ...] = ()
 
     @model_validator(mode="after")
     def filters_present(self) -> HybridQuery:
@@ -95,6 +97,8 @@ class HybridQuery(_Frozen):
             raise ValueError("principals and classifications are required")
         if not self.targets or len(self.targets) > 20:
             raise ValueError("search needs between 1 and 20 targets")
+        if len(self.document_ids) > 50:
+            raise ValueError("search names at most 50 documents")
         return self
 
 

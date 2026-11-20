@@ -1,7 +1,7 @@
 """Publish the seeded assistant again, told to add nothing a source does not state.
 
-Revision ID: 0055
-Revises: 0054
+Revision ID: 0056
+Revises: 0055
 Create Date: 2026-11-20
 
 Asked for a matrix from a document without naming its columns, the assistant added
@@ -31,8 +31,8 @@ from ar_common.jcs import args_hash
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-revision: str = "0055"
-down_revision: str | None = "0054"
+revision: str = "0056"
+down_revision: str | None = "0055"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

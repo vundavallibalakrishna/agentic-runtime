@@ -11154,6 +11154,48 @@
       }
     },
     "/api/v1/library-documents/{document_id}": {
+      "delete": {
+        "summary": "Delete Library Document",
+        "operationId": "delete_library_document_api_v1_library_documents__document_id__delete",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Delete Library Document Api V1 Library Documents  Document Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "summary": "Get Library Document",
         "operationId": "get_library_document_api_v1_library_documents__document_id__get",
@@ -11178,6 +11220,58 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Get Library Document Api V1 Library Documents  Document Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/library-documents/{document_id}:reprocess": {
+      "post": {
+        "summary": "Reprocess Library Document",
+        "operationId": "reprocess_library_document_api_v1_library_documents__document_id__reprocess_post",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReprocessBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Reprocess Library Document Api V1 Library Documents  Document Id  Reprocess Post"
                 }
               }
             }
@@ -21463,6 +21557,29 @@
             "type": "string",
             "title": "Mime Type",
             "default": ""
+          },
+          "expires_after_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires After Seconds"
+          },
+          "replaces_file_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces File Id"
           }
         },
         "type": "object",
@@ -21480,6 +21597,29 @@
             "type": "string",
             "title": "Mime Type",
             "default": ""
+          },
+          "expires_after_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires After Seconds"
+          },
+          "replaces_file_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces File Id"
           }
         },
         "type": "object",
@@ -24093,6 +24233,52 @@
             "type": "array",
             "title": "Attachmentids"
           },
+          "fileIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Fileids"
+          },
+          "collectionIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Collectionids"
+          },
+          "taskTemplate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasktemplate"
+          },
+          "strategy": {
+            "type": "string",
+            "title": "Strategy",
+            "default": ""
+          },
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/MessageItem"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Items"
+          },
           "researchMode": {
             "type": "boolean",
             "title": "Researchmode",
@@ -24120,6 +24306,23 @@
         "type": "object",
         "required": ["text"],
         "title": "MessageBody"
+      },
+      "MessageItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "default": ""
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MessageItem"
       },
       "MissingBody": {
         "properties": {
@@ -24949,6 +25152,18 @@
         "type": "object",
         "title": "ReindexBody"
       },
+      "ReprocessBody": {
+        "properties": {
+          "engine": {
+            "type": "string",
+            "title": "Engine",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ReprocessBody"
+      },
       "ResearchBody": {
         "properties": {
           "question": {
@@ -25504,6 +25719,72 @@
             "type": "boolean",
             "title": "Wait",
             "default": false
+          },
+          "attachmentIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Attachmentids"
+          },
+          "fileIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Fileids"
+          },
+          "collectionIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Collectionids"
+          },
+          "taskTemplate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasktemplate"
+          },
+          "strategy": {
+            "type": "string",
+            "title": "Strategy",
+            "default": ""
+          },
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/MessageItem"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "responseFormat": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responseformat"
           }
         },
         "additionalProperties": false,
@@ -25526,10 +25807,29 @@
             "type": "array",
             "title": "Collectionids"
           },
+          "documentIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Documentids"
+          },
           "topK": {
             "type": "integer",
             "title": "Topk",
             "default": 8
+          },
+          "minScore": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minscore"
           },
           "debug": {
             "type": "boolean",
@@ -25599,6 +25899,52 @@
             "type": "array",
             "title": "Attachmentids"
           },
+          "fileIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Fileids"
+          },
+          "collectionIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Collectionids"
+          },
+          "taskTemplate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasktemplate"
+          },
+          "strategy": {
+            "type": "string",
+            "title": "Strategy",
+            "default": ""
+          },
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TaskItem"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Items"
+          },
           "responseFormat": {
             "anyOf": [
               {
@@ -25615,6 +25961,22 @@
             "type": "boolean",
             "title": "Suggestfollowups",
             "default": false
+          },
+          "wait": {
+            "type": "boolean",
+            "title": "Wait",
+            "default": true
+          },
+          "callbackUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Callbackurl"
           }
         },
         "additionalProperties": false,
@@ -26542,6 +26904,23 @@
         "additionalProperties": false,
         "type": "object",
         "title": "SyncBody"
+      },
+      "TaskItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "default": ""
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TaskItem"
       },
       "TeamCreate": {
         "properties": {

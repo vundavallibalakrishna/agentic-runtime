@@ -296,6 +296,42 @@ def _unique_by_hash(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     return unique
 
 
+def _retention_until(seconds: int | None) -> object:
+    """When an upload expires. None keeps the file until someone deletes it."""
+    if seconds is None:
+        return None
+    from ar_common.settings import get_settings  # noqa: PLC0415
+    from ar_common.time import utcnow  # noqa: PLC0415
+
+    settings = get_settings()
+    low = int(settings.file_expiry_min_seconds)
+    high = int(settings.file_expiry_max_seconds)
+    if not isinstance(seconds, int) or isinstance(seconds, bool) or not low <= seconds <= high:
+        raise ArError(
+            ErrorCode.VALIDATION_FAILED,
+            f"expiresAfterSeconds must be between {low} and {high}.",
+        )
+    from datetime import timedelta  # noqa: PLC0415
+
+    return utcnow() + timedelta(seconds=seconds)
+
+
+def _durable_copy(store: object, tenant_id: object, digest: str) -> dict[str, object] | None:
+    """A durable file with these bytes, so a re-upload keeps the same id."""
+    files = getattr(store, "files", {})
+    if not isinstance(files, dict):
+        return None
+    for row in files.values():
+        if not isinstance(row, dict) or row.get("tenant_id") != tenant_id:
+            continue
+        if row.get("sha256") != digest or row.get("deleted_at") or row.get("retention_until"):
+            continue
+        if row.get("status") != "ready":
+            continue
+        return row
+    return None
+
+
 def _preview(mime_type: str, data: bytes) -> dict[str, object]:
     if mime_type in {"text/csv", "application/csv"}:
         return {"kind": "csv", "rows": csv_rows(data)}
@@ -1624,7 +1660,7 @@ class ChatBehaviour:
         del nodes
         return rows
 
-    def post_message(
+    def post_message(  # noqa: PLR0912, PLR0915
         self,
         tenant_id: uuid.UUID,
         user_id: uuid.UUID,
@@ -1632,6 +1668,11 @@ class ChatBehaviour:
         text: str,
         *,
         attachment_ids: list[uuid.UUID] | None = None,
+        file_ids: list[uuid.UUID] | None = None,
+        collection_ids: list[uuid.UUID] | None = None,
+        task_template: str = "",
+        strategy: str = "",
+        items: list[object] | None = None,
         parent_message_id: uuid.UUID | None = None,
         schedule: bool = True,
         research: bool = False,
@@ -1651,7 +1692,50 @@ class ChatBehaviour:
         from ar_domain.usage.service import UsageBook  # noqa: PLC0415
 
         UsageBook(self).assert_run(tenant_id, user_id, agent_id)
-        names = self._attachment_names(tenant_id, user_id, attachment_ids or [])
+        explicit = bool(file_ids or collection_ids or items or task_template.strip() or strategy)
+        bound = list(attachment_ids or [])
+        plan = None
+        chosen_items = list(items or [])
+        if explicit:
+            from ar_domain.documents.binding import (  # noqa: PLC0415
+                bind_turn,
+                context_window_for,
+                remember_task,
+            )
+            from ar_domain.documents.planner import model_ask  # noqa: PLC0415
+
+            probe = {
+                "tenant_id": tenant_id,
+                "conversation_id": conversation_id,
+                "agent_version_id": conversation.get("agent_version_id"),
+            }
+            window = context_window_for(self, tenant_id, probe)
+            version_key = conversation.get("agent_version_id")
+            version = self.versions.get(version_key) if isinstance(version_key, uuid.UUID) else None
+            definition = version.get("definition") if isinstance(version, dict) else None
+            bound, plan, chosen_items, schema, instruction = bind_turn(
+                self,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                attachment_ids=list(attachment_ids or []),
+                file_ids=list(file_ids or []),
+                collection_ids=list(collection_ids or []),
+                instruction=text,
+                task_template=task_template,
+                strategy=strategy,
+                items=list(items or []),
+                response_format=response_format,
+                context_window=window,
+                definition=definition if isinstance(definition, dict) else None,
+                ask=model_ask(self, tenant_id, probe),
+            )
+            if instruction.strip():
+                text = instruction
+            if schema and response_format is None:
+                from ar_domain.tools.structured import check_response_format  # noqa: PLC0415
+
+                response_format = check_response_format(schema)
+        names = self._attachment_names(tenant_id, user_id, bound)
         now = utcnow()
         message_id = new_id()
         run_id = new_id()
@@ -1668,12 +1752,12 @@ class ChatBehaviour:
             "status": "completed",
             "is_active_branch": True,
             "attachments": names,
-            "attachment_ids": list(attachment_ids or []),
+            "attachment_ids": list(bound),
             "created_at": now,
             "author_user_id": user_id,
         }
         content: list[dict[str, object]] = [{"type": "text", "text": text}]
-        for file_id in attachment_ids or []:
+        for file_id in bound:
             file = self.files[file_id]
             if file.get("conversation_id") is None:
                 file["conversation_id"] = conversation_id
@@ -1709,6 +1793,17 @@ class ChatBehaviour:
             ask(run, "suggest_followups", True)
         if response_format:
             ask(run, "response_format", response_format)
+        if plan is not None:
+            remember_task(
+                self,
+                run,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                file_ids=bound,
+                collection_ids=list(collection_ids or []),
+                items=chosen_items,
+                plan=plan,
+            )
         if research:
             from ar_domain.research.engine import initial_state  # noqa: PLC0415
 
@@ -2209,7 +2304,9 @@ class ChatBehaviour:
             if not fail_unexpected(self, run_id, exc):
                 raise
 
-    async def advance_turn(self, run_id: uuid.UUID, text: str, names: list[str]) -> str:
+    async def advance_turn(  # noqa: PLR0911
+        self, run_id: uuid.UUID, text: str, names: list[str]
+    ) -> str:
         """One model call or one tool call. The worker activity is this method."""
         run = self.runs[run_id]
         if run.get("cancel_requested") is True:
@@ -2217,6 +2314,13 @@ class ChatBehaviour:
 
             mark_cancelled(self, run)
             return "final"
+        from ar_domain.documents.sections import next_batch  # noqa: PLC0415
+
+        batch = next_batch(self, run)
+        if batch:
+            run["section_batch"] = batch
+            run["step_kind"] = "sections"
+            return "sections"
         held = self._apply_stored_wait(run)
         stepped = held if held is not None else await self._stubbed_step(run_id, text, names)
         if stepped is not None:
@@ -2269,6 +2373,10 @@ class ChatBehaviour:
     ) -> None:
         """Stream an answer. ``slow`` in the text delays tokens so Stop is visible."""
         run = self.runs[run_id]
+        if not one_step:
+            from ar_domain.documents.sections import run_pending  # noqa: PLC0415
+
+            run_pending(self, run)
         if str(run.get("trigger") or "") == "research":
             from ar_domain.research.driver import advance_research  # noqa: PLC0415
 
@@ -3477,6 +3585,13 @@ class ChatBehaviour:
         on_behalf_of: uuid.UUID | None,
         allow_on_behalf: bool,
         permissions: list[str] | None = None,
+        attachment_ids: list[uuid.UUID] | None = None,
+        file_ids: list[uuid.UUID] | None = None,
+        collection_ids: list[uuid.UUID] | None = None,
+        task_template: str = "",
+        strategy: str = "",
+        items: list[object] | None = None,
+        response_format: dict[str, object] | None = None,
     ) -> dict[str, object]:
         if on_behalf_of is not None and not allow_on_behalf:
             raise ArError(ErrorCode.FORBIDDEN, "on behalf of is not allowed")
@@ -3488,6 +3603,13 @@ class ChatBehaviour:
             conversation_id,
             text,
             permissions=permissions,
+            attachment_ids=attachment_ids,
+            file_ids=file_ids,
+            collection_ids=collection_ids,
+            task_template=task_template,
+            strategy=strategy,
+            items=items,
+            response_format=response_format,
         )
         run = self.runs[uuid.UUID(str(posted["run"]["id"]))]  # type: ignore[index]
         run["trigger"] = "api"
@@ -3762,7 +3884,15 @@ class ChatBehaviour:
         return {"mime_types": list(rules.mime_types), "max_bytes": rules.max_bytes}
 
     def upload(
-        self, tenant_id: uuid.UUID, user_id: uuid.UUID, name: str, mime_type: str, data: bytes
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        name: str,
+        mime_type: str,
+        data: bytes,
+        *,
+        expires_after_seconds: int | None = None,
+        replaces_file_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         rules = upload_rules(settings_for(self, tenant_id))
         mime_type = typed_by_name(name, mime_type)
@@ -3788,9 +3918,24 @@ class ChatBehaviour:
             if isinstance(size, int) and not isinstance(size, bool):
                 existing += size
         guard(self, tenant_id, "max_storage_gb", len(data), current=existing)
+        verdict = scan_bytes(
+            data, scanner=self.scanner, address=getattr(self, "clamav_address", None)
+        )
+        if verdict == "error":
+            raise ArError(
+                ErrorCode.UNAVAILABLE,
+                "The malware scanner did not answer. The upload was rejected.",
+            )
+        digest = hashlib.sha256(data).hexdigest()
+        retention = _retention_until(expires_after_seconds)
+        if retention is None and verdict != "infected":
+            prior = _durable_copy(self, tenant_id, digest)
+            if prior is not None:
+                view = self._public(prior)
+                view["deduped"] = True
+                return view
         file_id = new_id()
         now = utcnow()
-        verdict = scan_bytes(data, scanner=self.scanner)
         status = "quarantined" if verdict == "infected" else "ready"
         scan_status = (
             "infected"
@@ -3798,6 +3943,9 @@ class ChatBehaviour:
             else ("skipped" if verdict == "skipped" else "clean")
         )
         preview = _preview(mime_type, data)
+        if replaces_file_id is not None:
+            preview = dict(preview)
+            preview["replacesFileId"] = str(replaces_file_id)
         row = {
             "id": file_id,
             "tenant_id": tenant_id,
@@ -3806,7 +3954,8 @@ class ChatBehaviour:
             "name": name,
             "mime_type": mime_type,
             "size_bytes": len(data),
-            "sha256": hashlib.sha256(data).hexdigest(),
+            "sha256": digest,
+            "retention_until": retention,
             "object_key": object_key(
                 str(tenant_id), "upload", f"{now:%Y}", f"{now:%m}", str(file_id)
             ),
@@ -3875,6 +4024,9 @@ class ChatBehaviour:
         row["status"] = "deleted"
         row["deleted_at"] = utcnow()
         self.blobs.pop(file_id, None)
+        from ar_domain.documents.lifecycle import delete_file_cascade  # noqa: PLC0415
+
+        delete_file_cascade(self, tenant_id, user_id, row)
 
     def _evict(self) -> None:
         from ar_domain.chat.eviction import evict_chat_cache  # noqa: PLC0415

@@ -310,6 +310,14 @@ export type BodyUploadExternalFileV1AgentsSlugFilesPost = {
      * Mime Type
      */
     mime_type?: string;
+    /**
+     * Expires After Seconds
+     */
+    expires_after_seconds?: number | null;
+    /**
+     * Replaces File Id
+     */
+    replaces_file_id?: string | null;
 };
 
 /**
@@ -324,6 +332,14 @@ export type BodyUploadFileApiV1FilesUploadPost = {
      * Mime Type
      */
     mime_type?: string;
+    /**
+     * Expires After Seconds
+     */
+    expires_after_seconds?: number | null;
+    /**
+     * Replaces File Id
+     */
+    replaces_file_id?: string | null;
 };
 
 /**
@@ -1896,6 +1912,26 @@ export type MessageBody = {
      */
     attachmentIds?: Array<string>;
     /**
+     * Fileids
+     */
+    fileIds?: Array<string>;
+    /**
+     * Collectionids
+     */
+    collectionIds?: Array<string>;
+    /**
+     * Tasktemplate
+     */
+    taskTemplate?: string | null;
+    /**
+     * Strategy
+     */
+    strategy?: string;
+    /**
+     * Items
+     */
+    items?: Array<MessageItem | string>;
+    /**
      * Researchmode
      */
     researchMode?: boolean;
@@ -1909,6 +1945,20 @@ export type MessageBody = {
     responseFormat?: {
         [key: string]: unknown;
     } | null;
+};
+
+/**
+ * MessageItem
+ */
+export type MessageItem = {
+    /**
+     * Id
+     */
+    id?: string;
+    /**
+     * Text
+     */
+    text?: string;
 };
 
 /**
@@ -2393,6 +2443,16 @@ export type ReindexBody = {
 };
 
 /**
+ * ReprocessBody
+ */
+export type ReprocessBody = {
+    /**
+     * Engine
+     */
+    engine?: string;
+};
+
+/**
  * ResearchBody
  */
 export type ResearchBody = {
@@ -2724,6 +2784,36 @@ export type RunBody = {
      * Wait
      */
     wait?: boolean;
+    /**
+     * Attachmentids
+     */
+    attachmentIds?: Array<string>;
+    /**
+     * Fileids
+     */
+    fileIds?: Array<string>;
+    /**
+     * Collectionids
+     */
+    collectionIds?: Array<string>;
+    /**
+     * Tasktemplate
+     */
+    taskTemplate?: string | null;
+    /**
+     * Strategy
+     */
+    strategy?: string;
+    /**
+     * Items
+     */
+    items?: Array<MessageItem | string>;
+    /**
+     * Responseformat
+     */
+    responseFormat?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -2739,9 +2829,17 @@ export type SearchBody = {
      */
     collectionIds?: Array<string>;
     /**
+     * Documentids
+     */
+    documentIds?: Array<string>;
+    /**
      * Topk
      */
     topK?: number;
+    /**
+     * Minscore
+     */
+    minScore?: number | null;
     /**
      * Debug
      */
@@ -2797,6 +2895,26 @@ export type SendBody = {
      */
     attachmentIds?: Array<string>;
     /**
+     * Fileids
+     */
+    fileIds?: Array<string>;
+    /**
+     * Collectionids
+     */
+    collectionIds?: Array<string>;
+    /**
+     * Tasktemplate
+     */
+    taskTemplate?: string | null;
+    /**
+     * Strategy
+     */
+    strategy?: string;
+    /**
+     * Items
+     */
+    items?: Array<TaskItem | string>;
+    /**
      * Responseformat
      */
     responseFormat?: {
@@ -2806,6 +2924,14 @@ export type SendBody = {
      * Suggestfollowups
      */
     suggestFollowups?: boolean;
+    /**
+     * Wait
+     */
+    wait?: boolean;
+    /**
+     * Callbackurl
+     */
+    callbackUrl?: string | null;
 };
 
 /**
@@ -3323,6 +3449,20 @@ export type SyncBody = {
      * Mode
      */
     mode?: string;
+};
+
+/**
+ * TaskItem
+ */
+export type TaskItem = {
+    /**
+     * Id
+     */
+    id?: string;
+    /**
+     * Text
+     */
+    text?: string;
 };
 
 /**
@@ -12147,6 +12287,40 @@ export type UploadLibraryDocumentApiV1LibraryDocumentsPostResponses = {
 
 export type UploadLibraryDocumentApiV1LibraryDocumentsPostResponse = UploadLibraryDocumentApiV1LibraryDocumentsPostResponses[keyof UploadLibraryDocumentApiV1LibraryDocumentsPostResponses];
 
+export type DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/library-documents/{document_id}';
+};
+
+export type DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteError = DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteErrors[keyof DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteErrors];
+
+export type DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteResponses = {
+    /**
+     * Response Delete Library Document Api V1 Library Documents  Document Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteResponse = DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteResponses[keyof DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteResponses];
+
 export type GetLibraryDocumentApiV1LibraryDocumentsDocumentIdGetData = {
     body?: never;
     path: {
@@ -12180,6 +12354,40 @@ export type GetLibraryDocumentApiV1LibraryDocumentsDocumentIdGetResponses = {
 };
 
 export type GetLibraryDocumentApiV1LibraryDocumentsDocumentIdGetResponse = GetLibraryDocumentApiV1LibraryDocumentsDocumentIdGetResponses[keyof GetLibraryDocumentApiV1LibraryDocumentsDocumentIdGetResponses];
+
+export type ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostData = {
+    body: ReprocessBody;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/library-documents/{document_id}:reprocess';
+};
+
+export type ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostError = ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostErrors[keyof ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostErrors];
+
+export type ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostResponses = {
+    /**
+     * Response Reprocess Library Document Api V1 Library Documents  Document Id  Reprocess Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostResponse = ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostResponses[keyof ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostResponses];
 
 export type ListPassagesApiV1LibraryDocumentsDocumentIdPassagesGetData = {
     body?: never;

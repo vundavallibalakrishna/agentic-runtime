@@ -541,14 +541,16 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
     raw_top = arguments.get("top_k")
     top_k = raw_top if isinstance(raw_top, int) and not isinstance(raw_top, bool) else 8
     try:
-        found = book.search(
-            actor,
-            {
-                "query": str(arguments.get("query") or ""),
-                "collection_ids": raw_ids,
-                "top_k": top_k,
-            },
-        )
+        body: dict[str, object] = {
+            "query": str(arguments.get("query") or ""),
+            "collection_ids": raw_ids,
+            "top_k": top_k,
+        }
+        if arguments.get("min_score") is not None:
+            body["min_score"] = arguments.get("min_score")
+        if arguments.get("document_ids"):
+            body["document_ids"] = arguments.get("document_ids")
+        found = book.search(actor, body)
     except (ValueError, TypeError, ArError) as exc:
         return _error("validation_failed", str(exc))
     raw_hits = found.get("hits")

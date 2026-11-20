@@ -87,6 +87,19 @@ def reference_issues(  # noqa: PLR0912
                 "knowledge_collection", ctx, slug, ("knowledge", "collections", index)
             )
         )
+    file_ids = (
+        knowledge.get("file_ids", knowledge.get("fileIds")) if isinstance(knowledge, dict) else []
+    )
+    for index, file_id in enumerate(_strings(file_ids)):
+        if file_id not in ctx.file_ids:
+            issues.append(
+                ReferenceIssue(
+                    ("knowledge", "fileIds", index),
+                    "file was not found in this tenant",
+                    "unknown_reference",
+                    warning=ctx.treat_unknown_as_warning,
+                )
+            )
     subagents = definition.get("subagents")
     allowed = subagents.get("allowed") if isinstance(subagents, dict) else []
     for index, slug in enumerate(_strings(allowed)):

@@ -362,6 +362,9 @@ from .delete_idp_api_v1_identity_providers_idp_id_delete_response_delete_idp_api
 from .delete_install_api_v1_connector_installs_install_id_delete_response_delete_install_api_v1_connector_installs_install_id_delete import (
     DeleteInstallApiV1ConnectorInstallsInstallIdDeleteResponseDeleteInstallApiV1ConnectorInstallsInstallIdDelete,
 )
+from .delete_library_document_api_v1_library_documents_document_id_delete_response_delete_library_document_api_v1_library_documents_document_id_delete import (
+    DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteResponseDeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDelete,
+)
 from .delete_member_api_v1_groups_group_id_members_user_id_delete_response_delete_member_api_v1_groups_group_id_members_user_id_delete import (
     DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteResponseDeleteMemberApiV1GroupsGroupIdMembersUserIdDelete,
 )
@@ -1006,6 +1009,7 @@ from .message_body_response_format_type_0 import MessageBodyResponseFormatType0
 from .message_grounding_api_v1_conversations_conversation_id_messages_message_id_grounding_get_response_message_grounding_api_v1_conversations_conversation_id_messages_message_id_grounding_get import (
     MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetResponseMessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGet,
 )
+from .message_item import MessageItem
 from .meta_api_v1_meta_get_response_meta_api_v1_meta_get import (
     MetaApiV1MetaGetResponseMetaApiV1MetaGet,
 )
@@ -1264,6 +1268,10 @@ from .reject_api_v1_tool_servers_server_id_versions_version_id_reject_post_respo
 from .remove_member_api_v1_teams_team_id_members_user_id_delete_response_remove_member_api_v1_teams_team_id_members_user_id_delete import (
     RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponseRemoveMemberApiV1TeamsTeamIdMembersUserIdDelete,
 )
+from .reprocess_body import ReprocessBody
+from .reprocess_library_document_api_v1_library_documents_document_id_reprocess_post_response_reprocess_library_document_api_v1_library_documents_document_id_reprocess_post import (
+    ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostResponseReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPost,
+)
 from .republish_dependants_api_v1_skills_skill_id_republish_dependants_post_response_republish_dependants_api_v1_skills_skill_id_republish_dependants_post import (
     RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponseRepublishDependantsApiV1SkillsSkillIdRepublishDependantsPost,
 )
@@ -1340,6 +1348,7 @@ from .routine_run_body import RoutineRunBody
 from .rule_set_body import RuleSetBody
 from .rule_set_item import RuleSetItem
 from .run_body import RunBody
+from .run_body_response_format_type_0 import RunBodyResponseFormatType0
 from .run_input_api_v1_runs_run_id_input_post_response_run_input_api_v1_runs_run_id_input_post import (
     RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost,
 )
@@ -1440,6 +1449,7 @@ from .sync_body import SyncBody
 from .sync_source_api_v1_knowledge_sources_source_id_sync_post_response_sync_source_api_v1_knowledge_sources_source_id_sync_post import (
     SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostResponseSyncSourceApiV1KnowledgeSourcesSourceIdSyncPost,
 )
+from .task_item import TaskItem
 from .team_create import TeamCreate
 from .team_member_create import TeamMemberCreate
 from .template_body import TemplateBody
@@ -1742,6 +1752,7 @@ __all__ = (
     "DeleteGroupApiV1GroupsGroupIdDeleteResponseDeleteGroupApiV1GroupsGroupIdDelete",
     "DeleteIdpApiV1IdentityProvidersIdpIdDeleteResponseDeleteIdpApiV1IdentityProvidersIdpIdDelete",
     "DeleteInstallApiV1ConnectorInstallsInstallIdDeleteResponseDeleteInstallApiV1ConnectorInstallsInstallIdDelete",
+    "DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteResponseDeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDelete",
     "DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteResponseDeleteMemberApiV1GroupsGroupIdMembersUserIdDelete",
     "DeleteMemoryApiV1MemoryFactIdDeleteResponseDeleteMemoryApiV1MemoryFactIdDelete",
     "DeleteModelApiV1ModelsModelIdDeleteResponseDeleteModelApiV1ModelsModelIdDelete",
@@ -1995,6 +2006,7 @@ __all__ = (
     "MessageBody",
     "MessageBodyResponseFormatType0",
     "MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetResponseMessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGet",
+    "MessageItem",
     "MetaApiV1MetaGetResponseMetaApiV1MetaGet",
     "MeTeamsItem",
     "MissingBody",
@@ -2104,6 +2116,8 @@ __all__ = (
     "RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostResponseRejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPost",
     "RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponseRejectApiV1ToolServersServerIdVersionsVersionIdRejectPost",
     "RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponseRemoveMemberApiV1TeamsTeamIdMembersUserIdDelete",
+    "ReprocessBody",
+    "ReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPostResponseReprocessLibraryDocumentApiV1LibraryDocumentsDocumentIdReprocessPost",
     "RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponseRepublishDependantsApiV1SkillsSkillIdRepublishDependantsPost",
     "ResearchBody",
     "ResourceTypesScimV2ResourceTypesGetResponseResourceTypesScimV2ResourcetypesGet",
@@ -2140,6 +2154,7 @@ __all__ = (
     "RuleSetBody",
     "RuleSetItem",
     "RunBody",
+    "RunBodyResponseFormatType0",
     "RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost",
     "RunRoutineApiV1RoutinesRoutineIdRunPostResponseRunRoutineApiV1RoutinesRoutineIdRunPost",
     "SaveDescribedToolApiV1DescribedToolsPostResponseSaveDescribedToolApiV1DescribedToolsPost",
@@ -2196,6 +2211,7 @@ __all__ = (
     "SwitchTenantApiV1AuthSwitchTenantPostBody",
     "SyncBody",
     "SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostResponseSyncSourceApiV1KnowledgeSourcesSourceIdSyncPost",
+    "TaskItem",
     "TeamCreate",
     "TeamMemberCreate",
     "TemplateBody",

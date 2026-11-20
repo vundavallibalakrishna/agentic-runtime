@@ -4,17 +4,8 @@ Docling is used when the ingest extra is installed. The pure parser covers
 Markdown, HTML, text, CSV, and the Office zip formats used by the fixtures.
 """
 
-import io
 import re
-import zipfile
 from html.parser import HTMLParser
-from xml.etree import ElementTree as ET
-
-from ar_domain.documents.extract import slide_names
-
-_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-_PPT = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
-_XLS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
 
 class ParseError(Exception):
@@ -37,13 +28,13 @@ def parse_bytes(data: bytes, *, mime_type: str, name: str, max_bytes: int) -> st
     if kind == "text":
         return data.decode("utf-8", errors="replace")
     if kind == "csv":
-        return _csv(data.decode("utf-8", errors="replace"))
+        return csv_markdown(data.decode("utf-8", errors="replace"))
     if kind == "docx":
-        return _docx(data)
+        return _office(data, "upload.docx")
     if kind == "pptx":
-        return _pptx(data)
+        return _office(data, "upload.pptx")
     if kind == "xlsx":
-        return _xlsx(data)
+        return _office(data, "upload.xlsx")
     if kind == "pdf":
         return _pdf(data)
     docling = _docling(data, name)
@@ -105,7 +96,7 @@ def _html(raw: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "".join(parser.parts)).strip()
 
 
-def _csv(raw: str) -> str:
+def csv_markdown(raw: str) -> str:
     rows = [line.split(",") for line in raw.splitlines() if line.strip()]
     if not rows:
         return ""
@@ -119,77 +110,26 @@ def _csv(raw: str) -> str:
     return "\n".join(lines)
 
 
-def _docx(data: bytes) -> str:
+def _office(data: bytes, name: str) -> str:
+    """Markdown from the library reader. Office files are parsed once."""
+    from ar_domain.documents.extract import ExtractError, extract_bytes  # noqa: PLC0415
+
     try:
-        with zipfile.ZipFile(io.BytesIO(data)) as book:
-            xml = book.read("word/document.xml")
-    except (zipfile.BadZipFile, KeyError) as exc:
-        raise ParseError("unsupported_format", "docx is not readable") from exc
-    root = ET.fromstring(xml)  # noqa: S314 - the bytes are the uploaded document
-    paragraphs: list[str] = []
-    for paragraph in root.iter(f"{_XML}p"):
-        texts = [node.text or "" for node in paragraph.iter(f"{_XML}t")]
-        line = "".join(texts).strip()
-        if line:
-            paragraphs.append(line)
-    return "\n\n".join(paragraphs)
-
-
-def _pptx(data: bytes) -> str:
-    try:
-        with zipfile.ZipFile(io.BytesIO(data)) as book:
-            slides = slide_names(book.namelist())
-            pages = []
-            for index, name in enumerate(slides, start=1):
-                root = ET.fromstring(book.read(name))  # noqa: S314
-                texts = [node.text or "" for node in root.iter(f"{_PPT}t")]
-                body = " ".join(text.strip() for text in texts if text.strip())
-                pages.append(f"<!-- page:{index} -->\n\n{body}")
-    except (zipfile.BadZipFile, KeyError) as exc:
-        raise ParseError("unsupported_format", "pptx is not readable") from exc
-    return "\n\n".join(pages)
-
-
-def _xlsx(data: bytes) -> str:
-    try:
-        with zipfile.ZipFile(io.BytesIO(data)) as book:
-            shared: list[str] = []
-            if "xl/sharedStrings.xml" in book.namelist():
-                root = ET.fromstring(book.read("xl/sharedStrings.xml"))  # noqa: S314
-                shared = [
-                    "".join(node.text or "" for node in item.iter(f"{_XLS}t"))
-                    for item in root.iter(f"{_XLS}si")
-                ]
-            sheets = sorted(name for name in book.namelist() if name.startswith("xl/worksheets/"))
-            pages = []
-            for index, name in enumerate(sheets, start=1):
-                root = ET.fromstring(book.read(name))  # noqa: S314
-                rows: list[str] = []
-                cells = 0
-                for row in root.iter(f"{_XLS}row"):
-                    values: list[str] = []
-                    for cell in row.findall(f"{_XLS}c"):
-                        cells += 1
-                        if cells > 50_000:
-                            break
-                        values.append(_cell(cell, shared))
-                    if values:
-                        rows.append("| " + " | ".join(values) + " |")
-                pages.append(f"<!-- page:{index} -->\n\n" + "\n".join(rows))
-    except (zipfile.BadZipFile, KeyError) as exc:
-        raise ParseError("unsupported_format", "xlsx is not readable") from exc
-    return "\n\n".join(pages)
-
-
-def _cell(cell: ET.Element, shared: list[str]) -> str:
-    kind = cell.attrib.get("t")
-    value = cell.find(f"{_XLS}v")
-    if value is None or value.text is None:
-        return ""
-    if kind == "s":
-        index = int(value.text)
-        return shared[index] if index < len(shared) else ""
-    return value.text
+        extracted = extract_bytes(data, filename=name)
+    except ExtractError as exc:
+        code = "too_large" if exc.code == "too_many_pages" else "unsupported_format"
+        raise ParseError(code, exc.message) from exc
+    parts = [
+        f"<!-- page:{passage.page} -->\n\n{passage.text}"
+        for passage in extracted.passages
+        if passage.text.strip()
+    ]
+    parts.extend(
+        f"<!-- page:{table.page} -->\n\n{table.csv_text}"
+        for table in extracted.tables
+        if table.csv_text.strip()
+    )
+    return "\n\n".join(parts)
 
 
 def _pdf(data: bytes) -> str:

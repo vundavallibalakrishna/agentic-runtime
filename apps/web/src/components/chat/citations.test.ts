@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { citationsOf } from "@/components/chat/citations";
+import { citationsOf, readingOf } from "@/components/chat/citations";
 
 describe("citationsOf", () => {
   it("reads citation parts and ignores everything else", () => {
@@ -30,5 +30,21 @@ describe("citationsOf", () => {
         uri: "sharepoint://visitor-guide",
       },
     ]);
+  });
+
+  it("reads the reading plan off the message", () => {
+    expect(
+      readingOf({
+        content: [
+          {
+            type: "reading",
+            strategy: "mapReduce",
+            coverage: "whole",
+            scope: "perDocument",
+          },
+        ],
+      }),
+    ).toMatchObject({ strategy: "mapReduce", coverage: "whole" });
+    expect(readingOf({ content: [{ type: "text", text: "hello" }] })).toBeNull();
   });
 });

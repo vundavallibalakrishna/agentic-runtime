@@ -10,7 +10,7 @@ import pytest
 
 from ar_common.errors import ArError
 from ar_domain.agents.access import Actor
-from ar_domain.documents.crosscheck import CROSSCHECK_BUDGET, crosscheck
+from ar_domain.documents.crosscheck import crosscheck
 from ar_domain.documents.library import DocumentLibrary
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.seed_tools import ensure_m33b, shipped_tools
@@ -180,21 +180,18 @@ def test_a_table_kept_apart_from_the_passages_is_read_too() -> None:
     assert "anchor: t1" in model.asked[0][1]
 
 
-def test_a_document_too_long_for_one_pass_is_refused_in_words() -> None:
+def test_a_document_too_long_for_one_pass_is_read_in_sections() -> None:
     document = _document()
     document["passages"] = [
         {"anchor": f"p1-s{index}", "page": 1, "heading": "Part", "text": "word " * 1000}
         for index in range(9)
     ]
     model = _Model(_answer())
-    with pytest.raises(ArError) as refused:
-        crosscheck(document, model)
-    assert refused.value.code.value == "validation_failed"
-    assert "too long to check in one pass" in refused.value.detail
-    assert str(CROSSCHECK_BUDGET) in refused.value.detail
-    assert "Nothing was checked" in refused.value.detail
-    # Part of a document is never checked in place of the whole.
-    assert model.asked == []
+    result = crosscheck(document, model)
+    assert result["sectioned"] is True
+    assert result["passagesRead"] == 9
+    assert result["findings"] == []
+    assert model.asked
 
 
 def test_no_answer_is_an_error_and_never_a_clean_result() -> None:

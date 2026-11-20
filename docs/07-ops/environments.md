@@ -78,7 +78,22 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_EVAL_CONCURRENCY` | `4` | Parallel cases per eval run | [spec 18](../03-specs/18-observability-eval.md) |
 | `AR_FASTEMBED_CACHE_DIR` | `/var/cache/fastembed` | BM25 model cache for the optional qdrant adapter (pre-baked in image for air-gapped) | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_FILES_PROXY_DOWNLOADS` | `false` | Stream downloads through `api` instead of presigned URLs | [spec 13](../03-specs/13-files-artifacts.md) |
-| `AR_FILES_SCANNER` | `clamav` | `clamav` or `none`; the scanner run over every upload. A setting of the install, not a consequence of `AR_ENV`. | [spec 13](../03-specs/13-files-artifacts.md) |
+| `AR_FILES_SCANNER` | `clamav` | `clamav` or `none`; the scanner run over every upload. A setting of the install, not a consequence of `AR_ENV`. When it is `clamav` and `AR_CLAMAV_ADDRESS` does not answer, the upload is rejected. | [spec 13](../03-specs/13-files-artifacts.md) |
+| `AR_CLAMAV_TIMEOUT_S` | `10` | How long one clamd scan waits. A timeout rejects the upload. | [spec 13](../03-specs/13-files-artifacts.md) |
+| `AR_DOCUMENT_TASK_PARALLELISM` | `2` | Section readings in flight for one document task. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_SECTION_CAP` | `200` | Section readings one run will perform. The rest is reported unread. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_OUTPUT_RESERVE` | `4096` | Tokens held back from the context window for the answer. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_INSTRUCTION_RESERVE` | `2000` | Tokens held back for instructions. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_TOOL_RESERVE` | `1500` | Tokens held back for tool schemas. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_HISTORY_RESERVE` | `500` | Tokens held back for this turn's history. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_MARGIN_RATIO` | `0.15` | Fraction of the context window held back as margin. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_ALIGN_LEXICAL` | `0.5` | Minimum word overlap before two headings are paired. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_ALIGN_COSINE` | `0.75` | Minimum cosine before two headings are paired when both have vectors. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_HEADING_CAP` | `15` | Headings above this, in either document, use section alignment. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_TOKEN_FACTOR` | `1.15` | Multiplier on the ingest token counter when estimating a document. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_LOW_TEXT_CHARS` | `40` | Mean characters per page below this, after OCR, sets the `low_text` warning. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_FILE_EXPIRY_MIN_SECONDS` | `3600` | Shortest `expiresAfterSeconds` on an upload. | [spec 13](../03-specs/13-files-artifacts.md) |
+| `AR_FILE_EXPIRY_MAX_SECONDS` | `2592000` | Longest `expiresAfterSeconds` on an upload. | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_GUARDRAIL_INPUT_ALIAS` | `fast` | Model alias for the input safety classifier (empty disables) | [prompt-injection §4](../06-security/prompt-injection.md) |
 | `AR_GUARDRAIL_OUTPUT_ALIAS` | `fast` | Model alias for the output safety classifier (empty disables) | [prompt-injection §4](../06-security/prompt-injection.md) |
 | `AR_INGEST_ACTIVITY_CONCURRENCY` | `32` | Per worker | [spec 10](../03-specs/10-knowledge.md) |

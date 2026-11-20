@@ -24,7 +24,14 @@ import { create } from "zustand";
 
 import { AppShell } from "@/components/app-shell";
 import { type Attached, AttachmentList, attachedOf } from "@/components/chat/attachment-list";
-import { CitationList, citationsOf } from "@/components/chat/citations";
+import {
+  CitationList,
+  citationsOf,
+  ReadingNote,
+  ReviewTable,
+  readingOf,
+  reviewsOf,
+} from "@/components/chat/citations";
 import { FailedReply } from "@/components/chat/failed-reply";
 import { FeedbackButtons } from "@/components/chat/feedback-buttons";
 import { MarkdownView } from "@/components/chat/markdown-view";
@@ -497,7 +504,8 @@ export function ChatScreen() {
           method: "POST",
           body: JSON.stringify({
             text,
-            attachmentIds: attachments.map((file) => file.id),
+            attachmentIds: attachments.filter((file) => !file.stored).map((file) => file.id),
+            fileIds: attachments.filter((file) => file.stored).map((file) => file.id),
             researchMode: researchOn,
             suggestFollowups: true,
           }),
@@ -611,6 +619,27 @@ export function ChatScreen() {
     streamRequest.current = request;
     setStream({ ...emptyStream, status: "streaming" });
     await readStream(posted.id || id, request.signal);
+  }
+
+  async function pickStored() {
+    try {
+      const page = await api<{ items?: Record<string, unknown>[] }>("/api/v1/library-documents");
+      const items = page.items ?? [];
+      const chosen = items
+        .map((item) => ({
+          id: String(item.fileId || item.file_id || ""),
+          name: String(item.title || item.filename || "document"),
+          mimeType: String(item.mediaType || item.media_type || "text/plain"),
+          stored: true,
+        }))
+        .filter((item) => item.id);
+      setAttachments((current) => {
+        const ids = new Set(current.map((item) => item.id));
+        return [...current, ...chosen.filter((item) => !ids.has(item.id))];
+      });
+    } catch (caught) {
+      setBanner(caught instanceof Error ? caught.message : t("error"));
+    }
   }
 
   async function onUpload(files: FileList) {
@@ -1078,6 +1107,8 @@ export function ChatScreen() {
                               })}
                             </p>
                           ) : null}
+                          <ReadingNote reading={readingOf(message)} />
+                          <ReviewTable rows={reviewsOf(message)} />
                           <CitationList
                             citations={
                               streamingHere && stream.citations.length
@@ -1323,6 +1354,16 @@ export function ChatScreen() {
                 />
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-wrap items-center gap-1">
+                    <Button
+                      aria-label={t("pickDocuments")}
+                      className="h-9 text-xs"
+                      disabled={loading}
+                      onClick={() => void pickStored()}
+                      type="button"
+                      variant="outline"
+                    >
+                      {t("pickDocuments")}
+                    </Button>
                     <input
                       accept={accept}
                       aria-label={t("attach")}

@@ -1069,6 +1069,7 @@ CREATE TABLE files (
   deleted_at      timestamptz
 );
 CREATE INDEX ix_files_owner ON files(tenant_id, owner_user_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_files_durable_sha ON files(tenant_id, sha256) WHERE deleted_at IS NULL AND retention_until IS NULL AND sha256 IS NOT NULL;
 CREATE INDEX ix_files_conversation ON files(tenant_id, conversation_id);
 CREATE INDEX ix_files_retention ON files(retention_until) WHERE deleted_at IS NULL;
 

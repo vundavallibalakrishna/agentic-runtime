@@ -23,6 +23,7 @@ class ResolveContext:
     tool_servers: set[str] = field(default_factory=set)
     sandbox_templates: set[str] = field(default_factory=set)
     knowledge_collections: set[str] = field(default_factory=set)
+    file_ids: set[str] = field(default_factory=set)
     published_agents: set[str] = field(default_factory=set)
     published_skills: dict[str, str] = field(default_factory=dict)
     skill_versions: dict[str, tuple[int, ...]] = field(default_factory=dict)

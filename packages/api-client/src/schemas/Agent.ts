@@ -181,6 +181,142 @@ export type Collections =
       string,
       string
     ];
+/**
+ * @maxItems 20
+ */
+export type Fileids =
+  | []
+  | [string]
+  | [string, string]
+  | [string, string, string]
+  | [string, string, string, string]
+  | [string, string, string, string, string]
+  | [string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ];
 export type Autoretrieve = boolean;
 export type Topk1 = number;
 export type Minscore = number | null;
@@ -232,6 +368,17 @@ export type Teams = boolean;
 export type Email = boolean;
 export type Api = boolean;
 export type Widget = boolean;
+export type Id = string;
+export type Prompt = string;
+/**
+ * @maxItems 50
+ */
+export type Items = string[];
+export type Strategy = string | null;
+/**
+ * @maxItems 30
+ */
+export type Tasktemplates = TaskTemplateSpec[];
 
 /**
  * Versioned body stored in ``agent_versions.definition``.
@@ -256,6 +403,7 @@ export interface AgentDefinition {
   assurance?: AssuranceSpec;
   safety?: SafetySpec;
   channels?: ChannelFlags;
+  taskTemplates?: Tasktemplates;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -319,6 +467,7 @@ export interface ToolSearch {
 }
 export interface KnowledgeSpec {
   collections?: Collections;
+  fileIds?: Fileids;
   autoRetrieve?: Autoretrieve;
   topK?: Topk1;
   minScore?: Minscore;
@@ -409,6 +558,22 @@ export interface ChannelFlags {
   widget?: Widget;
 }
 /**
+ * A reusable reading task. Core ships none; an agent or a pack names them.
+ *
+ * This interface was referenced by `AgentDefinition`'s JSON-Schema
+ * via the `definition` "TaskTemplateSpec".
+ */
+export interface TaskTemplateSpec {
+  id: Id;
+  prompt?: Prompt;
+  items?: Items;
+  outputSchema?: Outputschema1;
+  strategy?: Strategy;
+}
+export interface Outputschema1 {
+  [k: string]: JsonValue;
+}
+/**
  * What a parent sees when it calls this agent.
  *
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -462,6 +627,7 @@ export interface HumanSpec1 {
  */
 export interface KnowledgeSpec1 {
   collections?: Collections;
+  fileIds?: Fileids;
   autoRetrieve?: Autoretrieve;
   topK?: Topk1;
   minScore?: Minscore;

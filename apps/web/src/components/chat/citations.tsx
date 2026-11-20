@@ -14,6 +14,8 @@ export type CitationChip = {
   documentId?: string;
   anchor?: string;
   page?: number | string;
+  charFrom?: number;
+  charTo?: number;
   verified?: boolean;
   status?: string;
 };
@@ -34,6 +36,93 @@ export function citationsOf(message: Record<string, unknown>): CitationChip[] {
     }
   }
   return chips;
+}
+
+export function readingOf(message: Record<string, unknown>): Record<string, unknown> | null {
+  const content = message.content;
+  if (!Array.isArray(content)) return null;
+  for (const part of content) {
+    if (!part || typeof part !== "object") continue;
+    const row = part as { type?: string };
+    if (row.type === "reading") return row as Record<string, unknown>;
+  }
+  return null;
+}
+
+export function ReadingNote({ reading }: { reading: Record<string, unknown> | null }) {
+  const t = useTranslations("chat");
+  if (!reading) return null;
+  return (
+    <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+      {t("readingPlan", {
+        strategy: String(reading.strategy || ""),
+        coverage: String(reading.coverage || ""),
+        scope: String(reading.scope || ""),
+      })}
+    </p>
+  );
+}
+
+export function reviewsOf(message: Record<string, unknown>): Record<string, unknown>[] {
+  const content = message.content;
+  if (!Array.isArray(content)) return [];
+  for (const part of content) {
+    if (!part || typeof part !== "object") continue;
+    const row = part as { type?: string; rows?: unknown };
+    if (row.type === "review" && Array.isArray(row.rows)) {
+      return row.rows.filter((item) => item && typeof item === "object") as Record<
+        string,
+        unknown
+      >[];
+    }
+  }
+  return [];
+}
+
+export function ReviewTable({ rows }: { rows: Record<string, unknown>[] }) {
+  const t = useTranslations("chat");
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-3 overflow-x-auto rounded-xl border border-[var(--border)]">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-[var(--muted)] text-xs text-[var(--muted-foreground)]">
+          <tr>
+            <th className="px-3 py-2 font-medium">{t("reviewItem")}</th>
+            <th className="px-3 py-2 font-medium">{t("reviewStatus")}</th>
+            <th className="px-3 py-2 font-medium">{t("reviewQuote")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const anchor = String(row.anchor || "");
+            const documentId = String(row.documentId || row.document_id || "");
+            const quote = String(row.quote || row.text || "");
+            const status = String(row.status || row.verdict || "");
+            const key = `${String(row.id || row.heading || "")}-${anchor}-${quote.slice(0, 24)}`;
+            return (
+              <tr className="border-t border-[var(--border)]" key={key}>
+                <td className="px-3 py-2">{String(row.heading || row.text || row.id || "")}</td>
+                <td className="px-3 py-2">
+                  {status === "notFound" || status === "not_supported"
+                    ? t("notFound")
+                    : t("supported")}
+                </td>
+                <td className="px-3 py-2">
+                  {documentId && anchor ? (
+                    <a className="underline" href={`/documents/${documentId}#${anchor}`}>
+                      {quote || anchor}
+                    </a>
+                  ) : (
+                    quote
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export function CitationList({
@@ -113,7 +202,7 @@ export function CitationList({
             {open.documentId ? (
               <a
                 className="mt-2 inline-block text-sm underline"
-                href={`/documents/${open.documentId}`}
+                href={`/documents/${open.documentId}${open.anchor ? `#${open.anchor}` : ""}`}
               >
                 {open.title || t("source")}
               </a>

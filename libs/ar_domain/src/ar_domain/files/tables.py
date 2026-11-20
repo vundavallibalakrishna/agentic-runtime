@@ -45,6 +45,15 @@ class File(Base):
             "retention_until",
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        Index(
+            "uq_files_durable_sha",
+            "tenant_id",
+            "sha256",
+            unique=True,
+            postgresql_where=text(
+                "deleted_at IS NULL AND retention_until IS NULL AND sha256 IS NOT NULL"
+            ),
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

@@ -21,6 +21,7 @@ from ar_domain.knowledge.retrieval import answerable, apply_rerank
 from ar_domain.knowledge.store import StoreUnavailable, active_index
 from ar_domain.knowledge.store_types import HybridQuery, SearchTarget
 from ar_domain.knowledge.syncutil import run_sync
+from ar_domain.knowledge.threshold import clears, retrieval_bar
 from ar_domain.models.embedding import refresh_registry, rerank_model
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ def search(
     top_k: int,
     debug: bool,
     min_score: float | None = None,
+    document_ids: list[uuid.UUID] | None = None,
 ) -> dict[str, object]:
     """Sync wrapper for callers that are not already on the request loop."""
     return run_sync(
@@ -47,6 +49,7 @@ def search(
             top_k=top_k,
             debug=debug,
             min_score=min_score,
+            document_ids=document_ids,
         )
     )
 
@@ -60,6 +63,7 @@ async def search_async(
     top_k: int,
     debug: bool,
     min_score: float | None = None,
+    document_ids: list[uuid.UUID] | None = None,
 ) -> dict[str, object]:
     """Hybrid search filtered by the caller's principals. Managers are not exempt."""
     await refresh_registry(store)
@@ -70,6 +74,8 @@ async def search_async(
     refuse_embedding_mismatch(store, collections)
     index = active_index(store)
     fused: list[Any] = []
+    named = tuple(document_ids or ())
+    bar = min_score if min_score is not None else retrieval_bar(store, actor.tenant_id, {})
     # A question is embedded once for each model that indexed a searched collection.
     for group in _by_model(targets, collections):
         hybrid = HybridQuery(
@@ -80,6 +86,7 @@ async def search_async(
             principals=principals(store, actor),
             allowed_classifications=readable_classes(store, actor),
             fused_k=max(top_k, 20),
+            document_ids=named,
         )
         try:
             with SEARCH_SECONDS.labels(stage="store").time():
@@ -89,8 +96,10 @@ async def search_async(
     hits = [_hit(store, row) for row in fused]
     reranker = rerank_model(store, actor.tenant_id)
     reranked, rerank_ms, warning, scored = apply_rerank(
-        query, hits, top_k=top_k, min_score=min_score, target=reranker
+        query, hits, top_k=top_k, min_score=bar, target=reranker
     )
+    if bar is not None and not scored:
+        reranked = [hit for hit in reranked if clears(hit, bar)]
     verified = _late(store, actor, reranked, collections)
     # Scored passages answer the question when one clears the bar. Unscored ones are the
     # closest the search found, and whoever reads them decides.

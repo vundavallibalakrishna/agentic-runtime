@@ -314,7 +314,7 @@ def test_the_migration_leaves_each_changed_limit_alone() -> None:
 
 def test_the_migration_adds_the_source_only_sentence_once_and_takes_it_out_again() -> None:
     migration = importlib.import_module(
-        "ar_domain.migrations.versions.20261120_0055_assistant_source_only"
+        "ar_domain.migrations.versions.20261120_0056_assistant_source_only"
     )
     seeded = assistant_definition()
     text = str(seeded["instructions"])

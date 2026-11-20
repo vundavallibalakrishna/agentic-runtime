@@ -80,12 +80,7 @@ def crosscheck(
         raise ValidationFailedError("This document has no stored text to check.")
     size = sum(len(str(row.get("text") or "")) for row in passages)
     if size > CROSSCHECK_BUDGET:
-        raise ValidationFailedError(
-            f"This document is too long to check in one pass: its text is {size} characters "
-            f"and the limit is {CROSSCHECK_BUDGET}. Nothing was checked. Read the sections "
-            "that should agree and compare them yourself, and say that the whole document "
-            "was not checked."
-        )
+        return _by_sections(document, passages, ask, focus=focus, aggressive=aggressive)
     task = _TASK
     wanted = " ".join(focus.split())[:_FOCUS]
     if wanted:
@@ -139,6 +134,60 @@ def crosscheck(
         "passagesRead": len(passages),
         "discarded": discarded,
         "modelUsed": True,
+    }
+
+
+def _by_sections(
+    document: dict[str, object],
+    passages: list[dict[str, object]],
+    ask: Ask | None,
+    *,
+    focus: str,
+    aggressive: bool,
+) -> dict[str, object]:
+    """Check the document in windows that each fit the one-pass budget."""
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    groups: list[list[dict[str, object]]] = []
+    current: list[dict[str, object]] = []
+    used = 0
+    for row in passages:
+        text = str(row.get("text") or "")
+        if current and used + len(text) > CROSSCHECK_BUDGET:
+            groups.append(current)
+            current = []
+            used = 0
+        current.append(row)
+        used += len(text)
+    if current:
+        groups.append(current)
+    cap = int(get_settings().document_section_cap)
+    truncated = len(groups) > cap
+    findings: list[dict[str, object]] = []
+    discarded = 0
+    read = 0
+    for group in groups[:cap]:
+        partial = dict(document)
+        partial["passages"] = group
+        result = crosscheck(partial, ask, focus=focus, aggressive=aggressive)
+        found = result.get("findings")
+        if isinstance(found, list):
+            findings.extend(item for item in found if isinstance(item, dict))
+        dropped = result.get("discarded")
+        seen = result.get("passagesRead")
+        discarded += dropped if isinstance(dropped, int) else 0
+        read += seen if isinstance(seen, int) else 0
+    return {
+        "kind": "crosscheck",
+        "documentId": str(document.get("id") or ""),
+        "title": str(document.get("title") or ""),
+        "focus": " ".join(focus.split())[:_FOCUS],
+        "findings": findings[:_FINDINGS],
+        "passagesRead": read,
+        "discarded": discarded,
+        "modelUsed": ask is not None,
+        "sectioned": True,
+        "truncated": truncated,
     }
 
 

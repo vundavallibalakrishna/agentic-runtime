@@ -70,6 +70,8 @@ spec:
   toolSearch: { mode: auto, topK: 12 }   # auto: enabled when > 30 tools are granted; on | off
   knowledge:
     collections: [sre-runbooks, postmortems]
+    fileIds: []                # optional stored files, at most 20, resolved at publish
+  taskTemplates: []            # optional named tasks: id, prompt, items, outputSchema, strategy
     autoRetrieve: false        # true = run knowledge.search on the user message before the first model call
     topK: 8
     minScore: 0.30             # answerability threshold after rerank (0..1)
@@ -143,6 +145,8 @@ spec:
 | `tools[].overrides.<tool>.allowHosts` | string[] | Extra hosts for `general.fetch` and `general.http` |
 | `tool_search.mode` | enum | `auto`, `on`, `off`; `top_k` 4..32 |
 | `knowledge.collections` | slug[] | ≤ 20; caller must be able to see each at save time |
+| `knowledge.fileIds` | string[] | ≤ 20 public file ids in the tenant; publish fails if one is missing |
+| `taskTemplates` | object[] | ≤ 30. Each has `id`, `prompt`, `items`, `outputSchema` and an optional `strategy`. Core ships none. |
 | `knowledge.min_score` | number or null | 0..1; unset takes the rerank model's own bar (`requestOptions.rerank.min_score`, [spec 04](../03-specs/04-model-gateway.md)) |
 | `skills` | slug[] | ≤ 30; published skills. A `slug@^1` constraint resolves at publish ([spec 14](../03-specs/14-skills.md)) |
 | `memory.read_scopes` | enum[] | subset of `user`, `agent`, `team`, `agent_user` |

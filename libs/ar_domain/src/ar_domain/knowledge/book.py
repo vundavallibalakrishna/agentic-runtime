@@ -83,6 +83,14 @@ def _bar(value: object) -> float | None:
     return bar
 
 
+def _document_ids(value: object) -> list[uuid.UUID] | None:
+    if not isinstance(value, list) or not value:
+        return None
+    if len(value) > 50:
+        raise ValidationFailedError("name at most 50 documents")
+    return [uuid.UUID(str(item)) for item in value]
+
+
 class KnowledgeBook:
     """Object-level access. A missing or foreign row is 404."""
 
@@ -104,10 +112,12 @@ class KnowledgeBook:
                 setattr(store, name, {})
 
     def list_collections(self, actor: Actor) -> list[dict[str, object]]:
+        from ar_domain.knowledge.uploads import is_system  # noqa: PLC0415
+
         rows = [
             self._collection_view(actor, row)
             for row in self.store.knowledge_collections.values()
-            if can_see(actor, row)
+            if can_see(actor, row) and not (isinstance(row, dict) and is_system(row))
         ]
         rows.sort(key=lambda item: str(item["name"]).lower())
         return rows
@@ -628,7 +638,8 @@ class KnowledgeBook:
             collection_ids=[uuid.UUID(str(item)) for item in raw_ids],
             top_k=top_k,
             debug=bool(body.get("debug")),
-            min_score=_bar(body.get("min_score")),
+            min_score=_bar(body.get("min_score", body.get("minScore"))),
+            document_ids=_document_ids(body.get("document_ids", body.get("documentIds"))),
         )
 
     def _upload_source(self, actor: Actor, collection: dict[str, object]) -> dict[str, object]:
@@ -665,6 +676,7 @@ class KnowledgeBook:
             "classification": str(collection.get("classification") or "internal"),
             "acl_principals": principals,
             "acl_hash": hashlib.sha256("|".join(sorted(principals)).encode()).hexdigest(),
+            "raw_file_id": file_row.get("id"),
             "summary": "",
             "status": "pending",
             "error": None,

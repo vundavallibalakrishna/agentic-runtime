@@ -211,9 +211,22 @@ def reindex(store: Any, collection: dict[str, object], *, actor_id: object) -> d
     return job
 
 
+def _delete_index(store: Any, collection: dict[str, object] | None) -> Any:
+    """The index that holds this collection's vectors. Memory when the process has no database."""
+    if not getattr(store, "durable", False) or not isinstance(collection, dict):
+        return memory_index(store)
+    backend = str(collection.get("store_backend") or "pgvector")
+    from ar_domain.knowledge.store import get_retrieval_store  # noqa: PLC0415
+
+    try:
+        return get_retrieval_store(backend)
+    except Exception:  # noqa: BLE001 — a missing adapter still clears the memory copy
+        return memory_index(store)
+
+
 def delete_document(store: Any, document: dict[str, object], *, actor_id: object) -> None:
     collection = store.knowledge_collections.get(document.get("collection_id"))
-    index = memory_index(store)
+    index = _delete_index(store, collection if isinstance(collection, dict) else None)
     if isinstance(collection, dict):
         run_sync(
             index.delete(

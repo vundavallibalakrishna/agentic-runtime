@@ -52,6 +52,9 @@ def compare(
     right = _document_view(right, aggressive=aggressive)
     changes = _diff(left, right)
     notes = _model_notes(ask, changes)
+    from ar_domain.documents.align import align  # noqa: PLC0415
+
+    sections = align(_passages(left), _passages(right))
     return {
         "kind": "compare",
         "left_id": str(left.get("id") or ""),
@@ -63,6 +66,7 @@ def compare(
             & {str(row.get("heading") or "") for row in _passages(right)}
         ),
         "changes": changes,
+        "sections": sections,
         "notes": notes,
         "model_used": bool(notes),
     }
