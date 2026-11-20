@@ -2,7 +2,7 @@
 
 import time
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -44,6 +44,8 @@ from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfigur
 
 _TRIGGERS = frozenset({"chat", "channel", "api"})
 _STANDING = frozenset({"preference", "instruction"})
+# How many standing facts a turn carries beside the ones its question brings up.
+_STANDING_KEPT = 4
 
 
 class MemoryBook:
@@ -873,13 +875,26 @@ def _rank(
     ranked.sort(key=lambda item: item[0], reverse=True)
     chosen: list[dict[str, object]] = []
     tokens = 0
-    for row in standing[:4]:
+    # A standing preference or instruction applies whatever the question is. There is
+    # room for a few, and the ones a person stated most recently are the ones kept: taking
+    # the oldest meant a new preference was never applied once a person had four.
+    standing.sort(key=_stated, reverse=True)
+    for row in standing[:_STANDING_KEPT]:
         tokens = _take(chosen, row, tokens, limit)
     for _value, row in ranked:
         if any(item.get("id") == row.get("id") for item in chosen):
             continue
         tokens = _take(chosen, row, tokens, limit)
     return chosen
+
+
+def _stated(row: dict[str, object]) -> datetime:
+    """When the fact was last stated: its last change, or when it was made."""
+    for key in ("updated_at", "created_at"):
+        value = row.get(key)
+        if isinstance(value, datetime):
+            return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    return datetime.min.replace(tzinfo=UTC)
 
 
 def _take(chosen: list[dict[str, object]], row: dict[str, object], tokens: int, limit: int) -> int:

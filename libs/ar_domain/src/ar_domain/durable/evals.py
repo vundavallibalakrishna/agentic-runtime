@@ -44,7 +44,13 @@ async def load_eval_rows(session: AsyncSession, store: object, tenant_id: uuid.U
     for bucket, sql in (
         ("eval_suites", "SELECT * FROM eval_suites WHERE tenant_id = :tenant_id"),
         ("eval_cases", "SELECT * FROM eval_cases WHERE tenant_id = :tenant_id"),
-        ("eval_runs", "SELECT * FROM eval_runs WHERE tenant_id = :tenant_id"),
+        (
+            "eval_runs",
+            # The agent is the one the run's version belongs to. It is not stored twice.
+            "SELECT r.*, v.agent_id FROM eval_runs r "
+            "LEFT JOIN agent_versions v ON v.id = r.agent_version_id "
+            "WHERE r.tenant_id = :tenant_id",
+        ),
         ("eval_results", "SELECT * FROM eval_results WHERE tenant_id = :tenant_id"),
     ):
         for row in await _rows(session, sql, tenant_id):
@@ -142,11 +148,12 @@ async def _runs(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         INSERT INTO eval_runs (
             id, tenant_id, suite_id, agent_version_id, model_alias_override, status,
             summary, baseline_eval_run_id, temporal_workflow_id, triggered_by, trigger,
-            started_at, finished_at, created_at
+            tags, mock_all_tools, started_at, finished_at, created_at
         ) VALUES (
             :id, :tenant_id, :suite_id, :agent_version_id, :model_alias_override, :status,
             CAST(:summary AS jsonb), :baseline_eval_run_id, :temporal_workflow_id,
-            :triggered_by, :trigger, :started_at, :finished_at, :created_at
+            :triggered_by, :trigger, :tags, :mock_all_tools, :started_at, :finished_at,
+            :created_at
         )
         ON CONFLICT (id) DO UPDATE SET
             status = EXCLUDED.status,
@@ -168,6 +175,7 @@ async def _runs(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         if trigger not in {"manual", "publish_gate", "schedule", "ci"}:
             trigger = "manual"
         now = utcnow()
+        tags = row.get("tags")
         await session.execute(
             text(sql),
             {
@@ -184,6 +192,8 @@ async def _runs(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "temporal_workflow_id": as_text(row.get("temporal_workflow_id"), f"eval-{run_id}"),
                 "triggered_by": as_uuid(row.get("triggered_by")),
                 "trigger": trigger,
+                "tags": [str(item) for item in tags] if isinstance(tags, list) else [],
+                "mock_all_tools": row.get("mock_all_tools") is True,
                 "started_at": as_dt(row.get("started_at")),
                 "finished_at": as_dt(row.get("finished_at")),
                 "created_at": as_dt(row.get("created_at")) or now,

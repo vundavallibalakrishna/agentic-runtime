@@ -503,6 +503,40 @@ def _resolve_collection_ids(raw: object, collections: list[dict[str, object]]) -
     return resolved
 
 
+def _bound_collections(store: Any, arguments: dict[str, object]) -> set[str] | None:
+    """The collection slugs the calling agent is bound to, or None when it names none.
+
+    An agent that binds collections reads those and no others, whatever the person may
+    read. One that binds none reads what the person may read.
+    """
+    version = getattr(store, "versions", {}).get(arguments.get("_agent_version_id"))
+    definition = version.get("definition") if isinstance(version, dict) else None
+    knowledge = definition.get("knowledge") if isinstance(definition, dict) else None
+    slugs = knowledge.get("collections") if isinstance(knowledge, dict) else None
+    if not isinstance(slugs, list) or not slugs:
+        return None
+    return {str(item).lower() for item in slugs}
+
+
+def _within(rows: list[dict[str, object]], bound: set[str] | None) -> list[dict[str, object]]:
+    if bound is None:
+        return rows
+    return [row for row in rows if str(row.get("slug") or "").lower() in bound]
+
+
+def _document_within(store: Any, document: dict[str, object], bound: set[str] | None) -> bool:
+    if bound is None:
+        return True
+    collections = getattr(store, "knowledge_collections", {})
+    if not isinstance(collections, dict):
+        return False
+    wanted = str(document.get("collection_id") or document.get("collectionId") or "")
+    for key, row in collections.items():
+        if str(key) == wanted and isinstance(row, dict):
+            return str(row.get("slug") or "").lower() in bound
+    return False
+
+
 def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911
     from ar_domain.agents.access import Actor  # noqa: PLC0415
     from ar_domain.knowledge.book import KnowledgeBook  # noqa: PLC0415
@@ -513,8 +547,9 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         return _error("validation_failed", "knowledge search needs a signed-in person")
     actor = Actor(tenant, user, frozenset({"knowledge:read"}))
     book = KnowledgeBook(store)
+    bound = _bound_collections(store, arguments)
     if name == "list_collections":
-        rows = book.list_collections(actor)
+        rows = _within(book.list_collections(actor), bound)
         lines = [f"{row['slug']}: {row['name']}" for row in rows]
         text = "\n".join(lines) or "No collections."
         return {"text": text, "structured": {"collections": rows}, "is_error": False}
@@ -523,6 +558,8 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
             document = book.get_document(actor, uuid.UUID(str(arguments.get("document_id"))))
         except ValueError, TypeError, ArError:
             return _error("not_found", "document was not found")
+        if not _document_within(store, document, bound):
+            return _error("not_found", "document was not found")
         return {
             "text": str(document.get("summary") or document.get("title") or ""),
             "structured": document,
@@ -530,7 +567,13 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         }
     if name != "search":
         return _error("unknown_tool", f"unknown tool {name}")
-    collections = book.list_collections(actor)
+    collections = _within(book.list_collections(actor), bound)
+    if bound is not None and not collections:
+        return {
+            "text": "No sufficiently relevant documents were found.",
+            "structured": {"hits": [], "answerable": False},
+            "is_error": False,
+        }
     raw_ids: list[object] = list(
         _resolve_collection_ids(arguments.get("collection_ids"), collections)
     )

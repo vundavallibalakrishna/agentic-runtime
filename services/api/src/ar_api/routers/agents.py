@@ -8,7 +8,6 @@ from pydantic import Field
 
 from ar_api.actors import actor_from, chat_of, principal_of
 from ar_api.deps import expose, require_permission
-from ar_common.errors import ArError, ErrorCode
 from ar_contracts.api_model import ApiModel
 from ar_domain.agents.assist import draft_from_description
 from ar_domain.agents.service import AgentLifecycle
@@ -247,10 +246,6 @@ async def publish_agent(
     body: PublishBody | None = None,
 ) -> dict[str, object]:
     note = body.change_note if body is not None else ""
-    if body is not None and body.skip_eval_gate:
-        actor = actor_from(principal_of(request))
-        if not actor.has("agents:manage_all"):
-            raise ArError(ErrorCode.FORBIDDEN, "skip_eval_gate requires agents:manage_all")
     result = _life(request).publish(
         actor_from(principal_of(request)),
         agent_id,

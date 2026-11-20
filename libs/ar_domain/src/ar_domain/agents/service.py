@@ -786,7 +786,9 @@ class AgentLifecycle:
         change_note: str = "",
         if_match: str | None = None,
         skip_eval_gate: bool = False,
+        gate_passed: bool = False,
     ) -> dict[str, object]:
+        """Publish the draft. ``gate_passed`` is set only by the gate itself, once it has."""
         agent = self._agent(actor, agent_id)
         if not can_publish(agent, actor):
             raise ArError(ErrorCode.FORBIDDEN, "you cannot publish this agent")
@@ -820,10 +822,19 @@ class AgentLifecycle:
         version["definition"] = normalised
         version["definition_hash"] = digest
         version["change_note"] = change_note or version.get("change_note") or ""
-        if not skip_eval_gate:
+        skipped_gate = False
+        if gate_passed:
+            pass
+        elif not skip_eval_gate:
             gated = self._gated_publish(actor, agent_id, change_note)
             if gated is not None:
                 return gated
+        else:
+            # Passing over the eval gate takes the permission the registry spec names
+            # for it (spec 05). When a required suite was passed over, it is written down.
+            if not actor.has("agents:manage_all"):
+                raise ArError(ErrorCode.FORBIDDEN, "skip_eval_gate requires agents:manage_all")
+            skipped_gate = self._has_gate(actor, agent_id)
         previous = agent.get("published_version_id")
         if isinstance(previous, uuid.UUID) and previous != draft_id:
             prior = self.store.versions.get(previous)
@@ -848,7 +859,11 @@ class AgentLifecycle:
             actor,
             "agent.published",
             agent_id,
-            {"definition_hash": digest, "version": version["version"]},
+            {
+                "definition_hash": digest,
+                "version": version["version"],
+                "eval_gate_skipped": skipped_gate,
+            },
         )
         self._event(
             "agent.published",
@@ -869,9 +884,7 @@ class AgentLifecycle:
         from ar_domain.evals.book import EvalBook  # noqa: PLC0415
 
         book = EvalBook(self.store)
-        suites = book.gated_suite_ids(actor, agent_id)
-        if self._grounding(agent_id) == "strict":
-            suites = [*suites, *book.platform_gate_ids(actor, "groundedness")]
+        suites = self._gate_suites(actor, agent_id)
         if not suites:
             return None
         started = book.start_run(
@@ -885,6 +898,19 @@ class AgentLifecycle:
             },
         )
         return {"eval_run_id": started.get("id"), "status": started.get("status")}
+
+    def _gate_suites(self, actor: Actor, agent_id: uuid.UUID) -> list[uuid.UUID]:
+        """The suites that must pass before this agent's draft is published."""
+        from ar_domain.evals.book import EvalBook  # noqa: PLC0415
+
+        book = EvalBook(self.store)
+        suites = book.gated_suite_ids(actor, agent_id)
+        if self._grounding(agent_id) == "strict":
+            suites = [*suites, *book.platform_gate_ids(actor, "groundedness")]
+        return suites
+
+    def _has_gate(self, actor: Actor, agent_id: uuid.UUID) -> bool:
+        return bool(self._gate_suites(actor, agent_id))
 
     def _grounding(self, agent_id: uuid.UUID) -> str:
         agent = self.store.agents.get(agent_id)
@@ -919,7 +945,7 @@ class AgentLifecycle:
             ),
             agent_id,
             change_note=str(version.get("change_note") or ""),
-            skip_eval_gate=True,
+            gate_passed=True,
         )
 
     def rollback(

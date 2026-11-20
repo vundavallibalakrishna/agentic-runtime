@@ -767,7 +767,7 @@ def _knowledge_server(store: Any) -> None:
             _tool(
                 "search",
                 "Search knowledge",
-                "Search knowledge collections the signed-in person can read, by meaning and "
+                "Search the knowledge collections this agent may use, by meaning and "
                 "words. Use it whenever an answer should come from the library or the "
                 "organisation's own documents: search once for each question or topic, and "
                 "search before saying the library has no answer. Returns ranked passages "
@@ -786,7 +786,7 @@ def _knowledge_server(store: Any) -> None:
                                 "description": "A collection id to restrict the search to.",
                             },
                             "description": "Restrict the search to these collection ids. Omit "
-                            "to search every collection the person can read.",
+                            "to search every collection this agent may use.",
                         },
                         "top_k": {
                             "type": "integer",

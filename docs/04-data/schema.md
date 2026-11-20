@@ -1357,6 +1357,8 @@ CREATE TABLE eval_runs (
   temporal_workflow_id text NOT NULL,
   triggered_by         uuid REFERENCES users(id) ON DELETE SET NULL,
   trigger              text NOT NULL DEFAULT 'manual' CHECK (trigger IN ('manual','publish_gate','schedule','ci')),
+  tags                 text[] NOT NULL DEFAULT '{}', -- run only the cases that carry one of these; empty runs them all
+  mock_all_tools       boolean NOT NULL DEFAULT false,
   started_at           timestamptz,
   finished_at          timestamptz,
   created_at           timestamptz NOT NULL DEFAULT now()

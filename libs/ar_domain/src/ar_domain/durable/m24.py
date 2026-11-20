@@ -411,3 +411,31 @@ async def save_judgements(session: AsyncSession, rows: list[dict[str, Any]]) -> 
                 "created_at": as_dt(row.get("created_at")) or utcnow(),
             },
         )
+
+
+async def load_library_row(store: object, tenant_id: uuid.UUID, document_id: uuid.UUID) -> None:
+    """Read one staged document row into the process, for the worker that parses it.
+
+    The row was written by the process that took the upload. A store with no database
+    behind it already holds the row, and nothing is read.
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession  # noqa: PLC0415
+
+    from ar_domain.durable.hydrate import _merge  # noqa: PLC0415
+
+    engine = getattr(store, "durable_engine", None)
+    if engine is None:
+        return
+    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(tenant_id)},
+        )
+        found = await session.execute(
+            text("SELECT * FROM documents WHERE id = :id AND tenant_id = :tenant_id"),
+            {"id": document_id, "tenant_id": tenant_id},
+        )
+        mapped = found.mappings().first()
+    if mapped is not None:
+        row = library_view(dict(mapped))
+        _merge(store, "library_documents", row["id"], row)
