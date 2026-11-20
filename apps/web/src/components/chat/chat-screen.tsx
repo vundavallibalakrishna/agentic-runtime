@@ -1067,42 +1067,48 @@ export function ChatScreen() {
                             </button>
                           ) : null}
                           {!streamingHere ? <AttachmentList files={attachedOf(message)} /> : null}
-                          {streamingHere && stream.tools.length > 0 ? (
-                            <div>
-                              <p className="text-xs font-medium text-[var(--muted-foreground)]">
-                                {t("working")}
-                              </p>
-                              {stream.tools.map((tool, position) => (
-                                <ToolCallCard
-                                  call={{
-                                    qualifiedName: tool.name,
-                                    status: tool.status,
-                                    resultPreview: tool.preview,
-                                    arguments: tool.arguments,
-                                    presentation: tool.presentation,
-                                    timeline: tool.timeline,
-                                  }}
-                                  // Calls are only ever added at the end, so the position names one.
-                                  // biome-ignore lint/suspicious/noArrayIndexKey: two calls can share a name and a result
-                                  key={`${id}-live-${position}`}
-                                  label={t("toolCall")}
-                                />
-                              ))}
-                            </div>
-                          ) : null}
-                          {Array.isArray(message.toolCalls)
-                            ? message.toolCalls.map((call, position) => {
-                                const row =
-                                  call && typeof call === "object"
-                                    ? (call as Record<string, unknown>)
-                                    : {};
-                                // Two calls of one tool can return the same text, so the position is the key.
-                                const toolKey = `${id}-call-${position}`;
-                                return (
-                                  <ToolCallCard call={row} key={toolKey} label={t("toolCall")} />
-                                );
-                              })
-                            : null}
+                          {(() => {
+                            // One list for a reply's tool calls, while it is written and
+                            // after. The same rows stay on the page when the reply
+                            // finishes, so a call a person opened stays open.
+                            const live = streamingHere && stream.tools.length > 0;
+                            const calls: Record<string, unknown>[] = live
+                              ? stream.tools.map((tool) => ({
+                                  qualifiedName: tool.name,
+                                  status: tool.status,
+                                  resultPreview: tool.preview,
+                                  arguments: tool.arguments,
+                                  presentation: tool.presentation,
+                                  timeline: tool.timeline,
+                                }))
+                              : Array.isArray(message.toolCalls)
+                                ? message.toolCalls.map((call) =>
+                                    call && typeof call === "object"
+                                      ? (call as Record<string, unknown>)
+                                      : {},
+                                  )
+                                : [];
+                            if (calls.length === 0) return null;
+                            return (
+                              <div>
+                                {live ? (
+                                  <p className="text-xs font-medium text-[var(--muted-foreground)]">
+                                    {t("working")}
+                                  </p>
+                                ) : null}
+                                {calls.map((row, position) => (
+                                  <ToolCallCard
+                                    call={row}
+                                    // Calls are only ever added at the end, and two calls of
+                                    // one tool can return the same text, so the position names one.
+                                    // biome-ignore lint/suspicious/noArrayIndexKey: see above
+                                    key={`${id}-call-${position}`}
+                                    label={t("toolCall")}
+                                  />
+                                ))}
+                              </div>
+                            );
+                          })()}
                           {message.loadedSkill && typeof message.loadedSkill === "object" ? (
                             <p className="mt-2 text-xs text-[var(--muted-foreground)]">
                               {t("loadedSkill", {

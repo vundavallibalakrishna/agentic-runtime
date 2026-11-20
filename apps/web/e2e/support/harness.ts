@@ -47,17 +47,28 @@ export const test = base.extend<{ freshTenantOnRetry: undefined }>({
 });
 
 /**
- * Open the tool calls on the page once `what` has arrived in one of them. A tool call is
- * one line under an answer until a person opens it, so a check on what a tool returned
- * opens it first, as a person would. `what` is text, or a locator for the element.
+ * Open the tool calls on the page once `what` has arrived in one of them, and wait until
+ * it can be seen. A tool call is one line under an answer until a person opens it, so a
+ * check on what a tool returned opens it first, as a person would. `what` is text, or a
+ * locator for the element.
+ *
+ * A reply draws its tool calls twice: while it is being written, and again when it is
+ * finished. The second drawing is closed again, so opening once can be undone a moment
+ * later. This opens and looks until the text stays in view.
  */
 export async function openToolCall(page: Page, what: string | RegExp | Locator, timeout = 20_000) {
   const wanted = typeof what === "string" || what instanceof RegExp ? page.getByText(what) : what;
-  // Attached, not visible: it is inside a closed tool call until the next line opens it.
+  // Attached, not visible: it is inside a closed tool call until it is opened below.
   await expect(wanted.first()).toBeAttached({ timeout });
-  await page.getByTestId("tool-call").evaluateAll((cards) => {
-    for (const card of cards) card.setAttribute("open", "");
-  });
+  await expect(async () => {
+    await page.getByTestId("tool-call").evaluateAll((cards) => {
+      for (const card of cards) card.setAttribute("open", "");
+    });
+    await expect(wanted.first()).toBeVisible({ timeout: 1_000 });
+    // Still open after the reply has had time to finish and draw itself again.
+    await page.waitForTimeout(500);
+    await expect(wanted.first()).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout });
 }
 
 export { expect, type Page };
