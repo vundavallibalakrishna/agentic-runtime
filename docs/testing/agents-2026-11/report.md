@@ -150,3 +150,4 @@ research passes: stopped in 5 seconds.
 - The cost on a reply is 0 because the test model has no price set.
 - In the chat screen a stopped reply keeps its text but is not marked as stopped, and
   Continue is offered only under a failed reply (OQ-159 f).
+- A deleted routine's webhook secret stays in the secrets store (OQ-159 g).
