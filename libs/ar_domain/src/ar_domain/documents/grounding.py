@@ -12,7 +12,7 @@ from collections.abc import Callable
 import orjson
 
 from ar_common.wrapping import wrap_untrusted
-from ar_domain.documents.chunk import RETRIEVAL_BUDGET, retrieve, score
+from ar_domain.documents.chunk import retrieval_budget, retrieve, score
 from ar_domain.pii.analyzer import Masking, redact
 
 Ask = Callable[[str, str], str | None]
@@ -225,7 +225,7 @@ def _candidates(passages: list[dict[str, object]], name: str) -> list[dict[str, 
     used = 0
     for _index, row in ranked:
         size = len(str(row.get("text") or ""))
-        if chosen and used + size > RETRIEVAL_BUDGET:
+        if chosen and used + size > retrieval_budget():
             continue
         chosen.append(row)
         used += size

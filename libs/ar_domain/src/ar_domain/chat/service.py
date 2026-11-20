@@ -1671,7 +1671,6 @@ class ChatBehaviour:
         file_ids: list[uuid.UUID] | None = None,
         collection_ids: list[uuid.UUID] | None = None,
         task_template: str = "",
-        strategy: str = "",
         items: list[object] | None = None,
         parent_message_id: uuid.UUID | None = None,
         schedule: bool = True,
@@ -1692,17 +1691,19 @@ class ChatBehaviour:
         from ar_domain.usage.service import UsageBook  # noqa: PLC0415
 
         UsageBook(self).assert_run(tenant_id, user_id, agent_id)
-        explicit = bool(file_ids or collection_ids or items or task_template.strip() or strategy)
+        explicit = bool(
+            file_ids or collection_ids or items or task_template.strip() or attachment_ids
+        )
         bound = list(attachment_ids or [])
-        plan = None
+        facts = None
         chosen_items = list(items or [])
+        template_id = ""
         if explicit:
             from ar_domain.documents.binding import (  # noqa: PLC0415
                 bind_turn,
                 context_window_for,
                 remember_task,
             )
-            from ar_domain.documents.planner import model_ask  # noqa: PLC0415
 
             probe = {
                 "tenant_id": tenant_id,
@@ -1713,7 +1714,7 @@ class ChatBehaviour:
             version_key = conversation.get("agent_version_id")
             version = self.versions.get(version_key) if isinstance(version_key, uuid.UUID) else None
             definition = version.get("definition") if isinstance(version, dict) else None
-            bound, plan, chosen_items, schema, instruction = bind_turn(
+            bound, facts, chosen_items, schema, instruction = bind_turn(
                 self,
                 tenant_id=tenant_id,
                 user_id=user_id,
@@ -1722,13 +1723,12 @@ class ChatBehaviour:
                 collection_ids=list(collection_ids or []),
                 instruction=text,
                 task_template=task_template,
-                strategy=strategy,
                 items=list(items or []),
                 response_format=response_format,
                 context_window=window,
                 definition=definition if isinstance(definition, dict) else None,
-                ask=model_ask(self, tenant_id, probe),
             )
+            template_id = task_template.strip()
             if instruction.strip():
                 text = instruction
             if schema and response_format is None:
@@ -1793,7 +1793,7 @@ class ChatBehaviour:
             ask(run, "suggest_followups", True)
         if response_format:
             ask(run, "response_format", response_format)
-        if plan is not None:
+        if facts is not None:
             remember_task(
                 self,
                 run,
@@ -1802,8 +1802,37 @@ class ChatBehaviour:
                 file_ids=bound,
                 collection_ids=list(collection_ids or []),
                 items=chosen_items,
-                plan=plan,
+                template_id=template_id,
             )
+            run["document_facts"] = [
+                {
+                    "fileId": item.file_id,
+                    "documentId": item.document_id,
+                    "title": item.title,
+                    "tokens": item.tokens,
+                    "pages": item.page_count,
+                    "outline": item.headings,
+                    "tables": item.tables,
+                    "fits": item.fits,
+                }
+                for item in facts
+            ]
+            if chosen_items and not conversation.get("plan"):
+                conversation["plan"] = [
+                    {
+                        "id": str(_item.get("id") or index),
+                        "title": str(_item.get("text") or "")[:160],
+                        "status": "pending",
+                    }
+                    for index, _item in enumerate(
+                        [
+                            item if isinstance(item, dict) else {"id": "", "text": str(item)}
+                            for item in chosen_items
+                        ],
+                        start=1,
+                    )
+                    if str(_item.get("text") or "").strip()
+                ]
         if research:
             from ar_domain.research.engine import initial_state  # noqa: PLC0415
 
@@ -2314,9 +2343,9 @@ class ChatBehaviour:
 
             mark_cancelled(self, run)
             return "final"
-        from ar_domain.documents.sections import next_batch  # noqa: PLC0415
+        from ar_domain.documents.sections import pending_sections  # noqa: PLC0415
 
-        batch = next_batch(self, run)
+        batch = pending_sections(self, run)
         if batch:
             run["section_batch"] = batch
             run["step_kind"] = "sections"
@@ -3589,7 +3618,6 @@ class ChatBehaviour:
         file_ids: list[uuid.UUID] | None = None,
         collection_ids: list[uuid.UUID] | None = None,
         task_template: str = "",
-        strategy: str = "",
         items: list[object] | None = None,
         response_format: dict[str, object] | None = None,
     ) -> dict[str, object]:
@@ -3607,7 +3635,6 @@ class ChatBehaviour:
             file_ids=file_ids,
             collection_ids=collection_ids,
             task_template=task_template,
-            strategy=strategy,
             items=items,
             response_format=response_format,
         )

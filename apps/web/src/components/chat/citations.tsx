@@ -80,45 +80,33 @@ export function reviewsOf(message: Record<string, unknown>): Record<string, unkn
 }
 
 export function ReviewTable({ rows }: { rows: Record<string, unknown>[] }) {
-  const t = useTranslations("chat");
   if (rows.length === 0) return null;
+  const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
   return (
     <div className="mt-3 overflow-x-auto rounded-xl border border-[var(--border)]">
       <table className="w-full text-left text-sm">
         <thead className="bg-[var(--muted)] text-xs text-[var(--muted-foreground)]">
           <tr>
-            <th className="px-3 py-2 font-medium">{t("reviewItem")}</th>
-            <th className="px-3 py-2 font-medium">{t("reviewStatus")}</th>
-            <th className="px-3 py-2 font-medium">{t("reviewQuote")}</th>
+            {columns.map((column) => (
+              <th className="px-3 py-2 font-medium" key={column}>
+                {column}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
-            const anchor = String(row.anchor || "");
-            const documentId = String(row.documentId || row.document_id || "");
-            const quote = String(row.quote || row.text || "");
-            const status = String(row.status || row.verdict || "");
-            const key = `${String(row.id || row.heading || "")}-${anchor}-${quote.slice(0, 24)}`;
-            return (
-              <tr className="border-t border-[var(--border)]" key={key}>
-                <td className="px-3 py-2">{String(row.heading || row.text || row.id || "")}</td>
-                <td className="px-3 py-2">
-                  {status === "notFound" || status === "not_supported"
-                    ? t("notFound")
-                    : t("supported")}
+          {rows.map((row, index) => (
+            <tr
+              className="border-t border-[var(--border)]"
+              key={String(row.anchor || row.id || index)}
+            >
+              {columns.map((column) => (
+                <td className="px-3 py-2" key={column}>
+                  {String(row[column] ?? "")}
                 </td>
-                <td className="px-3 py-2">
-                  {documentId && anchor ? (
-                    <a className="underline" href={`/documents/${documentId}#${anchor}`}>
-                      {quote || anchor}
-                    </a>
-                  ) : (
-                    quote
-                  )}
-                </td>
-              </tr>
-            );
-          })}
+              ))}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

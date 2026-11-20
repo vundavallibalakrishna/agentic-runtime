@@ -179,7 +179,7 @@ def _definition() -> dict[str, object]:
                 },
             },
             {"server": "data", "version": "*", "include": ["query"]},
-            {"server": "documents", "version": "*", "include": ["summarise", "judge"]},
+            {"server": "documents", "version": "*", "include": ["read", "extract"]},
             {"server": "knowledge", "version": "*", "include": ["search"]},
         ],
         "budget": {

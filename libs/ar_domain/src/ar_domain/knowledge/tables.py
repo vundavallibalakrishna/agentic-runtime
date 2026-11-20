@@ -160,6 +160,13 @@ class Document(Base):
             name="status",
         ),
         UniqueConstraint("source_id", "external_id", name="uq_documents_source_external"),
+        Index(
+            "uq_documents_content_hash",
+            "tenant_id",
+            "content_hash",
+            unique=True,
+            postgresql_where=sql_text("content_hash <> ''"),
+        ),
         Index("ix_documents_collection", "tenant_id", "collection_id", "status"),
         Index(
             "ix_documents_title_trgm",
@@ -173,13 +180,13 @@ class Document(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
-    collection_id: Mapped[uuid.UUID] = mapped_column(
+    collection_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("knowledge_collections.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
-    source_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("knowledge_sources.id", ondelete="CASCADE"), nullable=False
+    source_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("knowledge_sources.id", ondelete="CASCADE"), nullable=True
     )
     external_id: Mapped[str] = mapped_column(Text, nullable=False)
     uri: Mapped[str] = mapped_column(Text, nullable=False)
@@ -197,6 +204,22 @@ class Document(Base):
     acl_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
     raw_file_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("files.id", name="fk_documents_raw", ondelete="SET NULL")
+    )
+    filename: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
+    object_key: Mapped[str | None] = mapped_column(Text)
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    page_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=sql_text("0"))
+    passages: Mapped[list[object]] = mapped_column(
+        JSONB, nullable=False, server_default=sql_text("'[]'::jsonb")
+    )
+    tables: Mapped[list[object]] = mapped_column(
+        JSONB, nullable=False, server_default=sql_text("'[]'::jsonb")
+    )
+    outline: Mapped[list[object]] = mapped_column(
+        JSONB, nullable=False, server_default=sql_text("'[]'::jsonb")
     )
     parsed_file_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("files.id", name="fk_documents_parsed", ondelete="SET NULL")

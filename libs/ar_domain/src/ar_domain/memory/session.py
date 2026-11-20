@@ -32,7 +32,7 @@ def prepare_prompt(
     for item in conversation_attachments(store, conversation.get("id"), context_window=window):
         attached.setdefault(item.message_id, []).append(item)
     history = _history(store, conversation.get("id"), run.get("input_message_id"), attached)
-    window = _window(definition)
+    window = window or _window(definition)
     threshold = _threshold(definition)
     keep = _keep(definition)
     joined = "\n".join(str(item.get("content") or "") for item in history) + "\n" + text
@@ -101,8 +101,11 @@ def _files_block(
     known = {item.file_id for rows in attached.values() for item in rows}
     extra = _agent_lines(store, run, definition, known)
     reduction = run.get("document_reduction")
+    facts = _fact_lines(run)
     parts = [
-        part for part in (lines, extra, reduction if isinstance(reduction, str) else "") if part
+        part
+        for part in (facts, lines, extra, reduction if isinstance(reduction, str) else "")
+        if part
     ]
     return "\n".join(parts)
 
@@ -137,7 +140,11 @@ def _agent_lines(
         meta = files.get(file_id)
         if not isinstance(meta, dict) or meta.get("tenant_id") != run.get("tenant_id"):
             continue
-        if meta.get("owner_user_id") != run.get("user_id"):
+        if meta.get("owner_user_id") is None:
+            continue
+        if meta.get("owner_user_id") != run.get("user_id") and not _bound_to_agent(
+            definition, file_id
+        ):
             continue
         _document_id, excerpt = _library_excerpt(store, meta, context_window=window)
         lines.append(f"[file: {meta.get('name')} id={file_id}]\n{excerpt}".strip())
@@ -194,9 +201,38 @@ def _uuid(value: object) -> uuid.UUID | None:
 
 def _window(definition: dict[str, object]) -> int:
     raw = definition.get("context_window")
-    if isinstance(raw, int) and not isinstance(raw, bool):
+    if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
         return raw
-    return 8000
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().default_context_window)
+
+
+def _fact_lines(run: dict[str, object]) -> str:
+    raw = run.get("document_facts")
+    if not isinstance(raw, list) or not raw:
+        return ""
+    lines = ["Measured documents:"]
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        lines.append(
+            f"- {item.get('title') or item.get('fileId')} file={item.get('fileId')} "
+            f"document={item.get('documentId')} tokens={item.get('tokens')} "
+            f"pages={item.get('pages')} outline={item.get('outline')} "
+            f"tables={item.get('tables')} fits={str(item.get('fits')).lower()}"
+        )
+    return "\n".join(lines)
+
+
+def _bound_to_agent(definition: dict[str, object], file_id: uuid.UUID) -> bool:
+    knowledge = definition.get("knowledge")
+    raw = (
+        knowledge.get("file_ids", knowledge.get("fileIds")) if isinstance(knowledge, dict) else None
+    )
+    if not isinstance(raw, list):
+        return False
+    return str(file_id) in {str(item) for item in raw}
 
 
 def _keep(definition: dict[str, object]) -> int:

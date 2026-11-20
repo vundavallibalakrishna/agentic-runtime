@@ -17,7 +17,8 @@ if TYPE_CHECKING:
     from typing import Any
 
 # An anchor as the tools print it, with or without the page after it.
-_ANCHOR = re.compile(r"\[(p\d+-[a-z]*\d+(?:-\d+)?)\b")
+# Passage anchors are ``p1-s0`` and table anchors are ``t1``. Both are cited the same way.
+_ANCHOR = re.compile(r"\[((?:p\d+-[a-z]*\d+(?:-\d+)?)|t\d+)\b")
 _WORD = re.compile(r"[a-z0-9]{4,}")
 _SNIPPET = 280
 
@@ -86,11 +87,35 @@ def _passage(
     best: tuple[dict[str, object], dict[str, object]] | None = None
     score = -1
     for document in documents:
-        passages = document.get("passages")
-        for passage in passages if isinstance(passages, list) else []:
-            if not isinstance(passage, dict) or str(passage.get("anchor") or "") != anchor:
+        for passage in _anchored(document):
+            if str(passage.get("anchor") or "") != anchor:
                 continue
             shared = len(words & set(_WORD.findall(str(passage.get("text") or "").lower())))
             if shared > score:
                 best, score = (document, passage), shared
     return best
+
+
+def _anchored(document: dict[str, object]) -> list[dict[str, object]]:
+    """Passages and tables, so a table anchor cites the table."""
+    passages = document.get("passages")
+    found: list[dict[str, object]] = [
+        passage
+        for passage in (passages if isinstance(passages, list) else [])
+        if isinstance(passage, dict)
+    ]
+    tables = document.get("tables")
+    for table in tables if isinstance(tables, list) else []:
+        if not isinstance(table, dict):
+            continue
+        text = str(table.get("csv_text") or table.get("text") or "")
+        found.append(
+            {
+                "anchor": table.get("anchor"),
+                "page": table.get("page"),
+                "text": text,
+                "char_from": 0,
+                "char_to": len(text),
+            }
+        )
+    return found

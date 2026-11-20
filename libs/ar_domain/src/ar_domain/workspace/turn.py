@@ -115,18 +115,24 @@ async def _retrieve(
     user = run.get("user_id")
     if not isinstance(tenant, uuid.UUID) or not isinstance(user, uuid.UUID):
         return None
+    from ar_domain.runs.request import asked  # noqa: PLC0415
+
+    named = asked(run, "collection_ids")
     slugs = _collection_slugs(definition)
-    if not slugs:
-        return None
     ids = [
         row["id"]
         for row in getattr(store, "knowledge_collections", {}).values()
         if isinstance(row, dict)
         and row.get("tenant_id") == tenant
-        and str(row.get("slug")) in slugs
         and isinstance(row.get("id"), uuid.UUID)
+        and (
+            (isinstance(named, list) and str(row.get("id")) in {str(item) for item in named})
+            or (not named and str(row.get("slug")) in slugs)
+        )
     ]
     if not ids:
+        if not named and not slugs:
+            return None
         return {"hits": [], "trace": {"query": user_text[:500], "hits": [], "used_chars": 0}}
     from ar_domain.knowledge.threshold import retrieval_bar  # noqa: PLC0415
 

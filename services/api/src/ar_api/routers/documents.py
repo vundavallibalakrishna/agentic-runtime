@@ -18,11 +18,6 @@ if TYPE_CHECKING:
 router = APIRouter()
 
 
-class CompareBody(ApiModel):
-    other_document_id: uuid.UUID
-    model_alias: str = ""
-
-
 class RuleSetItem(ApiModel):
     item_id: str = ""
     statement: str = ""
@@ -34,46 +29,6 @@ class RuleSetBody(ApiModel):
     items: list[RuleSetItem] = Field(default_factory=list)
     source_file_id: uuid.UUID | None = None
     sha256: str = ""
-
-
-class JudgeBody(ApiModel):
-    rule_set_id: str = ""
-    statements: list[str] = Field(default_factory=list)
-    rule_set: RuleSetBody | None = None
-    label: str = ""
-    model_alias: str = ""
-
-
-class MissingBody(ApiModel):
-    rule_set_id: str = ""
-    statements: list[str] = Field(default_factory=list)
-    rule_set: RuleSetBody | None = None
-    model_alias: str = ""
-
-
-class ExtractBody(ApiModel):
-    fields: list[str] = Field(default_factory=list)
-    model_alias: str = ""
-
-
-class RewriteBody(ApiModel):
-    anchor: str = ""
-    instruction: str
-    model_alias: str = ""
-
-
-class DecideBody(ApiModel):
-    decision: str
-    hunk_id: str = ""
-
-
-class SummariseBody(ApiModel):
-    model_alias: str = ""
-
-
-class CrosscheckBody(ApiModel):
-    focus: str = ""
-    model_alias: str = ""
 
 
 async def _waiting(
@@ -94,7 +49,9 @@ def _library(request: Request) -> DocumentLibrary:
 )
 @expose(public=False, permission="chat:use")
 async def list_library_documents(request: Request) -> dict[str, object]:
-    return page(_library(request).list_items(actor(request)))
+    listed = _library(request).list_items(actor(request))
+    rows = listed.get("documents") if isinstance(listed, dict) else listed
+    return page(rows if isinstance(rows, list) else [])
 
 
 @router.post(
@@ -190,74 +147,6 @@ async def document_tables(document_id: uuid.UUID, request: Request) -> dict[str,
 
 
 @router.post(
-    "/api/v1/library-documents/{document_id}:summarise",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def summarise_document(
-    document_id: uuid.UUID, body: SummariseBody, request: Request
-) -> dict[str, object]:
-    return await _waiting(
-        _library(request).summarise, actor(request), document_id, alias=body.model_alias
-    )
-
-
-@router.post(
-    "/api/v1/library-documents/{document_id}:compare",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def compare_documents(
-    document_id: uuid.UUID, body: CompareBody, request: Request
-) -> dict[str, object]:
-    return await _waiting(
-        _library(request).compare,
-        actor(request),
-        document_id,
-        body.other_document_id,
-        alias=body.model_alias,
-    )
-
-
-@router.post(
-    "/api/v1/library-documents/{document_id}:crosscheck",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def crosscheck_document(
-    document_id: uuid.UUID, body: CrosscheckBody, request: Request
-) -> dict[str, object]:
-    return await _waiting(
-        _library(request).crosscheck,
-        actor(request),
-        document_id,
-        focus=body.focus,
-        alias=body.model_alias,
-    )
-
-
-@router.post(
-    "/api/v1/library-documents/{document_id}:judge",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def judge_document(
-    document_id: uuid.UUID, body: JudgeBody, request: Request
-) -> dict[str, object]:
-    payload = body.rule_set.model_dump(by_alias=False) if body.rule_set is not None else None
-    return await _waiting(
-        _library(request).judge,
-        actor(request),
-        document_id,
-        statements=body.statements,
-        rule_set_id=body.rule_set_id,
-        rule_set=payload,
-        label=body.label,
-        alias=body.model_alias,
-    )
-
-
-@router.post(
     "/api/v1/rule-sets",
     dependencies=[Depends(require_permission("chat:use"))],
 )
@@ -281,103 +170,3 @@ async def export_rule_set_route(
     from ar_domain.documents.rules import export_rule_set  # noqa: PLC0415
 
     return export_rule_set(chat(request), actor(request), rule_set_id, version)
-
-
-@router.post(
-    "/api/v1/library-documents/{document_id}:missing",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def document_missing(
-    document_id: uuid.UUID, body: MissingBody, request: Request
-) -> dict[str, object]:
-    payload = body.rule_set.model_dump(by_alias=False) if body.rule_set is not None else None
-    return await _waiting(
-        _library(request).missing,
-        actor(request),
-        document_id,
-        statements=body.statements,
-        rule_set_id=body.rule_set_id,
-        rule_set=payload,
-        alias=body.model_alias,
-    )
-
-
-@router.post(
-    "/api/v1/library-documents/{document_id}:redact",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def redact_document(document_id: uuid.UUID, request: Request) -> dict[str, object]:
-    return _library(request).redact(actor(request), document_id)
-
-
-@router.post(
-    "/api/v1/library-documents/{document_id}:extract",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def extract_document_fields(
-    document_id: uuid.UUID, body: ExtractBody, request: Request
-) -> dict[str, object]:
-    return await _waiting(
-        _library(request).extract, actor(request), document_id, body.fields, alias=body.model_alias
-    )
-
-
-@router.post(
-    "/api/v1/library-documents/{document_id}:rewrite",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def rewrite_document(
-    document_id: uuid.UUID, body: RewriteBody, request: Request
-) -> dict[str, object]:
-    return await _waiting(
-        _library(request).propose_rewrite,
-        actor(request),
-        document_id,
-        anchor=body.anchor,
-        instruction=body.instruction,
-        alias=body.model_alias,
-    )
-
-
-@router.get(
-    "/api/v1/document-checks/{check_id}",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def get_document_check(check_id: uuid.UUID, request: Request) -> dict[str, object]:
-    return _library(request).get_check(actor(request), check_id)
-
-
-@router.get(
-    "/api/v1/document-comparisons/{comparison_id}",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def get_document_comparison(comparison_id: uuid.UUID, request: Request) -> dict[str, object]:
-    return _library(request).get_comparison(actor(request), comparison_id)
-
-
-@router.get(
-    "/api/v1/document-rewrites/{rewrite_id}",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def get_document_rewrite(rewrite_id: uuid.UUID, request: Request) -> dict[str, object]:
-    return _library(request).get_rewrite(actor(request), rewrite_id)
-
-
-@router.post(
-    "/api/v1/document-rewrites/{rewrite_id}:decide",
-    dependencies=[Depends(require_permission("chat:use"))],
-)
-@expose(public=False, permission="chat:use")
-async def decide_document_rewrite(
-    rewrite_id: uuid.UUID, body: DecideBody, request: Request
-) -> dict[str, object]:
-    return _library(request).decide_rewrite(
-        actor(request), rewrite_id, decision=body.decision, hunk_id=body.hunk_id
-    )

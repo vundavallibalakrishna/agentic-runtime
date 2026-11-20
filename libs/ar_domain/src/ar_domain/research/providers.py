@@ -120,7 +120,10 @@ def _lexical_hits(
     distinctive = _distinctive(store, tenant_id, query)
     needed = _needed(store, tenant_id)
     rows: list[dict[str, str]] = []
-    for hit in DocumentLibrary(store).search(reader, query):
+    found = DocumentLibrary(store).search(reader, query)
+    raw_hits = found.get("hits") if isinstance(found, dict) else []
+    hits = [hit for hit in raw_hits if isinstance(hit, dict)] if isinstance(raw_hits, list) else []
+    for hit in hits:
         anchor = str(hit.get("anchor") or "")
         address = f"{LIBRARY}{hit.get('document_id')}#{anchor}"
         have = _words(library_page(store, tenant_id, address) or "")

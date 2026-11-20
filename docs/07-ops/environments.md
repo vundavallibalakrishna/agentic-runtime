@@ -85,11 +85,38 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DOCUMENT_OUTPUT_RESERVE` | `4096` | Tokens held back from the context window for the answer. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_INSTRUCTION_RESERVE` | `2000` | Tokens held back for instructions. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_TOOL_RESERVE` | `1500` | Tokens held back for tool schemas. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DEFAULT_CONTEXT_WINDOW` | `8000` | Compaction window when no model window is registered. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CHUNK_CHARS` | `1000` | Characters in one library passage. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CHUNK_OVERLAP` | `120` | Overlap between library passages. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_COLLECTION_CAP` | `20` | Collections searched in one page. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_EXCERPT_CHARS` | `1500` | Characters shown when a file does not fit the window. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_MAX_BYTES` | `26214400` | Largest file the library will store. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_MAX_PAGES` | `600` | Largest page count one file may have. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_READ_CHARS` | `12000` | Characters one documents.read call returns. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_RETRIEVAL_BUDGET` | `12000` | Characters kept when no context window is registered. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_SEARCH_HITS` | `30` | Documents returned by one list page. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_SEARCH_SNIPPET_CHARS` | `240` | Characters in one search snippet. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_SEARCH_TOP_K` | `8` | Passages one search returns. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_SEARCH_DOCUMENT_CAP` | `50` | Document ids one index search accepts. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_TABLE_MAX_ROWS` | `2000` | Rows stored from one sheet. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_TABLE_PREVIEW_ROWS` | `8` | Rows shown in a sheet's passage preview. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_ZIP_MEMBERS` | `30` | Members read from one zip. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_SECTIONS` | `40` | Sections in one created file. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_SHEETS` | `12` | Sheets in one created workbook. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_ROWS` | `500` | Rows in one created sheet. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_COLUMNS` | `32` | Columns in one created sheet. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_PARAGRAPHS` | `40` | Paragraphs in one created section. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_BULLETS` | `40` | Bullets in one created section. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_TEXT` | `4000` | Characters in one created paragraph. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_TITLE` | `200` | Characters in a created title. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_FILE_BYTES` | `5242880` | Bytes in one created file. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_PAGES` | `30` | Pages in one created PDF. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CREATE_MAX_SLIDES` | `60` | Slides in one created deck. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_HISTORY_RESERVE` | `500` | Tokens held back for this turn's history. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_MARGIN_RATIO` | `0.15` | Fraction of the context window held back as margin. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_ALIGN_LEXICAL` | `0.5` | Minimum word overlap before two headings are paired. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_ALIGN_COSINE` | `0.75` | Minimum cosine before two headings are paired when both have vectors. | [document tasks](../09-plan/document-tasks.md) |
-| `AR_DOCUMENT_HEADING_CAP` | `15` | Headings above this, in either document, use section alignment. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_HEADING_CAP` | `15` | Outline entries and passage pages returned in one page. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_TOKEN_FACTOR` | `1.15` | Multiplier on the ingest token counter when estimating a document. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_LOW_TEXT_CHARS` | `40` | Mean characters per page below this, after OCR, sets the `low_text` warning. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_FILE_EXPIRY_MIN_SECONDS` | `3600` | Shortest `expiresAfterSeconds` on an upload. | [spec 13](../03-specs/13-files-artifacts.md) |

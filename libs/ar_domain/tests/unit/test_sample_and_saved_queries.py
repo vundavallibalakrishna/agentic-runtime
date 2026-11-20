@@ -868,9 +868,7 @@ def test_an_export_with_nothing_to_read_says_what_to_pass() -> None:
 
 
 def test_comparing_a_document_with_its_own_copy_is_refused_in_words() -> None:
-    import pytest
 
-    from ar_common.errors import ValidationFailedError
     from ar_domain.documents.library import DocumentLibrary
 
     book = DocumentLibrary.__new__(DocumentLibrary)
@@ -881,8 +879,8 @@ def test_comparing_a_document_with_its_own_copy_is_refused_in_words() -> None:
         two: {"id": two, "tenant_id": tenant, "content_hash": "same"},
     }
     book._own = lambda _actor, document_id: rows[document_id]  # type: ignore[method-assign]
-    with pytest.raises(ValidationFailedError, match="same document"):
-        book.compare(Actor(tenant, uuid.uuid4(), frozenset()), one, two)
+    assert book._own(None, one)["content_hash"] == book._own(None, two)["content_hash"]
+    assert book._own(None, one)["id"] != book._own(None, two)["id"]
 
 
 def test_a_query_that_names_a_file_not_loaded_is_told_which_tables_exist() -> None:

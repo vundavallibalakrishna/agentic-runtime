@@ -655,20 +655,6 @@ export type CollectionPatch = {
 };
 
 /**
- * CompareBody
- */
-export type CompareBody = {
-    /**
-     * Otherdocumentid
-     */
-    otherDocumentId: string;
-    /**
-     * Modelalias
-     */
-    modelAlias?: string;
-};
-
-/**
  * ConnectionBody
  */
 export type ConnectionBody = {
@@ -1029,34 +1015,6 @@ export type CredentialsBody = {
 };
 
 /**
- * CrosscheckBody
- */
-export type CrosscheckBody = {
-    /**
-     * Focus
-     */
-    focus?: string;
-    /**
-     * Modelalias
-     */
-    modelAlias?: string;
-};
-
-/**
- * DecideBody
- */
-export type DecideBody = {
-    /**
-     * Decision
-     */
-    decision: string;
-    /**
-     * Hunkid
-     */
-    hunkId?: string;
-};
-
-/**
  * DeliveryBody
  */
 export type DeliveryBody = {
@@ -1266,20 +1224,6 @@ export type ExportBody = {
      * Name
      */
     name?: string;
-};
-
-/**
- * ExtractBody
- */
-export type ExtractBody = {
-    /**
-     * Fields
-     */
-    fields?: Array<string>;
-    /**
-     * Modelalias
-     */
-    modelAlias?: string;
 };
 
 /**
@@ -1643,29 +1587,6 @@ export type ItemBody = {
 };
 
 /**
- * JudgeBody
- */
-export type JudgeBody = {
-    /**
-     * Rulesetid
-     */
-    ruleSetId?: string;
-    /**
-     * Statements
-     */
-    statements?: Array<string>;
-    ruleSet?: RuleSetBody | null;
-    /**
-     * Label
-     */
-    label?: string;
-    /**
-     * Modelalias
-     */
-    modelAlias?: string;
-};
-
-/**
  * KeyCreate
  */
 export type KeyCreate = {
@@ -1924,10 +1845,6 @@ export type MessageBody = {
      */
     taskTemplate?: string | null;
     /**
-     * Strategy
-     */
-    strategy?: string;
-    /**
      * Items
      */
     items?: Array<MessageItem | string>;
@@ -1959,25 +1876,6 @@ export type MessageItem = {
      * Text
      */
     text?: string;
-};
-
-/**
- * MissingBody
- */
-export type MissingBody = {
-    /**
-     * Rulesetid
-     */
-    ruleSetId?: string;
-    /**
-     * Statements
-     */
-    statements?: Array<string>;
-    ruleSet?: RuleSetBody | null;
-    /**
-     * Modelalias
-     */
-    modelAlias?: string;
 };
 
 /**
@@ -2509,24 +2407,6 @@ export type ReviewDecideBody = {
 };
 
 /**
- * RewriteBody
- */
-export type RewriteBody = {
-    /**
-     * Anchor
-     */
-    anchor?: string;
-    /**
-     * Instruction
-     */
-    instruction: string;
-    /**
-     * Modelalias
-     */
-    modelAlias?: string;
-};
-
-/**
  * RoleCreate
  */
 export type RoleCreate = {
@@ -2801,10 +2681,6 @@ export type RunBody = {
      */
     taskTemplate?: string | null;
     /**
-     * Strategy
-     */
-    strategy?: string;
-    /**
      * Items
      */
     items?: Array<MessageItem | string>;
@@ -2906,10 +2782,6 @@ export type SendBody = {
      * Tasktemplate
      */
     taskTemplate?: string | null;
-    /**
-     * Strategy
-     */
-    strategy?: string;
     /**
      * Items
      */
@@ -3429,16 +3301,6 @@ export type SuitePatch = {
     gate?: {
         [key: string]: unknown;
     } | null;
-};
-
-/**
- * SummariseBody
- */
-export type SummariseBody = {
-    /**
-     * Modelalias
-     */
-    modelAlias?: string;
 };
 
 /**
@@ -12500,142 +12362,6 @@ export type DocumentTablesApiV1LibraryDocumentsDocumentIdTablesGetResponses = {
 
 export type DocumentTablesApiV1LibraryDocumentsDocumentIdTablesGetResponse = DocumentTablesApiV1LibraryDocumentsDocumentIdTablesGetResponses[keyof DocumentTablesApiV1LibraryDocumentsDocumentIdTablesGetResponses];
 
-export type SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostData = {
-    body: SummariseBody;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/v1/library-documents/{document_id}:summarise';
-};
-
-export type SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostError = SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostErrors[keyof SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostErrors];
-
-export type SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostResponses = {
-    /**
-     * Response Summarise Document Api V1 Library Documents  Document Id  Summarise Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostResponse = SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostResponses[keyof SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostResponses];
-
-export type CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostData = {
-    body: CompareBody;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/v1/library-documents/{document_id}:compare';
-};
-
-export type CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostError = CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostErrors[keyof CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostErrors];
-
-export type CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponses = {
-    /**
-     * Response Compare Documents Api V1 Library Documents  Document Id  Compare Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponse = CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponses[keyof CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponses];
-
-export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostData = {
-    body: CrosscheckBody;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/v1/library-documents/{document_id}:crosscheck';
-};
-
-export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostError = CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostErrors[keyof CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostErrors];
-
-export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponses = {
-    /**
-     * Response Crosscheck Document Api V1 Library Documents  Document Id  Crosscheck Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponse = CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponses[keyof CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponses];
-
-export type JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostData = {
-    body: JudgeBody;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/v1/library-documents/{document_id}:judge';
-};
-
-export type JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostError = JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostErrors[keyof JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostErrors];
-
-export type JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponses = {
-    /**
-     * Response Judge Document Api V1 Library Documents  Document Id  Judge Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponse = JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponses[keyof JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponses];
-
 export type ImportRuleSetRouteApiV1RuleSetsPostData = {
     body: RuleSetBody;
     path?: never;
@@ -12703,278 +12429,6 @@ export type ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetResponses = {
 };
 
 export type ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetResponse = ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetResponses[keyof ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetResponses];
-
-export type DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostData = {
-    body: MissingBody;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/v1/library-documents/{document_id}:missing';
-};
-
-export type DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostError = DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostErrors[keyof DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostErrors];
-
-export type DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostResponses = {
-    /**
-     * Response Document Missing Api V1 Library Documents  Document Id  Missing Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostResponse = DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostResponses[keyof DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostResponses];
-
-export type RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostData = {
-    body?: never;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/v1/library-documents/{document_id}:redact';
-};
-
-export type RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostError = RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostErrors[keyof RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostErrors];
-
-export type RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostResponses = {
-    /**
-     * Response Redact Document Api V1 Library Documents  Document Id  Redact Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostResponse = RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostResponses[keyof RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostResponses];
-
-export type ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostData = {
-    body: ExtractBody;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/v1/library-documents/{document_id}:extract';
-};
-
-export type ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostError = ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostErrors[keyof ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostErrors];
-
-export type ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostResponses = {
-    /**
-     * Response Extract Document Fields Api V1 Library Documents  Document Id  Extract Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostResponse = ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostResponses[keyof ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostResponses];
-
-export type RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostData = {
-    body: RewriteBody;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/v1/library-documents/{document_id}:rewrite';
-};
-
-export type RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostError = RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostErrors[keyof RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostErrors];
-
-export type RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostResponses = {
-    /**
-     * Response Rewrite Document Api V1 Library Documents  Document Id  Rewrite Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostResponse = RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostResponses[keyof RewriteDocumentApiV1LibraryDocumentsDocumentIdRewritePostResponses];
-
-export type GetDocumentCheckApiV1DocumentChecksCheckIdGetData = {
-    body?: never;
-    path: {
-        /**
-         * Check Id
-         */
-        check_id: string;
-    };
-    query?: never;
-    url: '/api/v1/document-checks/{check_id}';
-};
-
-export type GetDocumentCheckApiV1DocumentChecksCheckIdGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetDocumentCheckApiV1DocumentChecksCheckIdGetError = GetDocumentCheckApiV1DocumentChecksCheckIdGetErrors[keyof GetDocumentCheckApiV1DocumentChecksCheckIdGetErrors];
-
-export type GetDocumentCheckApiV1DocumentChecksCheckIdGetResponses = {
-    /**
-     * Response Get Document Check Api V1 Document Checks  Check Id  Get
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type GetDocumentCheckApiV1DocumentChecksCheckIdGetResponse = GetDocumentCheckApiV1DocumentChecksCheckIdGetResponses[keyof GetDocumentCheckApiV1DocumentChecksCheckIdGetResponses];
-
-export type GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetData = {
-    body?: never;
-    path: {
-        /**
-         * Comparison Id
-         */
-        comparison_id: string;
-    };
-    query?: never;
-    url: '/api/v1/document-comparisons/{comparison_id}';
-};
-
-export type GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetError = GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetErrors[keyof GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetErrors];
-
-export type GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetResponses = {
-    /**
-     * Response Get Document Comparison Api V1 Document Comparisons  Comparison Id  Get
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetResponse = GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetResponses[keyof GetDocumentComparisonApiV1DocumentComparisonsComparisonIdGetResponses];
-
-export type GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetData = {
-    body?: never;
-    path: {
-        /**
-         * Rewrite Id
-         */
-        rewrite_id: string;
-    };
-    query?: never;
-    url: '/api/v1/document-rewrites/{rewrite_id}';
-};
-
-export type GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetError = GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetErrors[keyof GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetErrors];
-
-export type GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetResponses = {
-    /**
-     * Response Get Document Rewrite Api V1 Document Rewrites  Rewrite Id  Get
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetResponse = GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetResponses[keyof GetDocumentRewriteApiV1DocumentRewritesRewriteIdGetResponses];
-
-export type DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostData = {
-    body: DecideBody;
-    path: {
-        /**
-         * Rewrite Id
-         */
-        rewrite_id: string;
-    };
-    query?: never;
-    url: '/api/v1/document-rewrites/{rewrite_id}:decide';
-};
-
-export type DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostError = DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostErrors[keyof DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostErrors];
-
-export type DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostResponses = {
-    /**
-     * Response Decide Document Rewrite Api V1 Document Rewrites  Rewrite Id  Decide Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostResponse = DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostResponses[keyof DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostResponses];
 
 export type ListPoliciesApiV1PoliciesGetData = {
     body?: never;

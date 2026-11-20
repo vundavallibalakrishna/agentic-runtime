@@ -195,12 +195,12 @@ def _row(base: dict[str, object], verdict: str, reason: str) -> dict[str, object
 
 def _window(passages: list[dict[str, object]], statement: str) -> list[dict[str, object]]:
     """The stored passages a judgement may quote. Long documents use one retrieval path."""
-    from ar_domain.documents.chunk import RETRIEVAL_BUDGET  # noqa: PLC0415
+    from ar_domain.documents.chunk import retrieval_budget  # noqa: PLC0415
 
     total = sum(len(str(row.get("text") or "")) for row in passages)
-    if total <= RETRIEVAL_BUDGET:
+    if total <= retrieval_budget():
         return passages
-    chosen = retrieve(passages, statement, budget=RETRIEVAL_BUDGET)
+    chosen = retrieve(passages, statement, budget=retrieval_budget())
     return chosen or passages[:1]
 
 

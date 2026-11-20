@@ -37,18 +37,45 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_CSRF_ALLOWED_ORIGINS",
         "AR_CURSOR_SECRET",
         "AR_DATA_RESIDENCY",
+        "AR_DEFAULT_CONTEXT_WINDOW",
         "AR_DOCUMENT_ALIGN_COSINE",
         "AR_DOCUMENT_ALIGN_LEXICAL",
+        "AR_DOCUMENT_CHUNK_CHARS",
+        "AR_DOCUMENT_CHUNK_OVERLAP",
+        "AR_DOCUMENT_COLLECTION_CAP",
+        "AR_DOCUMENT_CREATE_MAX_BULLETS",
+        "AR_DOCUMENT_CREATE_MAX_COLUMNS",
+        "AR_DOCUMENT_CREATE_MAX_FILE_BYTES",
+        "AR_DOCUMENT_CREATE_MAX_PAGES",
+        "AR_DOCUMENT_CREATE_MAX_PARAGRAPHS",
+        "AR_DOCUMENT_CREATE_MAX_ROWS",
+        "AR_DOCUMENT_CREATE_MAX_SECTIONS",
+        "AR_DOCUMENT_CREATE_MAX_SHEETS",
+        "AR_DOCUMENT_CREATE_MAX_SLIDES",
+        "AR_DOCUMENT_CREATE_MAX_TEXT",
+        "AR_DOCUMENT_CREATE_MAX_TITLE",
+        "AR_DOCUMENT_EXCERPT_CHARS",
         "AR_DOCUMENT_HEADING_CAP",
         "AR_DOCUMENT_HISTORY_RESERVE",
         "AR_DOCUMENT_INSTRUCTION_RESERVE",
         "AR_DOCUMENT_LOW_TEXT_CHARS",
         "AR_DOCUMENT_MARGIN_RATIO",
+        "AR_DOCUMENT_MAX_BYTES",
+        "AR_DOCUMENT_MAX_PAGES",
         "AR_DOCUMENT_OUTPUT_RESERVE",
+        "AR_DOCUMENT_READ_CHARS",
+        "AR_DOCUMENT_RETRIEVAL_BUDGET",
+        "AR_DOCUMENT_SEARCH_DOCUMENT_CAP",
+        "AR_DOCUMENT_SEARCH_HITS",
+        "AR_DOCUMENT_SEARCH_SNIPPET_CHARS",
+        "AR_DOCUMENT_SEARCH_TOP_K",
         "AR_DOCUMENT_SECTION_CAP",
+        "AR_DOCUMENT_TABLE_MAX_ROWS",
+        "AR_DOCUMENT_TABLE_PREVIEW_ROWS",
         "AR_DOCUMENT_TASK_PARALLELISM",
         "AR_DOCUMENT_TOKEN_FACTOR",
         "AR_DOCUMENT_TOOL_RESERVE",
+        "AR_DOCUMENT_ZIP_MEMBERS",
         "AR_FILE_EXPIRY_MAX_SECONDS",
         "AR_FILE_EXPIRY_MIN_SECONDS",
         "AR_DATABASE_URL",
@@ -373,9 +400,40 @@ class BaseServiceSettings(BaseSettings):
     document_margin_ratio: float = Field(default=0.15, ge=0, le=0.5)
     document_align_lexical: float = Field(default=0.5, ge=0, le=1)
     document_align_cosine: float = Field(default=0.75, ge=0, le=1)
+    # Outline entries returned in one page. The next page is a cursor, not a silent cut.
     document_heading_cap: int = Field(default=15, ge=1)
     document_token_factor: float = Field(default=1.15, ge=1, le=3)
     document_low_text_chars: int = Field(default=40, ge=1)
+    # A file over this size or page count is refused with the count. Result sets page.
+    document_max_bytes: int = Field(default=25 * 1024 * 1024, ge=1)
+    document_max_pages: int = Field(default=600, ge=1)
+    document_read_chars: int = Field(default=12_000, ge=1)
+    document_retrieval_budget: int = Field(default=12_000, ge=1)
+    document_chunk_chars: int = Field(default=1000, ge=1)
+    document_chunk_overlap: int = Field(default=120, ge=0)
+    document_excerpt_chars: int = Field(default=1500, ge=1)
+    document_search_hits: int = Field(default=30, ge=1)
+    document_search_snippet_chars: int = Field(default=240, ge=1)
+    document_search_top_k: int = Field(default=8, ge=1)
+    document_search_document_cap: int = Field(default=50, ge=1)
+    # Collections named on one search call. Further collections come back as a cursor.
+    document_collection_cap: int = Field(default=20, ge=1)
+    document_table_preview_rows: int = Field(default=8, ge=1)
+    document_table_max_rows: int = Field(default=2000, ge=1)
+    document_zip_members: int = Field(default=30, ge=1)
+    # Compaction uses the registered model window. This is the fallback when none is registered.
+    default_context_window: int = Field(default=8000, ge=1)
+    document_create_max_sections: int = Field(default=40, ge=1)
+    document_create_max_sheets: int = Field(default=12, ge=1)
+    document_create_max_rows: int = Field(default=500, ge=1)
+    document_create_max_columns: int = Field(default=32, ge=1)
+    document_create_max_paragraphs: int = Field(default=40, ge=1)
+    document_create_max_bullets: int = Field(default=40, ge=1)
+    document_create_max_text: int = Field(default=4000, ge=1)
+    document_create_max_title: int = Field(default=200, ge=1)
+    document_create_max_file_bytes: int = Field(default=5_242_880, ge=1)
+    document_create_max_pages: int = Field(default=30, ge=1)
+    document_create_max_slides: int = Field(default=60, ge=1)
     # ``expiresAfterSeconds`` on an upload. The bounds match the Files API.
     file_expiry_min_seconds: int = Field(default=3600, ge=1)
     file_expiry_max_seconds: int = Field(default=2_592_000, ge=1)

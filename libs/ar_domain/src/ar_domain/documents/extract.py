@@ -22,8 +22,7 @@ from xml.etree import ElementTree as ET
 from ar_common.offload import blocking
 from ar_domain.documents.quality import engine_name
 
-MAX_PAGES = 600
-_HEADING = re.compile(r"^(?:#{1,6}\s+|(?:\d+|[A-Z])[.)]\s+)(\S.*)$|^(?:[A-Z][A-Z0-9 /,&-]{2,70})$")
+_ATX = re.compile(r"^(#{1,6})\s+(\S.*)$")
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 _A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 _XLSX = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
@@ -99,9 +98,14 @@ def extract_bytes(  # noqa: PLR0911
         return _plain(data, filename)
     if kind == "image":
         return _image(data, filename, ocr or _tesseract)
+    if kind == "convert":
+        from ar_domain.documents.convert import convert_and_extract  # noqa: PLC0415
+
+        return convert_and_extract(data, filename, media_type)
     raise ExtractError(
         "unsupported",
-        "Upload a PDF, DOCX, XLSX, PPTX, TXT, MD, HTML or image.",
+        "Upload a PDF, DOCX, XLSX, PPTX, TXT, MD, HTML, CSV, image, "
+        "or a DOC, XLS, ODT, RTF, EML, MSG or ZIP the ingest image can read.",
     )
 
 
@@ -133,6 +137,8 @@ def sniff(data: bytes, filename: str, media_type: str) -> str:  # noqa: PLR0911,
         return "md"
     if name.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")) or stated.startswith("image/"):
         return "image"
+    if name.endswith((".doc", ".xls", ".odt", ".rtf", ".eml", ".msg", ".zip")):
+        return "convert"
     if name.endswith(".txt") or stated.startswith("text/"):
         return "txt"
     sample = data[:200].lstrip()
@@ -190,12 +196,14 @@ def _pdf(  # noqa: PLR0912, PLR0915
         if unlocked == 0:
             raise ExtractError("encrypted", "This PDF is encrypted. Upload an unlocked copy.")
     pages = len(reader.pages)
-    if pages > MAX_PAGES:
+    limit = _page_cap()
+    if pages > limit:
         raise ExtractError(
             "too_many_pages",
-            f"This PDF has {pages} pages. The limit is {MAX_PAGES}. Split it and upload the parts.",
+            f"This PDF has {pages} pages. The limit is {limit}. Split it and upload the parts.",
         )
     passages: list[Passage] = []
+    tables: list[Table] = []
     used_ocr = False
     pages_ocr = 0
     scan_without_text = False
@@ -210,7 +218,7 @@ def _pdf(  # noqa: PLR0912, PLR0915
                 "This PDF is not Unicode text. Upload a Unicode PDF, or a scan the "
                 "OCR provider can read.",
             )
-        if len(text.strip()) < 20:
+        if len(text.strip()) < _low_text():
             try:
                 read = _ocr_page(page, text, ocr)
             except ExtractError as exc:
@@ -229,6 +237,7 @@ def _pdf(  # noqa: PLR0912, PLR0915
                 )
         if text.strip():
             passages.extend(_sections(text, index, len(passages)))
+        tables.extend(_pdf_tables(page, index, len(tables)))
         if on_page is not None:
             on_page(index, pages)
     title = ""
@@ -247,6 +256,7 @@ def _pdf(  # noqa: PLR0912, PLR0915
         media_type="application/pdf",
         page_count=pages,
         passages=_chunk_all(passages),
+        tables=tables,
         metadata={
             "pages": pages,
             "pagesOcr": pages_ocr,
@@ -533,22 +543,32 @@ def _xlsx(data: bytes) -> Extracted:
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as book:
             shared = _shared_strings(book)
-            sheets = sorted(
-                name for name in book.namelist() if name.startswith("xl/worksheets/sheet")
-            )
-            parsed = [(name, _sheet_rows(book.read(name), shared)) for name in sheets]
+            named = _sheet_names(book)
+            sheets = named or [
+                (f"Sheet {index}", name)
+                for index, name in enumerate(
+                    sorted(
+                        item for item in book.namelist() if item.startswith("xl/worksheets/sheet")
+                    ),
+                    start=1,
+                )
+            ]
+            parsed = [(label, _sheet_rows(book.read(path), shared)) for label, path in sheets]
     except (zipfile.BadZipFile, KeyError, ET.ParseError) as exc:
         raise ExtractError("corrupt", "This spreadsheet could not be read.") from exc
     tables: list[Table] = []
     passages: list[Passage] = []
     sheet_name = ""
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    preview_rows = int(get_settings().document_table_preview_rows)
     for index, (name, rows) in enumerate(parsed, start=1):
         sheet_name = name
         if not rows:
             continue
-        caption = f"Sheet {index}"
+        caption = name or f"Sheet {index}"
         tables.append(Table(anchor=f"t{index}", page=index, caption=caption, csv_text=_csv(rows)))
-        preview = _csv(rows[:8])
+        preview = _csv(rows[:preview_rows])
         passages.append(
             Passage(
                 anchor=f"p{index}-s0",
@@ -570,6 +590,29 @@ def _xlsx(data: bytes) -> Extracted:
     )
 
 
+def _sheet_names(book: zipfile.ZipFile) -> list[tuple[str, str]]:
+    """Workbook sheet names paired with their worksheet parts."""
+    try:
+        workbook = _xml(book.read("xl/workbook.xml"))
+        rels = _xml(book.read("xl/_rels/workbook.xml.rels"))
+    except KeyError:
+        return []
+    rel = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+    pkg = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+    targets = {
+        node.attrib.get("Id", ""): "xl/" + node.attrib.get("Target", "").lstrip("/")
+        for node in rels.findall(f"{pkg}Relationship")
+    }
+    found: list[tuple[str, str]] = []
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    for sheet in workbook.findall(f".//{ns}sheet"):
+        label = sheet.attrib.get("name") or ""
+        path = targets.get(sheet.attrib.get(f"{rel}id", ""), "")
+        if label and path:
+            found.append((label, path))
+    return found
+
+
 def _shared_strings(book: zipfile.ZipFile) -> list[str]:
     try:
         payload = book.read("xl/sharedStrings.xml")
@@ -580,16 +623,22 @@ def _shared_strings(book: zipfile.ZipFile) -> list[str]:
 
 
 def _sheet_rows(payload: bytes, shared: list[str]) -> list[list[str]]:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
     root = _xml(payload)
     rows: list[list[str]] = []
+    cap = int(get_settings().document_table_max_rows)
     for index, row in enumerate(root.iter(f"{_XLSX}row")):
-        if index >= 2000:
+        if index >= cap:
             break
         cells: list[str] = []
         for cell in row.findall(f"{_XLSX}c"):
             kind = cell.attrib.get("t")
-            value = cell.find(f"{_XLSX}v")
-            raw = "" if value is None or value.text is None else value.text
+            if kind == "inlineStr":
+                raw = "".join(cell.itertext())
+            else:
+                value = cell.find(f"{_XLSX}v")
+                raw = "" if value is None or value.text is None else value.text
             if kind == "s" and raw.isdigit():
                 pointer = int(raw)
                 raw = shared[pointer] if pointer < len(shared) else raw
@@ -614,14 +663,27 @@ def _pptx(data: bytes) -> Extracted:
             texts = [book.read(name) for name in slides]
     except (zipfile.BadZipFile, KeyError) as exc:
         raise ExtractError("corrupt", "This presentation could not be read.") from exc
-    if len(slides) > MAX_PAGES:
+    limit = _page_cap()
+    if len(slides) > limit:
         raise ExtractError(
             "too_many_pages",
-            f"This presentation has {len(slides)} slides. The limit is {MAX_PAGES}.",
+            f"This presentation has {len(slides)} slides. The limit is {limit}.",
         )
     passages: list[Passage] = []
+    tables: list[Table] = []
     for index, payload in enumerate(texts, start=1):
         root = _xml(payload)
+        for table in root.iter(f"{_A}tbl"):
+            rows = _pptx_table(table)
+            if rows:
+                tables.append(
+                    Table(
+                        anchor=f"t{len(tables) + 1}",
+                        page=index,
+                        caption=f"Slide {index}",
+                        csv_text=_csv(rows),
+                    )
+                )
         lines = [
             node.text.strip() for node in root.iter(f"{_A}t") if node.text and node.text.strip()
         ]
@@ -637,7 +699,20 @@ def _pptx(data: bytes) -> Extracted:
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         page_count=len(slides),
         passages=_chunk_all(passages),
+        tables=tables,
     )
+
+
+def _pptx_table(table: ET.Element) -> list[list[str]]:
+    rows: list[list[str]] = []
+    for row in table.findall(f"{_A}tr"):
+        cells = [
+            "".join(node.text or "" for node in cell.iter(f"{_A}t")).strip()
+            for cell in row.findall(f"{_A}tc")
+        ]
+        if any(cells):
+            rows.append(cells)
+    return rows
 
 
 def _html(data: bytes) -> Extracted:
@@ -697,6 +772,8 @@ def _html(data: bytes) -> Extracted:
         nonlocal body
         text = "\n".join(body).strip()
         body = []
+        if text and heading and heading not in text:
+            text = f"{heading}\n{text}".strip()
         if text:
             passages.extend(_sections(text, 1, len(passages), heading, level))
 
@@ -737,6 +814,8 @@ def _markdown(data: bytes, filename: str) -> Extracted:
         nonlocal body
         chunk = "\n".join(body).strip()
         body = []
+        if chunk and heading and heading not in chunk:
+            chunk = f"{heading}\n{chunk}".strip()
         if chunk:
             passages.extend(_sections(chunk, 1, len(passages), heading, level))
 
@@ -789,8 +868,9 @@ def _sections(
         stripped = line.strip()
         if _is_heading(stripped) and buffer:
             blocks.append((current, current_level, buffer))
-            current = stripped.lstrip("#").strip()
-            current_level = 2
+            found = _markdown_heading(stripped)
+            current = found[1] if found else stripped
+            current_level = found[0] if found else current_level
             buffer = []
             pending_heading = True
             continue
@@ -821,9 +901,49 @@ def _sections(
 
 
 def _is_heading(line: str) -> bool:
-    if not line or len(line) > 80 or line.endswith("."):
-        return False
-    return _HEADING.match(line) is not None and len(line.split()) <= 12
+    return _markdown_heading(line) is not None
+
+
+def _markdown_heading(line: str) -> tuple[int, str] | None:
+    match = _ATX.match(line.strip())
+    if match is None:
+        return None
+    return len(match.group(1)), match.group(2).strip()
+
+
+def _page_cap() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().document_max_pages)
+
+
+def _low_text() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().document_low_text_chars)
+
+
+def _pdf_tables(page: object, page_number: int, start: int) -> list[Table]:
+    """Tables from the page's layout text. Lines with several wide gaps are rows."""
+    try:
+        layout = page.extract_text(extraction_mode="layout") or ""  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001 — a page without layout text still has its passages
+        return []
+    rows: list[list[str]] = []
+    for line in layout.splitlines():
+        cells = [cell.strip() for cell in re.split(r"\s{2,}", line.strip()) if cell.strip()]
+        if len(cells) >= 2:
+            rows.append(cells)
+    if len(rows) < 2:
+        return []
+    return [
+        Table(
+            anchor=f"t{start + 1}",
+            page=page_number,
+            caption=f"Page {page_number}",
+            csv_text=_csv(rows),
+        )
+    ]
 
 
 def _chunk_all(passages: list[Passage]) -> list[Passage]:

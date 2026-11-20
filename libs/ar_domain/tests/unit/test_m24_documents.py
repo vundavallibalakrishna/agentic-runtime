@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from ar_common.errors import NotFoundError, PayloadTooLargeError, ValidationFailedError
+from ar_common.errors import ArError, NotFoundError, PayloadTooLargeError, ValidationFailedError
 from ar_domain.agents.access import Actor
 from ar_domain.documents.chunk import retrieve
 from ar_domain.documents.extract import ExtractError, extract_bytes
@@ -22,7 +22,7 @@ from ar_domain.documents.grounding import (
     line_hunks,
     summarise,
 )
-from ar_domain.documents.library import MAX_DOCUMENT_BYTES, DocumentLibrary
+from ar_domain.documents.library import DocumentLibrary, max_document_bytes
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.handlers import dispatch
 
@@ -170,13 +170,13 @@ def test_library_dedupes_isolates_and_rejects() -> None:
     with pytest.raises(NotFoundError):
         library.get(other, document_id)
     listed = library.list_items(other)
-    assert listed == []
-    hits = library.search(actor, "badges")
+    assert listed["documents"] == []
+    hits = library.search(actor, "badges")["hits"]
     assert hits and hits[0]["anchor"]
     read = library.read(actor, document_id, anchor=str(hits[0]["anchor"]))
     assert "badges" in str(read["text"])
     with pytest.raises(PayloadTooLargeError):
-        library.ingest(actor, data=b"x" * (MAX_DOCUMENT_BYTES + 1), filename="big.txt")
+        library.ingest(actor, data=b"x" * (max_document_bytes() + 1), filename="big.txt")
     store.scanner = "clamav"
     eicar = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
     with pytest.raises(ValidationFailedError, match="scanner"):
@@ -239,48 +239,17 @@ def test_rewrite_is_not_saved_until_accepted() -> None:
     outline = library.outline(actor, document_id)
     anchor = str(outline["outline"][0]["anchor"])  # type: ignore[index]
     before = library.read(actor, document_id, anchor=anchor)["text"]
-    proposal = library.propose_rewrite(
-        actor,
-        document_id,
-        anchor=anchor,
-        instruction='replace "vault" with "locker"',
+    created = library.edit(
+        actor, document_id, [{"anchor": anchor, "text": "Visitors sign in at the desk."}]
     )
     assert library.read(actor, document_id, anchor=anchor)["text"] == before
-    assert proposal["status"] == "proposed"
-    hunks = proposal["hunks"]
-    assert isinstance(hunks, list) and hunks
-    decided = library.decide_rewrite(
-        actor, uuid.UUID(str(proposal["id"])), decision="accept", hunk_id=str(hunks[0]["id"])
-    )
-    if decided["status"] == "proposed":
-        library.decide_rewrite(actor, uuid.UUID(str(proposal["id"])), decision="reject")
-    updated = str(library.read(actor, document_id)["text"])
-    assert "locker" in updated or "vault" in updated
+    assert created["id"] != str(document_id)
+    updated = str(library.read(actor, uuid.UUID(str(created["id"])))["text"])
+    assert "desk" in updated
     with pytest.raises(ValidationFailedError):
         library.ingest(actor, data=b"hello policy text", filename="a.txt", source="nowhere")
-    second = library.propose_rewrite(
-        actor,
-        document_id,
-        anchor=anchor,
-        instruction='replace "desk" with "counter"',
-    )
-    rejected = library.decide_rewrite(actor, uuid.UUID(str(second["id"])), decision="reject")
-    assert rejected["status"] == "rejected"
-    preview = library.redact(actor, document_id)
-    dumped = str(preview)
-    assert "ada@example.com" not in dumped
-    email_doc = library.ingest(
-        actor,
-        data=b"Contact Ada Lovelace at ada@example.com or +1 415 555 0133.",
-        filename="card.txt",
-    )
-    redacted = library.redact(actor, uuid.UUID(str(email_doc["id"])))
-    assert "ada@example.com" not in str(redacted)
-    assert "[EMAIL]" in str(redacted["redacted"])
-    fields = library.extract(actor, document_id, ["passwords"])
-    values = fields["fields"]
-    assert isinstance(values, list)
-    assert values[0]["value"] is None or "password" in str(values[0]["value"]).lower()  # type: ignore[index]
+    with pytest.raises(ArError):
+        library.extract(actor, document_id, {"type": "object"})
 
 
 def test_compare_tables_and_long_retrieval() -> None:
@@ -292,12 +261,6 @@ def test_compare_tables_and_long_retrieval() -> None:
         actor,
         data=b"# Purpose\n\nStaff store passwords in a locker.\n\n# Travel\n\nTrips need approval.",
         filename="two.md",
-    )
-    compared = library.compare(actor, uuid.UUID(str(left["id"])), uuid.UUID(str(right["id"])))
-    changes = compared["changes"]
-    assert isinstance(changes, list)
-    assert any(
-        row.get("op") in {"added", "removed", "changed"} for row in changes if isinstance(row, dict)
     )
     tables = library.tables(actor, uuid.UUID(str(left["id"])))
     assert "Role" in str(tables)
@@ -316,23 +279,18 @@ def test_compare_tables_and_long_retrieval() -> None:
     assert elapsed < 2
     assert any(row["page"] == 250 for row in chosen)
     assert sum(len(str(row["text"])) for row in chosen) <= 12_000
-    report = library.judge(
-        actor,
-        uuid.UUID(str(right["id"])),
-        statements=["Trips need approval", "Operate a colony on Mars"],
+    from ar_domain.documents.judgement import judge_items
+
+    document = store.library_documents[uuid.UUID(str(right["id"]))]
+    rows = judge_items(
+        document,
+        [("1", "Trips need approval"), ("2", "Operate a colony on Mars")],
+        None,
+        model_id="",
+        rule_set_id="",
+        rule_set_version="",
     )
-    rows = report["rows"]
-    assert isinstance(rows, list)
-    assert rows[1]["verdict"] == "not_judged"  # type: ignore[index]
-    gaps = library.missing(
-        actor,
-        uuid.UUID(str(right["id"])),
-        statements=["Operate a colony on Mars"],
-    )
-    assert any(
-        isinstance(row, dict) and row.get("verdict") == "not_judged"
-        for row in gaps["rows"]  # type: ignore[union-attr]
-    )
+    assert rows[1]["verdict"] == "not_judged"
 
 
 def test_tools_and_hunks() -> None:
@@ -347,9 +305,9 @@ def test_tools_and_hunks() -> None:
     args = {"_tenant_id": tenant, "_user_id": actor_id, "documentId": saved["id"]}
     listed = dispatch_documents(store, "list", args)
     assert "Access" in str(listed["text"])
-    summary = dispatch(store, "builtin://documents", "summarise", args, "")
+    summary = dispatch(store, "builtin://documents", "outline", args, "")
     assert summary["is_error"] is False
-    assert "p1" in str(summary["text"])
+    assert "Access" in str(summary["text"])
     unknown = dispatch_documents(store, "missing", args)
     assert unknown["is_error"] is True
     original = "One. Two."
@@ -390,28 +348,14 @@ def test_tools_cover_ingest_paths_and_model_call(monkeypatch: pytest.MonkeyPatch
     second = dispatch_documents(store, "ingest", {**base, "path": "/workspace/other.md"})
     other_id = second["structured"]["presentation"]["document"]["id"]  # type: ignore[index]
     assert (
-        dispatch_documents(store, "compare", {**args, "otherDocumentId": other_id})["is_error"]
-        is False
+        dispatch_documents(store, "outline", {**args, "documentId": other_id})["is_error"] is False
     )
-    checked = dispatch_documents(
+    extracted = dispatch_documents(
         store,
-        "judge",
-        {**args, "statements": ["Staff use badges", "Operate a colony on Mars"]},
+        "extract",
+        {**args, "schema": {"type": "object", "properties": {"note": {"type": "string"}}}},
     )
-    assert "not_judged" in str(checked["text"]) or "not_supported" in str(checked["text"])
-    assert (
-        dispatch_documents(store, "missing", {**args, "statements": ["Operate a colony on Mars"]})[
-            "is_error"
-        ]
-        is False
-    )
-    proposal = dispatch_documents(
-        store, "rewrite", {**args, "instruction": 'replace "badges" with "passes"'}
-    )
-    assert proposal["is_error"] is False
-    assert dispatch_documents(store, "redact", args)["is_error"] is False
-    extracted = dispatch_documents(store, "extract", {**args, "fields": ["badges"]})
-    assert extracted["is_error"] is False
+    assert extracted["is_error"] is True
     store.tenant_settings = {}
     missing = dispatch_documents(store, "ingest", {**base, "url": "https://example.com/policy.txt"})
     assert missing["is_error"] is True
@@ -426,7 +370,7 @@ def test_tools_cover_ingest_paths_and_model_call(monkeypatch: pytest.MonkeyPatch
     assert hidden["is_error"] is True
     escaped = dispatch_documents(store, "ingest", {**base, "path": "../secret.txt"})
     assert escaped["is_error"] is True
-    named = dispatch_documents(store, "summarise", {**args, "modelAlias": "reasoning"})
+    named = dispatch_documents(store, "read", {**args, "modelAlias": "reasoning"})
     assert named["is_error"] is False
     assert ask_model(store, tenant, "reasoning", "Say hi", "evidence") is None
 

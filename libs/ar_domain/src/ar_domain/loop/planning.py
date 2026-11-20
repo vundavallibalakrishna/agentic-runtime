@@ -15,14 +15,17 @@ PLAN_INSTRUCTION = (
 )
 
 
-def planning_enabled(definition: dict[str, object] | None) -> bool:
-    """True when this agent definition opts into a plan step."""
-    if not isinstance(definition, dict):
-        return False
-    raw = definition.get("planning")
-    if not isinstance(raw, dict):
-        return False
-    return raw.get("enabled") is True
+def planning_enabled(definition: dict[str, object] | None, *, documents: bool = False) -> bool:
+    """True when this agent opts into a plan, or when a document turn has not opted out.
+
+    ``planning.enabled`` on the agent is explicit. When it is absent, a turn that
+    names files, collections or the agent's default files plans, and any other turn
+    does not.
+    """
+    raw = definition.get("planning") if isinstance(definition, dict) else None
+    if isinstance(raw, dict) and "enabled" in raw:
+        return raw.get("enabled") is True
+    return documents
 
 
 def parse_plan(text: str) -> tuple[list[dict[str, str]] | None, str]:

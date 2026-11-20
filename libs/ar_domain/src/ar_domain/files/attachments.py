@@ -19,8 +19,13 @@ if TYPE_CHECKING:
 
 INPUTS = "inputs"
 _KIB = 1024
+
+
 # How much of an attached document a prompt shows before the model reads the rest with a tool.
-_EXCERPT = 1500
+def _excerpt_chars() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().document_excerpt_chars)
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,7 +155,7 @@ def _library_excerpt(
 
 
 def _reading(passages: object, *, context_window: int | None) -> str:
-    from ar_domain.documents.chunk import RETRIEVAL_BUDGET  # noqa: PLC0415
+    from ar_domain.documents.chunk import retrieval_budget  # noqa: PLC0415
     from ar_domain.documents.cited import passage_line  # noqa: PLC0415
     from ar_domain.documents.strategy import estimate_tokens, usable_tokens  # noqa: PLC0415
 
@@ -162,7 +167,7 @@ def _reading(passages: object, *, context_window: int | None) -> str:
     full = "\n".join(lines)
     usable = usable_tokens(context_window)
     fits = (usable is not None and estimate_tokens(full) <= usable) or (
-        usable is None and len(full) <= RETRIEVAL_BUDGET
+        usable is None and len(full) <= retrieval_budget()
     )
     if fits:
         return full
@@ -184,9 +189,10 @@ def _excerpt(passages: object) -> str:
         if not isinstance(item, dict) or not item.get("text") or not item.get("anchor"):
             continue
         line = passage_line(item)
-        if lines and used + len(line) > _EXCERPT:
+        cap = _excerpt_chars()
+        if lines and used + len(line) > cap:
             break
-        lines.append(line[:_EXCERPT])
+        lines.append(line[:cap])
         used += len(line) + 1
     return "\n".join(lines)
 

@@ -238,6 +238,12 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
                 return "final"
         if invalid:
             outcome = _schema_outcome(call, name, invalid, used)
+        elif _is_document_map(name) and _map_needs_activities(store, run, call):
+            state["used_calls"] = used - 1
+            state["pending_index"] = index
+            state["phase"] = "tools"
+            state["elapsed_s"] = time.monotonic() - started
+            return "sections"
         else:
             outcome = await run_sync(
                 _act,
@@ -310,6 +316,31 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
     state["pending_calls"] = []
     state["pending_index"] = 0
     return "model"
+
+
+def _is_document_map(name: str) -> bool:
+    return name.replace("__", ".") == "documents.map"
+
+
+def _map_needs_activities(store: Any, run: dict[str, object], call: dict[str, object]) -> bool:
+    """Prepare the map and leave the sections to the workflow when any remain."""
+    from ar_common.errors import ArError  # noqa: PLC0415
+    from ar_domain.documents.sections import begin_map, map_ready, pending_sections  # noqa: PLC0415
+
+    arguments = call.get("arguments")
+    payload = dict(arguments) if isinstance(arguments, dict) else {}
+    try:
+        begin_map(store, run, payload)
+    except ArError:
+        return False
+    if map_ready(run):
+        return False
+    batch = pending_sections(store, run)
+    if not batch:
+        return False
+    run["section_batch"] = batch
+    run["step_kind"] = "sections"
+    return True
 
 
 def _int(value: object) -> int:

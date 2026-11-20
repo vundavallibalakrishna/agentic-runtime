@@ -1,0 +1,23 @@
+{
+  "id": "compare",
+  "prompt": "Compare the named documents. Report what was added, removed or changed, and cite an anchor for each point. Use documents.read or documents.map. Do not assume the documents share headings.",
+  "items": ["Read each document", "Note the differences", "Cite an anchor for each difference"],
+  "outputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["differences"],
+    "properties": {
+      "differences": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["change", "anchor"],
+          "properties": {
+            "change": {"type": "string"},
+            "anchor": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}

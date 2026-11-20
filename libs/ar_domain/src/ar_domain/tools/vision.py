@@ -13,7 +13,9 @@ from ar_domain.documents.vision import VisionError, ask_image
 from ar_domain.tools.documents import _actor, _error, _ok, _source_bytes
 
 
-def dispatch_image(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
+def dispatch_image(  # noqa: PLR0911
+    store: Any, name: str, arguments: dict[str, object]
+) -> dict[str, object]:
     """Run one image tool. Unknown names are errors."""
     if name != "ask":
         return _error("unknown_tool", f"unknown tool {name}")
@@ -23,10 +25,18 @@ def dispatch_image(store: Any, name: str, arguments: dict[str, object]) -> dict[
     question = str(arguments.get("question") or "").strip()
     if not question:
         return _error("validation_failed", "question is required.")
-    try:
-        data, filename, media, _source, _ref = _source_bytes(store, arguments)
-    except ArError as exc:
-        return _error(exc.code.value, exc.detail)
+    document_id = str(arguments.get("documentId") or arguments.get("document_id") or "")
+    page = arguments.get("page")
+    if document_id and page not in {None, ""}:
+        try:
+            data, filename, media = _page_image(store, actor, document_id, page)
+        except ArError as exc:
+            return _error(exc.code.value, exc.detail)
+    else:
+        try:
+            data, filename, media, _source, _ref = _source_bytes(store, arguments)
+        except ArError as exc:
+            return _error(exc.code.value, exc.detail)
     alias = _vision_alias(store, arguments)
     try:
         answer = ask_image(
@@ -55,6 +65,59 @@ def _what_next(exc: VisionError) -> str:
     text recognition does not need a vision model.
     """
     return exc.message + _READ_TEXT if exc.code == "vision_unavailable" else exc.message
+
+
+def _page_image(
+    store: Any, actor: object, document_id: str, page: object
+) -> tuple[bytes, str, str]:
+    """Render one page of a stored document for the vision model."""
+    import uuid  # noqa: PLC0415
+
+    from ar_common.errors import NotFoundError, ValidationFailedError  # noqa: PLC0415
+    from ar_domain.documents.library import DocumentLibrary  # noqa: PLC0415
+
+    try:
+        number = int(str(page))
+    except (TypeError, ValueError) as exc:
+        raise ValidationFailedError("page must be a number.") from exc
+    library = DocumentLibrary(store)
+    try:
+        original = library.original(actor, uuid.UUID(document_id))  # type: ignore[arg-type]
+    except ValueError as exc:
+        raise NotFoundError("document not found") from exc
+    rendered = _render_page(original, number)
+    return rendered, f"page-{number}.png", "image/png"
+
+
+def _render_page(data: bytes, page: int) -> bytes:
+    import shutil  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    from ar_common.errors import ValidationFailedError  # noqa: PLC0415
+    from ar_common.offload import blocking  # noqa: PLC0415
+
+    binary = shutil.which("pdftoppm")
+    if data.startswith(b"%PDF") and binary:
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "page.pdf"
+            source.write_bytes(data)
+            target = Path(folder) / "page"
+            result = blocking(
+                lambda: subprocess.run(  # noqa: S603 — pdftoppm is the page renderer on PATH
+                    [binary, "-png", "-f", str(page), "-l", str(page), str(source), str(target)],
+                    check=False,
+                    capture_output=True,
+                    timeout=60,
+                )
+            )
+            produced = Path(f"{target}-{page}.png")
+            if result.returncode == 0 and produced.is_file():
+                return produced.read_bytes()
+    raise ValidationFailedError(
+        "This page could not be rendered. A PDF page needs pdftoppm in the image."
+    )
 
 
 def _vision_alias(store: Any, arguments: dict[str, object]) -> str:

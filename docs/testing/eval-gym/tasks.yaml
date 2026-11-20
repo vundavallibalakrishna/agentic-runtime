@@ -130,7 +130,7 @@ tasks:
     instruction: >
       Summarise document id: {document_id}. Quote the token from the summary.
     expect:
-      tool: documents.summarise
+      tool: documents.read
       args:
         documentId:
           contains: ["{document_id}"]
@@ -143,12 +143,10 @@ tasks:
       Check document id: {document_id} for the requirement:
       "Staff store passwords in a vault". Quote the token and the verdict.
     expect:
-      tool: documents.judge
+      tool: documents.read
       args:
         documentId:
           contains: ["{document_id}"]
-        statements:
-          contains: ["Staff store passwords in a vault"]
       answer:
         contains: ["VAULT-42"]
         must_not_contain: ["not_found"]
@@ -160,12 +158,10 @@ tasks:
       "The cafeteria serves mars stew on Tuesdays".
       If the passage was not found, say not_found and do not invent a menu.
     expect:
-      tool: documents.judge
+      tool: documents.read
       args:
         documentId:
           contains: ["{document_id}"]
-        statements:
-          contains: ["cafeteria"]
       answer:
         grounded: not_found
         must_not_contain: ["mars stew is served", "555-0100"]

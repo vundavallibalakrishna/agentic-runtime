@@ -18,35 +18,23 @@ from ar_common.errors import (
     ValidationFailedError,
 )
 from ar_common.ids import new_id
+from ar_common.settings import get_settings
 from ar_common.time import utcnow
 from ar_domain.documents.chunk import passage_dicts, retrieve, score
-from ar_domain.documents.crosscheck import crosscheck
 from ar_domain.documents.extract import Extracted, ExtractError, extract_bytes
-from ar_domain.documents.grounding import (
-    apply_hunks,
-    compare,
-    extract_fields,
-    line_hunks,
-    redaction_preview,
-    requirements_from,
-    rewrite_text,
-    summarise,
-    table_items,
-)
-from ar_domain.documents.judgement import judge_items
-from ar_domain.documents.model import ModelAsk, model_id_for
+from ar_domain.documents.model import ModelAsk
 from ar_domain.documents.originals import read_original, store_original
-from ar_domain.documents.rules import remember
 from ar_domain.files.logic import scan_bytes
-from ar_domain.security.guardrails import analysis_redaction_enabled
 
 if TYPE_CHECKING:
     from typing import Any
 
     from ar_domain.agents.access import Actor
 
-MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
-_READ_CHARS = 12_000
+
+def max_document_bytes() -> int:
+    """The configured upload cap. A larger file is refused with its size."""
+    return int(get_settings().document_max_bytes)
 
 
 def _holds_hash(files: object, document: dict[str, object], digest: str | set[str]) -> bool:
@@ -179,10 +167,9 @@ class DocumentLibrary:
     ) -> dict[str, object]:
         if source not in {"upload", "workspace", "connection"}:
             raise ValidationFailedError("source must be upload, workspace or connection")
-        if len(data) > MAX_DOCUMENT_BYTES:
-            raise PayloadTooLargeError(
-                f"The file is over the {MAX_DOCUMENT_BYTES // (1024 * 1024)} MB limit."
-            )
+        cap = max_document_bytes()
+        if len(data) > cap:
+            raise PayloadTooLargeError(f"The file is over the {cap // (1024 * 1024)} MB limit.")
         scanned = scan_bytes(
             data,
             scanner=str(getattr(self.store, "scanner", "none")),
@@ -275,14 +262,26 @@ class DocumentLibrary:
         self._audit(actor, "library_document.ingested", document_id, {"filename": row["filename"]})
         return self._view(row)
 
-    def list_items(self, actor: Actor) -> list[dict[str, object]]:
-        rows = [
-            self._view(row)
-            for row in self.store.library_documents.values()
-            if self._visible(actor, row)
-        ]
+    def list_items(
+        self,
+        actor: Actor,
+        *,
+        scope: str = "library",
+        run: dict[str, object] | None = None,
+        cursor: str = "",
+    ) -> dict[str, object]:
+        """Documents in one scope. A later page is ``nextCursor``, never a silent cut."""
+        rows = [row for row in self._scoped(actor, scope, run) if self._visible(actor, row)]
         rows.sort(key=lambda item: str(item.get("title") or ""))
-        return rows
+        start = _cursor_index(cursor)
+        cap = int(get_settings().document_search_hits)
+        page = rows[start : start + cap]
+        nxt = f"o:{start + cap}" if start + cap < len(rows) else ""
+        return {
+            "documents": [self._view(row) for row in page],
+            "nextCursor": nxt,
+            "total": len(rows),
+        }
 
     def get(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         return self._view(self._own(actor, document_id), detail=True)
@@ -294,52 +293,124 @@ class DocumentLibrary:
         pages = _rows(row.get("passages"))
         if page_to <= 0:
             page_count = row.get("page_count")
-            count = int(page_count) if isinstance(page_count, int) else 1
-            page_to = page_from + 4 if count > 30 else 10_000
+            count = (
+                int(page_count)
+                if isinstance(page_count, int) and not isinstance(page_count, bool)
+                else 1
+            )
+            span = int(get_settings().document_heading_cap)
+            page_to = page_from + span - 1 if count > span else count
         chosen = [item for item in pages if page_from <= int(str(item.get("page") or 1)) <= page_to]
-        return {"document_id": str(document_id), "passages": chosen}
+        nxt = page_to + 1 if page_to < int(str(row.get("page_count") or page_to)) else 0
+        return {
+            "document_id": str(document_id),
+            "passages": chosen,
+            "nextPage": nxt or None,
+        }
 
-    def outline(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
+    def outline(
+        self, actor: Actor, document_id: uuid.UUID, *, cursor: str = ""
+    ) -> dict[str, object]:
         row = self._own(actor, document_id)
-        return {"document_id": str(document_id), "outline": _outline(row)}
+        items = _outline(row)
+        start = _cursor_index(cursor)
+        cap = int(get_settings().document_heading_cap)
+        page = items[start : start + cap]
+        nxt = f"o:{start + cap}" if start + cap < len(items) else ""
+        return {
+            "document_id": str(document_id),
+            "outline": page,
+            "nextCursor": nxt,
+            "total": len(items),
+        }
 
-    def tables(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
+    def tables(
+        self,
+        actor: Actor,
+        document_id: uuid.UUID,
+        *,
+        table: str = "",
+        offset: int = 0,
+        limit: int = 0,
+    ) -> dict[str, object]:
         row = self._own(actor, document_id)
-        return {"document_id": str(document_id), "tables": _rows(row.get("tables"))}
+        tables = _rows(row.get("tables"))
+        if table:
+            tables = [
+                item
+                for item in tables
+                if str(item.get("anchor") or "") == table or str(item.get("caption") or "") == table
+            ]
+        cap = limit if limit > 0 else int(get_settings().document_table_preview_rows)
+        paged = [_page_table(item, offset, cap) for item in tables]
+        return {"document_id": str(document_id), "tables": paged}
 
-    def search(self, actor: Actor, query: str) -> list[dict[str, object]]:
-        """One retrieval path: stored passages, scored by ``retrieve``."""
+    def search(
+        self,
+        actor: Actor,
+        query: str,
+        *,
+        document_ids: list[str] | None = None,
+        file_ids: list[str] | None = None,
+        collection_ids: list[str] | None = None,
+        top_k: int = 0,
+        run: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        """One retrieval path: stored passages, scored by ``retrieve``, scoped by the caller."""
+        settings = get_settings()
+        limit = top_k if top_k > 0 else int(settings.document_search_top_k)
+        snippet = int(settings.document_search_snippet_chars)
+        wanted_docs = set(document_ids or [])
+        wanted_files = set(file_ids or [])
+        wanted_collections = list(collection_ids or [])
+        if run is not None and not wanted_collections:
+            from ar_domain.runs.request import asked  # noqa: PLC0415
+
+            stored = asked(run, "collection_ids")
+            if isinstance(stored, list):
+                wanted_collections = [str(item) for item in stored]
         hits: list[dict[str, object]] = []
-        indexed = self._indexed_hits(actor, query)
+        indexed = self._indexed_hits(
+            actor,
+            query,
+            document_ids=list(wanted_docs),
+            collection_ids=wanted_collections,
+            top_k=limit,
+        )
         if indexed is not None:
-            return indexed
-        for row in self.store.library_documents.values():
-            if not self._visible(actor, row):
-                continue
-            passages = _rows(row.get("passages"))
-            for passage in retrieve(passages, query):
-                text = str(passage.get("text") or "")
-                weight = score(query, text)
-                if weight <= 0 and query.lower() not in text.lower():
+            hits = indexed
+        else:
+            for row in self.store.library_documents.values():
+                if not self._visible(actor, row) or not self._in_scope(
+                    row, wanted_docs, wanted_files
+                ):
                     continue
-                if weight <= 0:
-                    weight = 0.1
-                anchor = str(passage.get("anchor") or "")
-                hits.append(
-                    {
-                        "document_id": str(row.get("id")),
-                        "title": row.get("title"),
-                        "passage_id": anchor,
-                        "anchor": anchor,
-                        "page": passage.get("page"),
-                        "heading": passage.get("heading"),
-                        "snippet": text[:240],
-                        "content_hash": row.get("content_hash"),
-                        "score": round(weight, 2),
-                    }
-                )
-        hits.sort(key=lambda item: float(str(item["score"])), reverse=True)
-        return hits[:30]
+                passages = _rows(row.get("passages"))
+                for passage in retrieve(passages, query):
+                    text = str(passage.get("text") or "")
+                    weight = score(query, text)
+                    if weight <= 0 and query.lower() not in text.lower():
+                        continue
+                    if weight <= 0:
+                        weight = 0.1
+                    anchor = str(passage.get("anchor") or "")
+                    hits.append(
+                        {
+                            "document_id": str(row.get("id")),
+                            "title": row.get("title"),
+                            "passage_id": anchor,
+                            "anchor": anchor,
+                            "page": passage.get("page"),
+                            "heading": passage.get("heading"),
+                            "snippet": text[:snippet],
+                            "content_hash": row.get("content_hash"),
+                            "score": round(weight, 2),
+                        }
+                    )
+        hits.sort(key=lambda item: float(str(item.get("score") or 0)), reverse=True)
+        page = hits[:limit]
+        nxt = f"o:{limit}" if len(hits) > limit else ""
+        return {"hits": page, "nextCursor": nxt, "total": len(hits)}
 
     def read(
         self,
@@ -349,6 +420,11 @@ class DocumentLibrary:
         page_from: int = 1,
         page_to: int = 0,
         anchor: str = "",
+        heading: str = "",
+        anchor_from: str = "",
+        anchor_to: str = "",
+        cursor: str = "",
+        limit: int = 0,
     ) -> dict[str, object]:
         row = self._own(actor, document_id)
         pages = _rows(row.get("passages"))
@@ -356,190 +432,52 @@ class DocumentLibrary:
             known = [str(item.get("anchor") or "") for item in pages]
             pages = [item for item in pages if str(item.get("anchor") or "") == anchor]
             if not pages:
-                # An empty answer here reads as "the document does not say", which is wrong.
                 raise ValidationFailedError(
                     f"This document has no anchor {anchor!r}. Its anchors run from "
                     f"{known[0]} to {known[-1]}. Read it without an anchor to see the whole text."
                     if known
                     else "This document has no stored text to read."
                 )
-        elif page_to > 0:
-            pages = [
-                item for item in pages if page_from <= int(str(item.get("page") or 1)) <= page_to
-            ]
+        else:
+            if heading:
+                pages = [item for item in pages if str(item.get("heading") or "") == heading]
+            if anchor_from:
+                pages = [item for item in pages if str(item.get("anchor") or "") >= anchor_from]
+            if anchor_to:
+                pages = [item for item in pages if str(item.get("anchor") or "") <= anchor_to]
+            if page_to > 0:
+                pages = [
+                    item
+                    for item in pages
+                    if page_from <= int(str(item.get("page") or 1)) <= page_to
+                ]
+        start = _cursor_index(cursor)
+        pages = pages[start:]
+        cap = limit if limit > 0 else int(get_settings().document_read_chars)
         body: list[str] = []
         used = 0
         shown: list[dict[str, object]] = []
         for item in pages:
             text = str(item.get("text") or "")
-            if used >= _READ_CHARS:
+            if used and used + len(text) > cap:
                 break
             shown.append(item)
             body.append(
                 f"[{item.get('anchor')} p.{item.get('page')} {item.get('heading')}]\n{text}"
             )
             used += len(text)
+            if used >= cap:
+                break
+        nxt = ""
+        if shown and len(shown) < len(pages):
+            nxt = f"o:{start + len(shown)}"
         return {
             "document_id": str(document_id),
             "title": row.get("title"),
             "passages": shown,
-            "text": "\n\n".join(body)[:_READ_CHARS],
-            "truncated": used >= _READ_CHARS,
+            "text": "\n\n".join(body),
+            "nextCursor": nxt,
         }
-
-    def summarise(
-        self,
-        actor: Actor,
-        document_id: uuid.UUID,
-        *,
-        alias: str = "",
-        agent_version_id: uuid.UUID | None = None,
-    ) -> dict[str, object]:
-        row = self._own(actor, document_id)
-        return summarise(
-            row, self._ask(actor, alias), aggressive=self._aggressive(actor, agent_version_id)
-        )
-
-    def compare(
-        self,
-        actor: Actor,
-        document_id: uuid.UUID,
-        other_id: uuid.UUID,
-        *,
-        alias: str = "",
-        agent_version_id: uuid.UUID | None = None,
-    ) -> dict[str, object]:
-        left = self._own(actor, document_id)
-        right = self._own(actor, other_id)
-        if left.get("id") == right.get("id") or (
-            left.get("content_hash") and left.get("content_hash") == right.get("content_hash")
-        ):
-            raise ValidationFailedError(
-                "These are the same document, so there is nothing to compare. To check one "
-                "document against itself, use the cross-check of a single document."
-            )
-        result = compare(
-            left,
-            right,
-            self._ask(actor, alias),
-            aggressive=self._aggressive(actor, agent_version_id),
-        )
-        comparison_id = new_id()
-        now = utcnow()
-        self.store.document_comparisons[comparison_id] = {
-            "id": comparison_id,
-            "tenant_id": actor.tenant_id,
-            "left_id": document_id,
-            "right_id": other_id,
-            "changes": result,
-            "created_by": actor.user_id,
-            "created_at": now,
-            "updated_at": now,
-        }
-        result["id"] = str(comparison_id)
-        return result
-
-    def crosscheck(
-        self,
-        actor: Actor,
-        document_id: uuid.UUID,
-        *,
-        focus: str = "",
-        alias: str = "",
-        agent_version_id: uuid.UUID | None = None,
-    ) -> dict[str, object]:
-        """Places inside one document that disagree with each other. Nothing is stored."""
-        row = self._own(actor, document_id)
-        return crosscheck(
-            row,
-            self._ask(actor, alias),
-            focus=focus,
-            aggressive=self._aggressive(actor, agent_version_id),
-        )
-
-    def judge(
-        self,
-        actor: Actor,
-        document_id: uuid.UUID,
-        *,
-        statements: list[str],
-        rule_set_id: str = "",
-        rule_set: dict[str, object] | None = None,
-        label: str = "",
-        alias: str = "",
-        agent_version_id: uuid.UUID | None = None,
-    ) -> dict[str, object]:
-        row = self._own(actor, document_id)
-        pairs, source_id, set_id, version = self._rule_statements(
-            actor, statements, rule_set_id=rule_set_id, rule_set=rule_set
-        )
-        chosen = alias or "reasoning"
-        rows = judge_items(
-            row,
-            pairs[:40],
-            self._ask(actor, chosen),
-            model_id=model_id_for(self.store, actor.tenant_id, chosen),
-            rule_set_id=set_id,
-            rule_set_version=version,
-            aggressive=self._aggressive(actor, agent_version_id),
-        )
-        result: dict[str, object] = {
-            "kind": "judge",
-            "document_id": str(document_id),
-            "label": label,
-            "rows": rows,
-            "rule_set_id": set_id,
-            "rule_set_version": version,
-            "model_used": any(bool(item.get("model")) for item in rows),
-        }
-        check_id = new_id()
-        now = utcnow()
-        self._record_judgements(actor, document_id, rows, now)
-        self.store.document_checks[check_id] = {
-            "id": check_id,
-            "tenant_id": actor.tenant_id,
-            "document_id": document_id,
-            "standard_document_id": source_id,
-            "rule_set_id": set_id,
-            "rule_set_version": version,
-            "label": label or "Judge",
-            "rows": result,
-            "created_by": actor.user_id,
-            "created_at": now,
-            "updated_at": now,
-        }
-        result["id"] = str(check_id)
-        return result
-
-    def missing(
-        self,
-        actor: Actor,
-        document_id: uuid.UUID,
-        *,
-        statements: list[str],
-        rule_set_id: str = "",
-        rule_set: dict[str, object] | None = None,
-        alias: str = "",
-        agent_version_id: uuid.UUID | None = None,
-    ) -> dict[str, object]:
-        del agent_version_id
-        report = dict(
-            self.judge(
-                actor,
-                document_id,
-                statements=statements,
-                rule_set_id=rule_set_id,
-                rule_set=rule_set,
-                alias=alias,
-            )
-        )
-        raw = report.get("rows")
-        rows = raw if isinstance(raw, list) else []
-        report["kind"] = "missing"
-        report["rows"] = [
-            row for row in rows if isinstance(row, dict) and row.get("verdict") != "supported"
-        ]
-        return report
 
     def original(self, actor: Actor, document_id: uuid.UUID) -> bytes:
         """The stored original. A hash mismatch is a failure, not the derived text."""
@@ -551,246 +489,145 @@ class DocumentLibrary:
             raise ValidationFailedError("The stored file does not match its content hash.")
         return data
 
-    def _source_bytes(self, row: dict[str, object]) -> bytes:
-        return read_original(self.store, str(row.get("object_key") or "")) or b""
-
-    def _rule_statements(
-        self,
-        actor: Actor,
-        statements: list[str],
-        *,
-        rule_set_id: str,
-        rule_set: dict[str, object] | None,
-    ) -> tuple[list[tuple[str, str]], uuid.UUID | None, str, str]:
-        """Statements from the caller, an inline rule set, or one stored earlier."""
-        items, set_id, version, source_id = remember(
-            self.store,
-            actor,
-            rule_set if isinstance(rule_set, dict) else None,
-            statements=statements,
-            rule_set_id=rule_set_id,
-        )
-        if source_id is not None and not items:
-            # A set that already has its items is not read again from its source file.
-            source = self._own(actor, source_id)
-            rows = table_items(str(source.get("filename") or ""), self._source_bytes(source))
-            items.extend(
-                rows
-                or [
-                    (f"r{index}", text)
-                    for index, text in enumerate(requirements_from(source), start=1)
-                ]
-            )
-        if not items:
-            raise ValidationFailedError("Provide a rule set or a list of statements.")
-        return items, source_id, set_id, version
-
-    def _record_judgements(
-        self,
-        actor: Actor,
-        document_id: uuid.UUID,
-        rows: list[dict[str, object]],
-        now: object,
-    ) -> None:
-        bucket = self.store.judgements
-        for row in rows:
-            judgement_id = new_id()
-            bucket[judgement_id] = {
-                "id": judgement_id,
-                "tenant_id": actor.tenant_id,
-                "document_id": document_id,
-                "rule_set_id": row.get("rule_set_id") or "",
-                "rule_set_version": row.get("rule_set_version") or "",
-                "item_id": row.get("item_id") or "",
-                "verdict": row.get("verdict") or "failed",
-                "passage_id": row.get("passage_id") or "",
-                "quote": row.get("quote") or "",
-                "model_id": row.get("model_id") or "",
-                "prompt_hash": row.get("prompt_hash") or "",
-                "created_by": actor.user_id,
-                "created_at": now,
-            }
-        self._audit(
-            actor,
-            "document.judged",
-            document_id,
-            {"count": len(rows)},
-        )
-
-    def redact(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
-        row = self._own(actor, document_id)
-        text = "\n".join(str(item.get("text") or "") for item in _rows(row.get("passages")))
-        preview = redaction_preview(text[:20_000])
-        preview["document_id"] = str(document_id)
-        return preview
-
     def extract(
         self,
         actor: Actor,
         document_id: uuid.UUID,
-        fields: list[str],
+        schema: dict[str, object],
         *,
         alias: str = "",
-        agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
-        if not fields:
-            raise ValidationFailedError("Name at least one field.")
-        row = self._own(actor, document_id)
-        return extract_fields(
-            row,
-            fields[:20],
-            self._ask(actor, alias),
-            aggressive=self._aggressive(actor, agent_version_id),
-        )
+        """Fill ``schema`` from the document. A missing model is an error."""
+        if not schema:
+            raise ValidationFailedError("extract needs a JSON Schema.")
+        import orjson  # noqa: PLC0415
 
-    def propose_rewrite(
+        from ar_common.wrapping import wrap_untrusted  # noqa: PLC0415
+        from ar_domain.documents.sections import _json_object  # noqa: PLC0415
+
+        row = self._own(actor, document_id)
+        passages = _rows(row.get("passages"))
+        evidence = "\n\n".join(
+            f"[{item.get('anchor')} p.{item.get('page')}] {item.get('text')}" for item in passages
+        )
+        ask = self._ask(actor, alias)
+        raw = ask(
+            "Fill this JSON Schema from the passages only. "
+            "Return one JSON object and no other text. "
+            "Where a value comes from a passage, include that passage's anchor "
+            "when the schema allows it.\n" + orjson.dumps(schema).decode(),
+            wrap_untrusted(source="document", content=evidence),
+        )
+        if not isinstance(raw, str) or not raw.strip():
+            raise ArError(
+                ErrorCode.INVALID_STATE, "No model is configured, so nothing was extracted."
+            )
+        parsed = _json_object(raw)
+        from jsonschema import Draft202012Validator  # noqa: PLC0415
+
+        errors = list(Draft202012Validator(schema).iter_errors(parsed))
+        if errors:
+            raise ArError(ErrorCode.INVALID_STATE, "The extraction did not match the schema.")
+        return {"document_id": str(document_id), "result": parsed, "kind": "extract"}
+
+    def edit(
         self,
         actor: Actor,
         document_id: uuid.UUID,
+        changes: list[dict[str, object]],
         *,
-        anchor: str,
-        instruction: str,
-        alias: str = "",
-        agent_version_id: uuid.UUID | None = None,
+        redline: bool = False,
     ) -> dict[str, object]:
-        if not instruction.strip():
-            raise ValidationFailedError("Say how the passage should change.")
+        """Write a new file version. The stored passages of the original are not changed."""
         row = self._own(actor, document_id)
-        passages = _rows(row.get("passages"))
-        if anchor:
-            chosen = [item for item in passages if str(item.get("anchor") or "") == anchor]
-            if not chosen:
-                raise NotFoundError()
-        else:
-            chosen = passages[:8]
-            anchor = ""
-        original = "\n\n".join(str(item.get("text") or "") for item in chosen)[:12_000]
-        proposed = rewrite_text(
-            original,
-            instruction,
-            self._ask(actor, alias),
-            aggressive=self._aggressive(actor, agent_version_id),
-        )
-        hunks = line_hunks(original, proposed)
-        rewrite_id = new_id()
-        now = utcnow()
-        saved = {
-            "id": rewrite_id,
-            "tenant_id": actor.tenant_id,
-            "document_id": document_id,
-            "anchor": anchor,
-            "passage_anchors": [str(item.get("anchor") or "") for item in chosen],
-            "instruction": instruction[:500],
-            "original": original,
-            "proposed": proposed,
-            "hunks": hunks,
-            "status": "proposed",
-            "created_by": actor.user_id,
-            "created_at": now,
-            "updated_at": now,
-        }
-        self.store.document_rewrites[rewrite_id] = saved
-        self._audit(
-            actor, "document_rewrite.proposed", rewrite_id, {"document_id": str(document_id)}
-        )
-        return _rewrite_view(saved)
+        if not changes:
+            raise ValidationFailedError("edit needs at least one change.")
+        from ar_domain.documents.create.redline import render_version  # noqa: PLC0415
 
-    def decide_rewrite(
+        data = render_version(_rows(row.get("passages")), changes, redline=redline)
+        stem = str(row.get("filename") or "document")
+        name = f"{stem.rsplit('.', 1)[0]}-v{stem.count('-v') + 2}.docx"
+        created = self.ingest(actor, data=data, filename=name)
+        stored = self.store.library_documents.get(_as_uuid(created.get("id")))
+        if isinstance(stored, dict):
+            meta = stored.get("metadata")
+            body = dict(meta) if isinstance(meta, dict) else {}
+            body["versionOf"] = str(document_id)
+            stored["metadata"] = body
+            created = self._view(stored, detail=True)
+        self._audit(actor, "library_document.versioned", document_id, {"redline": redline})
+        return created
+
+    def rows_for_map(
         self,
         actor: Actor,
-        rewrite_id: uuid.UUID,
+        run: dict[str, object],
         *,
-        decision: str,
-        hunk_id: str = "",
-    ) -> dict[str, object]:
-        row = self._rewrite(actor, rewrite_id)
-        if row.get("status") != "proposed":
-            raise ValidationFailedError("This rewrite has already been reviewed.")
-        if decision not in {"accept", "reject"}:
-            raise ValidationFailedError("decision must be accept or reject")
-        hunks = [dict(item) for item in _rows(row.get("hunks"))]
-        targets = hunks if not hunk_id else [item for item in hunks if item.get("id") == hunk_id]
-        if hunk_id and not targets:
-            raise NotFoundError()
-        for item in targets:
-            item["decision"] = decision
-        row["hunks"] = hunks
-        pending = [item for item in hunks if not item.get("decision")]
-        if pending:
-            row["updated_at"] = utcnow()
-            return _rewrite_view(row)
-        accepted = any(item.get("decision") == "accept" for item in hunks)
-        if accepted:
-            updated = apply_hunks(str(row.get("original") or ""), hunks)
-            self._apply_text(actor, row, updated)
-            row["status"] = "accepted"
-            action = "document_rewrite.accepted"
-        else:
-            row["status"] = "rejected"
-            action = "document_rewrite.rejected"
-        row["updated_at"] = utcnow()
-        self._audit(actor, action, rewrite_id, {"document_id": str(row.get("document_id"))})
-        return _rewrite_view(row)
+        document_ids: list[str],
+        file_ids: list[str],
+        collection_ids: list[str],
+    ) -> list[dict[str, object]]:
+        """The documents a map reads: the call, else the turn, else the agent's files."""
+        if document_ids or file_ids:
+            return self._scoped_ids(actor, document_ids, file_ids)
+        if collection_ids:
+            return [
+                row
+                for row in self.store.library_documents.values()
+                if self._visible(actor, row) and self._in_collections(row, collection_ids)
+            ]
+        turn = self._scoped(actor, "turn", run)
+        return turn or self._scoped(actor, "conversation", run)
 
-    def get_check(self, actor: Actor, check_id: uuid.UUID) -> dict[str, object]:
-        row = self.store.document_checks.get(check_id)
-        if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
-            raise NotFoundError()
-        body = row.get("rows")
-        result = dict(body) if isinstance(body, dict) else {}
-        result["id"] = str(check_id)
-        result["label"] = row.get("label")
-        return result
+    def _scoped(
+        self, actor: Actor, scope: str, run: dict[str, object] | None
+    ) -> list[dict[str, object]]:
+        rows = [
+            row
+            for row in self.store.library_documents.values()
+            if isinstance(row, dict) and row.get("tenant_id") == actor.tenant_id
+        ]
+        if scope == "library":
+            return rows
+        file_ids = (
+            _turn_file_ids(self.store, run)
+            if scope == "turn"
+            else _conversation_file_ids(self.store, run)
+        )
+        if scope == "turn":
+            file_ids = file_ids | _agent_file_ids(self.store, run)
+        return [row for row in rows if self._file_id_for(row) in {str(item) for item in file_ids}]
 
-    def get_comparison(self, actor: Actor, comparison_id: uuid.UUID) -> dict[str, object]:
-        row = self.store.document_comparisons.get(comparison_id)
-        if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
-            raise NotFoundError()
-        body = row.get("changes")
-        result = dict(body) if isinstance(body, dict) else {}
-        result["id"] = str(comparison_id)
-        return result
-
-    def get_rewrite(self, actor: Actor, rewrite_id: uuid.UUID) -> dict[str, object]:
-        return _rewrite_view(self._rewrite(actor, rewrite_id))
-
-    def _apply_text(self, actor: Actor, rewrite: dict[str, object], updated: str) -> None:
-        document_id = rewrite.get("document_id")
-        if not isinstance(document_id, uuid.UUID):
-            return
-        document = self._own(actor, document_id)
-        anchors = rewrite.get("passage_anchors")
-        wanted = set(anchors) if isinstance(anchors, list) else set()
-        passages = _rows(document.get("passages"))
-        placed = False
-        rewritten: list[dict[str, object]] = []
-        for item in passages:
-            anchor = str(item.get("anchor") or "")
-            if anchor not in wanted:
-                rewritten.append(item)
+    def _scoped_ids(
+        self, actor: Actor, document_ids: list[str], file_ids: list[str]
+    ) -> list[dict[str, object]]:
+        found: list[dict[str, object]] = []
+        for row in self.store.library_documents.values():
+            if not self._visible(actor, row):
                 continue
-            if not placed:
-                copied = dict(item)
-                copied["text"] = updated
-                rewritten.append(copied)
-                placed = True
-        if not placed:
-            passages.append(
-                {
-                    "anchor": "p1-s0",
-                    "page": 1,
-                    "heading": str(document.get("title") or "Document"),
-                    "level": 1,
-                    "text": updated,
-                }
-            )
-            document["passages"] = passages
-        else:
-            document["passages"] = rewritten
-        document["updated_at"] = utcnow()
+            if str(row.get("id")) in document_ids or self._file_id_for(row) in file_ids:
+                found.append(row)
+        return found
 
-    def _aggressive(self, actor: Actor, agent_version_id: uuid.UUID | None) -> bool:
-        return analysis_redaction_enabled(self.store, actor.tenant_id, agent_version_id)
+    def _in_scope(self, row: dict[str, object], document_ids: set[str], file_ids: set[str]) -> bool:
+        if not document_ids and not file_ids:
+            return True
+        return str(row.get("id")) in document_ids or self._file_id_for(row) in file_ids
+
+    def _in_collections(self, row: dict[str, object], collection_ids: list[str]) -> bool:
+        documents = getattr(self.store, "knowledge_documents", {})
+        if not isinstance(documents, dict):
+            return False
+        digest = str(row.get("content_hash") or "")
+        files = getattr(self.store, "files", {})
+        for document in documents.values():
+            if not isinstance(document, dict):
+                continue
+            if str(document.get("collection_id") or "") not in collection_ids:
+                continue
+            if _holds_hash(files, document, digest):
+                return True
+        return False
 
     def _ask(self, actor: Actor, alias: str) -> ModelAsk:
         return ModelAsk(self.store, actor.tenant_id, alias or "reasoning")
@@ -811,7 +648,9 @@ class DocumentLibrary:
             return False
         if row.get("owner_user_id") == actor.user_id:
             return True
-        return self._shared(actor, row)
+        if self._shared(actor, row):
+            return True
+        return self._agent_granted(actor, row)
 
     def _shared(self, actor: Actor, row: dict[str, object]) -> bool:
         """A collection the caller can read holds these bytes.
@@ -843,7 +682,42 @@ class DocumentLibrary:
                 return True
         return False
 
-    def _indexed_hits(self, actor: Actor, query: str) -> list[dict[str, object]] | None:
+    def _agent_granted(self, actor: Actor, row: dict[str, object]) -> bool:
+        """A file named on an agent in this tenant is readable by that agent's users.
+
+        A row with no owner is not granted. The binding is the grant, not a missing owner.
+        """
+        if row.get("owner_user_id") is None:
+            return False
+        file_id = self._file_id_for(row)
+        if not file_id:
+            return False
+        versions = getattr(self.store, "versions", {})
+        if not isinstance(versions, dict):
+            return False
+        for version in versions.values():
+            if not isinstance(version, dict) or version.get("tenant_id") != actor.tenant_id:
+                continue
+            definition = version.get("definition")
+            if not isinstance(definition, dict):
+                continue
+            knowledge = definition.get("knowledge")
+            if not isinstance(knowledge, dict):
+                continue
+            raw = knowledge.get("file_ids", knowledge.get("fileIds"))
+            if isinstance(raw, list) and file_id in {str(item) for item in raw}:
+                return True
+        return False
+
+    def _indexed_hits(
+        self,
+        actor: Actor,
+        query: str,
+        *,
+        document_ids: list[str] | None = None,
+        collection_ids: list[str] | None = None,
+        top_k: int = 8,
+    ) -> list[dict[str, object]] | None:
         """Index hits for the caller's documents, or None when nothing is indexed."""
         documents = getattr(self.store, "knowledge_documents", {})
         chunks = getattr(self.store, "document_chunks", {})
@@ -867,20 +741,37 @@ class DocumentLibrary:
             and document.get("status") != "deleted"
             and document.get("raw_file_id") in file_ids
         ]
+        named_collections = {str(item) for item in collection_ids or []}
+        named_documents = {str(item) for item in document_ids or []}
+        if named_collections:
+            linked = [
+                document
+                for document in linked
+                if str(document.get("collection_id") or "") in named_collections
+            ]
+        if named_documents:
+            linked = [
+                document
+                for document in linked
+                if str(document.get("id") or "") in named_documents
+                or str(document.get("library_document_id") or "") in named_documents
+            ]
         named = [document.get("id") for document in linked]
         if not linked or not any(chunk.get("document_id") in named for chunk in chunks.values()):
             return None
         from ar_domain.knowledge.searching import search as search_index  # noqa: PLC0415
         from ar_domain.knowledge.threshold import retrieval_bar  # noqa: PLC0415
 
-        collection_ids = list({document.get("collection_id") for document in linked})
+        collection_ids_found = list({document.get("collection_id") for document in linked})
         try:
             found = search_index(
                 self.store,
                 actor,
                 query=query,
-                collection_ids=[item for item in collection_ids if isinstance(item, uuid.UUID)],
-                top_k=8,
+                collection_ids=[
+                    item for item in collection_ids_found if isinstance(item, uuid.UUID)
+                ],
+                top_k=top_k,
                 debug=False,
                 min_score=retrieval_bar(self.store, actor.tenant_id, {}),
                 document_ids=[item for item in named if isinstance(item, uuid.UUID)],
@@ -898,7 +789,9 @@ class DocumentLibrary:
                 "anchor": str(hit.get("anchor") or ""),
                 "page": hit.get("page"),
                 "heading": hit.get("heading"),
-                "snippet": str(hit.get("snippet") or "")[:240],
+                "snippet": str(hit.get("snippet") or "")[
+                    : int(get_settings().document_search_snippet_chars)
+                ],
                 "score": hit.get("score"),
             }
             for hit in hits
@@ -914,12 +807,6 @@ class DocumentLibrary:
         if not digest:
             return None
         return self._by_hash(actor.tenant_id, digest)
-
-    def _rewrite(self, actor: Actor, rewrite_id: uuid.UUID) -> dict[str, object]:
-        row = self.store.document_rewrites.get(rewrite_id)
-        if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
-            raise NotFoundError()
-        return row
 
     def _by_hash(self, tenant_id: uuid.UUID, digest: str) -> dict[str, object] | None:
         for row in self.store.library_documents.values():
@@ -1036,24 +923,102 @@ def _rows(value: object) -> list[dict[str, object]]:
 
 
 def _outline(row: dict[str, object]) -> list[dict[str, object]]:
-    seen: set[str] = set()
-    items: list[dict[str, object]] = []
+    """Headings with their level, page span and tokens. One entry per heading."""
+    from ar_domain.documents.strategy import estimate_tokens  # noqa: PLC0415
+
+    grouped: dict[str, dict[str, object]] = {}
+    order: list[str] = []
     for passage in _rows(row.get("passages")):
-        anchor = str(passage.get("anchor") or "")
         heading = str(passage.get("heading") or "")
-        key = f"{heading}:{anchor.split('-', maxsplit=1)[0]}"
-        if key in seen:
-            continue
-        seen.add(key)
-        items.append(
-            {
-                "anchor": anchor,
-                "page": passage.get("page"),
+        if heading not in grouped:
+            order.append(heading)
+            grouped[heading] = {
+                "anchor": str(passage.get("anchor") or ""),
                 "heading": heading,
-                "level": passage.get("level"),
+                "level": passage.get("level") or 1,
+                "pageFrom": passage.get("page"),
+                "pageTo": passage.get("page"),
+                "tokens": 0,
             }
-        )
-    return items
+        item = grouped[heading]
+        page = passage.get("page")
+        if isinstance(page, int) and not isinstance(page, bool):
+            start = item.get("pageFrom")
+            end = item.get("pageTo")
+            if not isinstance(start, int) or page < start:
+                item["pageFrom"] = page
+            if not isinstance(end, int) or page > end:
+                item["pageTo"] = page
+        current = item.get("tokens")
+        counted = current if isinstance(current, int) and not isinstance(current, bool) else 0
+        item["tokens"] = counted + estimate_tokens(str(passage.get("text") or ""))
+    return [grouped[name] for name in order]
+
+
+def _page_table(table: dict[str, object], offset: int, limit: int) -> dict[str, object]:
+    text = str(table.get("csv") or table.get("csv_text") or "")
+    rows = [line for line in text.splitlines() if line.strip()]
+    start = max(0, offset)
+    window = rows[start : start + limit]
+    nxt = start + limit if start + limit < len(rows) else None
+    body = dict(table)
+    body["rows"] = window
+    body["rowCount"] = len(rows)
+    body["nextOffset"] = nxt
+    return body
+
+
+def _cursor_index(cursor: str) -> int:
+    if cursor.startswith("o:"):
+        try:
+            return max(0, int(cursor[2:]))
+        except ValueError:
+            return 0
+    return 0
+
+
+def _turn_file_ids(store: Any, run: dict[str, object] | None) -> set[str]:
+    if not isinstance(run, dict):
+        return set()
+    from ar_domain.runs.request import asked  # noqa: PLC0415
+
+    found: set[str] = set()
+    stored = asked(run, "file_ids")
+    if isinstance(stored, list):
+        found.update(str(item) for item in stored)
+    messages = getattr(store, "messages", {})
+    message = messages.get(run.get("input_message_id")) if isinstance(messages, dict) else None
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "file" and part.get("file_id"):
+                found.add(str(part.get("file_id")))
+    return found
+
+
+def _conversation_file_ids(store: Any, run: dict[str, object] | None) -> set[str]:
+    if not isinstance(run, dict):
+        return set()
+    from ar_domain.files.attachments import conversation_attachments  # noqa: PLC0415
+
+    return {
+        str(item.file_id) for item in conversation_attachments(store, run.get("conversation_id"))
+    }
+
+
+def _agent_file_ids(store: Any, run: dict[str, object] | None) -> set[str]:
+    if not isinstance(run, dict):
+        return set()
+    versions = getattr(store, "versions", {})
+    version = versions.get(run.get("agent_version_id")) if isinstance(versions, dict) else None
+    definition = version.get("definition") if isinstance(version, dict) else None
+    knowledge = definition.get("knowledge") if isinstance(definition, dict) else None
+    raw = (
+        knowledge.get("file_ids", knowledge.get("fileIds")) if isinstance(knowledge, dict) else None
+    )
+    if not isinstance(raw, list):
+        return set()
+    return {str(item) for item in raw}
 
 
 def _rewrite_view(row: dict[str, object]) -> dict[str, object]:

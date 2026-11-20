@@ -43,6 +43,14 @@ _IMPLICIT = frozenset(
         "plan.update",
         "tools.search",
         "skills.load",
+        "documents.list",
+        "documents.outline",
+        "documents.read",
+        "documents.search",
+        "documents.tables",
+        "documents.map",
+        "documents.extract",
+        "image.ask",
     }
 )
 

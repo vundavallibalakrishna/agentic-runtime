@@ -1,0 +1,12 @@
+{
+  "id": "summarise",
+  "prompt": "Read the named documents and summarise them. Every claim cites an anchor from the documents. Use documents.read when a file fits, and documents.map when it does not.",
+  "outputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["summary"],
+    "properties": {
+      "summary": {"type": "string"}
+    }
+  }
+}

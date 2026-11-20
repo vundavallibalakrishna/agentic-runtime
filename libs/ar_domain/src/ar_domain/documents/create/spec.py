@@ -30,6 +30,9 @@ MEDIA = {
     "pdf": "application/pdf",
     "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "md": "text/markdown",
+    "html": "text/html",
+    "csv": "text/csv",
 }
 # Shared by the Word and slide writers: the body font and the colours beside the accent.
 FONT = "Calibri"
@@ -106,14 +109,17 @@ def theme_for(name: str) -> Theme:
 
 def parse(arguments: dict[str, object]) -> DocumentSpec:
     """Read one create call. Missing optional fields use the template default."""
+    from ar_domain.documents.create.render import registered_formats  # noqa: PLC0415
+
     fmt = str(arguments.get("format") or "").strip().lower()
-    if fmt not in FORMATS:
-        raise CreateError("format must be docx, pdf, pptx or xlsx.")
+    if fmt not in registered_formats():
+        known = ", ".join(sorted(registered_formats()))
+        raise CreateError(f"format must be one of: {known}.")
     title = _short(arguments.get("title"), MAX_TITLE)
     if not title:
         raise CreateError("title is required.")
     template = str(arguments.get("template") or "").strip().lower()
-    if template not in TEMPLATES:
+    if not template:
         template = "sheet" if fmt == "xlsx" else "report"
     spec = DocumentSpec(
         format=fmt,
