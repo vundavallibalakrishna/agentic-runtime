@@ -310,3 +310,19 @@ def test_the_migration_leaves_each_changed_limit_alone() -> None:
         "without-checkpoint",
     )
     assert migration._NOTE == "run-budget"  # type: ignore[attr-defined]
+
+
+def test_the_migration_adds_the_source_only_sentence_once_and_takes_it_out_again() -> None:
+    migration = importlib.import_module(
+        "ar_domain.migrations.versions.20261120_0056_assistant_source_only"
+    )
+    seeded = assistant_definition()
+    text = str(seeded["instructions"])
+    assert migration._ADDED in text  # type: ignore[attr-defined]
+    assert migration.with_sentence(seeded) is None  # type: ignore[attr-defined]
+    before = migration.without_sentence(seeded)  # type: ignore[attr-defined]
+    assert before is not None
+    assert migration._ADDED not in str(before["instructions"])  # type: ignore[attr-defined]
+    assert migration.with_sentence(before) == seeded  # type: ignore[attr-defined]
+    theirs = {**seeded, "instructions": "Answer in one line."}
+    assert migration.with_sentence(theirs) is None  # type: ignore[attr-defined]

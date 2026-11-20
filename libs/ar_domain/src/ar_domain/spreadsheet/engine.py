@@ -1,15 +1,19 @@
 """In-process DuckDB for workspace tables.
 
 The connection is memory-only. External file access is turned off before any
-statement, including the caller's SQL. Values are loaded from Python, not from
-``read_csv``.
+statement, including the caller's SQL. Values are loaded from Python a row at a
+time, not from ``read_csv``, so a long file is never held in Python whole.
 """
 
 from __future__ import annotations
 
 import duckdb
 
+from ar_domain.spreadsheet.source import TableSource, TableTooLongError, bounded
+
 _MAX_IDENT = 60
+_BATCH = 10_000
+_INT_DIGITS = 18
 
 
 class SheetQueryError(Exception):
@@ -21,27 +25,34 @@ class SheetQueryError(Exception):
         super().__init__(reason)
 
 
-def query_loaded(
-    sheets: list[tuple[str, list[str], list[list[object]]]],
+def query_tables(
+    sources: list[TableSource],
     sql: str,
     *,
     row_limit: int,
+    max_rows: int,
 ) -> tuple[list[str], list[list[object]], bool]:
-    """Run one already-guarded statement. Returns columns, rows and truncation."""
+    """Run one already-guarded statement. Returns columns, rows and truncation.
+
+    Each table is read whole into the engine, a row at a time. A table of more than
+    ``max_rows`` rows is refused before the statement runs.
+    """
+    names = [source.name for source in sources]
     connection = duckdb.connect(":memory:")
     try:
         connection.execute("SET enable_external_access = false")
-        _declare(connection, sheets)
+        for source in sources:
+            _declare(connection, source, max_rows)
         try:
             connection.execute(sql)
         except duckdb.Error as exc:
-            raise _failed(exc, [name for name, _columns, _rows in sheets]) from exc
+            raise _failed(exc, names) from exc
         description = connection.description or []
         columns = [str(item[0]) for item in description]
         try:
             raw = connection.fetchmany(row_limit + 1)
         except duckdb.Error as exc:
-            raise _failed(exc, [name for name, _columns, _rows in sheets]) from exc
+            raise _failed(exc, names) from exc
     finally:
         connection.close()
     truncated = len(raw) > row_limit
@@ -49,32 +60,71 @@ def query_loaded(
     return columns, rows, truncated
 
 
-def _declare(
-    connection: duckdb.DuckDBPyConnection,
-    sheets: list[tuple[str, list[str], list[list[object]]]],
-) -> None:
-    for table, columns, rows in sheets:
-        if not columns:
-            continue
-        kinds = [_kind(index, rows) for index in range(len(columns))]
-        declared = ", ".join(
-            f'"{_quote(column)}" {kind}' for column, kind in zip(columns, kinds, strict=True)
-        )
-        connection.execute(f'CREATE TABLE "{_quote(table)}" ({declared})')
-        placeholders = ", ".join("?" for _ in columns)
-        payload = [_bound(row, kinds) for row in rows]
-        connection.executemany(
-            f'INSERT INTO "{_quote(table)}" VALUES ({placeholders})',  # noqa: S608
-            payload,
-        )
+def measure(source: TableSource, max_rows: int) -> tuple[list[str], int]:
+    """The engine type of each column and the number of rows, from one read of the table.
+
+    A column is a number only when every value in it is one, so the whole table is read.
+    """
+    width = len(source.columns)
+    present = [False] * width
+    whole = [True] * width
+    decimal = [True] * width
+    count = 0
+    try:
+        for row in bounded(source, max_rows):
+            count += 1
+            for index in range(width):
+                if not (whole[index] or decimal[index]):
+                    continue
+                cell = row[index]
+                if str(cell).strip() in {"", "None"}:
+                    continue
+                present[index] = True
+                whole[index] = whole[index] and _intish(cell)
+                # A column of 3 and 1.5 is a column of numbers.
+                decimal[index] = decimal[index] and (_floaty(cell) or _intish(cell))
+    except TableTooLongError as exc:
+        raise too_long(exc) from exc
+    kinds = [
+        "VARCHAR"
+        if not present[index]
+        else "BIGINT"
+        if whole[index]
+        else "DOUBLE"
+        if decimal[index]
+        else "VARCHAR"
+        for index in range(width)
+    ]
+    return kinds, count
 
 
-def _bound(row: list[object], kinds: list[str]) -> list[object]:
-    values: list[object] = []
-    for index, kind in enumerate(kinds):
-        cell = row[index] if index < len(row) else None
-        values.append(_coerce(cell, kind))
-    return values
+def too_long(exc: TableTooLongError) -> SheetQueryError:
+    return SheetQueryError(
+        f"{exc.table} has more than {exc.limit} rows, the most the table tools read. "
+        "Nothing was run, because a count or a total over part of the file would be wrong. "
+        "Say so to the person. An administrator can raise the limit, or the file can be "
+        "given in smaller parts."
+    )
+
+
+def _declare(connection: duckdb.DuckDBPyConnection, source: TableSource, max_rows: int) -> None:
+    if not source.columns:
+        return
+    kinds, _count = measure(source, max_rows)
+    declared = ", ".join(
+        f'"{_quote(column)}" {kind}' for column, kind in zip(source.columns, kinds, strict=True)
+    )
+    table = _quote(source.name)
+    connection.execute(f'CREATE TABLE "{table}" ({declared})')
+    appender = connection.appender(table)
+    batch: list[list[object]] = []
+    for row in source.rows():
+        batch.append([_coerce(cell, kind) for cell, kind in zip(row, kinds, strict=True)])
+        if len(batch) >= _BATCH:
+            appender.append_rows(batch)
+            batch = []
+    appender.append_rows(batch)
+    appender.flush()
 
 
 def _coerce(value: object, kind: str) -> object:
@@ -90,24 +140,12 @@ def _coerce(value: object, kind: str) -> object:
     return str(value)
 
 
-def _kind(index: int, rows: list[list[object]]) -> str:
-    present = [
-        row[index]
-        for row in rows
-        if index < len(row) and str(row[index]).strip() not in {"", "None"}
-    ]
-    if present and all(_intish(item) for item in present):
-        return "BIGINT"
-    if present and all(_floaty(item) for item in present):
-        return "DOUBLE"
-    return "VARCHAR"
-
-
 def _intish(value: object) -> bool:
     text = str(value).strip()
     if text.startswith(("+", "-")):
         text = text[1:]
-    if not text.isdigit():
+    if not text.isdigit() or len(text) > _INT_DIGITS:
+        # A longer run of digits is an identifier, and would not fit the integer type.
         return False
     return not (len(text) > 1 and text.startswith("0"))
 

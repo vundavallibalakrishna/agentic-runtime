@@ -1052,7 +1052,7 @@ export function ChatScreen() {
                               <p className="text-xs font-medium text-[var(--muted-foreground)]">
                                 {t("working")}
                               </p>
-                              {stream.tools.map((tool) => (
+                              {stream.tools.map((tool, position) => (
                                 <ToolCallCard
                                   call={{
                                     qualifiedName: tool.name,
@@ -1062,19 +1062,22 @@ export function ChatScreen() {
                                     presentation: tool.presentation,
                                     timeline: tool.timeline,
                                   }}
-                                  key={`${id}-${tool.name}-${tool.status}-${tool.preview}`}
+                                  // Calls are only ever added at the end, so the position names one.
+                                  // biome-ignore lint/suspicious/noArrayIndexKey: two calls can share a name and a result
+                                  key={`${id}-live-${position}`}
                                   label={t("toolCall")}
                                 />
                               ))}
                             </div>
                           ) : null}
                           {Array.isArray(message.toolCalls)
-                            ? message.toolCalls.map((call) => {
+                            ? message.toolCalls.map((call, position) => {
                                 const row =
                                   call && typeof call === "object"
                                     ? (call as Record<string, unknown>)
                                     : {};
-                                const toolKey = `${id}-${String(row.qualifiedName ?? "tool")}-${String(row.resultPreview ?? row.status ?? "")}`;
+                                // Two calls of one tool can return the same text, so the position is the key.
+                                const toolKey = `${id}-call-${position}`;
                                 return (
                                   <ToolCallCard call={row} key={toolKey} label={t("toolCall")} />
                                 );

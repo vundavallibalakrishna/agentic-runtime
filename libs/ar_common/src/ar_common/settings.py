@@ -351,6 +351,9 @@ class BaseServiceSettings(BaseSettings):
     # How long one process may hold a computer's scope while it starts, suspends or
     # resumes it. Another process waits up to ``AR_SANDBOX_ENSURE_TIMEOUT_S`` for it.
     sandbox_lock_ttl_s: int = Field(default=300, ge=1)
+    # The most rows of one table file the table tools read. A longer file is refused,
+    # never read in part. Each row is held in the query engine while a statement runs.
+    table_max_rows: int = Field(default=1_000_000, ge=1)
     sandbox_ensure_timeout_s: int = Field(default=30, ge=1)
     # The scanner the product runs over every upload: ``clamav`` or ``none``. An install
     # decides; the default scans. ``none`` is set where no scanner is deployed.

@@ -85,12 +85,13 @@ def _from_file(
         return []
     if not str(arguments.get("path") or "").strip():
         return []
+    from ar_domain.spreadsheet.engine import SheetQueryError  # noqa: PLC0415
     from ar_domain.tools.analysis import table_rows  # noqa: PLC0415
     from ar_domain.tools.sql_guard import SqlRejected  # noqa: PLC0415
 
     try:
         rows = table_rows(store, arguments)
-    except SqlRejected as exc:
+    except (SqlRejected, SheetQueryError) as exc:
         return _error("validation_failed", exc.reason)
     except (OSError, ValueError) as exc:
         return _error("validation_failed", str(exc)[:300])

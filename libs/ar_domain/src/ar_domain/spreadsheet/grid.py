@@ -9,8 +9,9 @@ from __future__ import annotations
 import io
 import zipfile
 from dataclasses import dataclass
+from itertools import islice
 
-from ar_domain.tools.analysis import _shared, _sheet_map, _sheet_rows
+from ar_domain.spreadsheet.source import shared_strings, sheet_map, sheet_rows
 
 
 @dataclass(frozen=True)
@@ -23,14 +24,14 @@ class Grid:
 def grids_from_xlsx(data: bytes, *, max_rows: int = 500) -> list[Grid]:
     """Return each worksheet. The first row is the header."""
     with zipfile.ZipFile(io.BytesIO(data)) as book:
-        shared = _shared(book)
+        shared = shared_strings(book)
         found: list[Grid] = []
-        for name, target in _sheet_map(book):
+        for name, target in sheet_map(book):
             try:
-                xml = book.read(target)
+                with book.open(target) as stream:
+                    raw = list(islice(sheet_rows(stream, shared), max_rows + 1))
             except KeyError:
                 continue
-            raw = _sheet_rows(xml, shared)
             if not raw:
                 continue
             columns = _headers(raw[0])

@@ -1,8 +1,9 @@
 """Draw a sample of rows from a table file.
 
 The draw uses Python's seeded generator over the rows in file order, so the same file,
-arguments and seed give the same rows. The result says how the sample was drawn so a
-reader can repeat it. Result content is data.
+arguments and seed give the same rows. The file is read a row at a time: once for the
+columns the method needs and the row count, and once more for the rows it chose. The
+result says how the sample was drawn so a reader can repeat it. Result content is data.
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from ar_domain.spreadsheet.source import TableSource, TableTooLongError, bounded, max_table_rows
 
 if TYPE_CHECKING:
     from typing import Any as Store
@@ -32,6 +35,42 @@ class _Draw:
     facts: dict[str, object] = field(default_factory=dict)
 
 
+@dataclass(slots=True)
+class _Population:
+    """What a draw needs of a table: how many rows it has, and the columns it asked for."""
+
+    source: TableSource
+    count: int
+    held: dict[int, list[object]]
+
+    @property
+    def table(self) -> str:
+        return self.source.name
+
+    @property
+    def columns(self) -> list[str]:
+        return self.source.columns
+
+    def column(self, position: int) -> list[object]:
+        """Every value of one column, in file order."""
+        if position not in self.held:
+            self.held[position] = [row[position] for row in self.source.rows()]
+        return self.held[position]
+
+    def rows_at(self, wanted: set[int]) -> dict[int, list[object]]:
+        """The rows at these positions, from one more read of the file."""
+        if not wanted:
+            return {}
+        last = max(wanted)
+        found: dict[int, list[object]] = {}
+        for index, row in enumerate(self.source.rows()):
+            if index in wanted:
+                found[index] = row
+            if index >= last:
+                break
+        return found
+
+
 class _RefusedError(Exception):
     """The arguments cannot be used. The message tells the model what to change."""
 
@@ -39,7 +78,6 @@ class _RefusedError(Exception):
 def sample(store: Store, arguments: dict[str, object]) -> dict[str, object]:
     """Run ``general.sample_table``."""
     from ar_domain.tools.analysis import (  # noqa: PLC0415
-        _MAX_ROWS,
         _csv,
         _error,
         _ident_arg,
@@ -54,16 +92,18 @@ def sample(store: Store, arguments: dict[str, object]) -> dict[str, object]:
     try:
         method = _method(arguments)
         sheets = _load_requested(store, arguments)
-        table, columns, rows = _population(sheets, _ident_arg(arguments.get("sheet")), _MAX_ROWS)
-        draw = _draw(method, columns, rows, arguments, random.Random(seed))  # noqa: S311
-        added = _judgmental(columns, rows, arguments.get("include"))
+        population = _population(sheets, _ident_arg(arguments.get("sheet")), arguments)
+        draw = _draw(method, population, arguments, random.Random(seed))  # noqa: S311
+        added = _judgmental(population, arguments.get("include"))
     except _RefusedError as exc:
         return _error("validation_failed", str(exc))
+    table, columns = population.table, population.columns
     picked = set(draw.picked)
     extra = [(index, reason) for index, reason in added if index not in picked]
     repeated = len(added) - len(extra)
     select_name, reason_name = _flag_columns(columns)
     out_columns = [*columns, select_name, reason_name]
+    rows = population.rows_at(picked | {index for index, _reason in extra})
     out_rows = [[*rows[index], "sampled", ""] for index in sorted(picked)]
     out_rows.extend([*rows[index], "judgmental", reason] for index, reason in extra)
     name = Path(str(arguments.get("name") or f"sample_{table}.csv")).name
@@ -79,7 +119,7 @@ def sample(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         "size": arguments.get("size"),
         "stratify_by": arguments.get("stratify_by"),
         "amount_column": arguments.get("amount_column"),
-        "population_rows": len(rows),
+        "population_rows": population.count,
         "sampled_rows": len(picked),
         "judgmental_rows": len(extra),
         "judgmental_already_sampled": repeated,
@@ -91,7 +131,7 @@ def sample(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         f"Method: {method}. Table: {table} ({arguments.get('path')}).",
         _seed_line(method, seed, chosen=chosen),
         _parameter_line(arguments),
-        f"Population: {len(rows)} rows. Drawn by the method: {len(picked)} rows.",
+        f"Population: {population.count} rows. Drawn by the method: {len(picked)} rows.",
         *draw.notes,
     ]
     if added:
@@ -128,68 +168,89 @@ def _method(arguments: dict[str, object]) -> str:
 
 
 def _population(
-    sheets: list[tuple[str, list[str], list[list[object]]]], wanted: str | None, limit: int
-) -> tuple[str, list[str], list[list[object]]]:
-    """The sheet to sample. A file the reader cut short is refused, not sampled in part."""
-    found = next((item for item in sheets if wanted is None or item[0] == wanted), None)
-    if found is None:
-        names = ", ".join(name for name, _columns, _rows in sheets) or "none"
+    sheets: list[TableSource], wanted: str | None, arguments: dict[str, object]
+) -> _Population:
+    """The sheet to sample, counted. A table over the row limit is refused, not sampled in part."""
+    source = next((item for item in sheets if wanted is None or item.name == wanted), None)
+    if source is None:
+        names = ", ".join(item.name for item in sheets) or "none"
         raise _RefusedError(f"no sheet named {wanted}. The sheets are: {names}")
-    table, _columns, rows = found
-    if not rows:
-        raise _RefusedError(f"{table} has no rows to sample")
-    if len(rows) >= limit:
+    positions = [
+        source.columns.index(name) for name in _named_columns(arguments) if name in source.columns
+    ]
+    held: dict[int, list[object]] = {position: [] for position in positions}
+    count = 0
+    try:
+        for row in bounded(source, max_table_rows()):
+            count += 1
+            for position in positions:
+                held[position].append(row[position])
+    except TableTooLongError as exc:
         raise _RefusedError(
-            f"{table} has {limit} rows or more, and the table tools read only the first "
-            f"{limit}. A sample of part of a population would mislead, so none was drawn. "
-            "Split the file, or filter it to the population first with export_table."
+            f"{exc.table} has more than {exc.limit} rows, the most the table tools read. A "
+            "sample of part of a population would mislead, so none was drawn. Filter the "
+            "file to the population first with export_table."
+        ) from exc
+    if not count:
+        raise _RefusedError(f"{source.name} has no rows to sample")
+    return _Population(source, count, held)
+
+
+def _named_columns(arguments: dict[str, object]) -> list[str]:
+    """The columns the arguments name, so one read of the file can keep them."""
+    names = [str(arguments.get(key) or "").strip() for key in ("stratify_by", "amount_column")]
+    include = arguments.get("include")
+    if isinstance(include, list):
+        names.extend(
+            str(item.get("key_column") or "").strip() for item in include if isinstance(item, dict)
         )
-    return found
+    return list(dict.fromkeys(name for name in names if name))
 
 
 def _draw(
     method: str,
-    columns: list[str],
-    rows: list[list[object]],
+    population: _Population,
     arguments: dict[str, object],
     rng: random.Random,
 ) -> _Draw:
+    columns, total = population.columns, population.count
     if method == "full":
-        return _Draw(list(range(len(rows))), ["The whole population was returned."])
+        return _Draw(list(range(total)), ["The whole population was returned."])
     size = arguments.get("size")
     if not _is_int(size) or int(str(size)) < 1:
         raise _RefusedError("size must be a whole number of 1 or more")
     count = int(str(size))
     if method == "stratified":
-        return _stratified(columns, rows, arguments, count, rng)
+        return _stratified(population, arguments, count, rng)
     amounts: list[Decimal] = []
     if method == "monetary_unit":
         position = _position(columns, arguments.get("amount_column"), "amount_column")
         amounts = [
-            _amount(row[position], index, columns[position]) for index, row in enumerate(rows)
+            _amount(value, index, columns[position])
+            for index, value in enumerate(population.column(position))
         ]
-    if count >= len(rows):
+    if count >= total:
         note = (
-            f"size {count} is not smaller than the population of {len(rows)} rows, so the "
+            f"size {count} is not smaller than the population of {total} rows, so the "
             "whole population was returned and nothing was drawn at random."
         )
-        return _Draw(list(range(len(rows))), [note], {"whole_population": True})
+        return _Draw(list(range(total)), [note], {"whole_population": True})
     if method == "monetary_unit":
         return _monetary(columns[position], amounts, count, rng)
-    return _Draw(sorted(rng.sample(range(len(rows)), count)))
+    return _Draw(sorted(rng.sample(range(total), count)))
 
 
 def _stratified(
-    columns: list[str],
-    rows: list[list[object]],
+    population: _Population,
     arguments: dict[str, object],
     count: int,
     rng: random.Random,
 ) -> _Draw:
+    columns = population.columns
     position = _position(columns, arguments.get("stratify_by"), "stratify_by")
     groups: dict[str, list[int]] = {}
-    for index, row in enumerate(rows):
-        groups.setdefault(_cell(row[position]).strip(), []).append(index)
+    for index, value in enumerate(population.column(position)):
+        groups.setdefault(_cell(value).strip(), []).append(index)
     picked: list[int] = []
     strata: dict[str, dict[str, int]] = {}
     short: list[str] = []
@@ -264,8 +325,9 @@ def _monetary(column: str, amounts: list[Decimal], count: int, rng: random.Rando
     return _Draw(picked, notes, facts)
 
 
-def _judgmental(columns: list[str], rows: list[list[object]], raw: object) -> list[tuple[int, str]]:
+def _judgmental(population: _Population, raw: object) -> list[tuple[int, str]]:
     """Rows a person named, each with the reason given. A row is listed once."""
+    columns = population.columns
     if raw is None or raw == []:
         return []
     if not isinstance(raw, list):
@@ -284,11 +346,12 @@ def _judgmental(columns: list[str], rows: list[list[object]], raw: object) -> li
         if not isinstance(values, list) or not values:
             raise _RefusedError("include.values must list at least one value of the key column")
         missing: list[str] = []
+        where: dict[str, list[int]] = {}
+        for index, cell in enumerate(population.column(position)):
+            where.setdefault(_cell(cell).strip(), []).append(index)
         for value in values:
             wanted = _cell(value).strip()
-            matches = [
-                index for index, row in enumerate(rows) if _cell(row[position]).strip() == wanted
-            ]
+            matches = where.get(wanted, [])
             if not matches:
                 missing.append(wanted)
             for index in matches:

@@ -91,6 +91,9 @@ def assistant_definition() -> dict[str, object]:
             "Search the organisation's knowledge with knowledge.search when a question may "
             "be answered there. "
             "If a tool says the passage was not found, say that and do not invent it. "
+            "When you build a table, a matrix or a summary from a source, include only what the "
+            "source states and what the person asked for. Do not add a rating, a score or an "
+            "assessment of your own unless asked, and when asked, say that it is yours. "
             "Anything that sends, deletes, spends or changes stored data must wait for approval."
         ),
         "starter_prompts": [

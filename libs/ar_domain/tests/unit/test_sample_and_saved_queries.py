@@ -929,27 +929,156 @@ def test_a_database_tool_with_a_wrong_connection_name_lists_the_real_ones() -> N
     assert "none is set up" in empty
 
 
-def test_a_count_over_a_file_longer_than_the_reader_takes_is_refused() -> None:
+def test_a_file_longer_than_a_result_is_read_whole() -> None:
     store, arguments = _args()
-    _table(store, arguments, "ledger.csv", _items(6000))
+    _table(store, arguments, "ledger.csv", _items(12000))
     asked = dispatch_general(
         store,
         "query_table",
-        {**arguments, "path": "ledger.csv", "sql": "SELECT COUNT(*) AS n FROM ledger"},
+        {
+            **arguments,
+            "path": "ledger.csv",
+            "sql": "SELECT COUNT(*) AS n, SUM(amount) AS total FROM ledger",
+        },
     )
-    assert asked["is_error"] is True
-    assert "only the first 5000" in str(asked["text"])
+    assert asked["is_error"] is False
+    assert _presentation(asked)["rows"] == [[12000, sum(range(1, 12001)) * 10]]
     looked = dispatch_general(store, "inspect_table", {**arguments, "path": "ledger.csv"})
-    assert looked["is_error"] is False
-    assert "5000 rows or more" in str(looked["text"])
+    assert "(12000 rows)" in str(looked["text"])
+    listed = dispatch_general(
+        store, "query_table", {**arguments, "path": "ledger.csv", "sql": "SELECT * FROM ledger"}
+    )
+    assert _presentation(listed)["truncated"] is True
     written = dispatch_general(
         store,
         "export_table",
         {
             **arguments,
-            "path": "outputs/all.csv",
+            "path": "outputs/south.csv",
             "paths": ["ledger.csv"],
-            "sql": "SELECT * FROM ledger",
+            "sql": "SELECT * FROM ledger WHERE region <> 'east'",
         },
     )
-    assert written["is_error"] is True
+    assert written["is_error"] is False
+    assert "with 8000 rows" in str(written["text"])
+    assert len(_written(store, written)) == 8000
+
+
+def test_a_sample_is_drawn_from_every_row_of_a_long_file() -> None:
+    store, arguments = _args()
+    _table(store, arguments, "ledger.csv", _items(12000))
+    drawn = dispatch_general(
+        store,
+        "sample_table",
+        {
+            **arguments,
+            "path": "ledger.csv",
+            "method": "monetary_unit",
+            "amount_column": "amount",
+            "size": 40,
+            "seed": 7,
+            "include": [{"key_column": "id", "values": ["11999"], "reason": "largest but one"}],
+        },
+    )
+    assert drawn["is_error"] is False
+    summary = _presentation(drawn)["sample"]
+    assert isinstance(summary, dict)
+    assert summary["population_rows"] == 12000
+    assert summary["population_total"] == f"{sum(range(1, 12001)) * 10}.00"
+    rows = _written(store, drawn)
+    assert any(int(row["id"]) > 6000 for row in rows)
+    assert [row["id"] for row in rows if row["selection"] == "judgmental"] == ["11999"]
+    again = dispatch_general(
+        store,
+        "sample_table",
+        {**arguments, "path": "ledger.csv", "method": "random", "size": 25, "seed": 3},
+    )
+    assert [row["id"] for row in _written(store, again)] == [
+        str(index + 1)
+        for index in sorted(random.Random(3).sample(range(12000), 25))  # noqa: S311
+    ]
+
+
+def test_a_table_over_the_row_limit_is_refused_and_never_read_in_part() -> None:
+    from ar_common.settings import get_settings, set_settings
+
+    before = get_settings()
+    set_settings(before.model_copy(update={"table_max_rows": 500}))
+    try:
+        store, arguments = _args()
+        _table(store, arguments, "ledger.csv", _items(501))
+        asked = dispatch_general(
+            store,
+            "query_table",
+            {**arguments, "path": "ledger.csv", "sql": "SELECT COUNT(*) AS n FROM ledger"},
+        )
+        assert asked["is_error"] is True
+        assert "more than 500 rows" in str(asked["text"])
+        looked = dispatch_general(store, "inspect_table", {**arguments, "path": "ledger.csv"})
+        assert looked["is_error"] is False
+        assert "more than 500 rows" in str(looked["text"])
+        drawn = dispatch_general(
+            store,
+            "sample_table",
+            {**arguments, "path": "ledger.csv", "method": "random", "size": 5},
+        )
+        assert drawn["is_error"] is True
+        assert "none was drawn" in str(drawn["text"])
+        _table(store, arguments, "fits.csv", _items(500))
+        fits = dispatch_general(
+            store,
+            "query_table",
+            {**arguments, "path": "fits.csv", "sql": "SELECT COUNT(*) AS n FROM fits"},
+        )
+        assert _presentation(fits)["rows"] == [[500]]
+    finally:
+        set_settings(before)
+
+
+def test_a_long_sheet_of_a_workbook_is_read_whole() -> None:
+    from ar_domain.tools.analysis import _xlsx
+
+    store, arguments = _args()
+    root = _prepare(store, arguments)
+    book = _xlsx(["id", "amount"], [[number, number * 2] for number in range(1, 7001)])
+    (root / "workspace" / "inputs" / "book.xlsx").write_bytes(book)
+    asked = dispatch_general(
+        store,
+        "query_table",
+        {**arguments, "path": "book.xlsx", "sql": "SELECT COUNT(*), MAX(amount) FROM result"},
+    )
+    assert asked["is_error"] is False
+    assert _presentation(asked)["rows"] == [[7000, 14000]]
+
+
+def test_a_chart_of_a_long_file_asks_for_a_summary_first() -> None:
+    store, arguments = _args()
+    _table(store, arguments, "ledger.csv", _items(6000))
+    drawn = dispatch_general(
+        store,
+        "chart",
+        {**arguments, "path": "ledger.csv", "kind": "bar", "x": "region", "y": "amount"},
+    )
+    assert drawn["is_error"] is True
+    assert "Summarise it first" in str(drawn["text"])
+
+
+def test_a_long_run_of_digits_stays_text_and_a_mixed_number_column_is_a_number() -> None:
+    store, arguments = _args()
+    _table(
+        store,
+        arguments,
+        "accounts.csv",
+        "account,rate\n12345678901234567890,3\n98765432109876543210,1.5\n",
+    )
+    asked = dispatch_general(
+        store,
+        "query_table",
+        {
+            **arguments,
+            "path": "accounts.csv",
+            "sql": "SELECT MAX(account), SUM(rate) FROM accounts",
+        },
+    )
+    assert asked["is_error"] is False
+    assert _presentation(asked)["rows"] == [["98765432109876543210", 4.5]]
