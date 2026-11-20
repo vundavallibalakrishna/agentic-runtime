@@ -588,6 +588,18 @@ async def reload_document(store: object, document_id: uuid.UUID) -> None:
             return
         body = dict(document)
         _merge(store, "knowledge_documents", document_id, body)
+        # The file the document was made from. The worker reads a large upload from the
+        # file store, so it needs the row that says where those bytes are.
+        file_id = body.get("raw_file_id")
+        held = getattr(store, "files", None)
+        if file_id is not None and isinstance(held, dict) and file_id not in held:
+            made_from = (
+                (await session.execute(text("SELECT * FROM files WHERE id = :id"), {"id": file_id}))
+                .mappings()
+                .first()
+            )
+            if made_from is not None:
+                _merge(store, "files", file_id, dict(made_from))
         collection_id = body.get("collection_id")
         if collection_id is not None:
             collection = (

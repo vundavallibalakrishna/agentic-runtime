@@ -130,7 +130,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_GUARDRAIL_OUTPUT_ALIAS` | `fast` | Model alias for the output safety classifier (empty disables) | [prompt-injection §4](../06-security/prompt-injection.md) |
 | `AR_INGEST_ACTIVITY_CONCURRENCY` | `32` | Per worker | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_INGEST_MAX_BYTES` | `209715200` | Maximum size of a single ingested document | [spec 10](../03-specs/10-knowledge.md) |
-| `AR_INGEST_INLINE_MAX_BYTES` | `262144` | Above this, a connected ingest worker parses the file. The API does not. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_INGEST_INLINE_MAX_BYTES` | `262144` | The largest file sent to a connected ingest worker with the request. A larger upload is read by the worker from the file store. With a worker connected the API parses only a larger file that is in no file store | [document tasks](../09-plan/document-tasks.md) |
 | `AR_INGEST_SYNC_CONCURRENCY` | `16` | Child workflows per sync | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_INJECTION_CLASSIFIER_TIMEOUT_MS` | `1000` | Timeout for the tool-result injection classifier (fail-open with flag) | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_INPUT_WAIT_TIMEOUT_S` | `1800` | Elicitation wait | [spec 07](../03-specs/07-agent-runtime.md) |
@@ -280,7 +280,7 @@ These names are part of the catalogue. The task that implements each one adds it
 | `AR_GUEST_SESSION_TTL_S` | `28800` | Guest session TTL | [spec 21](../03-specs/21-records-governance.md) |
 | `AR_PACK_SIGNATURE_REQUIRED` | `true` (`false` when `AR_ENV=dev`) | Reject unsigned content packs | [spec 05](../03-specs/05-agent-registry.md) |
 | `AR_PACK_TRUSTED_KEYS` | (secret JSON) | `{key_id, public_key_pem}` entries | [spec 05](../03-specs/05-agent-registry.md) |
-| `AR_PACKS_DIR` | `packs` | Directory scanned for pack packages | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_PACKS_DIR` | `packs` | Directory scanned for pack packages and task templates. The service image holds `packs/examples/task-templates` there and no other pack; mount a folder to add more | [spec 21](../03-specs/21-records-governance.md) |
 | `AR_RUN_RECORD_MAX_BLOB_BYTES` | `52428800` | Max encrypted tool I/O stored with a run record | [spec 18](../03-specs/18-observability-eval.md) |
 | `AR_TSA_TIMEOUT_MS` | `2000` | RFC 3161 call timeout | [spec 21](../03-specs/21-records-governance.md) |
 | `AR_TSA_URL` | empty | Platform TSA used when a tenant enables timestamping without its own URL | [spec 21](../03-specs/21-records-governance.md) |

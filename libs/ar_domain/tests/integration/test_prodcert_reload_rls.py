@@ -111,3 +111,73 @@ async def test_reload_document_reads_under_tenant_rls(database_url: str) -> None
     await app_engine.dispose()
     await original_engine.dispose()
     await owner.dispose()
+
+
+async def test_reload_document_brings_the_stored_file_row(database_url: str) -> None:
+    """The ingest worker reads a large upload from the file store, so it needs the file's row.
+
+    The row is written by the process that took the upload. A worker that never saw it
+    learns of it when it reloads the document, and only inside the document's tenant.
+    """
+    owner = create_async_engine(database_url)
+    async with AsyncSession(owner, expire_on_commit=False) as session, session.begin():
+        await apply(session)
+    api = ChatService(allow_loopback=True)
+    binding = await bind_store(api, database_url, tenant_slug="dev")
+    assert binding is not None
+    tenant = binding.tenant_id
+    actor = Actor(
+        tenant,
+        binding.users["admin@dev.local"],
+        PERMISSION_KEYS,
+        roles=frozenset({"tenant_admin"}),
+    )
+    await shared().save_embeddings(api, tenant)
+    collection = KnowledgeBook(api).create_collection(
+        actor, {"slug": f"stored-{uuid.uuid4().hex[:8]}", "name": "Stored file"}
+    )
+    added = await KnowledgeBook(api).add_member(
+        actor,
+        uuid.UUID(str(collection["id"])),
+        {"kind": "text", "title": "Gate hours", "text": "The gate opens at 07:00."},
+    )
+    document_id = uuid.UUID(str(added["document"]["id"]))
+    await flush_store(api)
+    # A second process, as the worker is. It starts before the upload, so it has never
+    # seen the file.
+    worker = ChatService(allow_loopback=True)
+    assert await bind_store(worker, database_url, tenant_slug="dev") is not None
+    file_id = uuid.uuid4()
+    async with owner.begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO files (id, tenant_id, kind, name, mime_type, object_key, status) "
+                "VALUES (:id, :tenant_id, 'upload', 'gate.md', 'text/markdown', :key, 'ready')"
+            ),
+            {"id": file_id, "tenant_id": tenant, "key": f"t/{tenant}/files/{file_id}"},
+        )
+        await connection.execute(
+            text("UPDATE documents SET raw_file_id = :file_id WHERE id = :id"),
+            {"file_id": file_id, "id": document_id},
+        )
+    try:
+        assert file_id not in worker.files
+        worker.durable_engine = create_async_engine(  # type: ignore[assignment]
+            database_url, connect_args={"server_settings": {"role": "ar_app"}}
+        )
+
+        worker.context_tenant_id = uuid.uuid4()  # type: ignore[attr-defined]
+        await reload_document(worker, document_id)
+        assert file_id not in worker.files
+
+        worker.context_tenant_id = tenant  # type: ignore[attr-defined]
+        await reload_document(worker, document_id)
+        assert worker.files[file_id]["object_key"] == f"t/{tenant}/files/{file_id}"
+        assert worker.knowledge_documents[document_id]["raw_file_id"] == file_id
+    finally:
+        # The database is shared by the tests of this run: leave nothing behind.
+        async with owner.begin() as connection:
+            await connection.execute(
+                text("DELETE FROM documents WHERE id = :id"), {"id": document_id}
+            )
+            await connection.execute(text("DELETE FROM files WHERE id = :id"), {"id": file_id})

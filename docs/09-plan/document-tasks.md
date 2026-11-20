@@ -63,7 +63,17 @@ Docling is the layout parser for PDF, Office and HTML on every ingest path.
 `documents/extract.py` reads a format Docling cannot, and it is what a process
 without Docling uses. The ingest image installs Docling. When a Temporal
 client is connected, the API stages the bytes and the ingest worker parses
-them. `.doc`, `.xls`, `.odt`, `.rtf` and `.msg` convert with LibreOffice in
+them, for a library upload and for a collection upload alike. A collection
+upload up to `AR_INGEST_INLINE_MAX_BYTES` travels with the request; a larger
+one is read by the worker from the file store. When Docling should have read
+a file and did not, the fallback's text is kept and the document's metadata
+says so: `parser` is `fallback` and `parserNote` gives the reason
+(`layout_parser_failed:<error type>`, `layout_parser_not_installed` or
+`layout_parser_read_nothing`). A failure is also logged as
+`layout_parser_failed` with the error type, the kind of file and its size,
+and nothing from the file. The service image holds the templates of
+`packs/examples/task-templates`, so `taskTemplate` works on an install that
+mounts no pack folder. `.doc`, `.xls`, `.odt`, `.rtf` and `.msg` convert with LibreOffice in
 the ingest image. `.eml` and `.zip` are read in process. A missing converter
 is an error that names the tool.
 

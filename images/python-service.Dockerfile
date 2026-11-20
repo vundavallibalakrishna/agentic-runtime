@@ -14,6 +14,10 @@ COPY pyproject.toml uv.lock ./
 COPY libs libs
 COPY services services
 COPY connectors connectors
+# The task templates every install has (summarise, compare, obligations, outline). The
+# product reads them from AR_PACKS_DIR, which is this folder unless a customer mounts
+# their own. No other pack is part of the image.
+COPY packs/examples/task-templates packs/examples/task-templates
 
 ARG SERVICE=api
 RUN package="ar-$(printf '%s' "$SERVICE" | tr '_' '-')" \

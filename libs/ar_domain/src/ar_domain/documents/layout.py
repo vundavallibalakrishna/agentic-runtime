@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Any
 
+from ar_common.logging import get_logger
 from ar_domain.documents.extract import (
     Extracted,
     ExtractError,
@@ -28,6 +29,7 @@ from ar_domain.documents.extract import (
 # layout parser keeps. Markdown and plain text do not need a layout model.
 _DOCLING = frozenset({"pdf", "docx", "pptx", "xlsx"})
 _CONVERTER: list[Any] = []
+_log = get_logger(__name__)
 
 
 def parse_layout(
@@ -40,24 +42,32 @@ def parse_layout(
 ) -> Extracted:
     """One extract. Docling when it can read the file, otherwise ``extract_bytes``."""
     kind = sniff(data, filename, media_type)
+    missed = ""
     if kind in _DOCLING:
-        parsed = _docling(data, filename, media_type)
+        parsed, missed = _docling(data, filename, media_type)
         if parsed is not None:
             return parsed
-    return extract_bytes(
+    extracted = extract_bytes(
         data,
         filename=filename,
         media_type=media_type,
         ocr=ocr,  # type: ignore[arg-type]
         on_page=on_page,  # type: ignore[arg-type]
     )
+    if missed:
+        # The layout parser should have read this file and did not. The fallback reader's
+        # text is kept, and the document says which reader it came from and why.
+        extracted.metadata["parser"] = "fallback"
+        extracted.metadata["parserNote"] = missed
+    return extracted
 
 
-def _docling(data: bytes, filename: str, media_type: str) -> Extracted | None:
+def _docling(data: bytes, filename: str, media_type: str) -> tuple[Extracted | None, str]:
+    """The layout parser's reading, or none and the reason it gave none."""
     import importlib.util  # noqa: PLC0415
 
     if importlib.util.find_spec("docling.document_converter") is None:
-        return None
+        return None, "layout_parser_not_installed"
     name = Path(filename or "upload").name
     try:
         with tempfile.TemporaryDirectory() as folder:
@@ -65,11 +75,18 @@ def _docling(data: bytes, filename: str, media_type: str) -> Extracted | None:
             path.write_bytes(data)
             converted = _converter().convert(str(path))
         extracted = _from_docling(converted.document, filename, media_type)
-    except Exception:  # noqa: BLE001 - a parser failure uses the fallback reader
-        return None
+    except Exception as error:  # noqa: BLE001 - a parser failure uses the fallback reader
+        # The kind of error and the kind of file, never the file's name or its text.
+        _log.warning(
+            "layout_parser_failed",
+            error=type(error).__name__,
+            kind=sniff(data, filename, media_type),
+            bytes=len(data),
+        )
+        return None, f"layout_parser_failed:{type(error).__name__}"
     if not extracted.passages and not extracted.tables:
-        return None
-    return extracted
+        return None, "layout_parser_read_nothing"
+    return extracted, ""
 
 
 def _converter() -> Any:
