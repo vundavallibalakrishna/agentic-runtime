@@ -203,6 +203,9 @@ def _history(
             continue
         if message.get("status") not in {None, "completed"}:
             continue
+        if message.get("scope") == "run":
+            # What a lead and a specialist said to each other is not what the person said.
+            continue
         rows.append(message)
     rows.sort(key=lambda item: str(item.get("created_at") or ""))
     return [

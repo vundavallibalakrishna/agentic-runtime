@@ -12,9 +12,10 @@ from ar_common.wrapping import wrap_tool_result
 from ar_domain.orchestration.spec import chain, depth_blocked, is_cycle, subagent_spec, whole
 from ar_domain.runs.request import ask
 from ar_domain.skills.delegate import _insert_child
-from ar_domain.tools.agent_loop import model_alias_for
+from ar_domain.tools.agent_loop import _flush_run, model_alias_for
 
 _TIMEOUT_MESSAGE = "The child timed out and was not retried. The parent can continue or stop."
+_LIVE = frozenset({"queued", "running", "waiting_approval", "waiting_input"})
 
 
 def definition_of(store: Any, run: dict[str, object]) -> dict[str, object]:
@@ -79,8 +80,10 @@ async def run_named(
     except TimeoutError:
         holder = state.get("holder")
         child = holder.get("child") if isinstance(holder, dict) else None
-        if isinstance(child, dict) and str(child.get("status")) in {"queued", "running"}:
+        # Giving up on the child cancels it. What ended it was its time, and it says so.
+        if isinstance(child, dict) and str(child.get("status")) in {*_LIVE, "cancelled"}:
             _finish_failed(store, child, "child_timeout", _TIMEOUT_MESSAGE)
+            await _flush_run(store)
         return _error(slug, "child_timeout", _TIMEOUT_MESSAGE)
 
 
@@ -164,6 +167,10 @@ async def _drive(
     if isinstance(holder, dict):
         holder["child"] = child
     child["workspace_ref"] = f"workspace:{child['id']}"
+    # The child is saved as soon as it exists, not when the parent's step ends. Other
+    # processes then see it: the screen that draws the run, a stop from the person, and
+    # the tool gateway, which records an approval request against the child's run.
+    await _flush_run(store)
     _emit(store, parent, "subagent.started", {"child_run_id": str(child["id"]), "agent": slug})
     _step(
         store,
@@ -171,7 +178,15 @@ async def _drive(
         "subagent",
         {"child_run_id": str(child["id"]), "agent": slug, "status": "running"},
     )
-    outcome = await _complete(store, child, task)
+    try:
+        outcome = await _complete(store, child, task)
+    except asyncio.CancelledError:
+        # The parent was stopped, or gave up waiting. The child ends with it.
+        if str(child.get("status")) in _LIVE:
+            _end(store, child, "cancelled")
+        await asyncio.shield(_flush_run(store))
+        raise
+    await _flush_run(store)
     _emit(
         store,
         parent,
@@ -225,6 +240,7 @@ def _assistant(store: Any, child: dict[str, object]) -> dict[str, object]:
         "content": [{"type": "text", "text": ""}],
         "text": "",
         "status": "streaming",
+        "scope": "run",
         "is_active_branch": False,
         "created_at": utcnow(),
     }
@@ -237,10 +253,9 @@ def _assistant(store: Any, child: dict[str, object]) -> dict[str, object]:
 def _finish_failed(
     store: Any, child: dict[str, object], code: str, message: str
 ) -> dict[str, object]:
-    child["status"] = "failed"
-    child["ended_at"] = utcnow()
     child["error"] = {"code": code, "message": message}
     child["result_summary"] = message
+    _end(store, child, "failed")
     _emit(store, child, "run.failed", {"error": child["error"]})
     return {
         "failed": True,
@@ -251,6 +266,15 @@ def _finish_failed(
         "tokens": 0,
         "cost": 0,
     }
+
+
+def _end(store: Any, child: dict[str, object], status: str) -> None:
+    """Close a child that will not finish on its own, and the reply it had started."""
+    child["status"] = status
+    child["ended_at"] = utcnow()
+    reply = store.messages.get(child.get("assistant_message_id"))
+    if isinstance(reply, dict) and reply.get("status") == "streaming":
+        reply["status"] = status
 
 
 def _error(slug: str, code: str, message: str) -> dict[str, object]:

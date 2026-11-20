@@ -589,7 +589,7 @@ class ToolPipeline:
                 {"tool_call_id": str(call_id), "stream": stream, "text": text[:4000]},
             )
 
-    def _gate(  # noqa: PLR0917
+    def _gate(  # noqa: PLR0911, PLR0917
         self,
         request: dict[str, object],
         version: dict[str, object],
@@ -645,6 +645,21 @@ class ToolPipeline:
         reasons = outcome.get("reasons")
         message = reasons[0] if isinstance(reasons, list) and reasons else "denied by policy"
         if decision == "require_approval":
+            if self._called_by_an_agent(request):
+                # A run another agent started has nobody to come back to: the lead does not
+                # wait for a decision, and nothing would carry the action out after one.
+                # So no request is made, and the action is refused in words.
+                return self._fail(
+                    request,
+                    "policy_denied",
+                    "This action needs a person's approval, and an agent called by another "
+                    "agent cannot wait for one. It was not run. Tell the person to ask this "
+                    "agent directly, in a conversation with it.",
+                    started,
+                    version,
+                    tool,
+                    decision="deny",
+                )
             return self._hold(request, version, tool, arguments, started, outcome, str(message))
         return self._fail(
             request,
@@ -655,6 +670,12 @@ class ToolPipeline:
             tool,
             decision="deny",
         )
+
+    def _called_by_an_agent(self, request: dict[str, object]) -> bool:
+        """Whether the run making this call was started by another agent's run."""
+        runs = getattr(self.store, "runs", None)
+        run = runs.get(request.get("run_id")) if isinstance(runs, dict) else None
+        return isinstance(run, dict) and run.get("parent_run_id") is not None
 
     def _hold(  # noqa: PLR0917
         self,

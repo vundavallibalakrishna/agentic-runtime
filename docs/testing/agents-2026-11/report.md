@@ -65,3 +65,21 @@ and are fixed in the same change. The fifth was a check that tested the wrong pe
 - Only the first required suite of an agent is run before a publish (`_gated_publish`).
 - The stack's sign-in cookie is marked secure, so a browser on plain http cannot hold a
   session on a staging-mode stack run on one machine.
+
+## Second pass: agents that call each other
+
+Eight checks (`--stage together`) on the same stack. Four passed at the first run; all
+eight pass after the fixes.
+
+| Check | First run | After the fixes |
+|---|---|---|
+| A lead asks one specialist and passes on the answer | pass | pass |
+| A lead asks three specialists at once | pass | pass |
+| Two agents set up to call each other | pass (refused at publish) | pass |
+| A slow specialist is given up on, and the lead says so | pass | pass |
+| The person's conversation holds only their own messages | fail | pass |
+| Handoff ends the lead's turn | fail (15 handovers) | pass (one) |
+| Stopping the lead stops its specialist | fail (left running) | pass |
+| A specialist whose action needs approval | fail (internal error) | pass (refused in words; approved and run when asked directly) |
+
+What was wrong and what changed is in [OQ-157](../../open-questions.md).
