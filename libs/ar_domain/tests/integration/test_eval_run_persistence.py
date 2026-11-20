@@ -10,6 +10,7 @@ import subprocess
 import uuid
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from ar_domain.agents.access import Actor
@@ -78,4 +79,17 @@ async def test_the_worker_reads_the_agent_tags_and_tool_choice_of_a_run(database
     assert loaded["tags"] == ["safety"]
     assert loaded["mock_all_tools"] is True
     assert loaded["agent_version_id"] == api.eval_runs[run_id]["agent_version_id"]
+    # The database is shared with the other tests of this run: leave it as it was found.
+    async with AsyncSession(engine) as session, session.begin():
+        for statement in (
+            "DELETE FROM eval_runs WHERE id = :run",
+            "DELETE FROM eval_suites WHERE id = :suite",
+            "UPDATE agents SET draft_version_id = NULL, published_version_id = NULL "
+            "WHERE id = :agent",
+            "DELETE FROM agent_versions WHERE agent_id = :agent",
+            "DELETE FROM agents WHERE id = :agent",
+        ):
+            await session.execute(
+                text(statement), {"run": run_id, "suite": suite["id"], "agent": agent_id}
+            )
     await engine.dispose()

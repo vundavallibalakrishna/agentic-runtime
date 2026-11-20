@@ -30,7 +30,17 @@ import orjson
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from tool_certification import CSV, POLICY, Chat, Stack, Turn
+from tool_certification import (
+    CSV,
+    POLICY,
+    Chat,
+    Stack,
+    Turn,
+    _approval_agent,
+    _decide,
+    _has_file,
+    _request_for,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -132,6 +142,25 @@ class Bench:
                 return status
             time.sleep(2)
         return status or "unknown"
+
+    def reply(self, conversation: str, run: str) -> str:
+        """What the run itself answered, whatever else was written to the conversation."""
+        seen = self.stack.get(f"/api/v1/conversations/{conversation}")
+        messages = seen.get("messages") if isinstance(seen, dict) else []
+        for row in messages if isinstance(messages, list) else []:
+            if row.get("role") == "assistant" and str(row.get("runId")) == run:
+                return str(row.get("text") or "")
+        return ""
+
+    def others(self, conversation: str, run: str) -> list[Body]:
+        """Messages in the conversation that belong to some other run than the one asked."""
+        seen = self.stack.get(f"/api/v1/conversations/{conversation}")
+        messages = seen.get("messages") if isinstance(seen, dict) else []
+        return [
+            row
+            for row in (messages if isinstance(messages, list) else [])
+            if isinstance(row, dict) and str(row.get("runId")) != run
+        ]
 
     def last(self, conversation: str) -> Turn:
         seen = self.stack.get(f"/api/v1/conversations/{conversation}")
@@ -889,6 +918,241 @@ def case_gate_skip(bench: Bench) -> str:
     return f"refused with 403: {_said(body)[:90]!r}; the earlier version still answers"
 
 
+# --- Stage: together ---------------------------------------------------------------------
+
+
+def _specialist(bench: Bench, name: str, word: str) -> str:
+    """A published agent that answers every message with one word. Returns its slug."""
+    _agent, slug = bench.agent(
+        name, {"instructions": f"Answer every message with exactly this and nothing else: {word}"}
+    )
+    return slug
+
+
+def _lead(bench: Bench, name: str, allowed: list[str], instructions: str, **spec: object) -> str:
+    agent, _slug = bench.agent(
+        name,
+        {"instructions": instructions, "tools": [], "subagents": {"allowed": allowed, **spec}},
+    )
+    return agent
+
+
+def _children(bench: Bench, run: str) -> list[Body]:
+    return _rows(bench.stack.get(f"/api/v1/runs/{run}/children"))
+
+
+def _finish(bench: Bench, agent: str, text: str, wait_s: float = 300) -> tuple[str, str, str, str]:
+    """Send one message and wait. Returns the conversation, the run, its status and the reply."""
+    conversation, run = bench.start(agent, text)
+    status = bench.run_status(run, until=_DONE, wait_s=wait_s)
+    return conversation, run, status, bench.reply(conversation, run)
+
+
+def case_call_one(bench: Bench) -> str:
+    """A lead asks one specialist and passes on what it said."""
+    word = f"KESTREL-{bench.stamp % 10000}"
+    lead = _lead(
+        bench,
+        "lead-one",
+        [_specialist(bench, "code-desk", word)],
+        "You do not know the code word. Ask the code desk agent for it, then report it.",
+    )
+    _conversation, run, status, text = _finish(bench, lead, "What is the code word?")
+    expect(status == "completed" and word in text, f"{status}: {text[:140]}")
+    children = _children(bench, run)
+    expect(len(children) >= 1, "the run shows no child run")
+    return f"the specialist's answer came back; the run shows {len(children)} child run"
+
+
+def case_own_conversation(bench: Bench) -> str:
+    """What a specialist is asked and answers stays out of the person's conversation."""
+    word = f"LANTERN-{bench.stamp % 10000}"
+    lead = _lead(
+        bench,
+        "lead-tidy",
+        [_specialist(bench, "back-office", word)],
+        "Ask the back office agent for the code word, then report it.",
+    )
+    conversation, run, status, text = _finish(bench, lead, "What is the code word?")
+    expect(status == "completed" and word in text, f"{status}: {text[:140]}")
+    seen = bench.stack.get(f"/api/v1/conversations/{conversation}")
+    messages = seen.get("messages") if isinstance(seen, dict) else []
+    mine = [row for row in messages or [] if str(row.get("runId")) == run]
+    extra = [row for row in messages or [] if str(row.get("runId")) != run]
+    expect(
+        not extra,
+        f"the person's conversation holds {len(extra)} messages of the specialist's run "
+        f"beside the {len(mine)} of their own: the task the lead sent appears as a message "
+        "from the person, and the specialist's answer as a second reply",
+    )
+    return "the conversation holds the person's message and the lead's reply, and nothing else"
+
+
+def case_parallel(bench: Bench) -> str:
+    """A lead asks three specialists at once and combines the three answers."""
+    words = [f"{name}-{bench.stamp % 1000}" for name in ("AMBER", "COBALT", "IVORY")]
+    slugs = [_specialist(bench, f"desk-{index}", word) for index, word in enumerate(words)]
+    lead = _lead(
+        bench,
+        "lead-three",
+        slugs,
+        "Ask all three desk agents for their word in one parallel call, then list all three.",
+        max_parallel=3,
+    )
+    _conversation, run, status, text = _finish(bench, lead, "Collect the three words.")
+    missing = [word for word in words if word not in text]
+    expect(status == "completed" and not missing, f"{status}; missing {missing}: {text[:140]}")
+    children = _children(bench, run)
+    expect(len(children) >= 3, f"the run shows {len(children)} child runs, not three")
+    return f"three answers combined; the run shows {len(children)} child runs"
+
+
+def case_handoff(bench: Bench) -> str:
+    """A handoff ends the lead's turn with the specialist's answer."""
+    word = f"HARBOUR-{bench.stamp % 10000}"
+    lead = _lead(
+        bench,
+        "lead-handoff",
+        [_specialist(bench, "front-desk", word)],
+        "You never answer yourself and never ask a question. Your only action is to hand "
+        "the conversation to the front desk agent with agents_handoff, at once.",
+    )
+    _conversation, run, status, text = _finish(bench, lead, "Please put me through.")
+    expect(status == "completed" and word in text, f"{status}: {text[:140]}")
+    children = _children(bench, run)
+    expect(
+        len(children) == 1,
+        f"the lead handed the conversation over {len(children)} times: a handoff does not end "
+        "its turn, so it hands over again at every step until the step limit",
+    )
+    return "the reply is the specialist's own, after one handoff"
+
+
+def case_cycle(bench: Bench) -> str:
+    """Two agents cannot be set up to call each other: the loop is refused when it is closed."""
+    first, second = bench.slug("ping"), bench.slug("pong")
+    made = {first: bench.create(first), second: bench.create(second)}
+
+    def calls(other: str) -> Body:
+        return {
+            "instructions": f"Always call the {other} agent with the same task.",
+            "tools": [],
+            "subagents": {"allowed": [other], "max_depth": 3},
+        }
+
+    # An agent can only name one that is published, so the loop is closed in three steps.
+    bench.draft(made[first], {"instructions": "Say hello.", "tools": []})
+    bench.publish(made[first])
+    bench.draft(made[second], calls(first))
+    bench.publish(made[second])
+    status, body = bench.stack.put(
+        f"/api/v1/agents/{made[first]}/versions/draft", definition=calls(second), changeNote="loop"
+    )
+    if status < OK:
+        status, body = bench.stack.post(f"/api/v1/agents/{made[first]}:publish", changeNote="loop")
+    expect(status >= 400, "two agents that call each other were both published")
+    expect("cycle" in str(body).lower(), f"the refusal does not say why: {_said(body)}")
+    return f"closing the loop was refused: {_said(body)[:80]!r}"
+
+
+def case_slow_child(bench: Bench) -> str:
+    """A specialist that takes too long is given up on, and the lead says so."""
+    _agent, slow = bench.agent(
+        "slow-desk",
+        {
+            "instructions": "Write a detailed essay of at least 1500 words on the task "
+            "you are given."
+        },
+    )
+    lead = _lead(
+        bench,
+        "lead-impatient",
+        [slow],
+        "Ask the slow desk agent for an essay on rivers. If it does not answer in time, say "
+        "that it did not answer in time. Do not write the essay yourself.",
+        child_timeout_s=2,
+    )
+    started = time.monotonic()
+    _conversation, _run, status, text = _finish(bench, lead, "Get me the essay.")
+    took = time.monotonic() - started
+    expect(status == "completed", f"the lead's run ended as {status}: {text[:140]}")
+    expect(len(text) < 1500, "the essay came back although the specialist had two seconds")
+    return f"given up on after its time; the lead answered in {took:.0f}s: {text[:80]!r}"
+
+
+def case_cancel_parent(bench: Bench) -> str:
+    """Stopping the lead stops the specialist it is waiting for."""
+    _agent, slow = bench.agent(
+        "long-desk",
+        {
+            "instructions": "Write a detailed essay of at least 3000 words on the task "
+            "you are given."
+        },
+    )
+    lead = _lead(
+        bench,
+        "lead-stopped",
+        [slow],
+        "Ask the long desk agent for an essay on mountains and return it in full.",
+        child_timeout_s=300,
+    )
+    conversation, run = bench.start(lead, "Get me the essay.")
+    # Long enough for the lead to have asked, short enough that the essay is not done.
+    time.sleep(12)
+    status, body = bench.stack.post(f"/api/v1/runs/{run}:cancel")
+    expect(status < OK, f"the stop was refused ({status}): {_said(body)}")
+    final = bench.run_status(run, until=_DONE, wait_s=60)
+    expect(final == "cancelled", f"the lead ended as {final}")
+    time.sleep(5)
+    started = {str(row.get("runId")) for row in bench.others(conversation, run) if row.get("runId")}
+    expect(started, "the lead had not asked its specialist before it was stopped")
+    states = []
+    for child in started:
+        seen = bench.stack.get(f"/api/v1/runs/{child}")
+        states.append(str(seen.get("status") if isinstance(seen, dict) else "unknown"))
+    expect(all(state in _DONE for state in states), f"a specialist is still going: {states}")
+    return f"the lead stopped and its specialist ended as {states}"
+
+
+def case_child_needs_approval(bench: Bench) -> str:
+    """A specialist whose action needs approval holds the lead until a second person decides."""
+    if bench.second is None:
+        raise Blocked("a second person (AR_SECOND_EMAIL, AR_SECOND_PASSWORD)")
+    me = bench.second.get("/api/v1/me")
+    writer, problem = _approval_agent(
+        bench.stack, str(me.get("id") if isinstance(me, dict) else "")
+    )
+    if problem:
+        raise Blocked(f"an agent whose writes need approval ({problem})")
+    found = bench.stack.get(f"/api/v1/agents/{writer}")
+    slug = str(found.get("slug") or "") if isinstance(found, dict) else ""
+    lead = _lead(
+        bench,
+        "lead-approval",
+        [slug],
+        f"You cannot write files yourself. For any request, call the {slug} agent with "
+        "the person's request word for word, and report what it says.",
+        child_timeout_s=300,
+    )
+    conversation, run = bench.start(
+        lead, "Save a file named handover.txt that holds only the word AGREED."
+    )
+    waiting, problem = _request_for(bench.stack, bench.second, conversation)
+    if waiting is None:
+        status = bench.run_status(run, until=_DONE, wait_s=5)
+        raise AssertionError(
+            f"no approval request reached the second person ({problem}); the lead's run is "
+            f"{status}: {bench.last(conversation).text[:120]}"
+        )
+    expect(not _has_file(bench.stack, conversation, "handover.txt"), "written before approval")
+    problem = _decide(bench.stack, bench.second, waiting)
+    expect(not problem, problem)
+    final = bench.run_status(run, until=_DONE, wait_s=180)
+    text = bench.last(conversation).text
+    expect(final == "completed", f"after the approval the lead ended as {final}: {text[:120]}")
+    return f"held for the second person, then finished: {text[:80]!r}"
+
+
 STAGES: dict[str, dict[str, Callable[[Bench], str]]] = {
     "build": {
         "templates": case_templates,
@@ -920,6 +1184,16 @@ STAGES: dict[str, dict[str, Callable[[Bench], str]]] = {
         "case-from-conversation": case_case_from_conversation,
         "gate-holds-a-failing-change": case_gate_holds,
         "gate-cannot-be-skipped-freely": case_gate_skip,
+    },
+    "together": {
+        "lead-asks-one": case_call_one,
+        "conversation-stays-the-persons": case_own_conversation,
+        "lead-asks-three-at-once": case_parallel,
+        "handoff": case_handoff,
+        "two-agents-in-a-loop": case_cycle,
+        "slow-specialist": case_slow_child,
+        "stopping-the-lead": case_cancel_parent,
+        "specialist-needs-approval": case_child_needs_approval,
     },
 }
 
