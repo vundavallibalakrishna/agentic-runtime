@@ -248,7 +248,6 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
   const [standard, setStandard] = useState("");
   const [anchor, setAnchor] = useState("");
   const [instruction, setInstruction] = useState("");
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
@@ -409,7 +408,7 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
                       ))}
                   </select>
                 </label>
-                <Button disabled={busy} type="submit">
+                <Button type="submit">
                   {t("check")}
                 </Button>
               </form>
@@ -440,7 +439,7 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
                     onChange={(event) => setInstruction(event.target.value)}
                   />
                 </label>
-                <Button disabled={busy || !instruction.trim()} type="submit">
+                <Button disabled={!instruction.trim()} type="submit">
                   {t("previewRewrite")}
                 </Button>
               </form>
