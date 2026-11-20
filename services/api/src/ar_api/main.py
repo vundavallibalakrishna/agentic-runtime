@@ -91,7 +91,7 @@ from ar_common.web.internal import InternalAuthMiddleware
 from ar_domain.audit.service import install_platform_hook
 from ar_domain.chat.service import ChatBehaviour
 from ar_domain.db.context import Principal
-from ar_domain.files.logic import UPLOAD_BODY_LIMIT
+from ar_domain.files.logic import upload_body_limit
 from ar_domain.readmodel.boot import build_product_store
 from ar_domain.readmodel.model import RepositoryReadModel
 
@@ -367,9 +367,9 @@ def create_application() -> FastAPI:
         readiness_notes=api_readiness_notes(settings),
         # A route that takes a file accepts the upload cap, not the JSON body limit.
         body_limits={
-            "/api/v1/files:upload": UPLOAD_BODY_LIMIT,
-            "/api/v1/library-documents": UPLOAD_BODY_LIMIT,
-            "/v1/agents/{slug}/files": UPLOAD_BODY_LIMIT,
+            "/api/v1/files:upload": upload_body_limit(),
+            "/api/v1/library-documents": upload_body_limit(),
+            "/v1/agents/{slug}/files": upload_body_limit(),
         },
     )
     key = session_key_bytes(

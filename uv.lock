@@ -597,7 +597,7 @@ version = "0.1.0"
 source = { editable = "services/ingest" }
 dependencies = [
     { name = "ar-common" },
-    { name = "ar-domain" },
+    { name = "ar-domain", extra = ["ingest"] },
     { name = "fastapi" },
     { name = "temporalio" },
     { name = "uvicorn", extra = ["standard"] },
@@ -606,7 +606,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "ar-common", editable = "libs/ar_common" },
-    { name = "ar-domain", editable = "libs/ar_domain" },
+    { name = "ar-domain", extras = ["ingest"], editable = "libs/ar_domain" },
     { name = "fastapi", specifier = "==0.151.0" },
     { name = "temporalio", specifier = "==1.34.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },

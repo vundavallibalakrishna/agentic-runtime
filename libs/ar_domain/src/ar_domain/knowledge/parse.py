@@ -1,7 +1,7 @@
 """Parse uploads into Markdown with page anchors.
 
-Docling is used when the ingest extra is installed. The pure parser covers
-Markdown, HTML, text, CSV, and the Office zip formats used by the fixtures.
+Docling is the layout parser. ``extract_bytes`` covers a format Docling cannot
+read, and a process that does not have Docling installed.
 """
 
 import re
@@ -20,10 +20,11 @@ def parse_bytes(data: bytes, *, mime_type: str, name: str, max_bytes: int) -> st
     """Markdown from the one layout parser. Page anchors look like ``<!-- page:N -->``."""
     if len(data) > max_bytes:
         raise ParseError("too_large", "document exceeds AR_INGEST_MAX_BYTES")
-    from ar_domain.documents.extract import ExtractError, extract_bytes  # noqa: PLC0415
+    from ar_domain.documents.extract import ExtractError  # noqa: PLC0415
+    from ar_domain.documents.layout import parse_layout  # noqa: PLC0415
 
     try:
-        extracted = extract_bytes(data, filename=name, media_type=mime_type)
+        extracted = parse_layout(data, filename=name, media_type=mime_type)
     except ExtractError as exc:
         if name.lower().endswith(".pdf") or "pdf" in mime_type:
             from ar_domain.documents.extract import pdf_markdown  # noqa: PLC0415

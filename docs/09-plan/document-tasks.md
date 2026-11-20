@@ -1,6 +1,8 @@
 # Document tasks over stored and inline files
 
-Status: revised (2026-11-20). The behaviour is [OQ-154](../open-questions.md).
+Status: revised (2026-11-20). The behaviour is the document decision in
+[open questions](../open-questions.md) (the second OQ-154). The four gaps left
+by the general-tools change are closed.
 Review, compare, gaps and compose are sample instructions. They are not
 actions in core. The model plans in the existing tool loop and calls general
 document tools. Measured facts (tokens, pages, outline size, table count, and
@@ -49,13 +51,21 @@ still runs. Writes still need the documents binding.
 ## 3. Stores and formats
 
 Migration `0057` copies library layout onto `documents` and makes
-`collection_id` and `source_id` nullable. `library_documents` remains because
-judgements and rule sets still reference it ([OQ-154](../open-questions.md)).
+`collection_id` and `source_id` nullable. Migration `0058` moves judgements,
+rule sets and the other library child rows onto `documents`, drops
+`library_documents`, and adds SQL policies: a collection document stays
+visible inside the tenant; a library extract is visible to its owner, or to a
+user of a published agent whose default files name it when that file has an
+owner. A row with no owner and no collection is not visible. Content-hash
+dedupe stays on `documents`.
 
-The library extractor is the layout parser. Knowledge `parse_bytes` calls it.
-`.doc`, `.xls`, `.odt`, `.rtf` and `.msg` convert with LibreOffice in the
-ingest image. `.eml` and `.zip` are read in process. A missing converter is
-an error that names the tool.
+Docling is the layout parser for PDF, Office and HTML on every ingest path.
+`documents/extract.py` reads a format Docling cannot, and it is what a process
+without Docling uses. The ingest image installs Docling. When a Temporal
+client is connected, the API stages the bytes and the ingest worker parses
+them. `.doc`, `.xls`, `.odt`, `.rtf` and `.msg` convert with LibreOffice in
+the ingest image. `.eml` and `.zip` are read in process. A missing converter
+is an error that names the tool.
 
 A single file over `AR_DOCUMENT_MAX_PAGES` or `AR_DOCUMENT_MAX_BYTES` is
 refused. Result sets page. They are not truncated without a cursor.
@@ -64,5 +74,8 @@ refused. Result sets page. They are not truncated without a cursor.
 
 Core does not choose a reading strategy, does not branch on task words, and
 does not invent a summary, a rewrite or an extraction when the model does not
-answer. The task-specific library routes and the fixed review table are gone.
-A structured tool result is rendered from its own keys.
+answer. A missing model is an error. Judgement and cross-check ask the model
+for one JSON object and keep a quote only when it is in the stored passage.
+The task-specific library routes and the fixed review table are gone.
+A structured tool result is rendered from its own keys. Create limits are
+`AR_DOCUMENT_CREATE_MAX_*`.

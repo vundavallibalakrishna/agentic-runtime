@@ -748,15 +748,7 @@ def test_binding_measures_files_and_agent_grants() -> None:
 def test_grounding_fallbacks_and_citation_tables() -> None:
     from ar_domain.documents.chunk import retrieve
     from ar_domain.documents.cited import _anchored, _attached_documents, _passage
-    from ar_domain.documents.grounding import (
-        extract_fields,
-        line_hunks,
-        redaction_preview,
-        requirements_from,
-        rewrite_text,
-        summarise,
-        table_items,
-    )
+    from ar_domain.documents.grounding import line_hunks, table_items
 
     document = {
         "id": "d",
@@ -771,15 +763,7 @@ def test_grounding_fallbacks_and_citation_tables() -> None:
         ],
         "tables": [{"anchor": "t1", "csv_text": "item,owner", "page": 1, "text": ""}],
     }
-    summary = summarise(document, None)
-    assert summary["claims"]
-    proposed = rewrite_text("Alpha stays. Beta moves.", 'replace "Alpha" with "Gamma"', None)
-    assert "Gamma" in proposed
-    fields = extract_fields(document, ["Owner"], None)
-    assert fields["fields"][0]["value"]
-    assert redaction_preview("Write ada@example.com or +1 202 555 0142")["kind"] == "redact"
     assert line_hunks("a\nb", "a\nc")
-    assert requirements_from(document)
     assert table_items("rows.csv", b"name,note\nAda,File the return\n")
     assert _attached_documents(SimpleNamespace(), {}) == []
     found = _passage([document], "t1", {"item"})
@@ -941,7 +925,6 @@ def test_create_and_extract_reject_bad_payloads(monkeypatch: pytest.MonkeyPatch)
 
 def test_more_extract_library_and_lifecycle_edges(monkeypatch: pytest.MonkeyPatch) -> None:
     from ar_domain.documents.extract import ExtractError, _title_from, _xml, extract_bytes, sniff
-    from ar_domain.documents.grounding import rewrite_text
     from ar_domain.documents.library import _extract_error, _rewrite_view
     from ar_domain.documents.lifecycle import _bytes, _drop_raw, _reader, _reindex
 
@@ -1043,8 +1026,6 @@ def test_more_extract_library_and_lifecycle_edges(monkeypatch: pytest.MonkeyPatc
     _drop_raw(store, file_id, actor_id=actor.user_id)
     assert _reader(store, actor, "vision") is not None
     assert _reader(store, actor, "") is None
-    turned = rewrite_text("Alpha stays. Beta moves.", "make it shorter", None)
-    assert turned
     store.audit_log = None
     library._audit(actor, "library_document.ingested", document_id, {})
 

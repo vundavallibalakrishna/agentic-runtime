@@ -7,11 +7,12 @@ from typing import Any
 
 import pytest
 
-from ar_common.errors import ValidationFailedError
+from ar_common.errors import UnavailableError, ValidationFailedError
 from ar_contracts.tenants import TenantSettings
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import demo_id
-from ar_domain.documents.grounding import check, prepare_analysis_text
+from ar_domain.documents.grounding import prepare_analysis_text
+from ar_domain.documents.judgement import judge_items
 from ar_domain.documents.library import DocumentLibrary
 from ar_domain.identity.limits import merge_settings
 from ar_domain.identity.permissions import PERMISSION_KEYS
@@ -103,13 +104,24 @@ def test_check_input_keeps_evidence_and_cites_the_paraphrase(
         seen.append(evidence)
         return _ask(task, evidence)
 
-    offline = check(_document(), [MFA, MARS], None)
-    offline_rows = offline["rows"]
-    assert isinstance(offline_rows, list)
-    assert offline_rows[0]["verdict"] == "not_judged"  # type: ignore[index]
-    assert offline_rows[1]["verdict"] == "not_judged"  # type: ignore[index]
+    with pytest.raises(UnavailableError):
+        judge_items(
+            _document(),
+            [("1", MFA), ("2", MARS)],
+            None,
+            model_id="",
+            rule_set_id="",
+            rule_set_version="",
+        )
 
-    report = check(_document(), [MFA, MARS], ask)
+    rows = judge_items(
+        _document(),
+        [("1", MFA), ("2", MARS)],
+        ask,
+        model_id="test",
+        rule_set_id="",
+        rule_set_version="",
+    )
     assert seen
     assert "90 days" in seen[0]
     assert "Ireland" in seen[0]
@@ -117,7 +129,6 @@ def test_check_input_keeps_evidence_and_cites_the_paraphrase(
     assert "[DATE_TIME]" not in seen[0]
     assert "[LOCATION]" not in seen[0]
     assert "[US_DRIVER_LICENSE]" not in seen[0]
-    rows = report["rows"]
     assert isinstance(rows, list)
     met = rows[0]
     missing = rows[1]
@@ -144,8 +155,10 @@ def test_a_near_miss_quote_is_not_supported(monkeypatch: pytest.MonkeyPatch) -> 
             '"quote":"second login challenge before opening production"}'
         )
 
-    report = check(_document(), [MFA], ask)
-    row = report["rows"][0]  # type: ignore[index]
+    rows = judge_items(
+        _document(), [("1", MFA)], ask, model_id="test", rule_set_id="", rule_set_version=""
+    )
+    row = rows[0]
     assert isinstance(row, dict)
     assert row["verdict"] == "not_supported"
     assert row["citation"] is None
@@ -161,7 +174,15 @@ def test_aggressive_setting_masks_the_model_input(monkeypatch: pytest.MonkeyPatc
         seen.append(evidence)
         return '{"verdict":"not_supported","passageId":"","quote":""}'
 
-    check(_document(), [MFA], ask, aggressive=True)
+    judge_items(
+        _document(),
+        [("1", MFA)],
+        ask,
+        model_id="test",
+        rule_set_id="",
+        rule_set_version="",
+        aggressive=True,
+    )
     assert seen
     assert "Ireland" not in seen[0]
     assert "[LOCATION]" in seen[0]

@@ -41,8 +41,10 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DOCUMENT_ALIGN_COSINE",
         "AR_DOCUMENT_ALIGN_LEXICAL",
         "AR_DOCUMENT_CHUNK_CHARS",
+        "AR_DOCUMENT_CROSSCHECK_MAX_CHARS",
         "AR_DOCUMENT_CHUNK_OVERLAP",
         "AR_DOCUMENT_COLLECTION_CAP",
+        "AR_DOCUMENT_ASK_MAX_TOKENS",
         "AR_DOCUMENT_CREATE_MAX_BULLETS",
         "AR_DOCUMENT_CREATE_MAX_COLUMNS",
         "AR_DOCUMENT_CREATE_MAX_FILE_BYTES",
@@ -58,6 +60,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DOCUMENT_HEADING_CAP",
         "AR_DOCUMENT_HISTORY_RESERVE",
         "AR_DOCUMENT_INSTRUCTION_RESERVE",
+        "AR_DOCUMENT_LISTED_ITEM_CAP",
         "AR_DOCUMENT_LOW_TEXT_CHARS",
         "AR_DOCUMENT_MARGIN_RATIO",
         "AR_DOCUMENT_MAX_BYTES",
@@ -69,12 +72,14 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DOCUMENT_SEARCH_HITS",
         "AR_DOCUMENT_SEARCH_SNIPPET_CHARS",
         "AR_DOCUMENT_SEARCH_TOP_K",
+        "AR_DOCUMENT_SOURCE_REF_CHARS",
         "AR_DOCUMENT_SECTION_CAP",
         "AR_DOCUMENT_TABLE_MAX_ROWS",
         "AR_DOCUMENT_TABLE_PREVIEW_ROWS",
         "AR_DOCUMENT_TASK_PARALLELISM",
         "AR_DOCUMENT_TOKEN_FACTOR",
         "AR_DOCUMENT_TOOL_RESERVE",
+        "AR_DOCUMENT_VISION_MAX_BYTES",
         "AR_DOCUMENT_ZIP_MEMBERS",
         "AR_FILE_EXPIRY_MAX_SECONDS",
         "AR_FILE_EXPIRY_MIN_SECONDS",
@@ -122,13 +127,16 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_GUEST_MAX_TTL_DAYS",
         "AR_GUEST_SESSION_TTL_S",
         "AR_INGEST_ACTIVITY_CONCURRENCY",
+        "AR_INGEST_INLINE_MAX_BYTES",
         "AR_INGEST_MAX_BYTES",
         "AR_INGEST_SYNC_CONCURRENCY",
         "AR_INJECTION_CLASSIFIER_TIMEOUT_MS",
         "AR_INPUT_WAIT_TIMEOUT_S",
         "AR_INTERNAL_JWT_JWKS",
         "AR_INTERNAL_JWT_PRIVATE_KEY",
+        "AR_KNOWLEDGE_FETCH_MAX_BYTES",
         "AR_KNOWLEDGE_RERANK_CANDIDATES",
+        "AR_KNOWLEDGE_SEARCH_MAX_HITS",
         "AR_LOGIN_LOCKOUT_S",
         "AR_LOGIN_MAX_ATTEMPTS",
         "AR_LLM_MAX_TOKENS",
@@ -434,6 +442,15 @@ class BaseServiceSettings(BaseSettings):
     document_create_max_file_bytes: int = Field(default=5_242_880, ge=1)
     document_create_max_pages: int = Field(default=30, ge=1)
     document_create_max_slides: int = Field(default=60, ge=1)
+    document_source_ref_chars: int = Field(default=500, ge=1)
+    document_crosscheck_max_chars: int = Field(default=40_000, ge=1)
+    document_vision_max_bytes: int = Field(default=8 * 1024 * 1024, ge=1)
+    document_ask_max_tokens: int = Field(default=1800, ge=1)
+    document_listed_item_cap: int = Field(default=40, ge=1)
+    ingest_max_bytes: int = Field(default=209_715_200, ge=1)
+    ingest_inline_max_bytes: int = Field(default=256 * 1024, ge=1)
+    knowledge_fetch_max_bytes: int = Field(default=2_000_000, ge=1)
+    knowledge_search_max_hits: int = Field(default=20, ge=1)
     # ``expiresAfterSeconds`` on an upload. The bounds match the Files API.
     file_expiry_min_seconds: int = Field(default=3600, ge=1)
     file_expiry_max_seconds: int = Field(default=2_592_000, ge=1)

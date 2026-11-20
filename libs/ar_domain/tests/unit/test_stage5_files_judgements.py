@@ -85,17 +85,17 @@ def test_ingest_keeps_original_bytes_and_citations_use_stored_passages() -> None
 
 
 def test_a_quote_outside_the_passage_is_not_supported_and_overlap_is_not_judged() -> None:
-    lexical = judge_items(
-        _document(),
-        [("badges", "Staff must use badges")],
-        None,
-        model_id="",
-        rule_set_id="door-access",
-        rule_set_version="1",
-    )
-    assert lexical[0]["verdict"] == "not_judged"
-    assert lexical[0]["citation"] is None
-    assert lexical[0]["prompt_hash"]
+    from ar_common.errors import UnavailableError
+
+    with pytest.raises(UnavailableError):
+        judge_items(
+            _document(),
+            [("badges", "Staff must use badges")],
+            None,
+            model_id="",
+            rule_set_id="door-access",
+            rule_set_version="1",
+        )
 
     def invented(_task: str, _evidence: str) -> str:
         return '{"verdict":"supported","passageId":"p1-s0","quote":"a colony on Mars"}'

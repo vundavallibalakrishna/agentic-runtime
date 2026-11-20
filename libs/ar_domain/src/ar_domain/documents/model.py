@@ -98,7 +98,7 @@ def ask_model_many(
                 {"role": "system", "content": SYSTEM},
                 {"role": "user", "content": f"{task}\n\n{evidence}"},
             ],
-            "max_tokens": 1800,
+            "max_tokens": _ask_max_tokens(),
         }
         apply_request_options(body, options)
         bodies.append(body)
@@ -126,6 +126,12 @@ def ask_model_many(
         else completion_text(response.json()) or None
         for response in responses
     ]
+
+
+def _ask_max_tokens() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().document_ask_max_tokens)
 
 
 def _sent(send: Any, url: str, **request: object) -> httpx.Response | None:

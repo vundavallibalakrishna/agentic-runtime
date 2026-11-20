@@ -1,7 +1,7 @@
 """Keep what an eval run was asked to do: its tags and whether every tool is replaced.
 
-Revision ID: 0058
-Revises: 0057
+Revision ID: 0059
+Revises: 0058
 Create Date: 2026-11-20
 
 An eval run kept its tags and its ``mock_all_tools`` choice in the process that started
@@ -22,8 +22,8 @@ from sqlalchemy.dialects import postgresql
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-revision: str = "0058"
-down_revision: str | None = "0057"
+revision: str = "0059"
+down_revision: str | None = "0058"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

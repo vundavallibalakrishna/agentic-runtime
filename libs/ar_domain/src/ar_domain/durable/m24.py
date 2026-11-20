@@ -23,6 +23,49 @@ def _object_key(value: object) -> str | None:
     return None
 
 
+def _document_status(value: str) -> str:
+    """Library ``ready`` is the indexed row on the one document table."""
+    if value == "ready":
+        return "indexed"
+    if value in {"pending", "parsing", "embedding", "indexed", "failed", "deleted"}:
+        return value
+    return "failed"
+
+
+def library_view(row: dict[str, Any]) -> dict[str, Any]:
+    """The process cache shape of one documents row that is a library extract."""
+    status = str(row.get("status") or "")
+    if status == "indexed":
+        status = "ready"
+    media = row.get("media_type") or row.get("mime_type") or "text/plain"
+    error = row.get("error_message")
+    if error is None:
+        error = row.get("error")
+    return {
+        "id": row.get("id"),
+        "tenant_id": row.get("tenant_id"),
+        "owner_user_id": row.get("owner_user_id"),
+        "title": row.get("title") or "Document",
+        "filename": row.get("filename") or "upload",
+        "media_type": media,
+        "source": row.get("source") or "upload",
+        "source_ref": row.get("source_ref") or "",
+        "content_hash": row.get("content_hash") or "",
+        "object_key": row.get("object_key"),
+        "size_bytes": row.get("size_bytes") or 0,
+        "status": status or "ready",
+        "error_code": row.get("error_code"),
+        "error_message": error,
+        "page_count": row.get("page_count") or 0,
+        "metadata": _json_value(row.get("metadata"), {}),
+        "passages": _json_value(row.get("passages"), []),
+        "tables": _json_value(row.get("tables"), []),
+        "outline": _json_value(row.get("outline"), []),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
 def _json_value(value: object, default: object) -> object:
     if isinstance(value, str):
         try:
@@ -47,8 +90,9 @@ async def library_id_for_hash(
         return None
     found = await session.execute(
         text(
-            "SELECT id FROM library_documents "
-            "WHERE tenant_id = :tenant_id AND content_hash = :content_hash"
+            "SELECT id FROM documents "
+            "WHERE tenant_id = :tenant_id AND content_hash = :content_hash "
+            "AND content_hash <> ''"
         ),
         {"tenant_id": tenant_id, "content_hash": content_hash},
     )
@@ -67,26 +111,35 @@ async def save_library_documents(
     because this tenant already has those bytes.
     """
     sql = """
-        INSERT INTO library_documents (
-            id, tenant_id, owner_user_id, title, filename, media_type, source, source_ref,
-            content_hash, object_key, size_bytes, status, error_code, error_message, page_count,
-            metadata, passages, tables, created_at, updated_at
+        INSERT INTO documents (
+            id, tenant_id, external_id, uri, title, mime_type, version_hash, size_bytes,
+            filename, content_hash, object_key, owner_user_id, page_count, source, source_ref,
+            status, error_code, error, metadata, passages, tables, outline,
+            created_at, updated_at
         ) VALUES (
-            :id, :tenant_id, :owner_user_id, :title, :filename, :media_type, :source, :source_ref,
-            :content_hash, :object_key, :size_bytes, :status, :error_code, :error_message,
-            :page_count, CAST(:metadata AS jsonb), CAST(:passages AS jsonb), CAST(:tables AS jsonb),
+            :id, :tenant_id, :external_id, :uri, :title, :mime_type, :version_hash, :size_bytes,
+            :filename, :content_hash, :object_key, :owner_user_id, :page_count, :source,
+            :source_ref, :status, :error_code, :error, CAST(:metadata AS jsonb),
+            CAST(:passages AS jsonb), CAST(:tables AS jsonb), CAST(:outline AS jsonb),
             :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             title = EXCLUDED.title,
-            object_key = COALESCE(library_documents.object_key, EXCLUDED.object_key),
+            filename = EXCLUDED.filename,
+            mime_type = EXCLUDED.mime_type,
+            object_key = COALESCE(documents.object_key, EXCLUDED.object_key),
             status = EXCLUDED.status,
             error_code = EXCLUDED.error_code,
-            error_message = EXCLUDED.error_message,
+            error = EXCLUDED.error,
             page_count = EXCLUDED.page_count,
             metadata = EXCLUDED.metadata,
             passages = EXCLUDED.passages,
             tables = EXCLUDED.tables,
+            outline = EXCLUDED.outline,
+            source = EXCLUDED.source,
+            source_ref = EXCLUDED.source_ref,
+            content_hash = EXCLUDED.content_hash,
+            version_hash = EXCLUDED.version_hash,
             updated_at = EXCLUDED.updated_at
     """
     adopted: dict[uuid.UUID, uuid.UUID] = {}
@@ -109,21 +162,25 @@ async def save_library_documents(
                 "id": document_id,
                 "tenant_id": tenant_id,
                 "owner_user_id": owner_id,
+                "external_id": f"library:{document_id}",
+                "uri": f"library://{document_id}",
                 "title": as_text(row.get("title"), "Document"),
                 "filename": as_text(row.get("filename"), "upload"),
-                "media_type": as_text(row.get("media_type"), "text/plain"),
+                "mime_type": as_text(row.get("media_type") or row.get("mime_type"), "text/plain"),
+                "version_hash": digest,
                 "source": as_text(row.get("source"), "upload"),
                 "source_ref": as_text(row.get("source_ref")),
-                "content_hash": as_text(row.get("content_hash")),
+                "content_hash": digest,
                 "object_key": _object_key(row.get("object_key")),
                 "size_bytes": as_int(row.get("size_bytes")),
-                "status": as_text(row.get("status"), "ready"),
+                "status": _document_status(as_text(row.get("status"), "ready")),
                 "error_code": row.get("error_code"),
-                "error_message": row.get("error_message"),
+                "error": row.get("error_message", row.get("error")),
                 "page_count": as_int(row.get("page_count")),
                 "metadata": as_json(row.get("metadata"), {}),
                 "passages": as_json(row.get("passages"), []),
                 "tables": as_json(row.get("tables"), []),
+                "outline": as_json(row.get("outline"), []),
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
             },
@@ -244,13 +301,13 @@ async def load_library(session: AsyncSession, store: object, tenant_id: uuid.UUI
     from ar_domain.durable.hydrate import _merge, _rows  # noqa: PLC0415
 
     documents = await _rows(
-        session, "SELECT * FROM library_documents WHERE tenant_id = :tenant_id", tenant_id
+        session,
+        "SELECT * FROM documents WHERE tenant_id = :tenant_id "
+        "AND (source <> '' OR uri LIKE 'library://%')",
+        tenant_id,
     )
     for row in documents:
-        row["metadata"] = _json_value(row.get("metadata"), {})
-        row["passages"] = _json_value(row.get("passages"), [])
-        row["tables"] = _json_value(row.get("tables"), [])
-        _merge(store, "library_documents", row["id"], row)
+        _merge(store, "library_documents", row["id"], library_view(row))
     checks = await _rows(
         session, "SELECT * FROM document_checks WHERE tenant_id = :tenant_id", tenant_id
     )

@@ -21,7 +21,8 @@ from ar_common.ids import new_id
 from ar_common.settings import get_settings
 from ar_common.time import utcnow
 from ar_domain.documents.chunk import passage_dicts, retrieve, score
-from ar_domain.documents.extract import Extracted, ExtractError, extract_bytes
+from ar_domain.documents.extract import Extracted, ExtractError
+from ar_domain.documents.layout import parse_layout
 from ar_domain.documents.model import ModelAsk
 from ar_domain.documents.originals import read_original, store_original
 from ar_domain.files.logic import scan_bytes
@@ -99,7 +100,96 @@ async def ingest_bytes(
         view = library._view(existing)
         view["deduped"] = True
         return view
+    client = getattr(store, "temporal_client", None)
+    # A connected worker parses. A process with no database still parses here,
+    # with the fallback reader when Docling is not installed.
+    if (
+        client is not None
+        and getattr(store, "durable_engine", None) is not None
+        and hasattr(client, "start_workflow")
+        and not getattr(store, "_ingest_worker", False)
+    ):
+        return await _parse_on_worker(
+            store,
+            actor,
+            client,
+            data=data,
+            filename=filename,
+            media_type=media_type,
+            source=source,
+        )
     return library.ingest(actor, data=data, filename=filename, media_type=media_type, source=source)
+
+
+async def _parse_on_worker(
+    store: Any,
+    actor: Actor,
+    client: Any,
+    *,
+    data: bytes,
+    filename: str,
+    media_type: str,
+    source: str,
+) -> dict[str, object]:
+    """Store the bytes and let the ingest worker parse them. The API does not."""
+    import asyncio  # noqa: PLC0415
+
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+
+    library = DocumentLibrary(store)
+    staged = library.ingest(
+        actor,
+        data=data,
+        filename=filename,
+        media_type=media_type,
+        source=source,
+        defer_parse=True,
+    )
+    await flush_store(store)
+    document_id = str(staged.get("id") or "")
+    handle = await client.start_workflow(
+        "LibraryParseWorkflow",
+        {"document_id": document_id, "tenant_id": str(actor.tenant_id)},
+        id=f"library-parse-{document_id}",
+        task_queue="ar-ingest",
+    )
+    try:
+        await asyncio.wait_for(handle.result(), timeout=120)
+    except TimeoutError:
+        return staged
+    loaded = await _load_library_id(store, actor.tenant_id, document_id)
+    if loaded is None:
+        return staged
+    _install_library_row(store, loaded)
+    return library._view(loaded)
+
+
+async def _load_library_id(
+    store: Any, tenant_id: uuid.UUID, document_id: str
+) -> dict[str, object] | None:
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession  # noqa: PLC0415
+
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine):
+        row = store.library_documents.get(_as_uuid(document_id))
+        return row if isinstance(row, dict) else None
+    from sqlalchemy import text  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(tenant_id)},
+        )
+        found = await session.execute(
+            text("SELECT * FROM documents WHERE tenant_id = :tenant_id AND id = :id"),
+            {"tenant_id": tenant_id, "id": document_id},
+        )
+        row = found.mappings().first()
+    if row is None:
+        return None
+    from ar_domain.durable.m24 import library_view  # noqa: PLC0415
+
+    return library_view({str(key): row[key] for key in row})
 
 
 async def _load_library_hash(
@@ -120,15 +210,18 @@ async def _load_library_hash(
         )
         found = await session.execute(
             text(
-                "SELECT * FROM library_documents "
-                "WHERE tenant_id = :tenant_id AND content_hash = :content_hash"
+                "SELECT * FROM documents "
+                "WHERE tenant_id = :tenant_id AND content_hash = :content_hash "
+                "AND content_hash <> ''"
             ),
             {"tenant_id": tenant_id, "content_hash": digest},
         )
         row = found.mappings().first()
     if row is None:
         return None
-    return {str(key): row[key] for key in row}
+    from ar_domain.durable.m24 import library_view  # noqa: PLC0415
+
+    return library_view({str(key): row[key] for key in row})
 
 
 def _install_library_row(store: Any, row: dict[str, object]) -> None:
@@ -164,6 +257,7 @@ class DocumentLibrary:
         source_ref: str = "",
         ocr: Any = None,
         extracted: Extracted | None = None,
+        defer_parse: bool = False,
     ) -> dict[str, object]:
         if source not in {"upload", "workspace", "connection"}:
             raise ValidationFailedError("source must be upload, workspace or connection")
@@ -200,9 +294,15 @@ class DocumentLibrary:
             view = self._view(existing)
             view["deduped"] = True
             return view
-        if extracted is None:
+        if defer_parse:
+            extracted = Extracted(
+                title=(filename or "upload")[: int(get_settings().document_create_max_title)],
+                media_type=media_type or "application/octet-stream",
+                page_count=0,
+            )
+        elif extracted is None:
             try:
-                extracted = extract_bytes(
+                extracted = parse_layout(
                     data,
                     filename=filename or "upload",
                     media_type=media_type,
@@ -221,6 +321,8 @@ class DocumentLibrary:
             raise ValidationFailedError("The extraction could not be stored.")
         now = utcnow()
         document_id = new_id()
+        title_cap = int(get_settings().document_create_max_title)
+        ref_cap = int(get_settings().document_source_ref_chars)
         object_key = store_original(
             self.store,
             tenant_id=actor.tenant_id,
@@ -232,15 +334,15 @@ class DocumentLibrary:
             "id": document_id,
             "tenant_id": actor.tenant_id,
             "owner_user_id": actor.user_id,
-            "title": extracted.title[:200],
-            "filename": (filename or "upload")[:200],
+            "title": extracted.title[:title_cap],
+            "filename": (filename or "upload")[:title_cap],
             "media_type": extracted.media_type,
             "source": source,
-            "source_ref": source_ref[:500],
+            "source_ref": source_ref[:ref_cap],
             "content_hash": digest,
             "object_key": object_key,
             "size_bytes": len(data),
-            "status": "ready",
+            "status": "parsing" if defer_parse else "ready",
             "error_code": None,
             "error_message": None,
             "page_count": extracted.page_count,
@@ -260,6 +362,44 @@ class DocumentLibrary:
         }
         self.store.library_documents[document_id] = row
         self._audit(actor, "library_document.ingested", document_id, {"filename": row["filename"]})
+        return self._view(row)
+
+    def finish_parse(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
+        """Fill a staged row from the layout parser. The original bytes are already stored."""
+        row = self._own(actor, document_id)
+        data = read_original(self.store, str(row.get("object_key") or ""))
+        if data is None:
+            raise NotFoundError()
+        try:
+            extracted = parse_layout(
+                data,
+                filename=str(row.get("filename") or "upload"),
+                media_type=str(row.get("media_type") or ""),
+            )
+        except ExtractError as exc:
+            row["status"] = "failed"
+            row["error_code"] = exc.code
+            row["error_message"] = exc.message
+            raise _extract_error(exc) from exc
+        cap = int(get_settings().document_create_max_title)
+        row["title"] = extracted.title[:cap]
+        row["media_type"] = extracted.media_type or row.get("media_type")
+        row["page_count"] = extracted.page_count
+        row["metadata"] = _quality(extracted)
+        row["passages"] = passage_dicts(extracted.passages)
+        row["tables"] = [
+            {
+                "anchor": table.anchor,
+                "page": table.page,
+                "caption": table.caption,
+                "csv": table.csv_text,
+            }
+            for table in extracted.tables
+        ]
+        row["status"] = "ready"
+        row["error_code"] = None
+        row["error_message"] = None
+        row["updated_at"] = utcnow()
         return self._view(row)
 
     def list_items(
@@ -643,44 +783,12 @@ class DocumentLibrary:
         raise NotFoundError()
 
     def _visible(self, actor: Actor, row: object) -> bool:
-        """The owner, or someone who can read a collection the file was shared through."""
+        """The owner, or a user of a published agent whose default files name this file."""
         if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
             return False
         if row.get("owner_user_id") == actor.user_id:
             return True
-        if self._shared(actor, row):
-            return True
         return self._agent_granted(actor, row)
-
-    def _shared(self, actor: Actor, row: dict[str, object]) -> bool:
-        """A collection the caller can read holds these bytes.
-
-        The file is read by its id, the knowledge document's ``raw_file_id``.
-        The hash is compared on that one row. The file table is not scanned.
-        """
-        from ar_domain.knowledge.access import can_read_document  # noqa: PLC0415
-
-        digest = str(row.get("content_hash") or "")
-        if not digest:
-            return False
-        documents = getattr(self.store, "knowledge_documents", {})
-        collections = getattr(self.store, "knowledge_collections", {})
-        files = getattr(self.store, "files", {})
-        if not isinstance(documents, dict) or not isinstance(collections, dict):
-            return False
-        for document in documents.values():
-            if not isinstance(document, dict) or document.get("tenant_id") != actor.tenant_id:
-                continue
-            if document.get("status") == "deleted":
-                continue
-            if not _holds_hash(files, document, digest):
-                continue
-            collection = collections.get(document.get("collection_id"))
-            if isinstance(collection, dict) and can_read_document(
-                self.store, actor, document, collection
-            ):
-                return True
-        return False
 
     def _agent_granted(self, actor: Actor, row: dict[str, object]) -> bool:
         """A file named on an agent in this tenant is readable by that agent's users.

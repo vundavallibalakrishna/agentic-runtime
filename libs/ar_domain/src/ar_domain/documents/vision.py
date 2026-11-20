@@ -35,7 +35,11 @@ _SETUP = (
     "alias at it."
 )
 
-_MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+def _max_image_bytes() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().document_vision_max_bytes)
 
 
 class VisionError(Exception):
@@ -88,7 +92,7 @@ def ask_image(
         raise VisionError("validation_failed", "question is required.")
     if not data:
         raise VisionError("validation_failed", "The image is empty.")
-    if len(data) > _MAX_IMAGE_BYTES:
+    if len(data) > _max_image_bytes():
         raise VisionError(
             "validation_failed",
             "The image is over 8 MB. Upload a smaller screenshot.",

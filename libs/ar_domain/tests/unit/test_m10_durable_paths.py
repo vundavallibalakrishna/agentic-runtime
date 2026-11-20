@@ -12,6 +12,7 @@ from typing import Any, ClassVar
 
 import pytest
 
+from ar_common.settings import get_settings
 from ar_common.time import utcnow
 from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
@@ -43,7 +44,6 @@ from ar_domain.durable.flush import event_tenant, flush_store, mark_all_dirty, s
 from ar_domain.durable.hydrate import hydrate_tenant, reload_document, reload_run
 from ar_domain.durable.tracking import TrackedDict, TrackedList, install_tracking
 from ar_domain.knowledge.pipeline import (
-    WORKFLOW_MAX_BYTES,
     _delete_stored_chunks,
     ingest_document,
     ingest_or_enqueue,
@@ -819,7 +819,8 @@ async def test_ingest_uses_the_worker_when_temporal_is_up(monkeypatch: pytest.Mo
     service = demo_store()
     missing = uuid.uuid4()
     assert ingest_document(service, missing, b"") == "missing"
-    assert await ingest_or_enqueue(service, missing, b"x" * (WORKFLOW_MAX_BYTES + 1)) == "missing"
+    over = int(get_settings().ingest_inline_max_bytes) + 1
+    assert await ingest_or_enqueue(service, missing, b"x" * over) == "missing"
     service._ingest_worker = True
     service.temporal_client = object()
     assert await ingest_or_enqueue(service, missing, b"hi") == "missing"

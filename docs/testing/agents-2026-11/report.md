@@ -45,7 +45,7 @@ and are fixed in the same change. The fifth was a check that tested the wrong pe
    run from the database. The agent it is for, its tags and its choice to replace every
    tool were kept only in the process that started it, so the worker failed on every run
    (`eval_run_failed`). A required suite therefore never let a publish through. The agent
-   is now read through the version the run names, and migration 0058 stores the tags and
+   is now read through the version the run names, and migration 0059 stores the tags and
    the tool choice.
 2. **An agent bound to one collection answered from another.** `knowledge.search` read
    every collection the person may read. An agent that binds collections now reads those

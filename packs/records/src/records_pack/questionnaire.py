@@ -15,7 +15,7 @@ from xml.etree import ElementTree as ET
 
 from ar_common.errors import ArError
 from ar_domain.documents.chunk import score
-from ar_domain.documents.create.spec import MAX_COLUMNS, MAX_ROWS, CreateError
+from ar_domain.documents.create.spec import CreateError, max_columns, max_rows
 
 if TYPE_CHECKING:
     from typing import Any
@@ -108,7 +108,7 @@ def _load_grid(store: Any, arguments: dict[str, object]) -> Any:
     path = _open_path(root, str(arguments.get("path") or ""))
     if path is None or path.suffix.lower() != ".xlsx":
         raise CreateError("path must be an xlsx file in this run's workspace")
-    grids = grids_from_xlsx(path.read_bytes(), max_rows=MAX_ROWS)
+    grids = grids_from_xlsx(path.read_bytes(), max_rows=max_rows())
     if not grids:
         raise CreateError("The workbook has no rows.")
     wanted = str(arguments.get("sheet") or "").strip().lower()
@@ -118,8 +118,8 @@ def _load_grid(store: Any, arguments: dict[str, object]) -> Any:
         if match is None:
             raise CreateError(f"sheet {wanted} was not found")
         grid = match
-    if len(grid.columns) > MAX_COLUMNS:
-        raise CreateError(f"A table can have at most {MAX_COLUMNS} columns.")
+    if len(grid.columns) > max_columns():
+        raise CreateError(f"A table can have at most {max_columns()} columns.")
     if "question" not in _roles(grid.columns):
         raise CreateError("The sheet needs a question column.")
     return grid
@@ -218,8 +218,8 @@ def _apply(
                 or str(record.get(_named(grid, roles, "citation", "Citation")) or ""),
             }
         )
-    if len(rows) > MAX_ROWS:
-        raise CreateError(f"A table can have at most {MAX_ROWS} rows.")
+    if len(rows) > max_rows():
+        raise CreateError(f"A table can have at most {max_rows()} rows.")
     return filled, grounded, unanswered, rows, trace
 
 
@@ -240,8 +240,8 @@ def _output_columns(columns: tuple[str, ...]) -> tuple[str, ...]:
     ):
         if role not in roles:
             names.append(label)
-    if len(names) > MAX_COLUMNS:
-        raise CreateError(f"A table can have at most {MAX_COLUMNS} columns.")
+    if len(names) > max_columns():
+        raise CreateError(f"A table can have at most {max_columns()} columns.")
     return tuple(names)
 
 

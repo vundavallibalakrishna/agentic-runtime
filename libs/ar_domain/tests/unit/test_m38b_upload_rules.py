@@ -13,7 +13,7 @@ import pytest
 from ar_common.errors import ArError
 from ar_contracts.tenants import READABLE_UPLOAD_MIME_TYPES, TenantSettings
 from ar_domain.demo_ids import demo_id
-from ar_domain.files.logic import MAX_UPLOAD_BYTES, typed_by_name, upload_rules
+from ar_domain.files.logic import max_upload_bytes, typed_by_name, upload_rules
 from ar_testing.demo import demo_store
 
 TENANT = demo_id("tenant")
@@ -43,7 +43,7 @@ def test_the_organisation_narrows_the_types_and_the_size() -> None:
     assert not rules.allows("text/csv")
     assert rules.max_bytes == 2 * 1024 * 1024
     # The product keeps at most 25 MB for a file today, whatever the setting says.
-    assert upload_rules({"security": {"max_upload_mb": 500}}).max_bytes == MAX_UPLOAD_BYTES
+    assert upload_rules({"security": {"max_upload_mb": 500}}).max_bytes == max_upload_bytes()
 
 
 def test_a_file_the_browser_gave_no_type_is_typed_by_its_name() -> None:

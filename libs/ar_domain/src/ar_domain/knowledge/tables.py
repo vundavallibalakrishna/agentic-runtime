@@ -159,6 +159,10 @@ class Document(Base):
             "status IN ('pending','parsing','embedding','indexed','failed','deleted')",
             name="status",
         ),
+        CheckConstraint(
+            "source IN ('', 'upload', 'workspace', 'connection')",
+            name="source",
+        ),
         UniqueConstraint("source_id", "external_id", name="uq_documents_source_external"),
         Index(
             "uq_documents_content_hash",
@@ -220,6 +224,12 @@ class Document(Base):
     )
     outline: Mapped[list[object]] = mapped_column(
         JSONB, nullable=False, server_default=sql_text("'[]'::jsonb")
+    )
+    source: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
+    source_ref: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
+    error_code: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(
+        "metadata", JSONB, nullable=False, server_default=sql_text("'{}'::jsonb")
     )
     parsed_file_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("files.id", name="fk_documents_parsed", ondelete="SET NULL")
