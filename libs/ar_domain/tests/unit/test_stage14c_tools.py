@@ -273,7 +273,7 @@ def test_markdown_text_added_to_knowledge_keeps_its_sections() -> None:
     assert _plain("<p>Hello   <b>world</b></p>", "Note")[0]["text"] == "Hello world"
 
 
-def test_a_query_that_names_the_path_is_told_the_table_names() -> None:
+def test_a_query_that_names_a_path_reads_that_file_or_is_told_the_table_names() -> None:
     from ar_domain.tools.analysis import dispatch_analysis
     from ar_domain.tools.general import _prepare
 
@@ -283,18 +283,28 @@ def test_a_query_that_names_the_path_is_told_the_table_names() -> None:
     target = root / "workspace" / "data" / "regions.csv"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("region,count\nNorth,12\nSouth,19\n", encoding="utf-8")
+    # The path of the file the call names is read as that file's table.
+    for statement in (
+        "SELECT SUM(count) FROM data/regions.csv",
+        "SELECT SUM(count) FROM 'regions.csv'",
+    ):
+        named = dispatch_analysis(
+            store, "query_table", {**arguments, "path": "data/regions.csv", "sql": statement}
+        )
+        assert named is not None and named["is_error"] is False, statement
+        assert "31" in str(named["text"])
+    # A path the call does not name is refused, and the refusal lists the tables.
     wrong = dispatch_analysis(
         store,
         "query_table",
-        {**arguments, "path": "data/regions.csv", "sql": "SELECT SUM(count) FROM data/regions.csv"},
+        {**arguments, "path": "data/regions.csv", "sql": "SELECT SUM(count) FROM data/other.csv"},
     )
     assert wrong is not None and wrong["is_error"] is True
     assert "The tables are: regions" in str(wrong["text"])
-    # A quoted path parses, and the engine then refuses to open the file. Same answer.
     quoted = dispatch_analysis(
         store,
         "query_table",
-        {**arguments, "path": "data/regions.csv", "sql": "SELECT SUM(count) FROM 'regions.csv'"},
+        {**arguments, "path": "data/regions.csv", "sql": "SELECT SUM(count) FROM 'other.csv'"},
     )
     assert quoted is not None and quoted["code"] == "sql_rejected"
     assert "The tables are: regions" in str(quoted["text"])

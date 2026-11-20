@@ -18,8 +18,9 @@ from ar_domain.seed.approvals import (
     install_seeded_write_policy,
     write_approval_document,
 )
-from ar_domain.tools.general import dispatch_general, remember_named_secret
+from ar_domain.tools.general import dispatch_general
 from ar_domain.tools.logic import call_args_hash
+from ar_domain.tools.named_secrets import write_named_secret
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.searching import SearchUnavailableError, provider_for
 from ar_testing.demo import demo_store
@@ -241,7 +242,7 @@ def test_search_uses_the_named_secret_and_hides_the_key(monkeypatch: pytest.Monk
     monkeypatch.setenv("AR_SEARCH_API_KEY", "env-key-value")
     store = demo_store()
     tenant = demo_id("tenant")
-    remember_named_secret(store, tenant, "search-live", "secret-key-value")
+    write_named_secret(store, tenant, "search-live", "secret-key-value")
     store.tenant_settings[tenant] = {"search": {"provider": "brave", "secretName": "search-live"}}
     seen: dict[str, str] = {}
 

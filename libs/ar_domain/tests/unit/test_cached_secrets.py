@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from pydantic import SecretStr
 
-from ar_domain.secrets.cached import _backend, load_cached_secret, save_cached_secret
+from ar_domain.secrets.cached import load_cached_secret, save_cached_secret, secret_backend
 from ar_domain.secrets.models import EncryptedSecret, SecretRef
 
 
@@ -47,7 +47,7 @@ async def test_encrypted_revision_and_wrong_tenant_access(monkeypatch: pytest.Mo
         )
     assert len([row for (model, _), row in rows.items() if model is SecretRef]) == 1
     with pytest.raises(ValueError, match="Unsupported"):
-        _backend(session, tenant, "unsupported")
+        secret_backend(session, tenant, "unsupported")
 
 
 async def test_vault_revision_uses_registered_mount_and_same_aad(
@@ -63,6 +63,6 @@ async def test_vault_revision_uses_registered_mount_and_same_aad(
     client = Mock()
     create = Mock(return_value=client)
     monkeypatch.setattr("hvac.Client", create)
-    backend = _backend(SimpleNamespace(), uuid.uuid4(), "vault")
+    backend = secret_backend(SimpleNamespace(), uuid.uuid4(), "vault")
     assert backend.mount == "secrets"
     create.assert_called_once_with(url="https://vault.example", token="server-only-token")  # noqa: S106

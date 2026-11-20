@@ -8,8 +8,9 @@ import pytest
 
 from ar_domain.demo_ids import demo_id
 from ar_domain.tools.agent_loop import run_agent_loop
-from ar_domain.tools.general import dispatch_general, remember_named_secret, sandbox_mode
+from ar_domain.tools.general import dispatch_general, sandbox_mode
 from ar_domain.tools.logic import call_args_hash
+from ar_domain.tools.named_secrets import write_named_secret
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.searching import SearchUnavailableError, provider_for
 from ar_testing.demo import demo_store
@@ -170,7 +171,7 @@ def test_get_runs_and_other_methods_wait_and_secrets_stay_hidden() -> None:
     store = demo_store()
     tenant = demo_id("tenant")
     secret = "super-secret-value"  # noqa: S105
-    remember_named_secret(store, tenant, "vendor", secret)
+    write_named_secret(store, tenant, "vendor", secret)
 
     def send(method: str, url: str, **kwargs: object) -> httpx.Response:
         headers = kwargs.get("headers")

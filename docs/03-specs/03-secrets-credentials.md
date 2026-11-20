@@ -73,6 +73,14 @@ Session auth. Query `code`, `state`. Exchanges the code at `token_url` (client s
 #### DELETE /api/v1/connections/{grant_id}
 Owner only. Revokes at provider if `extra.revocation_url` set, deletes secret and grant. Audit `connection.revoked`.
 
+### As built: the secrets endpoints and a secret a tool names (2026-11-20)
+
+The six `/api/v1/secrets` endpoints read and write `secret_refs` and the install's `SecretStore` inside one tenant transaction (`ar_domain.secrets.book.SecretBook`), and each change writes `secret.created`, `secret.updated`, `secret.rotated` or `secret.deleted` in that transaction with the name, kind and version and never the value. A name that exists is `409`; a secret another row still points at cannot be deleted and is `409`; a secret of another tenant is `404`. Until this date the endpoints kept names and values in the API process's memory, for every tenant together, and nothing was stored ([OQ-154](../open-questions.md)).
+
+A tool that takes `secret_name` (`session.a2a_call`, `general.http`, web search, cloud OCR, a remote MCP server's token) finds the secret by its name in the same store. The tenant's `secret_refs` rows are loaded with the rest of the tenant, each with its row of `encrypted_secrets` when the backend is `db_encrypted`; nothing is decrypted until a tool asks, and then only that value (`ar_domain.secrets.loaded`). With the `vault` backend the value is read from the vault when asked for. Only a secret of the tenant as a whole is found by name; one with an owner is not. A value that cannot be opened is reported to the tool as a missing secret, without the reason. A secret the product keeps for itself (a computer's token, the run-callback secret, the push key) stays in `named_secrets` and is looked up first.
+
+`app.state.secret_provider` is a seam the application leaves empty. Test setup fills it with `ar_testing.memory_secrets` for an application that has no database.
+
 ## 4. Access-token minting (`ar_domain.secrets.tokens`)
 
 `async def access_token_for(ctx, user_id, provider_id) -> AccessToken` used by `mcp-gateway`:

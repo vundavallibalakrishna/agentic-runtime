@@ -1080,3 +1080,64 @@ def test_a_long_run_of_digits_stays_text_and_a_mixed_number_column_is_a_number()
     )
     assert asked["is_error"] is False
     assert _presentation(asked)["rows"] == [["98765432109876543210", 4.5]]
+
+
+def test_a_file_path_after_from_is_read_as_that_files_table() -> None:
+    store, arguments = _args()
+    _table(store, arguments, "ledger-2026.csv", _items(9))
+    for spelling in (
+        "'inputs/ledger-2026.csv'",
+        '"ledger-2026.csv"',
+        "ledger-2026.csv",
+        "/workspace/inputs/ledger-2026.csv",
+    ):
+        asked = dispatch_general(
+            store,
+            "query_table",
+            {
+                **arguments,
+                "path": "inputs/ledger-2026.csv",
+                # The spellings are the fixed ones above, written the way a model writes them.
+                "sql": f"SELECT COUNT(*) AS n FROM {spelling} "  # noqa: S608
+                "WHERE region <> 'ledger-2026.csv'",
+            },
+        )
+        assert asked["is_error"] is False, spelling
+        assert _presentation(asked)["rows"] == [[9]]
+    # A file the call did not name is still refused, with the tables it may use.
+    other = dispatch_general(
+        store,
+        "query_table",
+        {**arguments, "path": "ledger-2026.csv", "sql": "SELECT * FROM 'inputs/other.csv'"},
+    )
+    assert other["is_error"] is True
+    assert "ledger_2026" in str(other["text"])
+
+
+def test_an_export_that_names_a_file_path_is_refused_in_words_not_with_an_internal_error() -> None:
+    store, arguments = _args()
+    _table(store, arguments, "ledger.csv", _items(9))
+    refused = dispatch_general(
+        store,
+        "export_table",
+        {
+            **arguments,
+            "path": "outputs/east.csv",
+            "paths": ["ledger.csv"],
+            "sql": "SELECT * FROM read_csv_auto('inputs/ledger.csv')",
+        },
+    )
+    assert refused["is_error"] is True
+    assert "ledger" in str(refused["text"])
+    written = dispatch_general(
+        store,
+        "export_table",
+        {
+            **arguments,
+            "path": "outputs/east.csv",
+            "paths": ["ledger.csv"],
+            "sql": "SELECT * FROM 'inputs/ledger.csv' WHERE region = 'east'",
+        },
+    )
+    assert written["is_error"] is False
+    assert "with 3 rows" in str(written["text"])

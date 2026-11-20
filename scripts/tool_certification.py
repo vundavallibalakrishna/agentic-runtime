@@ -32,6 +32,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 import httpx
 import orjson
@@ -72,6 +73,7 @@ MESSAGES = {
     "not marked as able to read images": "a vision model on the vision alias",
     "output_id is required": "a tool output kept during an agent run (the flows cover it)",
     "remote agent returned": "a reachable peer agent (set AR_CERT_A2A_URL)",
+    "loopback": "a peer agent on another address, or loopback allowed on this install",
     "no browser connection named": "a stored browser sign-in (a browser connection)",
     "sign in with a connection": "a stored browser sign-in (a browser connection)",
     "this connection has no database": "a database connection (set AR_CERT_DATA_DSN)",
@@ -596,11 +598,12 @@ def state_cases() -> list[Case]:
         Case(
             "session.a2a_call",
             "call another agent",
-            lambda _ctx: {
-                "url": os.environ.get("AR_CERT_A2A_URL", "https://example.com/a2a"),
-                "message": "ping",
+            lambda ctx: {
+                "url": ctx["peer_url"] or "https://example.com/a2a",
+                "message": "Reply with the single word pong.",
+                **({"secret_name": ctx["peer_secret"]} if ctx["peer_secret"] else {}),
             },
-            any_result,
+            has("pong"),
             needs="peer",
         ),
     ]
@@ -699,21 +702,6 @@ def computer_cases() -> list[Case]:
             needs="browser",
         ),
         Case(
-            "browser.type",
-            "type into a field",
-            form("field", text="cert"),
-            any_result,
-            needs="form",
-        ),
-        Case(
-            "browser.upload",
-            "upload a file",
-            form("file", path="/workspace/cert.txt"),
-            any_result,
-            needs="form",
-        ),
-        Case("browser.download", "download a file", form("download"), wrote(""), needs="form"),
-        Case(
             "browser.submit_form",
             "submit a form",
             fixed(),
@@ -729,8 +717,24 @@ def computer_cases() -> list[Case]:
             any_result,
             needs="browser",
         ),
-        # Last: the link leaves the page the cases above read.
+        # The link leaves the page the cases above read, so it comes after them.
         Case("browser.click", "click a link", fixed(ref="e1"), any_result, needs="browser"),
+        # Each of these opens its own page first, so they come last.
+        Case(
+            "browser.type",
+            "type into a field",
+            form("field", text="cert"),
+            any_result,
+            needs="form",
+        ),
+        Case(
+            "browser.upload",
+            "upload a file",
+            form("file", path="/workspace/cert.txt"),
+            any_result,
+            needs="form",
+        ),
+        Case("browser.download", "download a file", form("download"), wrote(""), needs="form"),
     ]
     return sandbox + browser
 
@@ -743,6 +747,7 @@ class Stack:
     """A signed-in session on the running stack."""
 
     def __init__(self, api: str, email: str, password: str) -> None:
+        self.api = api.rstrip("/")
         self.client = httpx.Client(base_url=api, timeout=300)
         self.made: list[tuple[str, str]] = []
         login = self.client.post("/api/v1/auth/login", json={"email": email, "password": password})
@@ -776,16 +781,19 @@ class Stack:
         self.made.append((kind, row_id))
 
     def put_away(self) -> None:
-        """Archive the agents and disable the policies this run created.
+        """Archive the agents, disable the policies and delete the secrets this run created.
 
         They exist only for the run. Left in place they fill the agent picker and the
-        policy list of whoever uses the tenant next. Both steps can be undone.
+        policy list of whoever uses the tenant next. Archiving and disabling can be undone;
+        the secret held a key of an agent that is archived with it.
         """
         for kind, row_id in self.made:
             if kind == "agent":
                 self.post(f"/api/v1/agents/{row_id}:archive")
             elif kind == "policy":
                 self.post(f"/api/v1/policies/{row_id}:disable")
+            elif kind == "secret":
+                self.client.delete(f"/api/v1/secrets/{row_id}")
         self.made.clear()
 
     def put(self, path: str, **body: object) -> tuple[int, object]:
@@ -881,7 +889,9 @@ def prepare_browser(stack: Stack, ctx: Ctx) -> None:
         definition={
             "instructions": "Open pages in the browser and report what they say.",
             "tools": [{"server": "browser", "include": ["*"]}],
-            "sandbox": {"template": "browser"},
+            # A computer opens only the hosts its template or its agent names, within the
+            # tenant's list, so the agent names the hosts of the form pages.
+            "sandbox": {"template": "browser", "extraEgressAllowlist": form_hosts()},
         },
         changeNote="certification",
     )
@@ -889,9 +899,103 @@ def prepare_browser(stack: Stack, ctx: Ctx) -> None:
     _status, conversation = stack.post("/api/v1/conversations", agentId=agent)
     if isinstance(conversation, dict) and conversation.get("id"):
         ctx.values["browser_conversation"] = str(conversation["id"])
-    ctx.values["form_url"] = os.environ.get("AR_CERT_FORM_URL", "").strip()
-    for element in ("field", "file", "download"):
-        ctx.values[f"form_{element}"] = os.environ.get(f"AR_CERT_FORM_{element.upper()}_REF", "")
+    ctx.values["form_url"] = form_pages()["field"]
+
+
+# The element of the form page each case acts on, when the owner names no other: the first
+# field, the first file input, and the first link whose text is a file name.
+FORM_ELEMENTS = {
+    "field": r"^input ",
+    "file": r"^input ",
+    "download": r'^a ".*\.\w{2,5}"$',
+}
+
+
+def form_pages() -> dict[str, str]:
+    """The page each form case opens: ``AR_CERT_FORM_URL``, or one of its own.
+
+    A site may keep its field, its file input and its download on different pages:
+    ``AR_CERT_FORM_FILE_URL`` and ``AR_CERT_FORM_DOWNLOAD_URL`` name the other two.
+    """
+    main = os.environ.get("AR_CERT_FORM_URL", "").strip()
+    return {
+        "field": main,
+        "file": os.environ.get("AR_CERT_FORM_FILE_URL", "").strip() or main,
+        "download": os.environ.get("AR_CERT_FORM_DOWNLOAD_URL", "").strip() or main,
+    }
+
+
+def open_form(stack: Stack, ctx: Ctx, conversation: str, case: Case) -> None:
+    """Open the page a form case needs and find the element it acts on.
+
+    A snapshot numbers the elements of the page as it is now, so the element is looked up
+    after the page is opened, not written down beforehand. ``AR_CERT_FORM_<ELEMENT>_REF``
+    names it outright; ``AR_CERT_FORM_<ELEMENT>_NAME`` is a pattern over ``role "name"``.
+    """
+    element = {"browser.upload": "file", "browser.download": "download"}.get(case.tool, "field")
+    stack.call("browser.navigate", {"url": form_pages()[element]}, conversation)
+    _status, seen = stack.call("browser.snapshot", {}, conversation)
+    named = os.environ.get(f"AR_CERT_FORM_{element.upper()}_REF", "").strip()
+    if not named:
+        pattern = re.compile(
+            os.environ.get(f"AR_CERT_FORM_{element.upper()}_NAME", "") or FORM_ELEMENTS[element]
+        )
+        structured = seen.get("structured")
+        elements = structured.get("elements") if isinstance(structured, dict) else None
+        for row in elements if isinstance(elements, list) else []:
+            if isinstance(row, dict) and pattern.search(f'{row.get("role")} "{row.get("name")}"'):
+                named = str(row.get("ref") or "")
+                break
+    ctx.values[f"form_{element}"] = named
+
+
+def form_hosts() -> list[str]:
+    hosts = [urlparse(page).hostname or "" for page in form_pages().values() if page]
+    return sorted({host for host in hosts if host})
+
+
+def prepare_peer(stack: Stack, ctx: Ctx) -> None:
+    """A second agent to call, reached the way another install would reach it.
+
+    ``AR_CERT_A2A_URL`` names a peer elsewhere, with ``AR_CERT_A2A_SECRET`` as the name of
+    the stored secret that holds its token. Without one, an agent of this install is
+    published and given a key, and the call goes to its public address over HTTP. That
+    address is this machine, so it is reached only where the install allows loopback
+    (``AR_EGRESS_ALLOW_LOOPBACK``); elsewhere the tool refuses and the case is blocked.
+    """
+    named = os.environ.get("AR_CERT_A2A_URL", "").strip()
+    if named:
+        ctx.values["peer_url"] = named
+        ctx.values["peer_secret"] = os.environ.get("AR_CERT_A2A_SECRET", "").strip()
+        return
+    stamp = int(time.time())
+    slug = f"cert-peer-{stamp}"
+    _status, made = stack.post(
+        "/api/v1/agents", slug=slug, name="Certification peer", template="blank"
+    )
+    agent = str(made.get("id") or "") if isinstance(made, dict) else ""
+    if not agent:
+        return
+    stack.remember("agent", agent)
+    stack.put(
+        f"/api/v1/agents/{agent}/versions/draft",
+        definition={"instructions": "Answer in one short sentence."},
+        changeNote="certification",
+    )
+    published, _body = stack.post(f"/api/v1/agents/{agent}:publish", changeNote="certification")
+    if published >= 300:
+        return
+    _status, key = stack.post(f"/api/v1/agents/{agent}/api-keys", label="certification")
+    token = str(key.get("key") or "") if isinstance(key, dict) else ""
+    if not token:
+        return
+    secret = f"cert-peer-{stamp}"
+    status, stored = stack.post("/api/v1/secrets", name=secret, kind="generic", value=token)
+    if status >= 300 or not isinstance(stored, dict):
+        return
+    stack.remember("secret", str(stored.get("id") or ""))
+    ctx.values["peer_url"] = f"{stack.api}/v1/agents/{slug}/a2a"
+    ctx.values["peer_secret"] = secret
 
 
 def prepare_knowledge(stack: Stack, ctx: Ctx) -> None:
@@ -968,6 +1072,7 @@ def run(stack: Stack) -> dict[str, object]:
     prepare(stack, ctx)
     prepare_knowledge(stack, ctx)
     prepare_browser(stack, ctx)
+    prepare_peer(stack, ctx)
     rows: list[dict[str, object]] = []
     for case in all_cases():
         started = time.monotonic()
@@ -980,7 +1085,7 @@ def run(stack: Stack) -> dict[str, object]:
             verdict, note = "blocked", f"needs {FORM_NEED}"
         else:
             if case.needs == "form":
-                stack.call("browser.navigate", {"url": ctx["form_url"]}, where)
+                open_form(stack, ctx, where, case)
             status, result = stack.call(case.tool, case.args(ctx), where)
             verdict, note = outcome(case, status, result, ctx)
             if verdict == "pass":
@@ -1357,6 +1462,51 @@ def _request_for(
     return None, "no approval request appeared"
 
 
+def flow_agent_to_agent(chat: Chat) -> str | None:
+    """An agent asks a second agent a question over its public address and passes on the answer.
+
+    The second agent is reached with a key kept as a secret. The run is carried out by the
+    worker, so the call leaves one process and arrives at another, as it would between two
+    installs. The tool-test endpoint cannot show this for a peer on the same API: it holds
+    the API while the tool runs, so the call back into it is never answered.
+    """
+    ctx = Ctx()
+    prepare_peer(chat.stack, ctx)
+    if not ctx["peer_url"]:
+        return "no second agent could be published and given a key"
+    stamp = int(time.time())
+    _status, made = chat.stack.post(
+        "/api/v1/agents", slug=f"cert-caller-{stamp}", name="Certification caller", template="blank"
+    )
+    agent = str(made.get("id") or "") if isinstance(made, dict) else ""
+    if not agent:
+        return "the calling agent was not created"
+    chat.stack.remember("agent", agent)
+    chat.stack.put(
+        f"/api/v1/agents/{agent}/versions/draft",
+        definition={
+            "instructions": "When asked to consult the other agent, call session.a2a_call "
+            "with the address and the secret name you are given, and report its answer.",
+            "tools": [{"server": "session", "include": ["a2a_call"]}],
+        },
+        changeNote="certification",
+    )
+    status, body = chat.stack.post(f"/api/v1/agents/{agent}:publish", changeNote="certification")
+    if status >= 300:
+        detail = body.get("detail") if isinstance(body, dict) else body
+        return f"the calling agent was not published: {detail}"
+    caller = Chat(chat.stack, agent)
+    turn = caller.send(
+        caller.open(),
+        f"Consult the other agent at {ctx['peer_url']} using the secret named "
+        f"{ctx['peer_secret']}. Ask it: what is the capital of France, in one word? "
+        "Tell me exactly what it answered.",
+    )
+    if not turn.called("session.a2a_call"):
+        return f"session.a2a_call did not succeed ({turn.status}): {turn.text[:160]}"
+    return None if turn.says("paris") else f"the answer was not passed on: {turn.text[:160]}"
+
+
 def flow_approval_waits(chat: Chat) -> str | None:
     """A write that needs approval pauses the run, and runs once a second person approves it.
 
@@ -1513,6 +1663,7 @@ FLOWS: dict[str, Callable[[Chat], str | None]] = {
     "refused-tool-is-reported": flow_refused_tool_is_reported,
     "structured-output": flow_structured_output,
     "approval-pauses-the-run": flow_approval_waits,
+    "agent-asks-another-agent": flow_agent_to_agent,
     "research-cites-real-sources": flow_research,
     "external-api-run-and-bad-key": flow_external_api,
     "stop-then-continue": flow_stop,

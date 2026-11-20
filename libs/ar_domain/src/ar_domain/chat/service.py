@@ -419,6 +419,8 @@ class ChatBehaviour:
     token_cache: dict[str, bytes] = field(default_factory=dict)
     secret_values: dict[uuid.UUID, bytes] = field(default_factory=dict)
     named_secrets: dict[tuple[str, str], bytes] = field(default_factory=dict)
+    # The tenant's secret rows, each with its encrypted value. A tool opens one by name.
+    stored_secrets: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     tenant_settings: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     tickets: list[dict[str, object]] = field(default_factory=list)
     pets: list[dict[str, object]] = field(default_factory=lambda: [{"id": 1, "name": "doggie"}])

@@ -337,3 +337,47 @@ async def load_connector_rows(session: AsyncSession, store: object, tenant_id: u
         session, "SELECT * FROM named_secrets WHERE tenant_id = :tenant_id", tenant_id
     ):
         _merge(store, "named_secrets", row["id"], dict(row))
+    await load_stored_secrets(session, store, tenant_id)
+
+
+async def load_stored_secrets(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    """The tenant's secret rows, each with its encrypted value when the database holds it.
+
+    The bucket is replaced, not merged, so a secret that was deleted is gone from the
+    process that reads here. Nothing is decrypted: a tool opens a value when it asks.
+    """
+    from ar_domain.secrets.loaded import BUCKET  # noqa: PLC0415
+    from ar_domain.secrets.stores.db_encrypted import path_id  # noqa: PLC0415
+
+    bucket = getattr(store, BUCKET, None)
+    if not isinstance(bucket, dict):
+        return
+    refs = await _rows(
+        session,
+        "SELECT id, tenant_id, name, kind, backend, path, owner_user_id FROM secret_refs "
+        "WHERE tenant_id = :tenant_id",
+        tenant_id,
+    )
+    values = {
+        row["id"]: row
+        for row in await _rows(
+            session,
+            "SELECT id, key_id, wrapped_dek, nonce, ciphertext FROM encrypted_secrets "
+            "WHERE tenant_id = :tenant_id",
+            tenant_id,
+        )
+    }
+    for key in [key for key, row in bucket.items() if _of_tenant(row, tenant_id)]:
+        bucket.pop(key, None)
+    for ref in refs:
+        loaded = dict(ref)
+        sealed = values.get(path_id(str(ref.get("path") or "")))
+        if sealed is not None:
+            loaded.update(
+                {name: sealed[name] for name in ("key_id", "wrapped_dek", "nonce", "ciphertext")}
+            )
+        bucket[ref["id"]] = loaded
+
+
+def _of_tenant(row: object, tenant_id: uuid.UUID) -> bool:
+    return isinstance(row, dict) and str(row.get("tenant_id")) == str(tenant_id)

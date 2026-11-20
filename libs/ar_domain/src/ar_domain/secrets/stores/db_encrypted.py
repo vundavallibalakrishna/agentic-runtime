@@ -38,7 +38,7 @@ class DbEncryptedStore:
         if existing is None:
             self.session.add(
                 EncryptedSecret(
-                    id=_path_id(path),
+                    id=path_id(path),
                     tenant_id=self.tenant_id,
                     key_id=self.active_key_id,
                     wrapped_dek=wrapped,
@@ -109,10 +109,11 @@ class DbEncryptedStore:
         return kek
 
     async def _row(self, path: str) -> EncryptedSecret | None:
-        return await self.session.get(EncryptedSecret, _path_id(path))
+        return await self.session.get(EncryptedSecret, path_id(path))
 
 
-def _path_id(path: str) -> uuid.UUID:
+def path_id(path: str) -> uuid.UUID:
+    """The row id a value at ``path`` is stored under."""
     try:
         return uuid.UUID(path)
     except ValueError:

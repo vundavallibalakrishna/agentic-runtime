@@ -66,8 +66,25 @@ def write_named_secret(store: Any, tenant_id: uuid.UUID, name: str, value: str) 
 
 
 def read_named_secret(store: Any, tenant_id: object, name: str) -> str | None:
+    """The value a tool asked for by name.
+
+    A secret the product keeps for itself (a computer's token, the callback secret) is
+    in the named book. A secret a person saved is in the secret store, and is looked up
+    there by its name.
+    """
+    if not name:
+        return None
+    kept = _read_kept(store, tenant_id, name)
+    if kept is not None:
+        return kept
+    from ar_domain.secrets.loaded import open_stored_secret  # noqa: PLC0415
+
+    return open_stored_secret(store, tenant_id, name)
+
+
+def _read_kept(store: Any, tenant_id: object, name: str) -> str | None:
     book = getattr(store, "named_secrets", None)
-    if not isinstance(book, dict) or not name:
+    if not isinstance(book, dict):
         return None
     direct = book.get((str(tenant_id), name))
     if isinstance(direct, bytes):

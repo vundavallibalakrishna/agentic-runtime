@@ -16,7 +16,8 @@ if TYPE_CHECKING:
     from ar_domain.secrets.store import SecretStore
 
 
-def _backend(session: AsyncSession, tenant_id: uuid.UUID, kind: str) -> SecretStore:
+def secret_backend(session: AsyncSession, tenant_id: uuid.UUID, kind: str) -> SecretStore:
+    """The install's store for one tenant's values, on the caller's session."""
     settings = get_settings()
     if kind == "db_encrypted":
         return DbEncryptedStore(
@@ -49,7 +50,7 @@ async def save_cached_secret(
         return
     settings = get_settings()
     path = f"tenants/{tenant_id}/secrets/{secret_id}"
-    backend = _backend(session, tenant_id, settings.secrets_backend)
+    backend = secret_backend(session, tenant_id, settings.secrets_backend)
     await backend.put(path, value, aad=f"{tenant_id}:{secret_id}".encode())
     session.add(
         SecretRef(
@@ -74,6 +75,6 @@ async def load_cached_secret(
     ref = await session.get(SecretRef, secret_id)
     if ref is None or ref.tenant_id != tenant_id:
         return None
-    return await _backend(session, tenant_id, ref.backend).get(
+    return await secret_backend(session, tenant_id, ref.backend).get(
         ref.path, aad=f"{tenant_id}:{secret_id}".encode()
     )
