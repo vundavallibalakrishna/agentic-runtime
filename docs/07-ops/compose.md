@@ -50,7 +50,7 @@ make seed
 | Core service | What it does |
 |---|---|
 | `api`, `web` | The product's API and screens |
-| `runtime-worker`, `system-worker` | Agent runs; routines, evals and housekeeping |
+| `worker` | Agent runs, routines, evals and housekeeping: the runtime worker and the system worker in one process |
 | `ingest-worker` | Reads uploaded documents |
 | `mcp-gateway` | Every tool call passes through it |
 | `postgres`, `valkey`, `temporal`, `seaweedfs` | Data, shared state, the workflow engine, file bytes |
@@ -69,9 +69,42 @@ COMPOSE_FILE=compose.yaml:compose.computers.yaml:compose.channels.yaml
 | `compose.opa.yaml` | `opa` | A tenant writes its own Rego rules. Without it the product's own evaluator decides every tool call, with the same rules |
 | `compose.vault.yaml` | `openbao` | Secrets are kept in a vault (`AR_SECRETS_BACKEND=vault`). The default keeps them encrypted in the database |
 | `compose.model-gateway.yaml` | `model-gateway` | A model provider has no address of its own. A provider registered with its address is called there directly |
+| `compose.split-workers.yaml` | `runtime-worker`, `system-worker` in place of `worker` | The install scales agent runs apart from routines and evals |
 | `compose.airgap.yaml` | nothing new | The install has no route to the internet (section 6). Use it with `compose.computers.yaml` |
 
 Without `compose.computers.yaml` the install has no computers: a tool that needs one answers "Computers are not switched on for this install" and nothing runs in its place.
+
+### Memory
+
+Measured by `scripts/compose_install.sh` in CI on 21 November 2026 (commit `9a469aac`, a 16 GB runner), idle after one chat turn and after the worker had settled. Parsing a large document adds to `ingest-worker` (939 MiB was seen while a 114-page PDF was read), and each running computer is a container of its own.
+
+| Core service | Memory |
+|---|---|
+| `api` | 385 MiB |
+| `worker` | 275 MiB |
+| `postgres` | 249 MiB |
+| `ingest-worker` | 182 MiB |
+| `mcp-gateway` | 172 MiB |
+| `seaweedfs` | 111 MiB |
+| `temporal` | 99 MiB |
+| `web` | 52 MiB |
+| `valkey` | 18 MiB |
+| **Core total** | **about 1.5 GiB** |
+
+Run apart (`compose.split-workers.yaml`), `runtime-worker` measured 275 MiB and `system-worker` 350 MiB.
+
+| Feature service | Memory |
+|---|---|
+| `channels` | 123 MiB |
+| `model-gateway` | 120 MiB |
+| `mcp-sql` | 119 MiB |
+| `mcp-openapi` | 101 MiB |
+| `openbao` | 19 MiB |
+| `opa` | 14 MiB |
+| `clamav` (profile `scan`, measured on a laptop) | about 1 GiB |
+| `sandbox-manager`, `squid` | not measured |
+
+Size a machine for the core at 4 GB of memory, and 8 GB when documents are parsed often or the virus scanner is on.
 
 Every file together is the full install. `scripts/compose_install.sh` starts the core, proves a chat turn on it, prints each container's memory, then starts every feature except computers and proves a tool call decided by OPA. The plan and the reasons are in [small-install](../09-plan/small-install.md).
 

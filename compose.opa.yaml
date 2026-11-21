@@ -13,6 +13,9 @@ services:
   mcp-gateway:
     environment:
       <<: *env
+  worker:
+    environment:
+      <<: *env
   runtime-worker:
     environment:
       <<: *env

@@ -27,10 +27,14 @@ AR_ENV=dev \
   AR_DEV_MODEL_NAME=ci-model \
   AR_LLM_MODEL=ci-chat \
   uv run python scripts/seed.py
-$compose restart runtime-worker >/dev/null
+$compose restart worker >/dev/null
 uv run python scripts/compose_smoke.py
 
 # What the core costs. The table in docs/07-ops/compose.md comes from this output.
+# The smoke has just restarted the worker. Wait until it is healthy and has finished
+# starting, so the figure is its settled size and not a start-up reading.
+$compose up -d --wait >/dev/null
+sleep 45
 echo "core install: containers and memory"
 $compose ps --format 'table {{.Service}}\t{{.Status}}'
 docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}'
