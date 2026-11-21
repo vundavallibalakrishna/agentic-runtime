@@ -73,23 +73,31 @@ def _wait_run(client: httpx.Client, run_id: str, seconds: float) -> dict[str, ob
 
 
 def _prove_opa_bundle() -> None:
-    """OPA has activated the bundle it pulls from the API on the install network."""
+    """OPA has activated the bundle from the API, and the bundle holds the decision rules.
+
+    A loaded bundle is not enough: an image built without the rule files once served an
+    empty policy, OPA activated it, and every tool call was then refused.
+    """
     port = os.environ.get("AR_OPA_HOST_PORT", "8181")
-    url = f"http://127.0.0.1:{port}/health?bundles"
+    base = f"http://127.0.0.1:{port}"
     deadline = time.monotonic() + float(os.environ.get("AR_SMOKE_READY_S", "180"))
     last = ""
     while time.monotonic() < deadline:
         try:
-            response = httpx.get(url, timeout=5)
+            health = httpx.get(f"{base}/health?bundles", timeout=5)
+            asked = httpx.post(
+                f"{base}/v1/data/ar/policy/decision", json={"input": {"rules": []}}, timeout=5
+            )
         except httpx.HTTPError as exc:
             last = type(exc).__name__
         else:
-            if response.status_code == 200:
-                print("opa bundle is loaded")
+            result = asked.json().get("result") if asked.status_code == 200 else None
+            if health.status_code == 200 and isinstance(result, dict) and result.get("decision"):
+                print("opa bundle is loaded and answers a decision")
                 return
-            last = response.text[:200]
+            last = f"health {health.status_code}, decision {asked.text[:200]}"
         time.sleep(2)
-    raise RuntimeError(f"OPA bundle did not load: {last}")
+    raise RuntimeError(f"OPA bundle did not load its decision rules: {last}")
 
 
 def _prove_gateway_hop() -> None:

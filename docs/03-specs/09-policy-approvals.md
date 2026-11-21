@@ -47,6 +47,7 @@ Policy rules are compiled into bundle data; argument predicates (`args[]`) are e
 
 - `GET /internal/v1/opa/bundles/ar.tar.gz` (caller `opa`, `Authorization: Bearer` with `AR_OPA_BUNDLE_TOKEN`, no chat read unit). The API builds the bytes from the platform role, every tenant. An empty token is refused outside dev and ci. Contents: `/ar/policy.rego`, `/ar/jsonpath.rego`, `/data.json` = `{"tenants": {"<tenant_id>": {"rules": [...], "settings": {"require_step_up_for_w3": bool}}}}`, custom tenant Rego modules, `.manifest` with `revision` = sha256 of contents. Compose points OPA at `http://api:$AR_PORT` on the install network.
 - ETag = revision; OPA config polls every 5–15 s. Activation therefore takes effect within ≤ 15 s (UI states this). Kill switches (agents/tools) are separate and immediate.
+- The two decision rule files (`policies/rego/ar/policy.rego`, `jsonpath.rego`) are part of the `ar-domain` package build, so a service image carries them. A process that cannot find them fails the bundle request; it never serves an empty policy.
 - Built in-process by `api` from `policies.active_version_id` rows (platform role, all tenants), cached in Valkey `ar:opa:bundle` and rebuilt on `policy.activated|policy.disabled` events.
 
 ### 3.3 Fallback evaluator
