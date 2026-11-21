@@ -105,7 +105,11 @@ As built in stage 1, a feature is a file, `compose.<feature>.yaml`, not a profil
 
 The full layout stays available: turning every profile on gives today's install, for a customer who wants to scale parts separately.
 
-### Expected size
+### Measured size
+
+Stage 1 measured it in CI: the core idles at about 1.9 GiB, and the six feature services measured add about 0.5 GiB. The table is in `docs/07-ops/compose.md` section 3a. The estimate below was written before the measurement and was too high.
+
+### Expected size (before measurement)
 
 Not measured yet. From the partial figures in section 2, the core should fit in about 3 to 4 GB of memory when idle, plus up to 1 GB while a large document is parsed. Stage 1 replaces this estimate with measurements. Until then the honest recommendation for the core is a machine with 8 GB of memory, and 16 GB with every profile on.
 

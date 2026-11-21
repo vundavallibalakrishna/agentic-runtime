@@ -73,6 +73,37 @@ COMPOSE_FILE=compose.yaml:compose.computers.yaml:compose.channels.yaml
 
 Without `compose.computers.yaml` the install has no computers: a tool that needs one answers "Computers are not switched on for this install" and nothing runs in its place.
 
+### Memory
+
+Measured by `scripts/compose_install.sh` in CI on 21 November 2026 (commit `c00c624f`, a 16 GB runner), idle after one chat turn. Parsing a large document adds to `ingest-worker` (939 MiB was seen while a 114-page PDF was read), and each running computer is a container of its own.
+
+| Core service | Memory |
+|---|---|
+| `api` | 388 MiB |
+| `system-worker` | 350 MiB |
+| `runtime-worker` | 275 MiB |
+| `postgres` | 223 MiB |
+| `ingest-worker` | 222 MiB |
+| `mcp-gateway` | 161 MiB |
+| `seaweedfs` | 158 MiB |
+| `temporal` | 70 MiB |
+| `web` | 50 MiB |
+| `valkey` | 8 MiB |
+| **Core total** | **about 1.9 GiB** |
+
+| Feature service | Memory |
+|---|---|
+| `channels` | 123 MiB |
+| `model-gateway` | 120 MiB |
+| `mcp-sql` | 119 MiB |
+| `mcp-openapi` | 101 MiB |
+| `openbao` | 19 MiB |
+| `opa` | 14 MiB |
+| `clamav` (profile `scan`, measured on a laptop) | about 1 GiB |
+| `sandbox-manager`, `squid` | not measured |
+
+Size a machine for the core at 4 GB of memory, and 8 GB when documents are parsed often or the virus scanner is on.
+
 Every file together is the full install. `scripts/compose_install.sh` starts the core, proves a chat turn on it, prints each container's memory, then starts every feature except computers and proves a tool call decided by OPA. The plan and the reasons are in [small-install](../09-plan/small-install.md).
 
 ## 4. Upgrade
