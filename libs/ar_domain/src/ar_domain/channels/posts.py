@@ -61,9 +61,10 @@ def record_channel_post(
     external_message_id: str = "",
     status: str = "posted",
     detail: dict[str, object] | None = None,
+    post_id: uuid.UUID | None = None,
 ) -> dict[str, object]:
-    """Insert one post into the durable catalogue."""
-    post_id = new_id()
+    """Insert one post into the durable catalogue. An id is kept only when a sender gave one."""
+    post_id = post_id or new_id()
     row: dict[str, object] = {
         "id": post_id,
         "tenant_id": tenant_id,
@@ -71,7 +72,7 @@ def record_channel_post(
         "thread_id": thread_id if isinstance(thread_id, uuid.UUID) else None,
         "direction": direction,
         "kind": kind,
-        "external_message_id": external_message_id or f"{kind}-{post_id.hex[:12]}",
+        "external_message_id": external_message_id or None,
         "body": body,
         "status": status,
         "detail": detail or {},

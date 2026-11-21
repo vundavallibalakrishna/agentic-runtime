@@ -1162,6 +1162,7 @@ CREATE TABLE routine_events (
   envelope        jsonb NOT NULL,                    -- schema: ar_contracts.events.EventEnvelope (payload truncated to 64 KiB)
   payload_file_id uuid REFERENCES files(id) ON DELETE SET NULL,
   status          text NOT NULL CHECK (status IN ('accepted','duplicate','filtered','rate_limited','skipped_concurrency','started','failed')),
+  detail          jsonb NOT NULL DEFAULT '{}'::jsonb, -- {deliveries: [{target, result, reason?, approval_id?, post_id?}]} (spec 15 §4)
   run_id          uuid REFERENCES runs(id) ON DELETE SET NULL,
   received_at     timestamptz NOT NULL DEFAULT now(),
   UNIQUE (routine_id, idempotency_key)

@@ -107,12 +107,7 @@ def decide_approval(store: Any, body: dict[str, object]) -> dict[str, object]:
         )
     except (ConflictError, ForbiddenError, ValidationFailedError) as exc:
         return _approval_error(exc, approval_id)
-    status = str(detail.get("status") or "")
-    if status == "approved":
-        from ar_domain.routines.engine import release_delivery  # noqa: PLC0415
-
-        release_delivery(store, approval_id)
-    return {"result": status, "approval_id": str(approval_id)}
+    return {"result": str(detail.get("status") or ""), "approval_id": str(approval_id)}
 
 
 def _approval_error(exc: Exception, approval_id: uuid.UUID) -> dict[str, object]:

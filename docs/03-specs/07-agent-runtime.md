@@ -52,9 +52,6 @@ class AgentRunWorkflow:
                 break
             self.check_budget_and_cancel(pending_tool_calls=len(step.tool_calls))
             await self.run_tool_batch(inp.run_id, step.tool_calls, ctx)
-        if ctx.trigger == "routine":                   # deterministic delivery phase (spec 15 §4)
-            calls = await act(build_delivery_calls, inp.run_id)   # tool_calls rows for delivery.* tools
-            await self.run_tool_batch(inp.run_id, calls, ctx)
         return await act(finalize_run, FinalizeInput(run_id=inp.run_id, outcome="completed", usage=self.usage))
 ```
 
@@ -88,7 +85,6 @@ class AgentRunWorkflow:
 | `create_child_run` | §7 | 20 s | – | 5× |
 | `apply_plan_update` | §6 | 10 s | – | 5× |
 | `search_tools` | §8 | 20 s | – | 3× |
-| `build_delivery_calls` | Routine runs: one `delivery.*` tool call per routine delivery target ([spec 15 §4](15-routines-triggers.md#4-delivery-phase-in-agentrunworkflow-for-triggerroutine)) | 20 s | – | 5× |
 | `finalize_run` | §9 | 60 s | – | 10×, 1 s→60 s |
 
 All activities are idempotent on (`run_id`, `step_seq` / `tool_call_id`): they upsert by natural keys so retries never duplicate rows or events (event emission uses `XADD` with an idempotency set `ar:run:{run_id}:emitted` of `{step_seq}:{event_key}` with TTL 24 h).

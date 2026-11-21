@@ -1,6 +1,5 @@
 """Accept, run and deliver one routine event. Activities call these functions."""
 
-import hashlib
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
@@ -12,11 +11,13 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_untrusted
 from ar_domain.routines.metrics import DELIVERY, EVENTS, RUNS
 from ar_domain.routines.schedule import next_fire
+from ar_domain.tools.logic import redact
 
 if TYPE_CHECKING:
     from typing import Any
 
 _ACTIVE = {"queued", "running"}
+_RISK = "W2"
 _FAILURES_BEFORE_PAUSE = 5
 _POLL_LIMIT = 20
 _DEFAULT_BUDGET = {
@@ -144,36 +145,55 @@ def complete_routine_event(
     if isinstance(run, dict) and run.get("status") in {None, "queued", "running"}:
         run["status"] = run_status
         run["ended_at"] = utcnow()
-    deliveries = deliver(store, routine, event, run if isinstance(run, dict) else None)
-    waiting = [row for row in deliveries if row.get("result") == "waiting"]
-    failed = run_status == "failed" or any(row.get("result") == "failed" for row in deliveries)
+    held = run if isinstance(run, dict) else None
     event["status"] = "started"
-    event["detail"] = {"deliveries": deliveries}
+    # A failed run has no result, so nothing is sent and nobody is asked to approve it.
+    sent = [] if run_status == "failed" else deliver(store, routine, event, held)
+    event["detail"] = {"deliveries": sent}
     routine["last_run_at"] = utcnow()
     nxt = _following_fire(routine)
     if nxt is not None:
         routine["next_run_at"] = nxt
+    return _settle(store, routine, event, held, run_status)
+
+
+def _settle(
+    store: Any,
+    routine: dict[str, object],
+    event: dict[str, object],
+    run: dict[str, object] | None,
+    run_status: str,
+) -> dict[str, object]:
+    """Close the event once no delivery waits for its owner. A failed send is a failure."""
+    deliveries = _deliveries(event)
+    waiting = [row for row in deliveries if row.get("result") == "waiting"]
+    failed = run_status == "failed" or any(row.get("result") == "failed" for row in deliveries)
     if waiting and run_status != "failed":
         RUNS.labels(status="waiting").inc()
         return {"status": "waiting", "event_id": str(event["id"]), "deliveries": deliveries}
     if failed:
         routine["consecutive_failures"] = _as_int(routine.get("consecutive_failures")) + 1
-        if isinstance(run, dict):
+        if run is not None:
             run["error"] = {"code": "delivery_failed" if run_status != "failed" else "run_failed"}
             run["status"] = "completed" if run_status != "failed" else "failed"
     else:
         routine["consecutive_failures"] = 0
     terminal = "failed" if failed else "completed"
     RUNS.labels(status=terminal).inc()
-    _domain(store, "routine.run_completed", routine, run if isinstance(run, dict) else None)
+    _domain(store, "routine.run_completed", routine, run)
     if _as_int(routine.get("consecutive_failures")) >= _FAILURES_BEFORE_PAUSE:
         routine["status"] = "paused"
         routine["paused_reason"] = "too_many_failures"
         _notify(store, routine, "routine_failed")
-        _domain(store, "routine.paused", routine, run if isinstance(run, dict) else None)
+        _domain(store, "routine.paused", routine, run)
     elif _conversation_only(routine):
         _notify(store, routine, "routine_completed")
     return {"status": terminal, "event_id": str(event["id"]), "deliveries": deliveries}
+
+
+def _deliveries(event: dict[str, object]) -> list[dict[str, object]]:
+    rows = _as_list(_as_dict(event.get("detail")).get("deliveries"))
+    return [row for row in rows if isinstance(row, dict)]
 
 
 def deliver(
@@ -182,9 +202,10 @@ def deliver(
     event: dict[str, object],
     run: dict[str, object] | None,
 ) -> list[dict[str, object]]:
-    """Post each target, or wait for the owner when it is not pre-approved."""
+    """Send to each target, or ask the owner first when it is not approved in advance."""
+    del event
     outcomes: list[dict[str, object]] = []
-    for target in _targets(routine, run):
+    for index, target in _targets(routine, run):
         from ar_domain.packs.hooks import review_delivery  # noqa: PLC0415
 
         waiting = review_delivery(store, routine, target)
@@ -192,54 +213,185 @@ def deliver(
             outcomes.append(waiting)
             continue
         kind = str(target.get("type") or "")
-        if kind in {"conversation", "file"}:
-            continue
         tool = _TOOL_FOR.get(kind)
         if tool is None:
             continue
-        call = {"tool": tool, "target": kind, "arguments": _arguments(routine, run, target)}
-        if target.get("pre_approved") is True or _standing(store, routine, tool):
-            outcomes.append(_post(store, routine, _as_dict(call)))
-            continue
-        approval_id = new_id()
-        store.approvals[approval_id] = {
-            "id": approval_id,
-            "tenant_id": routine.get("tenant_id"),
-            "routine_id": routine.get("id"),
-            "event_id": event.get("id"),
-            "status": "pending",
+        call: dict[str, object] = {
             "tool": tool,
-            "call": call,
-            "delivered": False,
+            "target": kind,
+            "index": index,
+            "arguments": _arguments(routine, run, target),
         }
-        DELIVERY.labels(target=kind, result="waiting").inc()
-        outcomes.append({"target": kind, "result": "waiting", "approval_id": str(approval_id)})
+        if target.get("pre_approved") is True or _standing(store, routine, tool):
+            outcomes.append(_post(store, routine, call))
+            continue
+        outcomes.append(_hold(store, routine, run, call))
     return outcomes
 
 
+def is_delivery_tool(name: object) -> bool:
+    """True for a tool the runtime calls to deliver a routine's result."""
+    return name in _TOOL_FOR.values()
+
+
+def _hold(
+    store: Any, routine: dict[str, object], run: dict[str, object] | None, call: dict[str, object]
+) -> dict[str, object]:
+    """Ask the routine's owner. The request is a tool call with an approval, like any other."""
+    from ar_common.jcs import args_hash  # noqa: PLC0415
+    from ar_domain.approvals.logic import render_preview  # noqa: PLC0415
+    from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
+    from ar_domain.policy.metrics import APPROVALS_CREATED  # noqa: PLC0415
+
+    kind = str(call.get("target") or "")
+    tool = str(call.get("tool") or "")
+    tenant_id = routine.get("tenant_id")
+    owner = routine.get("owner_user_id")
+    run_id = None if run is None else run.get("id")
+    agent_id = routine.get("agent_id") if run is None else run.get("agent_id")
+    if not all(isinstance(item, uuid.UUID) for item in (tenant_id, owner, run_id, agent_id)):
+        DELIVERY.labels(target=kind or "unknown", result="failed").inc()
+        return {
+            "target": kind,
+            "result": "failed",
+            "reason": "There is no run to ask the owner about.",
+        }
+    arguments = _masked_arguments(store, tenant_id, _as_dict(call.get("arguments")))
+    arguments["delivery_index"] = call.get("index")
+    digest = args_hash(arguments)  # type: ignore[arg-type]
+    call_id = new_id()
+    store.tool_calls[call_id] = {
+        "id": call_id,
+        "tenant_id": tenant_id,
+        "run_id": run_id,
+        "tool_id": None,
+        "tool_version_id": None,
+        "qualified_name": tool,
+        "model_call_id": str(call_id),
+        "arguments_redacted": redact(arguments),
+        "args_hash": digest,
+        "risk_class": _RISK,
+        "policy_decision": "require_approval",
+        "policy_reasons": ["routine_delivery"],
+        "status": "awaiting_approval",
+        "idempotency_key": f"{run_id}:{tool}:{call.get('index')}",
+        "result_preview": None,
+        "is_error": False,
+        "error": None,
+        "latency_ms": None,
+        "created_at": utcnow(),
+    }
+    approval = ApprovalBook(store).create_pending(
+        tenant_id=tenant_id,  # type: ignore[arg-type]
+        user_id=owner,  # type: ignore[arg-type]
+        run_id=run_id,  # type: ignore[arg-type]
+        agent_id=agent_id,  # type: ignore[arg-type]
+        tool_call_id=call_id,
+        qualified_name=tool,
+        risk_class=_RISK,
+        args_hash=digest,
+        arguments=arguments,
+        requirement={"approvers": {"mode": "requester"}},
+        reasons=["routine_delivery"],
+        preview=render_preview(None, arguments, title=str(routine.get("name") or tool)),
+    )
+    store.tool_calls[call_id]["approval_id"] = approval["id"]
+    APPROVALS_CREATED.labels(risk=_RISK).inc()
+    DELIVERY.labels(target=kind or "unknown", result="waiting").inc()
+    return {"target": kind, "result": "waiting", "approval_id": str(approval["id"])}
+
+
 def release_delivery(store: Any, approval_id: uuid.UUID) -> dict[str, object]:
-    """Post a waiting delivery once after the owner approves it."""
+    """Send a delivery its owner approved. A second call sends nothing."""
     row = store.approvals.get(approval_id)
-    if not isinstance(row, dict):
+    if not isinstance(row, dict) or not is_delivery_tool(row.get("qualified_name")):
         return {"result": "missing"}
-    if row.get("delivered") is True:
+    if row.get("consumed_at") is not None:
         return {"result": "posted", "duplicate": True}
-    call = row.get("call")
-    routine_id = row.get("routine_id")
-    routine = _routine(store, routine_id) if isinstance(routine_id, uuid.UUID) else None
-    if not isinstance(call, dict) or routine is None:
+    if row.get("status") != "approved":
+        return {"result": "waiting"}
+    found = _held_for(store, row)
+    if found is None:
         return {"result": "missing"}
-    outcome = _post(store, routine, _as_dict(call))
-    row["status"] = "approved"
-    row["delivered"] = True
-    event_id = row.get("event_id")
-    event = _event(store, event_id) if isinstance(event_id, uuid.UUID) else None
-    if event is not None:
-        detail = _as_dict(event.get("detail"))
-        rows = _as_list(detail.get("deliveries"))
-        rows.append(outcome)
-        event["detail"] = {"deliveries": rows}
+    routine, event, run = found
+    arguments = _as_dict(row.get("arguments"))
+    kind = next((key for key, tool in _TOOL_FOR.items() if tool == row.get("qualified_name")), "")
+    outcome = _post(
+        store,
+        routine,
+        {
+            "tool": row.get("qualified_name"),
+            "target": kind,
+            "index": arguments.get("delivery_index"),
+            "arguments": arguments,
+        },
+    )
+    row["consumed_at"] = utcnow()
+    row["updated_at"] = row["consumed_at"]
+    call = store.tool_calls.get(row.get("tool_call_id"))
+    if isinstance(call, dict):
+        sent = outcome.get("result") == "posted"
+        call["status"] = "succeeded" if sent else "failed"
+        call["is_error"] = not sent
+        call["result_preview"] = "Sent." if sent else str(outcome.get("reason") or "")
+    _decided(store, routine, event, run, approval_id, outcome)
     return outcome
+
+
+def close_delivery(store: Any, approval: dict[str, object]) -> None:
+    """Record a delivery its owner refused, withdrew or left to expire. Nothing is sent."""
+    found = _held_for(store, approval)
+    if found is None:
+        return
+    routine, event, run = found
+    kind = next(
+        (key for key, tool in _TOOL_FOR.items() if tool == approval.get("qualified_name")), ""
+    )
+    status = str(approval.get("status") or "rejected")
+    DELIVERY.labels(target=kind or "unknown", result=status).inc()
+    call = store.tool_calls.get(approval.get("tool_call_id"))
+    if isinstance(call, dict):
+        call["status"] = "denied"
+    _decided(store, routine, event, run, approval.get("id"), {"target": kind, "result": status})
+
+
+def _held_for(
+    store: Any, approval: dict[str, object]
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]] | None:
+    """The routine, event and run a delivery approval belongs to."""
+    run = store.runs.get(approval.get("run_id"))
+    if not isinstance(run, dict):
+        return None
+    routine_id = run.get("routine_id")
+    routine = _routine(store, routine_id) if isinstance(routine_id, uuid.UUID) else None
+    if routine is None:
+        return None
+    for event in _events(store).values():
+        if event.get("run_id") == run.get("id"):
+            return routine, event, run
+    return None
+
+
+def _decided(  # noqa: PLR0917
+    store: Any,
+    routine: dict[str, object],
+    event: dict[str, object],
+    run: dict[str, object],
+    approval_id: object,
+    outcome: dict[str, object],
+) -> None:
+    """Replace the waiting row with what happened, and close the event when none wait."""
+    rows = _deliveries(event)
+    for index, item in enumerate(rows):
+        if item.get("approval_id") == str(approval_id) and item.get("result") == "waiting":
+            rows[index] = {**outcome, "approval_id": str(approval_id)}
+            break
+    else:
+        return
+    event["detail"] = {"deliveries": rows}
+    if any(item.get("result") == "waiting" for item in rows):
+        return
+    _settle(store, routine, event, run, "failed" if run.get("status") == "failed" else "completed")
 
 
 def poll_routine_source(store: Any, routine_id: uuid.UUID) -> list[dict[str, object]]:
@@ -347,64 +499,55 @@ def pause_for_owner(store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> int
 
 
 def _post(store: Any, routine: dict[str, object], call: dict[str, object]) -> dict[str, object]:
-    target = str(call.get("target") or "")
-    arguments = _masked_arguments(store, routine.get("tenant_id"), _as_dict(call.get("arguments")))
-    signed = ""
-    if target == "webhook":
-        secret = str(arguments.get("secret") or "")
-        payload = str(arguments.get("payload") or "")
-        signed = hashlib.sha256(f"{secret}.{payload}".encode()).hexdigest()
+    """Check policy, send once, and record what was sent or why it was not."""
     from ar_domain.channels.posts import policy_decision, record_channel_post  # noqa: PLC0415
+    from ar_domain.routines.outbound import send  # noqa: PLC0415
 
+    target = str(call.get("target") or "")
     tool = str(call.get("tool") or "")
-    if policy_decision(store, routine.get("tenant_id"), tool) == "deny":
+    tenant_id = routine.get("tenant_id")
+    arguments = _masked_arguments(store, tenant_id, _as_dict(call.get("arguments")))
+    if policy_decision(store, tenant_id, tool) == "deny":
         DELIVERY.labels(target=target or "unknown", result="denied").inc()
-        return {"target": target, "result": "denied", "signature": signed}
-    external = ""
-    client = getattr(store, "channels_client", None)
-    if callable(client):
-        sent = client(
-            {
-                "integration_id": arguments.get("integration"),
-                "text_markdown": str(arguments.get("text") or ""),
-                "kind": target,
-                "approved": True,
-            }
-        )
-        if isinstance(sent, dict):
-            external = str(sent.get("external_message_id") or "")
-    recorded = record_channel_post(
+        return {"target": target, "result": "denied"}
+    post_id = new_id()
+    sent = send(
         store,
-        tenant_id=routine.get("tenant_id"),
+        tenant_id,
+        target,
+        arguments,
+        secret=_target_secret(store, routine, call.get("index")),
+        delivery_id=str(post_id),
+    )
+    result = str(sent.get("result") or "failed")
+    reason = str(sent.get("reason") or "")
+    record_channel_post(
+        store,
+        post_id=post_id,
+        tenant_id=tenant_id,
         kind=target or "webhook",
         body=str(arguments.get("text") or ""),
-        external_message_id=external,
-        detail={
-            "tool": tool,
-            "routine_id": str(routine.get("id") or ""),
-            "signature": signed,
-        },
+        external_message_id=str(sent.get("external_message_id") or ""),
+        status=result,
+        detail={"tool": tool, "routine_id": str(routine.get("id") or ""), "reason": reason},
     )
-    posts = getattr(store, "delivery_posts", None)
-    if not isinstance(posts, list):
-        posts = []
-        store.delivery_posts = posts
-    posts.append(
-        {
-            "tool": call.get("tool"),
-            "target": target,
-            "signed": signed,
-            "routine_id": str(routine.get("id") or ""),
-            "post_id": str(recorded.get("id") or ""),
-        }
-    )
-    DELIVERY.labels(target=target or "unknown", result="posted").inc()
-    return {
-        "target": target,
-        "result": "posted",
-        "signature": signed,
-        "post_id": str(recorded.get("id")),
-    }
+    DELIVERY.labels(target=target or "unknown", result=result).inc()
+    outcome: dict[str, object] = {"target": target, "result": result, "post_id": str(post_id)}
+    if reason:
+        outcome["reason"] = reason
+    return outcome
+
+
+def _target_secret(store: Any, routine: dict[str, object], index: object) -> str:
+    """The signing secret of one delivery target. It is kept as a secret, by name."""
+    from ar_domain.tools.named_secrets import read_named_secret  # noqa: PLC0415
+
+    raw = routine.get("delivery")
+    rows = raw if isinstance(raw, list) else []
+    if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(rows):
+        return ""
+    name = str(_as_dict(_as_dict(rows[index]).get("config")).get("secret_name") or "")
+    return read_named_secret(store, routine.get("tenant_id"), name) or ""
 
 
 def _masked_arguments(
@@ -431,30 +574,46 @@ def _masked_arguments(
 def _arguments(
     routine: dict[str, object], run: dict[str, object] | None, target: dict[str, object]
 ) -> dict[str, object]:
-    text = ""
-    if isinstance(run, dict):
-        text = str(run.get("result_summary") or "")
+    """What one target is sent. A secret is never part of it."""
+    text = "" if run is None else str(run.get("result_summary") or "")
     config = _as_dict(target.get("config"))
-    return {
-        "channel": target.get("channel"),
-        "integration": target.get("integration"),
-        "text": text,
-        "url": config.get("url") or "",
-        "secret": config.get("secret") or "",
-        "payload": {
-            "routine_id": str(routine.get("id")),
-            "run_id": "" if run is None else str(run.get("id")),
+    kind = str(target.get("type") or "")
+    if kind == "email":
+        return {
+            "integration": target.get("integration"),
+            "to": str(config.get("to") or target.get("channel") or ""),
+            "subject": str(config.get("subject") or routine.get("name") or ""),
             "text": text,
-        },
+        }
+    if kind == "webhook":
+        return {
+            "url": str(config.get("url") or ""),
+            "text": text,
+            "payload": {
+                "routine_id": str(routine.get("id")),
+                "run_id": "" if run is None else str(run.get("id")),
+                "conversation_id": "" if run is None else str(run.get("conversation_id") or ""),
+                "status": "" if run is None else str(run.get("status") or ""),
+                "text": text,
+            },
+        }
+    return {
+        "integration": target.get("integration"),
+        "channel": target.get("channel"),
+        "text": text,
     }
 
 
-def _targets(routine: dict[str, object], run: dict[str, object] | None) -> list[dict[str, object]]:
+def _targets(
+    routine: dict[str, object], run: dict[str, object] | None
+) -> list[tuple[int, dict[str, object]]]:
+    """Each delivery target with its place in the routine's list. A dry run sends nothing out."""
     raw = routine.get("delivery")
-    rows = [item for item in raw if isinstance(item, dict)] if isinstance(raw, list) else []
-    if isinstance(run, dict) and run.get("dry_run") is True:
-        return [item for item in rows if item.get("type") == "conversation"]
-    return rows
+    rows = raw if isinstance(raw, list) else []
+    found = [(index, item) for index, item in enumerate(rows) if isinstance(item, dict)]
+    if run is not None and run.get("dry_run") is True:
+        return [pair for pair in found if pair[1].get("type") == "conversation"]
+    return found
 
 
 def _standing(store: Any, routine: dict[str, object], tool: str) -> bool:

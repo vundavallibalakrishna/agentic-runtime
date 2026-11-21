@@ -87,7 +87,7 @@ Credentials are **never** placed in tool arguments, model context, sandbox envir
 | `web` | builtin | `web.fetch` (GET a URL through the egress proxy; tenant allowlist applies) | R0 (open-world) |
 | `agents` | builtin (control) | `agents.delegate` | W1 |
 | `plan` | builtin (control) | `plan.update` | W1 |
-| `delivery` | builtin (system) | `delivery.slack_post`, `delivery.teams_post`, `delivery.email_send`, `delivery.webhook_post` (never offered to models; invoked by the runtime's routine delivery phase, [spec 15 §4](../03-specs/15-routines-triggers.md#4-delivery-phase-in-agentrunworkflow-for-triggerroutine)) | W2 |
+| `delivery` | builtin (system) | `delivery.slack_post`, `delivery.teams_post`, `delivery.email_send`, `delivery.webhook_post` (never offered to models and not served by the gateway; the system worker makes these calls in the routine delivery phase, [spec 15 §4](../03-specs/15-routines-triggers.md#4-delivery-phase-in-complete_routine_event-after-the-run-has-ended)) | W2 |
 | `tools` | builtin (control) | `tools.search` (only offered when tool search is active; loads matching tools into the run's tool set) | R0 |
 | `sandbox` | sandbox | `sandbox.exec`, `sandbox.read_file`, `sandbox.write_file`, `sandbox.list_files`, `sandbox.export_file` | W1 (workspace-scoped) |
 | `browser` | sandbox | `browser.navigate`, `browser.snapshot`, `browser.click`, `browser.type`, `browser.press`, `browser.scroll`, `browser.screenshot`, `browser.submit_form` | R0 except `browser.type` W1 and `browser.submit_form` W2 |

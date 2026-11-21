@@ -58,7 +58,11 @@ async def save_events(session: AsyncSession, rows: list[dict[str, Any]]) -> None
         await session.execute(
             stmt.on_conflict_do_update(
                 index_elements=[RoutineEvent.routine_id, RoutineEvent.idempotency_key],
-                set_={"status": stmt.excluded.status, "run_id": stmt.excluded.run_id},
+                set_={
+                    "status": stmt.excluded.status,
+                    "run_id": stmt.excluded.run_id,
+                    "detail": stmt.excluded.detail,
+                },
                 where=RoutineEvent.tenant_id == row["tenant_id"],
             )
         )

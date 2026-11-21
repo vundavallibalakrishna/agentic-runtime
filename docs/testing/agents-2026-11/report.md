@@ -141,7 +141,7 @@ research passes: stopped in 5 seconds.
 ### Seen and not changed
 
 - A routine's result is not delivered by email or webhook; the conversation and the file
-  are (OQ-159 a).
+  are (OQ-159 a). Fixed in the fourth pass below.
 - An archived agent counts against the plan's agent limit (OQ-159 b). The test tenant
   reached 200 this way and its limit was raised by hand to go on.
 - A routine handed to a person who may not use its agent cannot run (OQ-159 c).
@@ -151,3 +151,19 @@ research passes: stopped in 5 seconds.
 - In the chat screen a stopped reply keeps its text but is not marked as stopped, and
   Continue is offered only under a failed reply (OQ-159 f).
 - A deleted routine's webhook secret stays in the secrets store (OQ-159 g).
+
+## Fourth pass: delivery of a routine's result (21 November 2026)
+
+Same stack and model. The two delivery checks that failed in the third pass were fixed
+where they were caused ([OQ-161](../../open-questions.md)), and a webhook check was added.
+
+| Check | Third pass | Now |
+|---|---|---|
+| Email approved in advance arrives in the mailbox | fail (recorded as sent, nothing sent) | pass |
+| Email held for its owner: nothing leaves, the owner approves in the inbox, it arrives once, the event shows it sent | fail (no approval a person could decide) | pass |
+| Webhook: the call arrives signed with the target's secret; with the address down the event says why | not written | pass |
+
+Found on the way and not changed: Slack and Teams have no sender, password-reset and
+notification mail is queued and never sent, a person who built an agent cannot approve
+its routine's delivery, and two stacks on one machine share the compose networks
+(OQ-161 a to d).

@@ -25,7 +25,6 @@ from ar_domain.routines.engine import (
     complete_routine_event,
     pause_for_owner,
     prepare_routine_run,
-    release_delivery,
 )
 from ar_domain.routines.metrics import ACTIVE
 from ar_domain.routines.schedule import describe_cron, min_gap_seconds, preview_schedule
@@ -96,7 +95,7 @@ class RoutineBook:
         routine_id = new_id()
         secret = new_secret() if trigger_type == "webhook" else ""
         token = new_token() if trigger_type == "webhook" else ""
-        delivery = self._delivery(body.get("delivery"))
+        delivery = self._delivery(actor.tenant_id, routine_id, body.get("delivery"), [])
         row: dict[str, object] = {
             "id": routine_id,
             "tenant_id": actor.tenant_id,
@@ -176,7 +175,12 @@ class RoutineBook:
                 agent = self._agent(actor, body.get("agent_id"))
                 row["agent_id"] = agent["id"]
                 row["agent_name"] = agent.get("name")
-            delivery = self._delivery(body.get("delivery", row.get("delivery")))
+            delivery = self._delivery(
+                actor.tenant_id,
+                routine_id,
+                body.get("delivery", row.get("delivery")),
+                row.get("delivery"),
+            )
             row["delivery"] = delivery
             self._grant_standing(actor, row, delivery)
         row["updated_at"] = utcnow()
@@ -427,12 +431,6 @@ class RoutineBook:
                 matched += 1
         return {"matched": matched}
 
-    def release(self, actor: Actor, approval_id: uuid.UUID) -> dict[str, object]:
-        row = self.store.approvals.get(approval_id)
-        if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
-            raise NotFoundError("approval not found")
-        return release_delivery(self.store, approval_id)
-
     def _check_limits(self, actor: Actor, trigger: dict[str, object]) -> None:
         owned = sum(
             1
@@ -574,6 +572,7 @@ class RoutineBook:
 
     def _event_view(self, event: dict[str, object]) -> dict[str, object]:
         envelope = _map(event.get("envelope"))
+        sent = _map(event.get("detail")).get("deliveries")
         return {
             "id": str(event.get("id")),
             "source": event.get("source"),
@@ -581,6 +580,16 @@ class RoutineBook:
             "received_at": _iso(event.get("received_at")),
             "run_id": None if event.get("run_id") is None else str(event.get("run_id")),
             "envelope_preview": str(envelope.get("type") or "")[:80],
+            "deliveries": [
+                {
+                    "target": item.get("target"),
+                    "result": item.get("result"),
+                    "reason": item.get("reason"),
+                    "approval_id": item.get("approval_id"),
+                }
+                for item in (sent if isinstance(sent, list) else [])
+                if isinstance(item, dict)
+            ],
         }
 
     def _owned(
@@ -648,12 +657,34 @@ class RoutineBook:
             raise NotFoundError("agent not found")
         return agent
 
-    def _delivery(self, raw: object) -> list[dict[str, object]]:
+    def _delivery(
+        self, tenant_id: uuid.UUID, routine_id: uuid.UUID, raw: object, previous: object
+    ) -> list[dict[str, object]]:
+        """The delivery targets as they are kept. A signing secret is stored as a secret."""
         if raw is None:
             return [{"type": "conversation"}]
         if not isinstance(raw, list):
             raise ValidationFailedError("delivery must be a list")
-        return [item for item in raw if isinstance(item, dict)]
+        before = previous if isinstance(previous, list) else []
+        kept: list[dict[str, object]] = []
+        for index, item in enumerate(item for item in raw if isinstance(item, dict)):
+            config = item.get("config")
+            secret = config.get("secret") if isinstance(config, dict) else None
+            if not isinstance(config, dict) or not isinstance(secret, str) or not secret:
+                kept.append(item)
+                continue
+            from ar_domain.tools.named_secrets import write_named_secret  # noqa: PLC0415
+
+            earlier = before[index] if index < len(before) else None
+            earlier_config = earlier.get("config") if isinstance(earlier, dict) else None
+            name = str(
+                (earlier_config.get("secret_name") if isinstance(earlier_config, dict) else "")
+                or f"routine-delivery:{routine_id}:{new_id().hex[:12]}"
+            )
+            write_named_secret(self.store, tenant_id, name, secret)
+            rest = {key: value for key, value in config.items() if key != "secret"}
+            kept.append({**item, "config": {**rest, "secret_name": name}})
+        return kept
 
     def _trigger_config(self, trigger: dict[str, object]) -> dict[str, object]:
         return {

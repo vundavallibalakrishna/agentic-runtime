@@ -194,8 +194,12 @@ def test_routine_delivery_writes_a_durable_post_and_deny_blocks() -> None:
     }
     store.routines[routine_id] = routine
     outcomes = deliver(store, routine, {"id": uuid.uuid4()}, {"result_summary": "Digest ready"})
-    assert outcomes[0]["result"] == "posted"
-    assert any(row.get("body") == "Digest ready" for row in store.channel_posts.values())
+    # Nothing in this install sends to Slack, so the record says failed, not posted.
+    assert outcomes[0]["result"] == "failed"
+    assert any(
+        row.get("body") == "Digest ready" and row.get("status") == "failed"
+        for row in store.channel_posts.values()
+    )
     policy_id = uuid.uuid4()
     version_id = uuid.uuid4()
     store.policies[policy_id] = {
