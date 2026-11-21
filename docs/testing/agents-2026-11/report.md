@@ -155,7 +155,7 @@ research passes: stopped in 5 seconds.
 ## Fourth pass: delivery of a routine's result (21 November 2026)
 
 Same stack and model. The two delivery checks that failed in the third pass were fixed
-where they were caused ([OQ-160](../../open-questions.md)), and a webhook check was added.
+where they were caused ([OQ-161](../../open-questions.md)), and a webhook check was added.
 
 | Check | Third pass | Now |
 |---|---|---|
@@ -166,4 +166,4 @@ where they were caused ([OQ-160](../../open-questions.md)), and a webhook check 
 Found on the way and not changed: Slack and Teams have no sender, password-reset and
 notification mail is queued and never sent, a person who built an agent cannot approve
 its routine's delivery, and two stacks on one machine share the compose networks
-(OQ-160 a to d).
+(OQ-161 a to d).

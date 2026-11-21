@@ -12,6 +12,8 @@ COPY pyproject.toml uv.lock ./
 COPY libs libs
 COPY services services
 COPY connectors connectors
+# The policy decision rules; the ar-domain package build copies them in (see python-service.Dockerfile).
+COPY policies/rego/ar policies/rego/ar
 RUN uv sync --frozen --no-dev --no-editable --package ar-ingest \
     && chown -R app:app /app
 ENV PATH="/app/.venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 AR_APP_MODULE=ar_ingest.main AR_PORT=8014

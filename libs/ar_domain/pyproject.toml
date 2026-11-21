@@ -58,6 +58,12 @@ ar-contracts = { workspace = true }
 [tool.hatch.build.targets.wheel]
 packages = ["src/ar_domain"]
 
+# The OPA decision rules travel inside the package, so the bundle the API serves is the
+# same in a source checkout, a wheel and a service image (ar_domain/policy/bundle.py).
+[tool.hatch.build.targets.wheel.force-include]
+"../../policies/rego/ar/policy.rego" = "ar_domain/policy/rego/policy.rego"
+"../../policies/rego/ar/jsonpath.rego" = "ar_domain/policy/rego/jsonpath.rego"
+
 [tool.deptry]
 known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
 
