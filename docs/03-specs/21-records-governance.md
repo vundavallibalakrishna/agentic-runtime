@@ -286,7 +286,7 @@ Tenant settings added to `TenantSettings` (not env vars): `evidence.tsa_enabled`
 
 ## 10. Routine delivery review
 
-Additive rule for [spec 15 §4](15-routines-triggers.md#4-delivery-phase-in-agentrunworkflow-for-triggerroutine): a delivery target object may include `reviewBeforeSend: bool` (default false; Python attribute `review_before_send`). When true, `AgentRunWorkflow` writes a binder of the delivery body (one evidence item for the rendered body, one binder) and a review item, and does not call `delivery.*` until the review item is `signed`. Rejection notifies the routine owner (`review_decided`) and skips delivery. This is the review step for scheduled reports.
+Additive rule for [spec 15 §4](15-routines-triggers.md#4-delivery-phase-in-complete_routine_event-after-the-run-has-ended): a delivery target object may include `reviewBeforeSend: bool` (default false; Python attribute `review_before_send`). When true, `AgentRunWorkflow` writes a binder of the delivery body (one evidence item for the rendered body, one binder) and a review item, and does not call `delivery.*` until the review item is `signed`. Rejection notifies the routine owner (`review_decided`) and skips delivery. This is the review step for scheduled reports.
 
 ## 11. Test plan
 

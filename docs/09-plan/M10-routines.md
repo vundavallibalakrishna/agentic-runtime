@@ -41,7 +41,7 @@ Exit criteria: a weekly routine (cron, `Asia/Kolkata`) runs the agent as its own
 ### M10-T04 · Delivery phase and `delivery.*` tools
 - **Depends on:** M10-T02
 - **Areas:** `ar_runtime/activities/build_delivery_calls.py`, `ar_runtime/workflows/agent_run.py`, `ar_mcp_gateway/builtins/delivery.py`
-- **Spec:** [spec 15 §4](../03-specs/15-routines-triggers.md#4-delivery-phase-in-agentrunworkflow-for-triggerroutine), [internal-apis §8](../05-contracts/internal-apis.md#8-channels-internal-endpoints-base-httpchannels8004)
+- **Spec:** [spec 15 §4](../03-specs/15-routines-triggers.md#4-delivery-phase-in-complete_routine_event-after-the-run-has-ended), [internal-apis §8](../05-contracts/internal-apis.md#8-channels-internal-endpoints-base-httpchannels8004)
 - **Do:** `build_delivery_calls` after the final answer; `delivery.slack_post`, `delivery.teams_post`, `delivery.email_send`, `delivery.webhook_post` (W2, never offered to models, entitled only for `trigger='routine'`) executed through the normal pipeline (policy → standing approval or owner approval); channel deliveries call `channels` `POST /internal/v1/outbound` (stubbed by a fake channels server until M11-T02); webhook delivery signed; delivery outcomes in `routine_events.detail.deliveries`.
 - **Done when:** a delivery without a standing approval waits for the owner's approval and then posts exactly once.
 - **Tests:** Temporal tests with fake channels server; webhook signature test.
