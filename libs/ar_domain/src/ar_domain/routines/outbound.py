@@ -7,7 +7,6 @@ and says what happened in words a person can act on. No content is logged.
 
 from __future__ import annotations
 
-import smtplib
 from typing import TYPE_CHECKING
 
 import httpx
@@ -63,7 +62,7 @@ def _email(store: Any, tenant_id: object, arguments: dict[str, object]) -> dict[
     }
     try:
         message_id = send_smtp(message)
-    except (smtplib.SMTPException, OSError) as exc:
+    except OSError as exc:  # a refusal by the server is an OSError too
         return _failed(f"The mail server refused the message ({type(exc).__name__}).")
     return {"result": "posted", "external_message_id": message_id}
 
