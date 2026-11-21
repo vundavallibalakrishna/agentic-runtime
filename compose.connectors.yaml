@@ -1,0 +1,25 @@
+# Connectors: the SQL and OpenAPI connection servers.
+x-env: &env
+  AR_MCP_OPENAPI_URL: http://mcp-openapi:${AR_MCP_OPENAPI_HOST_PORT:-8011}/mcp
+  AR_MCP_SQL_URL: http://mcp-sql:${AR_MCP_SQL_HOST_PORT:-8010}/mcp
+
+services:
+  mcp-sql:
+    profiles: [production]
+  mcp-openapi:
+    profiles: [production]
+  api:
+    environment:
+      <<: *env
+  mcp-gateway:
+    environment:
+      <<: *env
+  runtime-worker:
+    environment:
+      <<: *env
+  system-worker:
+    environment:
+      <<: *env
+  ingest-worker:
+    environment:
+      <<: *env

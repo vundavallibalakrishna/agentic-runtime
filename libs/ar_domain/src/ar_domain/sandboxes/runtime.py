@@ -65,7 +65,12 @@ from ar_domain.durable.after import after_commit
 from ar_domain.durable.tracking import keep
 from ar_domain.files.logic import object_key
 from ar_domain.rows import as_int
-from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher, process_owner
+from ar_domain.sandboxes.manager_launch import (
+    COMPUTERS_OFF,
+    ComputersOff,
+    SandboxManagerLauncher,
+    process_owner,
+)
 from ar_domain.usage.logic import UsageRecord
 from ar_domain.usage.service import note
 
@@ -252,6 +257,8 @@ def _launch(store: Any, row: dict[str, object], token: str) -> None:
     Only the sandbox manager holds a pod creator.
     """
     launcher = getattr(store, "sandbox_launcher", None)
+    if isinstance(launcher, ComputersOff):
+        raise SandboxStartError(COMPUTERS_OFF)
     if launcher is None or row.get("driver") != "docker":
         return
     sandbox_id = cast("uuid.UUID", row["id"])
@@ -431,6 +438,8 @@ def ensure_scope(
 ) -> dict[str, object]:
     """Create or resume the one live computer for a scope."""
     launcher = getattr(store, "sandbox_launcher", None)
+    if isinstance(launcher, ComputersOff):
+        raise SandboxStartError(COMPUTERS_OFF)
     if isinstance(launcher, SandboxManagerLauncher) or _delegate_to_manager(store):
         return _delegate_ensure(
             store,

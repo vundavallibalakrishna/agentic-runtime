@@ -1,5 +1,9 @@
 # One install, development and production. Profile `dev` is the data plane for a
-# host process. Profile `production` is the single-node install.
+# host process. Profile `production` is the single-node install: the core, and
+# nothing a basic tenant does not use. A feature a customer switches on is one more file, named
+# compose.<feature>.yaml (computers, channels, connectors, opa, vault, model-gateway),
+# which starts that feature's services and tells the core where they are. List the
+# files in COMPOSE_FILE in .env. See docs/07-ops/compose.md.
 # Order: postgres, reconcile-roles, migrate, temporal-schema, temporal, apps.
 # Host ports except web and api bind to 127.0.0.1. See docs/07-ops/compose.md.
 name: agentic-runtime
@@ -32,18 +36,21 @@ x-app-env: &app-env
   AR_DB_TEMPORAL_PASSWORD: ${AR_DB_TEMPORAL_PASSWORD:?set AR_DB_TEMPORAL_PASSWORD}
   AR_VALKEY_URL: redis://valkey:6379/0
   AR_API_INTERNAL_URL: http://api:${AR_PORT:-8000}
-  AR_MODEL_GATEWAY_URL: http://model-gateway:${AR_MG_PORT:-8001}
   AR_MCP_GATEWAY_URL: http://mcp-gateway:${AR_MCPG_PORT:-8002}
-  AR_MCP_OPENAPI_URL: http://mcp-openapi:${AR_MCP_OPENAPI_HOST_PORT:-8011}/mcp
-  AR_MCP_SQL_URL: http://mcp-sql:${AR_MCP_SQL_HOST_PORT:-8010}/mcp
-  AR_OPA_URL: http://opa:8181
+  # The addresses of services the core does not start. They are empty here on purpose,
+  # so a value in a laptop .env cannot point a container at a service that is not there.
+  # The feature's own compose file sets each one.
+  AR_MODEL_GATEWAY_URL: ""
+  AR_MCP_OPENAPI_URL: ""
+  AR_MCP_SQL_URL: ""
+  AR_OPA_URL: ""
   AR_OPA_BUNDLE_TOKEN: ${AR_OPA_BUNDLE_TOKEN:-}
   AR_TEMPORAL_ADDRESS: temporal:7233
   AR_TEMPORAL_NUM_HISTORY_SHARDS: ${AR_TEMPORAL_NUM_HISTORY_SHARDS:-4}
-  AR_SANDBOX_DRIVER: docker
-  AR_SANDBOX_MANAGER_URL: http://sandbox-manager:${AR_SANDBOX_MANAGER_HOST_PORT:-8003}
-  AR_SANDBOX_DOCKER_NETWORK: agentic-runtime_sandbox
-  AR_SANDBOX_EGRESS_PROXY: http://squid:3128
+  AR_SANDBOX_DRIVER: ""
+  AR_SANDBOX_MANAGER_URL: ""
+  AR_SANDBOX_DOCKER_NETWORK: ""
+  AR_SANDBOX_EGRESS_PROXY: ""
   AR_SANDBOX_IMAGE: ${AR_SANDBOX_IMAGE:-ar-sandbox:dev}
   # In-network addresses. A laptop .env must not leak localhost into a container:
   # these keys are set here, not interpolated from the env file.
@@ -217,7 +224,7 @@ services:
 
   openbao:
     <<: *run
-    profiles: [dev, production]
+    profiles: [dev]
     image: openbao/openbao:2.7.1
     cap_add: [IPC_LOCK]
     command: ["server", "-dev", "-dev-root-token-id=dev-root-token", "-dev-listen-address=0.0.0.0:8200"]
@@ -227,7 +234,7 @@ services:
 
   opa:
     <<: *run
-    profiles: [dev, production]
+    profiles: [dev]
     image: openpolicyagent/opa:1.21.3-static
     command: ["run", "--server", "--addr", "0.0.0.0:8181", "--config-file", "/etc/opa/config.yaml"]
     environment:
@@ -258,7 +265,7 @@ services:
   squid:
     restart: unless-stopped
     logging: *logging
-    profiles: [dev, production]
+    profiles: [dev]
     networks: [app, sandbox]
     build:
       context: .
@@ -367,7 +374,7 @@ services:
 
   model-gateway:
     <<: *run
-    profiles: [production]
+    profiles: [feature]
     depends_on: *app-depends
     healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: model_gateway } }
@@ -391,7 +398,7 @@ services:
 
   sandbox-manager:
     <<: *run
-    profiles: [production]
+    profiles: [feature]
     user: "0:0"
     depends_on: *app-depends
     healthcheck: *py-health
@@ -406,7 +413,7 @@ services:
 
   channels:
     <<: *run
-    profiles: [production]
+    profiles: [feature]
     depends_on: *app-depends
     healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: channels } }
@@ -418,7 +425,7 @@ services:
 
   mcp-sql:
     <<: *run
-    profiles: [production]
+    profiles: [feature]
     depends_on: *app-depends
     healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_sql } }
@@ -430,7 +437,7 @@ services:
 
   mcp-openapi:
     <<: *run
-    profiles: [production]
+    profiles: [feature]
     depends_on: *app-depends
     healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_openapi } }
@@ -484,7 +491,7 @@ services:
 
   sandbox-agent:
     <<: *run
-    profiles: [production]
+    profiles: [feature]
     depends_on: *app-depends
     healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: sandbox_agent } }

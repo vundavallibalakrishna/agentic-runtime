@@ -14,7 +14,7 @@ set -a
 . ./.env
 set +a
 
-# The production profile is the install. The smoke adds a test-only model
+# The production profile is the core install. The smoke adds a test-only model
 # overlay so the chat turn has an OpenAI-compatible server. That file is not
 # part of compose.yaml.
 export AR_ENV=dev
@@ -29,6 +29,23 @@ AR_ENV=dev \
   uv run python scripts/seed.py
 $compose restart runtime-worker >/dev/null
 uv run python scripts/compose_smoke.py
+
+# What the core costs. The table in docs/07-ops/compose.md comes from this output.
+echo "core install: containers and memory"
+$compose ps --format 'table {{.Service}}\t{{.Status}}'
+docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}'
+
+# Every feature on: the services the core leaves out start, and a tool call is decided
+# by OPA. Computers are not started here: their image is built separately.
+echo "every feature on"
+features="-f compose.yaml -f tests/compose/ci-model.yaml -f compose.opa.yaml -f compose.vault.yaml \
+  -f compose.channels.yaml -f compose.connectors.yaml -f compose.model-gateway.yaml"
+# shellcheck disable=SC2086
+docker compose $features --profile production up -d --build --wait
+AR_SMOKE_OPA=1 AR_SMOKE_ONLY=policy uv run python scripts/compose_smoke.py
+# shellcheck disable=SC2086
+docker compose $features --profile production ps --format 'table {{.Service}}\t{{.Status}}'
+docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}'
 
 echo "upgrade from a main-style volume"
 upgrade_volume=ar-main-style-pg

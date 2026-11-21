@@ -1,0 +1,4 @@
+# Channels: Slack, Teams and email reach the product through this service.
+services:
+  channels:
+    profiles: [production]

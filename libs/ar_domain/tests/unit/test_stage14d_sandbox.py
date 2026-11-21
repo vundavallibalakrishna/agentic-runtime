@@ -433,3 +433,25 @@ def test_a_folder_the_computer_will_not_take_stops_the_run(
     quiet = _call(store, "shell", command="echo hello")
     assert quiet["code"] == "sandbox_unavailable"
     assert "did not answer" in quiet["text"]
+
+
+def test_an_install_without_the_sandbox_manager_starts_and_says_computers_are_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Staging and production without the manager: the process starts, a computer is refused."""
+    from ar_common.settings import BaseServiceSettings, EnvName
+    from ar_domain.sandboxes.manager_launch import (
+        COMPUTERS_OFF,
+        ComputersOff,
+        register_sandbox_client,
+    )
+
+    monkeypatch.delenv("AR_SANDBOX_MANAGER_URL", raising=False)
+    store = demo_store()
+    settings = BaseServiceSettings(env=EnvName.STAGING, cursor_secret="not-the-dev-secret")  # noqa: S106
+    register_sandbox_client(store, settings)
+    assert isinstance(store.sandbox_launcher, ComputersOff)
+    with pytest.raises(SandboxStartError, match="Computers are not switched on"):
+        _ensure(store, "conv:computers-off")
+    assert COMPUTERS_OFF.startswith("Computers are not switched on")
+    assert not store.sandboxes

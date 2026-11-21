@@ -1,6 +1,6 @@
 # Plan: a small install
 
-Status: proposed on 21 November 2026, waiting for the owner's decisions in section 6. Nothing here is built.
+Status: the owner accepted the recommendations in section 6 on 21 November 2026 (decisions 1 to 3 as recommended; 4 after stage 1's measurements; 5 after Compose). Stage 1 is in progress: the core and the feature files are built, and CI's `compose-smoke` job is where they are proved and measured. The core is ten containers until stage 2 merges the two workers.
 
 ## 1. Why
 
@@ -89,6 +89,8 @@ Read from the code at `a1319771` on 21 November 2026. Nothing in this section ha
 | `postgres`, `valkey`, `temporal`, `seaweedfs` | As today |
 
 ### Switched on by the customer
+
+As built in stage 1, a feature is a file, `compose.<feature>.yaml`, not a profile: one file starts the feature's services and sets their addresses on the core, so there is one switch and it cannot be half set. The files are listed in `docs/07-ops/compose.md` section 3a.
 
 | Profile | Adds | When |
 |---|---|---|

@@ -1,7 +1,9 @@
 """Production Compose install smoke.
 
 Waits for /readyz, runs one chat turn against the test model, restarts Temporal and
-the runtime worker, and checks the workflow is still there.
+the runtime worker, and checks the workflow is still there. ``AR_SMOKE_OPA=1`` also
+proves the OPA bundle (the install has the OPA feature); ``AR_SMOKE_ONLY=policy`` stops
+after the policy proof and one tool call through the gateway.
 """
 
 from __future__ import annotations
@@ -156,7 +158,13 @@ def main() -> None:  # noqa: PLR0915
     api = os.environ.get("AR_SMOKE_API", "http://127.0.0.1:8000").rstrip("/")
     temporal_address = os.environ.get("AR_SMOKE_TEMPORAL", "127.0.0.1:7233")
     _wait_ready(api, float(os.environ.get("AR_SMOKE_READY_S", "180")))
-    _prove_opa_bundle()
+    # The core decides policy with the built-in evaluator and has no OPA server. With the
+    # OPA feature on, the bundle is proved and then a tool call is decided through it.
+    if os.environ.get("AR_SMOKE_OPA") == "1":
+        _prove_opa_bundle()
+    if os.environ.get("AR_SMOKE_ONLY") == "policy":
+        _prove_gateway_hop()
+        return
     jar = http.cookiejar.CookieJar(policy=_LoopbackCookies())
     with httpx.Client(base_url=api, timeout=60, cookies=httpx.Cookies(jar)) as client:
         signed = client.post(

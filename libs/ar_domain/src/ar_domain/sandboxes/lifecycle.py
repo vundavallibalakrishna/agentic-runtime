@@ -25,7 +25,12 @@ from ar_common.sandbox_docker import LABEL_INSTALL, LABEL_OWNER, LABEL_PRODUCT, 
 from ar_common.settings import get_settings, install_id
 from ar_domain.readmodel.model import RepositoryReadModel
 from ar_domain.sandboxes import runtime
-from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher, owner_gone, process_owner
+from ar_domain.sandboxes.manager_launch import (
+    ComputersOff,
+    SandboxManagerLauncher,
+    owner_gone,
+    process_owner,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -166,7 +171,7 @@ async def reconcile(process_store: Any) -> int:
     come from a release before the labels; they are reported once and never removed.
     """
     launcher = getattr(process_store, "sandbox_launcher", None)
-    if isinstance(launcher, SandboxManagerLauncher):
+    if isinstance(launcher, (SandboxManagerLauncher, ComputersOff)):
         return 0
     settings = get_settings()
     install = install_id(settings)
@@ -251,6 +256,8 @@ async def sweep(process_store: Any) -> dict[str, int]:
     that is gone is not an error.
     """
     launcher = getattr(process_store, "sandbox_launcher", None)
+    if isinstance(launcher, ComputersOff):
+        return {"suspended": 0, "terminated": 0, "removed": 0}
     if isinstance(launcher, SandboxManagerLauncher):
         asked = await run_sync(launcher.reap)
         return {key: int(asked.get(key, 0)) for key in ("suspended", "terminated", "removed")}
@@ -270,7 +277,7 @@ def stop_started(store: Any) -> int:
     path, which records it.
     """
     launcher = getattr(store, "sandbox_launcher", None)
-    if launcher is None or isinstance(launcher, SandboxManagerLauncher):
+    if launcher is None or isinstance(launcher, (SandboxManagerLauncher, ComputersOff)):
         return 0
     ended = 0
     for row in list(store.sandboxes.values()):
@@ -360,6 +367,8 @@ def keeper_for(store: Any) -> SandboxKeeper | None:
     computers outlive a restart.
     """
     launcher = getattr(store, "sandbox_launcher", None)
-    if isinstance(launcher, SandboxManagerLauncher) or isinstance(store, RepositoryReadModel):
+    if isinstance(launcher, (SandboxManagerLauncher, ComputersOff)) or isinstance(
+        store, RepositoryReadModel
+    ):
         return None
     return SandboxKeeper(store, interval_s=float(get_settings().sandbox_reap_interval_s))

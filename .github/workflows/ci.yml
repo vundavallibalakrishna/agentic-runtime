@@ -242,7 +242,7 @@ jobs:
       - run: bash scripts/compose_install.sh
       - name: Compose logs
         if: failure()
-        run: docker compose --profile production logs --no-color --tail 120
+        run: docker compose -f compose.yaml -f compose.opa.yaml -f compose.vault.yaml -f compose.channels.yaml -f compose.connectors.yaml -f compose.model-gateway.yaml --profile production logs --no-color --tail 120
 
   docs:
     if: github.event.action != 'edited'

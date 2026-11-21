@@ -1,4 +1,5 @@
-# Air-gap override. The app network has no route to the internet. Squid is the
+# Air-gap override. Use it with compose.computers.yaml (the proxy lives there) and, if
+# the install has one, compose.model-gateway.yaml. The app network has no route to the internet. Squid is the
 # only process on the external network. Model calls from api, the model gateway
 # and the runtime worker go through that proxy. Hosts they may open are the
 # lines in deploy/compose/squid/allowlist.txt. Sandboxes stay on the internal

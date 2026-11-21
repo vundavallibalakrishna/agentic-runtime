@@ -55,6 +55,10 @@ def build_product_store(
         from ar_domain.chat.service import ChatService  # noqa: PLC0415
 
         store = ChatService(**options)
+    # Where policy is decided is one answer for the install: the OPA server when its
+    # address is set, the built-in evaluator when it is not. It is read here so the API,
+    # the tool gateway and the workers cannot disagree.
+    store.opa_url = os.environ.get("AR_OPA_URL", "").strip()
     if not starts_sandboxes:
         from ar_domain.sandboxes.manager_launch import register_sandbox_client  # noqa: PLC0415
 

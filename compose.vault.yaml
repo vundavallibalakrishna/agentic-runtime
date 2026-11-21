@@ -1,0 +1,5 @@
+# Vault: an OpenBao server for an install that keeps secrets in a vault
+# (AR_SECRETS_BACKEND=vault). The default keeps them encrypted in the database.
+services:
+  openbao:
+    profiles: [production]

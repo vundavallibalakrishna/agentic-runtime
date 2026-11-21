@@ -1,0 +1,23 @@
+# Model gateway: one address for models that have no address of their own.
+# A provider registered with its own address is called there directly.
+x-env: &env
+  AR_MODEL_GATEWAY_URL: http://model-gateway:${AR_MG_PORT:-8001}
+
+services:
+  model-gateway:
+    profiles: [production]
+  api:
+    environment:
+      <<: *env
+  mcp-gateway:
+    environment:
+      <<: *env
+  runtime-worker:
+    environment:
+      <<: *env
+  system-worker:
+    environment:
+      <<: *env
+  ingest-worker:
+    environment:
+      <<: *env

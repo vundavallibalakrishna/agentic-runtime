@@ -75,6 +75,29 @@ class NoSandboxImage:
         del container_id
 
 
+COMPUTERS_OFF = (
+    "Computers are not switched on for this install, so a tool that needs one cannot run. "
+    "An administrator adds the computers feature (the sandbox manager) to the install."
+)
+
+
+class ComputersOff:
+    """A staging or production install with no sandbox manager.
+
+    The process still starts. A tool that needs a computer is refused with what to
+    change; nothing ever runs on the host in its place.
+    """
+
+    def start(
+        self, name: str, token: str, sandbox_id: str = "", tenant_id: str = ""
+    ) -> dict[str, object]:
+        del name, token, sandbox_id, tenant_id
+        raise RuntimeError(COMPUTERS_OFF)
+
+    def stop(self, container_id: str) -> None:
+        del container_id
+
+
 def process_owner() -> str:
     """This process as a container label: the host it runs on and its process id.
 
@@ -133,21 +156,18 @@ def docker_launcher() -> Any:
 def register_sandbox_client(store: Any, settings: BaseServiceSettings) -> None:
     """Tell a process that uses computers where they come from.
 
-    Staging and production ask the sandbox manager, and refuse to boot without its
-    address. Dev and CI may start a docker container in process when ``AR_SANDBOX_IMAGE``
-    is set and the install allows an unisolated sandbox. With neither, the computer tools
-    run on the dev host. The sandbox manager itself does not call this: it starts the
-    computers.
+    Staging and production ask the sandbox manager. Without its address the install has
+    no computers: the process starts, and a tool that needs one is refused in words
+    (``ComputersOff``). Dev and CI may start a docker container in process when
+    ``AR_SANDBOX_IMAGE`` is set and the install allows an unisolated sandbox. With neither,
+    the computer tools run on the dev host. The sandbox manager itself does not call this:
+    it starts the computers.
     """
-    from ar_domain.process_state import ProcessLocalStateRefusedError  # noqa: PLC0415
-
     url = os.environ.get("AR_SANDBOX_MANAGER_URL", "").strip()
     shared = uses_shared_process_state(settings.env)
     if shared and not url:
-        raise ProcessLocalStateRefusedError(
-            "staging and production run sandbox tools through the sandbox manager: "
-            "set AR_SANDBOX_MANAGER_URL"
-        )
+        store.sandbox_launcher = ComputersOff()
+        return
     if url and (shared or not unisolated_sandbox_allowed(settings)):
         store.sandbox_launcher = SandboxManagerLauncher(url)
         return
