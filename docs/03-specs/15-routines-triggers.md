@@ -1,6 +1,6 @@
 # Spec 15: Routines and triggers (`ar_domain.routines`)
 
-Endpoints served by `api` (including the public inbound webhook endpoint); orchestration by `system-worker` (`RoutineRunWorkflow`, `RoutinePollWorkflow`, queue `ar-system`); the agent work itself is a normal `AgentRunWorkflow` (trigger `routine`) on `ar-runtime`. Owns `routines`, `routine_events` ([schema §13](../04-data/schema.md#13-routines-ar_domainroutines)). Definition: [definition-schema §6](../05-contracts/definition-schema.md#6-routine-kind-routine). PRD: [08-routines](../01-prd/08-routines.md).
+Endpoints served by `api` (including the public inbound webhook endpoint); orchestration by `system-worker` (`RoutineRunWorkflow`, `RoutineDeliveryWorkflow`, `RoutinePollWorkflow`, queue `ar-system`); the agent work itself is a normal `AgentRunWorkflow` (trigger `routine`) on `ar-runtime`. Owns `routines`, `routine_events` ([schema §13](../04-data/schema.md#13-routines-ar_domainroutines)). Definition: [definition-schema §6](../05-contracts/definition-schema.md#6-routine-kind-routine). PRD: [08-routines](../01-prd/08-routines.md).
 
 ## 1. Concept
 
@@ -26,23 +26,24 @@ Workflow id: `routine-{routine_id}-{event_id}` (event triggers) or Temporal sche
 
 1. `accept_routine_event`: insert `routine_events` (unique `(routine_id, idempotency_key)` → `duplicate` ends the workflow); check routine `status='active'`; check daily cap (`max_runs_per_day`, Valkey counter `ar:routine:{id}:runs:{yyyymmdd}`) → `rate_limited`; check concurrency (`skip` → if an active run exists → `skipped_concurrency`; `buffer_one` → wait for the active run to finish, keeping at most one waiting event; `allow`); check quotas.
 2. `prepare_routine_run`: verify the owner is `active` (else routine → `needs_review`, notify tenant admins) and has a valid delegation token ([spec 03 §5](03-secrets-credentials.md#5-delegation-tokens-keycloak-offline-tokens-and-token-exchange)) when tools need `token_exchange` (else `paused` with `owner_reauth_required`); create a conversation (owner, `channel='routine'`, title `"{routine.name} · {local date time}"`), the input message (routine instructions + event rendered as `<event source="..." trust="untrusted">…</event>`), and the run (`trigger='routine'`, `routine_id`, budget = routine budget ∩ tenant caps).
-3. Start child workflow `AgentRunWorkflow` (`run-{run_id}`, task queue `ar-runtime`) and await it. The runtime's **delivery phase** (§4) executes inside that run.
-4. `complete_routine_event`: `routine_events.status='started'`→ final, `run_id`, update `last_run_at`, `next_run_at` (from the schedule), `consecutive_failures` (reset on success; +1 on failure; at 5 → `paused` with `paused_reason='too_many_failures'` and notification `routine_failed`). Notification `routine_completed` to the owner if `delivery` contains only `conversation` (otherwise the delivery itself is the notification). Outbox `routine.run_completed` (always) and `routine.paused` (when paused automatically).
+3. Start child workflow `AgentRunWorkflow` (`run-{run_id}`, task queue `ar-runtime`) and await it.
+4. `complete_routine_event`: the **delivery phase** (§4), then `routine_events.status='started'`→ final, `run_id`, update `last_run_at`, `next_run_at` (from the schedule), `consecutive_failures` (reset on success; +1 on failure; at 5 → `paused` with `paused_reason='too_many_failures'` and notification `routine_failed`). Notification `routine_completed` to the owner if `delivery` contains only `conversation` (otherwise the delivery itself is the notification). Outbox `routine.run_completed` (always) and `routine.paused` (when paused automatically).
 
-## 4. Delivery phase (in `AgentRunWorkflow` for `trigger='routine'`)
+## 4. Delivery phase (in `complete_routine_event`, after the run has ended)
 
-After the agent's final answer, the runtime constructs one tool call per delivery target (not model-generated) using the built-in `delivery` server tools (all `W2`, never exposed to models, entitled only for `trigger='routine'` runs whose target matches the routine's `delivery` config):
+After the agent's final answer the system worker builds one call per delivery target (never model-generated) with the `delivery` tools. They are `W2`, never offered to a model, and exist only for a run with `trigger='routine'`. A run that failed delivers nothing. A test run (`dry_run`) sends nothing outside the product.
 
-| Target | Tool | Arguments |
-|---|---|---|
-| `conversation` | none | (the run already lives in the owner's conversation) |
-| `slack` | `delivery.slack_post` | `{integration_id, channel, thread_ts?, text: final_markdown, file_ids}` |
-| `teams` | `delivery.teams_post` | `{integration_id, channel_id? , conversation_ref?, text, file_ids}` |
-| `email` | `delivery.email_send` | `{integration_id?, to, cc, subject (template with {{routine.name}}, {{date}}), body_markdown, file_ids}` |
-| `webhook` | `delivery.webhook_post` | `{url, payload: {routine_id, run_id, conversation_id, status, text, files: [{file_id, name, url (presigned 24 h)}]}}` signed with the target secret |
-| `file` | none | artifacts only |
+| Target | Tool | What is sent | Sender |
+|---|---|---|---|
+| `conversation` | none | (the run already lives in the owner's conversation) | none |
+| `email` | `delivery.email_send` | `{integration?, to, subject, text}`. `to` is `config.to`, or `channel`. `subject` is `config.subject`, or the routine's name | The email integration the target names, or the install's mail server (`AR_SMTP_*`) when it names none |
+| `webhook` | `delivery.webhook_post` | `{url, payload: {routineId, runId, conversationId, status, text}}` (camelCase JSON) with headers `X-Delivery-Id` and, when the target has a secret, `X-Signature: t=<unix>,v1=<hex hmac-sha256 of "<t>.<body>">` | An HTTP POST through the egress rules, one attempt, 10 s |
+| `slack`, `teams` | `delivery.slack_post`, `delivery.teams_post` | `{integration, channel, text}` | None yet: the delivery is recorded as `failed` with the reason ([OQ-160](../open-questions.md)) |
+| `file` | none | artifacts only | none |
 
-They pass through `execute_tool_call` → policy → standing approvals (`pre_approved: true` targets) or an approval for the owner (notification + inline approval in the routine conversation) → `mcp-gateway` executes via `channels` `POST /internal/v1/outbound` (Slack/Teams/email) or HTTP POST through the egress proxy (webhook). Delivery failures mark the run `completed` with a `warning` event and `runs.error = {code: "delivery_failed", ...}` partial info; they count as a routine failure.
+Each call goes through: masking of the text that leaves the tenant → policy (`deny` ends it as `denied`) → a standing approval (`pre_approved: true`), or an approval the routine's owner decides. A held delivery is an ordinary approval: a `tool_calls` row (`awaiting_approval`) and an `approvals` row (`approver_rule` `requester`, requested for the owner), so it shows in the approvals inbox, expires, and is subject to separation of duties like any other. The person who owns the agent may not approve what it does, so an owner who built the agent themselves approves in advance. When the approval is approved, `api` starts `RoutineDeliveryWorkflow` (`routine-delivery-{approval_id}`, queue `ar-system`); its activity `release_routine_delivery` sends once and marks the approval consumed. Rejected, cancelled and expired approvals send nothing and are recorded on the event.
+
+Every attempt is a `channel_posts` row with status `posted` or `failed`. `external_message_id` is the `Message-ID` the mail carried, or the `X-Delivery-Id` the webhook carried; the product does not make one up. What happened to each target is kept on the event (`routine_events.detail.deliveries`: `{target, result, reason?, approval_id?, post_id?}`) and returned by `GET /api/v1/routines/{id}/events`. A failed delivery leaves the run `completed` with `runs.error = {code: "delivery_failed"}` and counts as a routine failure. A webhook target's `config.secret` is stored as a secret when the routine is saved; the routine keeps only `config.secret_name`, and the secret is never returned.
 
 ## 5. Public API
 
@@ -77,7 +78,7 @@ Resume clears `consecutive_failures` and `paused_reason`; requires the owner to 
 Owner. Returns the new secret once (old one valid for 24 h overlap: both accepted).
 
 #### GET /api/v1/routines/{routine_id}/events
-Items `RoutineEvent {id, source, status, received_at, run_id, envelope_preview}`.
+Items `RoutineEvent {id, source, status, received_at, run_id, envelope_preview, deliveries: [{target, result, reason, approval_id}]}`. `result` is `posted`, `failed`, `denied`, `waiting`, `rejected`, `cancelled` or `expired`; `reason` says in words why a delivery failed.
 
 #### POST /api/v1/routines:preview-schedule
 Body `{cron, timezone}` → `{valid, description, next: [timestamp] (5)}`.

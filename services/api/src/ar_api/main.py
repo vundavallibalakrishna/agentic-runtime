@@ -136,12 +136,6 @@ class Settings(BaseServiceSettings):
     db_encryption_active_key: str = "k1"
     secret_cache_ttl_s: int = 60
     saas_self_signup: bool = False
-    smtp_host: str = ""
-    smtp_port: int = 1025
-    smtp_from: str = "noreply@dev.local"
-    smtp_starttls: bool = False
-    smtp_username: str = ""
-    smtp_password: SecretStr = SecretStr("")
     webhook_allow_private: bool = False
     tenant_delete_grace_days: int = 7
     vault_addr: str = "http://localhost:8200"

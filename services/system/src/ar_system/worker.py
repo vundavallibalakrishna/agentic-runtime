@@ -59,12 +59,14 @@ async def run_worker() -> None:
     )
     from ar_system.workflows.routine_poll import RoutinePollWorkflow, poll_activity  # noqa: PLC0415
     from ar_system.workflows.routine_run import (  # noqa: PLC0415
+        RoutineDeliveryWorkflow,
         RoutineReconcileWorkflow,
         RoutineRunWorkflow,
         accept_activity,
         complete_activity,
         prepare_activity,
         reconcile_activity,
+        release_activity,
     )
     from ar_system.workflows.sandbox_reaper import SandboxReaperWorkflow, reap_sandboxes  # noqa: PLC0415
     from ar_system.workflows.summary_refresh import (  # noqa: PLC0415
@@ -91,6 +93,7 @@ async def run_worker() -> None:
                 workflows=[
                     SandboxReaperWorkflow,
                     RoutineRunWorkflow,
+                    RoutineDeliveryWorkflow,
                     RoutinePollWorkflow,
                     RoutineReconcileWorkflow,
                     NotificationEmailWorkflow,
@@ -101,6 +104,7 @@ async def run_worker() -> None:
                     accept_activity,
                     prepare_activity,
                     complete_activity,
+                    release_activity,
                     poll_activity,
                     reconcile_activity,
                     send_smtp_notification,

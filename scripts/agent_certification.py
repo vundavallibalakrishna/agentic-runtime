@@ -1562,34 +1562,140 @@ def _mail(subject_has: str = "") -> list[Body]:
 
 
 def case_routine_delivery_email(bench: Bench) -> str:
-    """A routine's result goes out by email: held for the owner first, sent once approved."""
+    """A routine's result goes out by email: held for the owner first, sent once approved.
+
+    The routine belongs to the second person and runs an agent someone else built: the
+    person who built an agent may not approve what it does, so they approve in advance.
+    """
+    second = bench.second
+    if second is None:
+        raise Blocked("a second person to own the routine")
     before = len(_mail())
     to = f"reader-{uuid.uuid4().hex[:6]}@example.test"
-    routine, _ = _routine(
-        bench, "email", {"type": "manual"}, delivery=[{"type": "email", "channel": to}]
+    agent, _ = bench.agent(
+        "routine-email",
+        {"instructions": "Do exactly what is asked. Be brief.", "tools": []},
+        visibility="tenant",
     )
+    status, made = second.post(
+        "/api/v1/routines",
+        name=f"email {uuid.uuid4().hex[:6]}",
+        agentId=agent,
+        instructions="Reply with the single word DELIVERED and nothing else.",
+        trigger={"type": "manual"},
+        delivery=[{"type": "email", "channel": to}],
+    )
+    expect(status < OK, f"the routine was not created ({status}): {_said(made)}")
+    routine = str(_body(made).get("id"))
+    try:
+        status, started = second.post(f"/api/v1/routines/{routine}:run")
+        expect(status < OK, f"run now was refused ({status}): {_said(started)}")
+        run = str(_body(started).get("runId"))
+        deadline = time.monotonic() + 180
+        final = ""
+        while time.monotonic() < deadline and final not in _DONE:
+            final = str(_body(second.get(f"/api/v1/runs/{run}")).get("status"))
+            time.sleep(2)
+        expect(final == "completed", f"the run ended as {final}")
+        time.sleep(6)
+        expect(len(_mail()) == before, "the email left before the owner approved it")
+        waiting = [
+            row
+            for row in _rows(second.get("/api/v1/approvals", status="pending"))
+            if str(row.get("runId") or "") == run
+        ]
+        expect(waiting, "no approval was raised for the email")
+        status, decided = second.post(
+            f"/api/v1/approvals/{waiting[0]['id']}:decide",
+            decision="approve",
+            argsHash=str(waiting[0].get("argsHash") or ""),
+        )
+        expect(status < OK, f"the approval was refused ({status}): {_said(decided)}")
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and len(_mail()) == before:
+            time.sleep(2)
+        got = [row for row in _mail() if to in str(row.get("To"))]
+        expect(got, "no email arrived after the approval")
+        time.sleep(3)
+        expect(len([row for row in _mail() if to in str(row.get("To"))]) == 1, "sent twice")
+        events = _rows(second.get(f"/api/v1/routines/{routine}/events"))
+        shown = [str(item.get("result")) for row in events for item in _rows(row.get("deliveries"))]
+        expect(shown == ["posted"], f"the event shows {shown}, not one sent delivery")
+        return f"held for approval, then delivered once to {to}; the event shows it sent"
+    finally:
+        second.client.delete(f"/api/v1/routines/{routine}")
+
+
+def case_routine_delivery_webhook(bench: Bench) -> str:
+    """A result posted to an address arrives signed; an address that is down is a failure."""
+    import hashlib  # noqa: PLC0415
+    import hmac  # noqa: PLC0415
+    import threading  # noqa: PLC0415
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: PLC0415
+
+    calls: list[tuple[dict[str, str], bytes]] = []
+
+    class Receiver(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            calls.append((dict(self.headers.items()), body))
+            self.send_response(204)
+            self.end_headers()
+
+        def log_message(self, *_args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Receiver)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+    secret = uuid.uuid4().hex
+    try:
+        routine, made = _routine(
+            bench,
+            "webhook-out",
+            {"type": "manual"},
+            delivery=[
+                {
+                    "type": "webhook",
+                    "preApproved": True,
+                    "config": {"url": f"http://127.0.0.1:{port}/in", "secret": secret},
+                }
+            ],
+        )
+        expect(secret not in str(made), "the signing secret is shown back")
+        status, started = bench.stack.post(f"/api/v1/routines/{routine}:run")
+        expect(status < OK, f"run now was refused ({status}): {_said(started)}")
+        final = bench.run_status(str(_body(started).get("runId")), until=_DONE, wait_s=180)
+        expect(final == "completed", f"the run ended as {final}")
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and not calls:
+            time.sleep(1)
+    finally:
+        server.shutdown()
+        server.server_close()
+    if not calls and "may not be called" in str(_routine_events(bench, routine)):
+        raise Blocked("an install that may call an address on this machine")
+    expect(len(calls) == 1, f"{len(calls)} calls arrived, not one")
+    headers, body = calls[0]
+    stamp, _, digest = str(headers.get("X-Signature") or "").partition(",v1=")
+    want = hmac.new(secret.encode(), stamp[2:].encode() + b"." + body, hashlib.sha256)
+    expect(digest == want.hexdigest(), "the signature does not match the secret")
+    expect(b"DELIVERED" in body, f"the body does not carry the result: {body[:120]!r}")
+    # The receiver is gone now: the same routine run again must report the failure.
     status, started = bench.stack.post(f"/api/v1/routines/{routine}:run")
-    expect(status < OK, f"run now was refused ({status}): {_said(started)}")
-    final = bench.run_status(str(_body(started).get("runId")), until=_DONE, wait_s=180)
-    expect(final == "completed", f"the run ended as {final}")
-    time.sleep(6)
-    expect(len(_mail()) == before, "the email left before the owner approved it")
-    waiting = [
-        row
-        for row in _rows(bench.stack.get("/api/v1/approvals", status="pending"))
-        if str(row.get("routineId") or "") == routine
-    ]
-    expect(waiting, "no approval was raised for the email")
-    status, decided = bench.stack.post(
-        f"/api/v1/approvals/{waiting[0]['id']}:decide", decision="approve"
-    )
-    expect(status < OK, f"the approval was refused ({status}): {_said(decided)}")
+    expect(status < OK, f"the second run was refused ({status}): {_said(started)}")
+    bench.run_status(str(_body(started).get("runId")), until=_DONE, wait_s=180)
     deadline = time.monotonic() + 30
-    while time.monotonic() < deadline and len(_mail()) == before:
+    shown: list[Body] = []
+    while time.monotonic() < deadline and len(shown) < 2:
+        shown = [
+            item for row in _routine_events(bench, routine) for item in _rows(row.get("deliveries"))
+        ]
         time.sleep(2)
-    got = [row for row in _mail() if to in str(row.get("To"))]
-    expect(got, "no email arrived after the approval")
-    return f"held for approval, then delivered to {to}"
+    results = sorted(str(item.get("result")) for item in shown)
+    expect(results == ["failed", "posted"], f"the events show {results}")
+    reason = next(str(item.get("reason")) for item in shown if item.get("result") == "failed")
+    return f"signed call arrived; with the address down the event says: {reason!r}"
 
 
 def case_routine_delivery_preapproved(bench: Bench) -> str:
@@ -2022,6 +2128,7 @@ STAGES: dict[str, dict[str, Callable[[Bench], str]]] = {
         "routine-transfer": case_routine_transfer,
         "routine-delivery-email": case_routine_delivery_email,
         "routine-delivery-preapproved": case_routine_delivery_preapproved,
+        "routine-delivery-webhook": case_routine_delivery_webhook,
         "routine-made-by-agent": case_routine_made_by_agent,
     },
     "research": {

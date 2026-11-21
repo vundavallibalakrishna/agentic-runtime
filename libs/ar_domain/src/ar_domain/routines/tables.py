@@ -132,6 +132,9 @@ class RoutineEvent(Base):
         UUID(as_uuid=True), ForeignKey("files.id", ondelete="SET NULL")
     )
     status: Mapped[str] = mapped_column(Text, nullable=False)
+    detail: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
     run_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("runs.id", ondelete="SET NULL")
     )

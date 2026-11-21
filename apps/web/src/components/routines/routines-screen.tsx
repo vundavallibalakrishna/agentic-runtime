@@ -39,7 +39,6 @@ export function RoutinesScreen() {
   const [cron, setCron] = useState("0 9 * * 1");
   const [timezone, setTimezone] = useState("UTC");
   const [agentId, setAgentId] = useState("");
-  const [preApproved, setPreApproved] = useState(true);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -95,10 +94,7 @@ export function RoutinesScreen() {
           agentId,
           instructions,
           trigger: { type: "schedule", cron, timezone },
-          delivery: [
-            { type: "conversation" },
-            { type: "slack", channel: "#platform", preApproved },
-          ],
+          delivery: [{ type: "conversation" }],
         }),
       });
       window.location.assign(`/routines/${created.id}`);
@@ -185,15 +181,6 @@ export function RoutinesScreen() {
                   />
                 </div>
               </div>
-              <label className="mt-3 flex items-center gap-2 text-sm" htmlFor="routine-preapprove">
-                <input
-                  checked={preApproved}
-                  id="routine-preapprove"
-                  onChange={(event) => setPreApproved(event.target.checked)}
-                  type="checkbox"
-                />
-                {t("preApproved")}
-              </label>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button onClick={() => void showPreview()} type="button" variant="outline">
                   {t("preview")}

@@ -1,5 +1,6 @@
 """Submit persisted routines to the local Temporal cluster."""
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from temporalio.client import (
@@ -7,16 +8,59 @@ from temporalio.client import (
     ScheduleAlreadyRunningError,
     ScheduleUpdate,
 )
+from temporalio.exceptions import WorkflowAlreadyStartedError
 from temporalio.service import RPCError, RPCStatusCode
 
 from ar_common.errors import UnavailableError
+from ar_domain.durable.after import after_commit
 from ar_domain.durable.flush import flush_store
 from ar_domain.routines.clock import build_schedule
+from ar_domain.routines.engine import close_delivery
 
 if TYPE_CHECKING:
     import uuid
+    from typing import Any
 
     from ar_domain.chat.service import ChatBehaviour
+
+
+def delivery_decided(store: Any, approval: dict[str, object]) -> None:
+    """Act on a decided delivery. An approved one is sent by a worker, not by this process.
+
+    A refused, withdrawn or expired one is recorded and nothing is sent. With no workflow
+    engine the approval is refused in words rather than recorded as sent.
+    """
+    if approval.get("status") != "approved":
+        close_delivery(store, approval)
+        return
+    start = getattr(getattr(store, "temporal_client", None), "start_workflow", None)
+    if not callable(start):
+        raise UnavailableError("Delivery is unavailable. Please try again.")
+    approval_id = str(approval.get("id") or "")
+
+    async def _start() -> None:
+        try:
+            await start(
+                "RoutineDeliveryWorkflow",
+                {"approval_id": approval_id},
+                id=f"routine-delivery-{approval_id}",
+                task_queue="ar-system",
+            )
+        except WorkflowAlreadyStartedError:
+            return
+
+    def _go() -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(_start())
+            return
+        task = loop.create_task(_start())
+        tasks = getattr(store, "tasks", None)
+        if isinstance(tasks, list):
+            tasks.append(task)
+
+    after_commit(store, _go)
 
 
 def client_for(store: ChatBehaviour) -> Client:

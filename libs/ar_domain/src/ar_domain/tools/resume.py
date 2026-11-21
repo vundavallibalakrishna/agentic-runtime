@@ -19,6 +19,14 @@ def settle_approval(store: Any, approval: dict[str, object]) -> None:
     The API does not call the tool. The next ``advance_chat_step`` does, through the
     gateway. A missing workflow is started so that activity can apply the decision.
     """
+    from ar_domain.routines.engine import is_delivery_tool  # noqa: PLC0415
+
+    if is_delivery_tool(approval.get("qualified_name")):
+        # A routine's delivery is asked about after its run has ended: no run waits for it.
+        from ar_domain.routines.dispatch import delivery_decided  # noqa: PLC0415
+
+        delivery_decided(store, approval)
+        return
     run_id = approval.get("run_id")
     if not isinstance(run_id, uuid.UUID):
         return

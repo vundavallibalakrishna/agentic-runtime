@@ -394,6 +394,14 @@ class BaseServiceSettings(BaseSettings):
     # a person presses Stop. Temporal's own default is 0.8 of the heartbeat timeout.
     activity_heartbeat_throttle_s: int = Field(default=2, ge=1, le=60)
     sandbox_ensure_timeout_s: int = Field(default=30, ge=1)
+    # The mail server the product sends through: invitations, and a routine's result when
+    # its delivery names no email integration. An empty host means no mail is sent.
+    smtp_host: str = ""
+    smtp_port: int = 1025
+    smtp_from: str = "noreply@dev.local"
+    smtp_starttls: bool = False
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
     # The scanner the product runs over every upload: ``clamav`` or ``none``. An install
     # decides; the default scans. ``none`` is set where no scanner is deployed.
     files_scanner: str = "clamav"

@@ -457,7 +457,6 @@ class ChatBehaviour:
     reauth_users: set[uuid.UUID] = field(default_factory=set)
     delegation_tokens: set[uuid.UUID] = field(default_factory=set)
     temporal_schedules: dict[str, dict[str, object]] = field(default_factory=dict)
-    delivery_posts: list[dict[str, object]] = field(default_factory=list)
     channel_integrations: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     channel_identities: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     channel_threads: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)

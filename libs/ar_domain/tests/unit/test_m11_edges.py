@@ -79,7 +79,8 @@ def test_posts_credentials_and_closed_agent() -> None:
     store = _store()
     bare = type("Bare", (), {})()
     saved = record_channel_post(bare, tenant_id="t", kind="webhook", body="x", direction="inbound")
-    assert saved["external_message_id"]
+    # No sender gave an id, so none is kept: the product does not make one up.
+    assert saved["external_message_id"] is None
     assert tool_for("pager") == "delivery.webhook_post"
     assert policy_decision(store, "not-a-uuid", "delivery.slack_post") == "allow"
     store.policies = []

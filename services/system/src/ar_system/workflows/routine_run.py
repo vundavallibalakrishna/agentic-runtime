@@ -4,8 +4,10 @@ from datetime import timedelta
 from typing import Any  # noqa: TC003
 
 from temporalio import activity, workflow
+from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
+    import asyncio
     import uuid
 
     from ar_domain.durable.bind import binding_from
@@ -17,6 +19,7 @@ with workflow.unsafe.imports_passed_through():
         complete_routine_event,
         prepare_routine_run,
         reconcile_schedules,
+        release_delivery,
     )
     from ar_system.routines_store import current_store, process_store
 
@@ -84,9 +87,28 @@ async def complete_activity(payload: dict[str, Any]) -> dict[str, Any]:
             store.runs[run_id]["dry_run"] = bool(event.get("dry_run"))
     if event.get("status") == "started":
         return {"status": str(payload.get("run_status") or "completed"), "event_id": str(event_id)}
-    result = complete_routine_event(
-        store, event_id, run_status=str(payload.get("run_status") or "completed")
+    # A delivery dials a mail server or an address, so it runs off the worker's loop.
+    result = await asyncio.to_thread(
+        complete_routine_event,
+        store,
+        event_id,
+        run_status=str(payload.get("run_status") or "completed"),
     )
+    await flush_store(store)
+    return result
+
+
+@activity.defn(name="release_routine_delivery")
+@repository_activity(process_store)
+async def release_activity(payload: dict[str, Any]) -> dict[str, Any]:
+    """Send one delivery its owner approved, and record what happened."""
+    store = await _refresh()
+    approval_id = uuid.UUID(str(payload["approval_id"]))
+    approval = store.approvals.get(approval_id)
+    run_id = approval.get("run_id") if isinstance(approval, dict) else None
+    if isinstance(run_id, uuid.UUID):
+        await reload_run(store, run_id)
+    result = await asyncio.to_thread(release_delivery, store, approval_id)
     await flush_store(store)
     return result
 
@@ -151,6 +173,20 @@ class RoutineRunWorkflow:
             complete_activity,
             {"event_id": accepted["event_id"], "run_status": status},
             start_to_close_timeout=timedelta(seconds=30),
+        )
+
+
+@workflow.defn(name="RoutineDeliveryWorkflow")
+class RoutineDeliveryWorkflow:
+    """Send a delivery after its owner approved it. The approval is used once."""
+
+    @workflow.run
+    async def run(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await workflow.execute_activity(
+            release_activity,
+            payload,
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=RetryPolicy(maximum_attempts=3),
         )
 
 

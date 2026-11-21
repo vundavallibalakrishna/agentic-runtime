@@ -1,4 +1,4 @@
-"""Schedule preview, signatures, delivery and failure pause."""
+"""Schedule preview, signatures and failure pause. Delivery: ``test_routine_delivery``."""
 
 import uuid
 from datetime import UTC, datetime
@@ -14,7 +14,6 @@ from ar_domain.routines.engine import (
     poll_routine_source,
     prepare_routine_run,
     reconcile_schedules,
-    release_delivery,
 )
 from ar_domain.routines.schedule import preview_schedule
 from ar_domain.routines.signature import header_for, idempotency_key, verify
@@ -83,62 +82,6 @@ def test_signature_is_timing_safe_and_expires() -> None:
     assert idempotency_key(body, path_value="abc", header="ignored") == "abc"
     assert idempotency_key(body, path_value="", header="hdr") == "hdr"
     assert len(idempotency_key(body, path_value="", header="")) == 64
-
-
-def test_delivery_waits_then_posts_once() -> None:
-    store = _store()
-    book = RoutineBook(store)
-    created = _create(book)
-    routine_id = uuid.UUID(str(created["id"]))
-    accepted = accept_routine_event(
-        store,
-        routine_id=routine_id,
-        source="manual",
-        idempotency_key="once",
-        envelope={"type": "manual", "data": {}},
-    )
-    event_id = uuid.UUID(str(accepted["event_id"]))
-    prepared = prepare_routine_run(store, routine_id, event_id)
-    assert prepared["status"] == "ready"
-    text = str(prepared["text"])
-    assert 'trust="untrusted"' in text
-    run = store.runs[uuid.UUID(str(prepared["run_id"]))]
-    run["status"] = "completed"
-    run["result_summary"] = "The week in brief."
-    done = complete_routine_event(store, event_id)
-    assert done["status"] == "waiting"
-    deliveries = done["deliveries"]
-    assert isinstance(deliveries, list)
-    approval_id = uuid.UUID(str(deliveries[0]["approval_id"]))
-    first = release_delivery(store, approval_id)
-    second = release_delivery(store, approval_id)
-    assert first["result"] == "posted"
-    assert second.get("duplicate") is True
-    assert len(store.delivery_posts) == 1
-
-
-def test_standing_approval_posts_without_waiting() -> None:
-    store = _store()
-    book = RoutineBook(store)
-    created = _create(
-        book,
-        delivery=[{"type": "slack", "channel": "#platform", "pre_approved": True}],
-    )
-    routine_id = uuid.UUID(str(created["id"]))
-    accepted = accept_routine_event(
-        store,
-        routine_id=routine_id,
-        source="schedule",
-        idempotency_key="standing",
-        envelope={"type": "schedule"},
-    )
-    event_id = uuid.UUID(str(accepted["event_id"]))
-    prepare_routine_run(store, routine_id, event_id)
-    run_id = store.routine_events[event_id]["run_id"]
-    store.runs[run_id]["status"] = "completed"
-    done = complete_routine_event(store, event_id)
-    assert done["status"] == "completed"
-    assert store.delivery_posts[0]["target"] == "slack"
 
 
 def test_duplicate_filter_cap_and_auto_pause() -> None:
