@@ -20,7 +20,11 @@ from ar_domain.process_state import (
 )
 from ar_domain.readmodel.boot import build_product_store
 from ar_domain.readmodel.model import RepositoryReadModel
-from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher, register_sandbox_client
+from ar_domain.sandboxes.manager_launch import (
+    ComputersOff,
+    SandboxManagerLauncher,
+    register_sandbox_client,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -67,10 +71,11 @@ def test_staging_refuses_a_process_local_book(monkeypatch: pytest.MonkeyPatch) -
     settings = _staging()
     set_settings(settings)
     try:
-        # A process that uses computers needs the manager's address before it boots.
+        # Without the manager's address the install has no computers. The process still
+        # boots, and a tool that needs a computer is refused; nothing runs on the host.
         monkeypatch.delenv("AR_SANDBOX_MANAGER_URL", raising=False)
-        with pytest.raises(ProcessLocalStateRefusedError):
-            build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
+        without = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
+        assert isinstance(without.sandbox_launcher, ComputersOff)
         monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
         store = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
         assert isinstance(store.sandbox_launcher, SandboxManagerLauncher)

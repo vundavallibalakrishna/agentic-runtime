@@ -232,4 +232,7 @@ def test_compose_confines_sandbox_egress() -> None:
     text = (ROOT / "compose.yaml").read_text(encoding="utf-8")
     assert "name: agentic-runtime_sandbox" in text
     assert "internal: true" in text
-    assert "AR_SANDBOX_DOCKER_NETWORK: agentic-runtime_sandbox" in text
+    # Computers are a feature file. It names the confined network and the proxy together.
+    computers = (ROOT / "compose.computers.yaml").read_text(encoding="utf-8")
+    assert "AR_SANDBOX_DOCKER_NETWORK: agentic-runtime_sandbox" in computers
+    assert "AR_SANDBOX_EGRESS_PROXY: http://squid:3128" in computers

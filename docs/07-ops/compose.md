@@ -1,12 +1,13 @@
 # Compose install
 
-Docker Compose is the install. One node, one `compose.yaml`, for development and for production. Profile `dev` starts the data plane for a process on the host. Profile `production` starts the product.
+Docker Compose is the install. One node, one `compose.yaml`, for development and for production. Profile `dev` starts the data plane for a process on the host. Profile `production` starts the product's core. A feature the customer uses is one more file (section 3a).
 
 ## 1. Layout
 
 | Piece | Where |
 |---|---|
 | Services, networks, volumes | `compose.yaml` |
+| Features a customer switches on | `compose.<feature>.yaml` (section 3a) |
 | Air-gap override | `compose.airgap.yaml` |
 | Postgres role init | `deploy/compose/postgres/init-roles.sh` |
 | Temporal schema and server | `deploy/compose/temporal/` |
@@ -42,6 +43,38 @@ make migrate
 make seed
 ```
 
+## 3a. The core and the features
+
+`docker compose --profile production up -d` starts the core: what a tenant needs to sign in, build agents, chat with tools, read documents, and run routines and evals.
+
+| Core service | What it does |
+|---|---|
+| `api`, `web` | The product's API and screens |
+| `runtime-worker`, `system-worker` | Agent runs; routines, evals and housekeeping |
+| `ingest-worker` | Reads uploaded documents |
+| `mcp-gateway` | Every tool call passes through it |
+| `postgres`, `valkey`, `temporal`, `seaweedfs` | Data, shared state, the workflow engine, file bytes |
+
+A feature is a file that starts the feature's services and tells the core where they are. Name the files in `COMPOSE_FILE` in `.env`, separated by `:`, so every `docker compose` command uses them:
+
+```bash
+COMPOSE_FILE=compose.yaml:compose.computers.yaml:compose.channels.yaml
+```
+
+| File | Starts | Switch it on when |
+|---|---|---|
+| `compose.computers.yaml` | `sandbox-manager`, `squid` | Agents run code, a shell or a browser in their own container. Build the image first: `docker build -f images/sandbox/Dockerfile -t ar-sandbox:dev .` |
+| `compose.channels.yaml` | `channels` | People reach agents from Slack, Teams or email |
+| `compose.connectors.yaml` | `mcp-sql`, `mcp-openapi` | The tenant uses SQL or OpenAPI connections |
+| `compose.opa.yaml` | `opa` | A tenant writes its own Rego rules. Without it the product's own evaluator decides every tool call, with the same rules |
+| `compose.vault.yaml` | `openbao` | Secrets are kept in a vault (`AR_SECRETS_BACKEND=vault`). The default keeps them encrypted in the database |
+| `compose.model-gateway.yaml` | `model-gateway` | A model provider has no address of its own. A provider registered with its address is called there directly |
+| `compose.airgap.yaml` | nothing new | The install has no route to the internet (section 6). Use it with `compose.computers.yaml` |
+
+Without `compose.computers.yaml` the install has no computers: a tool that needs one answers "Computers are not switched on for this install" and nothing runs in its place.
+
+Every file together is the full install. `scripts/compose_install.sh` starts the core, proves a chat turn on it, prints each container's memory, then starts every feature except computers and proves a tool call decided by OPA. The plan and the reasons are in [small-install](../09-plan/small-install.md).
+
 ## 4. Upgrade
 
 ```bash
@@ -67,14 +100,14 @@ The backup is three `pg_dump -Fc` files: `agentic_runtime`, `temporal` and `temp
 
 Network `agentic-runtime_app` carries the product. Model calls leave from `api` and `runtime-worker` on that network.
 
-Network `agentic-runtime_sandbox` is internal. Sandbox containers join it and no other network. Their HTTP and HTTPS go through Squid (`AR_SANDBOX_EGRESS_PROXY`, default `http://squid:3128`) with the sandbox token. The docker driver drops all capabilities, sets a read-only root with tmpfs for `/tmp`, `/workspace` and `/home/sandbox`, and sets cpu, memory and pid limits. `sandbox-manager` is the only service that mounts the docker socket, and the only creator of those containers.
+Network `agentic-runtime_sandbox` is internal and is used by the computers feature (`compose.computers.yaml`). Sandbox containers join it and no other network. Their HTTP and HTTPS go through Squid (`AR_SANDBOX_EGRESS_PROXY`, default `http://squid:3128`) with the sandbox token. The docker driver drops all capabilities, sets a read-only root with tmpfs for `/tmp`, `/workspace` and `/home/sandbox`, and sets cpu, memory and pid limits. `sandbox-manager` is the only service that mounts the docker socket, and the only creator of those containers.
 
 `AR_SANDBOX_ALLOW_UNISOLATED` is not required for that default. It allows a host process instead of a container.
 
 Air gap:
 
 ```bash
-docker compose -f compose.yaml -f compose.airgap.yaml --profile production up -d
+docker compose -f compose.yaml -f compose.computers.yaml -f compose.airgap.yaml --profile production up -d
 ```
 
 `app` becomes internal. Squid is the only service on an external network. Put allowed model hosts in `deploy/compose/squid/allowlist.txt`, one domain per line. `api`, `model-gateway` and `runtime-worker` then use the proxy.
@@ -82,6 +115,8 @@ docker compose -f compose.yaml -f compose.airgap.yaml --profile production up -d
 ## 7. Architecture invariants
 
 - `sandbox-manager` is the only creator of sandbox containers, and it uses the docker driver.
+- An install without `sandbox-manager` has no computers. It never runs a computer's work in another process.
+- One install decides policy one way: every process uses the OPA server when its address is set, and the built-in evaluator when it is not.
 - `mcp-gateway` is the only tool path.
 - Temporal runs one activity per step.
 - Postgres is the source of truth.

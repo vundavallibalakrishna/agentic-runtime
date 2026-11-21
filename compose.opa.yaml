@@ -1,0 +1,24 @@
+# OPA: policy decisions by an Open Policy Agent server instead of the product's own
+# evaluator. Needed only for a tenant's own Rego rules. Every process that decides a
+# tool call is pointed at it, so one install decides one way.
+x-env: &env
+  AR_OPA_URL: http://opa:8181
+
+services:
+  opa:
+    profiles: [production]
+  api:
+    environment:
+      <<: *env
+  mcp-gateway:
+    environment:
+      <<: *env
+  runtime-worker:
+    environment:
+      <<: *env
+  system-worker:
+    environment:
+      <<: *env
+  ingest-worker:
+    environment:
+      <<: *env
