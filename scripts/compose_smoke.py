@@ -20,6 +20,9 @@ import httpx
 from temporalio.client import Client
 
 ROOT = Path(__file__).resolve().parents[1]
+# The service that runs agent turns: the combined worker, or runtime-worker when the
+# install runs the workers apart (compose.split-workers.yaml).
+WORKER = os.environ.get("AR_SMOKE_WORKER", "worker")
 sys.path.insert(0, str(ROOT / "scripts"))
 from sign_in import password_for  # noqa: E402
 
@@ -141,7 +144,7 @@ def _prove_gateway_hop() -> None:
             "production",
             "exec",
             "-T",
-            "runtime-worker",
+            WORKER,
             "python",
             "-c",
             script,
@@ -226,7 +229,7 @@ def main() -> None:  # noqa: PLR0915
     restart = os.environ.get("AR_SMOKE_RESTART", "1")
     if restart != "1":
         return
-    subprocess.run(
+    subprocess.run(  # noqa: S603
         [  # noqa: S607
             "docker",
             "compose",
@@ -238,7 +241,7 @@ def main() -> None:  # noqa: PLR0915
             "production",
             "restart",
             "temporal",
-            "runtime-worker",
+            WORKER,
         ],
         check=True,
     )

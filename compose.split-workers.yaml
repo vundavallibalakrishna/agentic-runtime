@@ -1,0 +1,9 @@
+# Split workers: the runtime worker and the system worker as two services, for an
+# install that scales them apart. The combined worker is switched off.
+services:
+  worker:
+    scale: 0
+  runtime-worker:
+    profiles: [production]
+  system-worker:
+    profiles: [production]

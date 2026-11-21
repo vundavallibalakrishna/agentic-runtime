@@ -28,6 +28,9 @@ services:
   api:
     environment:
       AR_EGRESS_ALLOW_NAMED_PRIVATE: "true"
+  worker:
+    environment:
+      AR_EGRESS_ALLOW_NAMED_PRIVATE: "true"
   runtime-worker:
     environment:
       AR_EGRESS_ALLOW_NAMED_PRIVATE: "true"

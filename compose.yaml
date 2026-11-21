@@ -447,9 +447,27 @@ services:
       AR_PORT: ${AR_MCP_OPENAPI_HOST_PORT:-8011}
     ports: ["127.0.0.1:${AR_MCP_OPENAPI_HOST_PORT:-8011}:${AR_MCP_OPENAPI_HOST_PORT:-8011}"]
 
-  runtime-worker:
+  # The runtime and system workers in one process: each keeps its own store and its own
+  # task queues. compose.split-workers.yaml runs them as two services instead.
+  worker:
     <<: *run
     profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
+    build:
+      context: .
+      dockerfile: images/python-service.Dockerfile
+      args: { SERVICE: runtime, ALSO: system }
+    entrypoint:
+      ["tini", "--", "python", "-m", "ar_common.work", "ar_runtime.worker", "ar_system.worker"]
+    environment:
+      <<: *app-env
+      AR_PORT: ${AR_RUNTIME_HOST_PORT:-8012}
+    ports: ["127.0.0.1:${AR_RUNTIME_HOST_PORT:-8012}:${AR_RUNTIME_HOST_PORT:-8012}"]
+
+  runtime-worker:
+    <<: *run
+    profiles: [feature]
     depends_on: *app-depends
     healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: runtime } }
@@ -463,7 +481,7 @@ services:
 
   system-worker:
     <<: *run
-    profiles: [production]
+    profiles: [feature]
     depends_on: *app-depends
     healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: system } }

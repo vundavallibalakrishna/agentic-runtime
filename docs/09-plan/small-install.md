@@ -1,6 +1,6 @@
 # Plan: a small install
 
-Status: the owner accepted the recommendations in section 6 on 21 November 2026 (decisions 1 to 3 as recommended; 4 after stage 1's measurements; 5 after Compose). Stage 1 is in progress: the core and the feature files are built, and CI's `compose-smoke` job is where they are proved and measured. The core is ten containers until stage 2 merges the two workers.
+Status: the owner accepted the recommendations in section 6 on 21 November 2026 (decisions 1 to 3 as recommended; 4 after stage 1's measurements; 5 after Compose). Stage 1 is in progress: the core and the feature files are built, and CI's `compose-smoke` job is where they are proved and measured. Stage 2 is built: `worker` runs the runtime and system workers in one process (`ar_common.work`), so the core is nine containers; `compose.split-workers.yaml` runs them apart.
 
 ## 1. Why
 
@@ -105,7 +105,11 @@ As built in stage 1, a feature is a file, `compose.<feature>.yaml`, not a profil
 
 The full layout stays available: turning every profile on gives today's install, for a customer who wants to scale parts separately.
 
-### Expected size
+### Measured size
+
+Stage 1 measured it in CI: the core idles at about 1.9 GiB, and the six feature services measured add about 0.5 GiB. The table is in `docs/07-ops/compose.md` section 3a. The estimate below was written before the measurement and was too high.
+
+### Expected size (before measurement)
 
 Not measured yet. From the partial figures in section 2, the core should fit in about 3 to 4 GB of memory when idle, plus up to 1 GB while a large document is parsed. Stage 1 replaces this estimate with measurements. Until then the honest recommendation for the core is a machine with 8 GB of memory, and 16 GB with every profile on.
 

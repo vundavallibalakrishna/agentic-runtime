@@ -27,7 +27,7 @@ AR_ENV=dev \
   AR_DEV_MODEL_NAME=ci-model \
   AR_LLM_MODEL=ci-chat \
   uv run python scripts/seed.py
-$compose restart runtime-worker >/dev/null
+$compose restart worker >/dev/null
 uv run python scripts/compose_smoke.py
 
 # What the core costs. The table in docs/07-ops/compose.md comes from this output.
