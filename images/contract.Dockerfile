@@ -17,6 +17,8 @@ COPY pyproject.toml uv.lock ./
 COPY libs libs
 COPY services services
 COPY connectors connectors
+# The policy decision rules; the ar-domain package build copies them in (see python-service.Dockerfile).
+COPY policies/rego/ar policies/rego/ar
 RUN uv sync --frozen --no-dev --no-editable \
         --package ar-api \
         --package ar-runtime \

@@ -18,6 +18,9 @@ COPY connectors connectors
 # product reads them from AR_PACKS_DIR, which is this folder unless a customer mounts
 # their own. No other pack is part of the image.
 COPY packs/examples/task-templates packs/examples/task-templates
+# The policy decision rules. The ar-domain package build copies them in beside the code
+# that serves the OPA bundle; without them that build fails, which is the intent.
+COPY policies/rego/ar policies/rego/ar
 
 ARG SERVICE=api
 RUN package="ar-$(printf '%s' "$SERVICE" | tr '_' '-')" \

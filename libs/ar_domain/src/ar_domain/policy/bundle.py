@@ -14,7 +14,11 @@ from ar_domain.policy.service import active_rules
 if TYPE_CHECKING:
     from typing import Any
 
-_ROOT = Path(__file__).resolve().parents[5] / "policies" / "rego" / "ar"
+# The decision rules are one set of files, ``policies/rego/ar`` in the repository. A built
+# package carries its own copy beside this module (``libs/ar_domain/pyproject.toml``), so an
+# installed service finds them wherever it runs; a source checkout reads the originals.
+_PACKAGED = Path(__file__).resolve().parent / "rego"
+_CHECKOUT = Path(__file__).resolve().parents[5] / "policies" / "rego" / "ar"
 
 
 async def bundle_from_engine(engine: Any) -> tuple[bytes, str]:
@@ -120,10 +124,15 @@ def _public_rules(rules: list[dict[str, object]]) -> list[dict[str, object]]:
 
 
 def _read(name: str) -> bytes:
-    path = _ROOT / name
-    if path.is_file():
-        return path.read_bytes()
-    return b"package ar.policy\n"
+    """One rule file. A process that cannot find it must not hand OPA an empty policy."""
+    for root in (_PACKAGED, _CHECKOUT):
+        path = root / name
+        if path.is_file():
+            return path.read_bytes()
+    raise FileNotFoundError(
+        f"The policy rule file {name} is missing from this install, so no policy bundle "
+        "can be built. The service image must be built with policies/rego/ar present."
+    )
 
 
 def _add(archive: tarfile.TarFile, name: str, payload: bytes) -> None:
