@@ -7,6 +7,7 @@ x-env: &env
   AR_SANDBOX_MANAGER_URL: http://sandbox-manager:${AR_SANDBOX_MANAGER_HOST_PORT:-8003}
   AR_SANDBOX_DOCKER_NETWORK: agentic-runtime_sandbox
   AR_SANDBOX_EGRESS_PROXY: http://squid:3128
+  AR_SANDBOX_IMAGE: ${AR_SANDBOX_IMAGE:-ar-sandbox:dev}
 
 services:
   sandbox-manager:

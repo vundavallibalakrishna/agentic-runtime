@@ -51,7 +51,7 @@ x-app-env: &app-env
   AR_SANDBOX_MANAGER_URL: ""
   AR_SANDBOX_DOCKER_NETWORK: ""
   AR_SANDBOX_EGRESS_PROXY: ""
-  AR_SANDBOX_IMAGE: ${AR_SANDBOX_IMAGE:-ar-sandbox:dev}
+  AR_SANDBOX_IMAGE: ""
   # In-network addresses. A laptop .env must not leak localhost into a container:
   # these keys are set here, not interpolated from the env file.
   AR_S3_ENDPOINT: http://seaweedfs:8333
