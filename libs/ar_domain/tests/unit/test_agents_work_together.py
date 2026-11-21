@@ -242,3 +242,25 @@ async def test_a_handoff_ends_the_leads_turn_when_the_run_is_carried_out_a_step_
     again = await advance_chat_step({"run_id": str(run["id"]), "text": "go"})
     assert again["kind"] == "final"
     assert handovers() == 1
+
+
+@pytest.mark.asyncio
+async def test_an_agent_with_no_tools_is_asked_through_the_same_loop() -> None:
+    """One way to ask the model: a plain agent's answer is written, counted and kept alike."""
+    store = _store()
+    plain, version = _agent(store, "plain", tools=[])
+    run, assistant = _open(store, plain, version)
+    seen: list[list[dict[str, object]]] = []
+
+    def answers(messages: list[dict[str, object]]) -> dict[str, object]:
+        seen.append(messages)
+        return {"text": "Forty-two.", "tool_calls": [], "usage": {"tokens_in": 9, "tokens_out": 2}}
+
+    _script(store, answers)
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    assert len(seen) == 1
+    assert assistant["text"] == "Forty-two."
+    assert run["status"] == "completed"
+    usage = run["usage"]
+    assert isinstance(usage, dict)
+    assert (usage["tokens_in"], usage["tokens_out"], usage["steps"]) == (9, 2, 1)

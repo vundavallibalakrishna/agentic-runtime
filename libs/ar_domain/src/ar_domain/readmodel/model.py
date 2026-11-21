@@ -52,6 +52,8 @@ _TENANT_SQL = {
     "sandboxes": "SELECT tenant_id FROM sandboxes WHERE id = :id",
 }
 
+_HOOK_TENANT_SQL = "SELECT tenant_id FROM routines WHERE webhook_path_token = :token"
+
 
 class RepositoryReadModel:
     """Process handle for the read model. Tenant rows live in Postgres.
@@ -235,6 +237,22 @@ class RepositoryReadModel:
             if tenant is not None:
                 return tenant
         return None
+
+    async def tenant_of_hook(self, token: str) -> uuid.UUID | None:
+        """The tenant whose routine owns this webhook address, or none.
+
+        A call to a routine's webhook carries no sign-in: the address is the credential and
+        the signature is checked against the routine's secret afterwards. This finds whose
+        data to load for it.
+        """
+        if not token:
+            return None
+        engine = await self.engine_for()
+        async with engine.connect() as connection:
+            row = (await connection.execute(text(_HOOK_TENANT_SQL), {"token": token})).first()
+        if row is None or row[0] is None:
+            return None
+        return row[0] if isinstance(row[0], uuid.UUID) else uuid.UUID(str(row[0]))
 
     async def _tenant_of(self, table: str, row_id: uuid.UUID) -> uuid.UUID | None:
         statement = _TENANT_SQL.get(table)

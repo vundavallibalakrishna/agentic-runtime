@@ -1,27 +1,35 @@
-"""Optional Temporal worker build ids. Spec: docs/07-ops/ci-cd.md §6."""
+"""Options every Temporal worker starts with. Build ids: docs/07-ops/ci-cd.md §6."""
 
 import os
-from typing import TypedDict
+from datetime import timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any
 
 
-class WorkerVersioning(TypedDict, total=False):
-    """Keyword arguments for ``temporalio.worker.Worker``."""
+def temporal_worker_kwargs() -> dict[str, Any]:
+    """The options every worker of the install is started with.
 
-    build_id: str
-    use_worker_versioning: bool
+    Activities report to Temporal at most every ``AR_ACTIVITY_HEARTBEAT_THROTTLE_S``
+    seconds. A stop is delivered with that report, so a short interval is what lets Stop
+    interrupt a reply while it is being written.
 
-
-def temporal_worker_kwargs() -> WorkerVersioning:
-    """Enable worker versioning only when the chart sets both variables.
-
-    Local processes and tests leave the variables unset, so workers keep the
-    previous polling behaviour.
+    Worker versioning is on only when the chart sets both of its variables. Local
+    processes and tests leave them unset, so workers keep the previous polling behaviour.
     """
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    options: dict[str, Any] = {
+        "max_heartbeat_throttle_interval": timedelta(
+            seconds=get_settings().activity_heartbeat_throttle_s
+        )
+    }
     build_id = os.environ.get("TEMPORAL_WORKER_BUILD_ID", "").strip()
     flag = os.environ.get("TEMPORAL_USE_WORKER_VERSIONING", "").strip().lower()
-    if flag not in {"1", "true", "yes"} or not build_id:
-        return {}
-    return {"build_id": build_id, "use_worker_versioning": True}
+    if flag in {"1", "true", "yes"} and build_id:
+        options.update({"build_id": build_id, "use_worker_versioning": True})
+    return options
 
 
 def temporal_unavailable_fields(

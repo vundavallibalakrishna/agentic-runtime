@@ -240,6 +240,47 @@ async def test_a_worker_step_cancels_applies_and_fans_out(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
+async def test_a_step_stopped_half_way_closes_the_run_and_keeps_what_was_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stop arrives while the model is writing: the worker cancels the step where it is."""
+    import asyncio
+
+    from ar_domain.tools.agent_loop import _keep_written
+    from ar_runtime.activities.advance_chat_step import advance_chat_step
+    from ar_runtime.activities.expire_approval import bind_store
+
+    store = demo_store()
+    bind_store(store)
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    posted = store.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "Write an essay.", schedule=False
+    )
+    run_id = uuid.UUID(str(posted["run"]["id"]))
+    run = store.runs[run_id]
+    run["status"] = "running"
+    assistant = store.messages[run["assistant_message_id"]]
+
+    async def _stopped(_run_id: uuid.UUID, _text: str, _names: list[str]) -> str:
+        _keep_written(assistant, "Bridges began as ")
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(store, "advance_turn", _stopped)
+    with pytest.raises(asyncio.CancelledError):
+        await advance_chat_step({"run_id": str(run_id)})
+    assert run["status"] == "cancelled"
+    assert run["ended_at"] is not None
+    assert assistant["status"] == "cancelled"
+    assert assistant["text"] == "Bridges began as "
+    assert assistant["content"] == [{"type": "text", "text": "Bridges began as "}]
+    assert store.conversations[run["conversation_id"]]["active_run_id"] is None
+    # Nothing written yet leaves the answer as it was.
+    _keep_written(assistant, "")
+    assert assistant["text"] == "Bridges began as "
+
+
+@pytest.mark.asyncio
 async def test_eval_schedule_stays_queued_when_temporal_refuses() -> None:
     store = demo_store()
     connect_chat(store, demo_id("tenant"))

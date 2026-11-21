@@ -199,6 +199,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SANDBOX_ENSURE_TIMEOUT_S` | `30` | How long a call waits for a computer's scope while another call or the sweep holds it; after that it is refused as busy | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_LOCK_TTL_S` | `300` | How long one process may hold a computer's scope while it starts, suspends or resumes it, before the lock expires on its own | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_TABLE_MAX_ROWS` | `1000000` | The most rows of one table file (CSV, TSV, JSON or a sheet of an xlsx) the table tools read. A longer file is refused, never read in part. Rows are held in the in-process query engine while one statement runs | [OQ-152](../open-questions.md) |
+| `AR_ACTIVITY_HEARTBEAT_THROTTLE_S` | `2` | How often, at most, a worker reports a running activity to Temporal. A stop reaches an activity with that report, so this is how long a reply keeps being written after a person presses Stop. Temporal's own default would be 24 seconds here | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_SANDBOX_MANAGER_URL` | `http://sandbox-manager:8003` | Internal URL of `sandbox-manager` | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_SANDBOX_MAX_PER_TENANT` | plan `max_concurrent_sandboxes` (default 50) | Hard cap of concurrent sandboxes per tenant | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_EGRESS_PROXY` | empty | Squid URL for a confined sandbox. Compose sets `http://squid:3128`. | [compose](compose.md) |

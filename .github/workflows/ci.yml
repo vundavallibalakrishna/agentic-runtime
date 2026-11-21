@@ -156,6 +156,17 @@ jobs:
       - run: pnpm --filter @ar/web exec playwright test
         env:
           E2E_SCREENSHOT_DIR: /tmp/e2e-screenshots
+      # What the page showed when a test failed. Without it a failure names only the
+      # element that was missing.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-e2e-failures
+          path: |
+            apps/web/test-results/**/error-context.md
+            apps/web/test-results/**/*.png
+          if-no-files-found: ignore
+          retention-days: 7
 
   codegen-drift:
     if: github.event.action != 'edited'

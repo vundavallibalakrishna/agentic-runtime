@@ -1090,6 +1090,9 @@ def test_a_file_path_after_from_is_read_as_that_files_table() -> None:
         '"ledger-2026.csv"',
         "ledger-2026.csv",
         "/workspace/inputs/ledger-2026.csv",
+        # The file's name without its ending, where the table is ledger_2026.
+        "ledger-2026",
+        '"ledger-2026"',
     ):
         asked = dispatch_general(
             store,
@@ -1112,6 +1115,19 @@ def test_a_file_path_after_from_is_read_as_that_files_table() -> None:
     )
     assert other["is_error"] is True
     assert "ledger_2026" in str(other["text"])
+
+
+def test_a_file_path_after_from_is_read_when_the_call_names_no_file() -> None:
+    """A query with no ``path`` reads every table file, so a path in the SQL means that file."""
+    store, arguments = _args()
+    _table(store, arguments, "ledger-2026.csv", _items(9))
+    asked = dispatch_general(
+        store,
+        "query_table",
+        {**arguments, "sql": "SELECT COUNT(*) AS n FROM 'inputs/ledger-2026.csv'"},
+    )
+    assert asked["is_error"] is False, asked["text"]
+    assert _presentation(asked)["rows"] == [[9]]
 
 
 def test_an_export_that_names_a_file_path_is_refused_in_words_not_with_an_internal_error() -> None:

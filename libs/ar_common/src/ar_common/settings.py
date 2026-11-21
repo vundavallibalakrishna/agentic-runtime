@@ -389,6 +389,10 @@ class BaseServiceSettings(BaseSettings):
     # The most rows of one table file the table tools read. A longer file is refused,
     # never read in part. Each row is held in the query engine while a statement runs.
     table_max_rows: int = Field(default=1_000_000, ge=1)
+    # How often a worker reports a running activity to Temporal, at most. A stop reaches
+    # an activity with that report, so this is how long a reply keeps being written after
+    # a person presses Stop. Temporal's own default is 0.8 of the heartbeat timeout.
+    activity_heartbeat_throttle_s: int = Field(default=2, ge=1, le=60)
     sandbox_ensure_timeout_s: int = Field(default=30, ge=1)
     # The scanner the product runs over every upload: ``clamav`` or ``none``. An install
     # decides; the default scans. ``none`` is set where no scanner is deployed.

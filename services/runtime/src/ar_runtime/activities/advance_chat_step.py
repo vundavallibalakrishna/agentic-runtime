@@ -1,5 +1,6 @@
 """One step of a chat turn: a model call or a single tool call."""
 
+import asyncio
 import uuid
 from typing import Any  # noqa: TC003
 
@@ -67,8 +68,19 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
         else payload.get("names")
     )
     names = [str(item) for item in raw_names] if isinstance(raw_names, list) else []
-    async with heartbeating():
-        kind = await store.advance_turn(run_id, text, names)
+    try:
+        async with heartbeating():
+            kind = await store.advance_turn(run_id, text, names)
+    except asyncio.CancelledError:
+        # The person pressed Stop while this step was running. What was written so far is
+        # kept, and the run is closed here, where its rows are.
+        from ar_domain.tools.resume import mark_cancelled  # noqa: PLC0415
+
+        stopped = runs.get(run_id) if isinstance(runs, dict) else None
+        if isinstance(stopped, dict):
+            mark_cancelled(store, stopped)
+        await asyncio.shield(flush_store(store))
+        raise
     await flush_store(store)
     run = runs.get(run_id, {}) if isinstance(runs, dict) else {}
     status = str(run.get("status") or "completed") if isinstance(run, dict) else "completed"
