@@ -76,21 +76,22 @@ Without `compose.computers.yaml` the install has no computers: a tool that needs
 
 ### Memory
 
-Measured by `scripts/compose_install.sh` in CI on 21 November 2026 (commit `c00c624f`, a 16 GB runner), idle after one chat turn. These figures are from before the two workers shared a process; the next run of that script replaces them. Parsing a large document adds to `ingest-worker` (939 MiB was seen while a 114-page PDF was read), and each running computer is a container of its own.
+Measured by `scripts/compose_install.sh` in CI on 21 November 2026 (commit `9a469aac`, a 16 GB runner), idle after one chat turn and after the worker had settled. Parsing a large document adds to `ingest-worker` (939 MiB was seen while a 114-page PDF was read), and each running computer is a container of its own.
 
 | Core service | Memory |
 |---|---|
-| `api` | 388 MiB |
-| `system-worker` | 350 MiB |
-| `runtime-worker` | 275 MiB |
-| `postgres` | 223 MiB |
-| `ingest-worker` | 222 MiB |
-| `mcp-gateway` | 161 MiB |
-| `seaweedfs` | 158 MiB |
-| `temporal` | 70 MiB |
-| `web` | 50 MiB |
-| `valkey` | 8 MiB |
-| **Core total** | **about 1.9 GiB** |
+| `api` | 385 MiB |
+| `worker` | 275 MiB |
+| `postgres` | 249 MiB |
+| `ingest-worker` | 182 MiB |
+| `mcp-gateway` | 172 MiB |
+| `seaweedfs` | 111 MiB |
+| `temporal` | 99 MiB |
+| `web` | 52 MiB |
+| `valkey` | 18 MiB |
+| **Core total** | **about 1.5 GiB** |
+
+Run apart (`compose.split-workers.yaml`), `runtime-worker` measured 275 MiB and `system-worker` 350 MiB.
 
 | Feature service | Memory |
 |---|---|

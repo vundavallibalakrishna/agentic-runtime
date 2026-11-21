@@ -157,6 +157,37 @@ def _prove_gateway_hop() -> None:
     print(f"worker tool call reached mcp-gateway ({status})")
 
 
+# Every queue the install's workers serve. One process may serve several of them, so a
+# healthy container is not proof: each queue must have a worker polling it.
+QUEUES = ("ar-runtime", "ar-system", "ar-eval", "ar-ingest")
+
+
+async def _prove_pollers(temporal: Client) -> None:
+    from temporalio.api.enums.v1 import TaskQueueType  # noqa: PLC0415
+    from temporalio.api.taskqueue.v1 import TaskQueue  # noqa: PLC0415
+    from temporalio.api.workflowservice.v1 import DescribeTaskQueueRequest  # noqa: PLC0415
+
+    deadline = time.monotonic() + 90
+    idle: list[str] = list(QUEUES)
+    while time.monotonic() < deadline:
+        idle = []
+        for queue in QUEUES:
+            described = await temporal.workflow_service.describe_task_queue(
+                DescribeTaskQueueRequest(
+                    namespace="default",
+                    task_queue=TaskQueue(name=queue),
+                    task_queue_type=TaskQueueType.TASK_QUEUE_TYPE_WORKFLOW,
+                )
+            )
+            if not described.pollers:
+                idle.append(queue)
+        if not idle:
+            print(f"every task queue has a worker: {', '.join(QUEUES)}")
+            return
+        await asyncio.sleep(3)
+    raise RuntimeError(f"no worker is polling: {', '.join(idle)}")
+
+
 def main() -> None:  # noqa: PLR0915
     api = os.environ.get("AR_SMOKE_API", "http://127.0.0.1:8000").rstrip("/")
     temporal_address = os.environ.get("AR_SMOKE_TEMPORAL", "127.0.0.1:7233")
@@ -213,6 +244,7 @@ def main() -> None:  # noqa: PLR0915
 
     async def _prove() -> tuple[str, str]:
         temporal = await Client.connect(temporal_address)
+        await _prove_pollers(temporal)
         before = await temporal.get_workflow_handle(f"run-{run_id}").describe()
         workflow_id = before.id
         system = await Client.connect(temporal_address, namespace="temporal-system")

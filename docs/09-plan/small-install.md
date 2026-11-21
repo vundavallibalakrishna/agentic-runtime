@@ -107,7 +107,7 @@ The full layout stays available: turning every profile on gives today's install,
 
 ### Measured size
 
-Stage 1 measured it in CI: the core idles at about 1.9 GiB, and the six feature services measured add about 0.5 GiB. The table is in `docs/07-ops/compose.md` section 3a. The estimate below was written before the measurement and was too high.
+Measured in CI: with the two workers in one process the core idles at about 1.5 GiB (it was about 1.9 GiB with them apart), and the six feature services measured add about 0.5 GiB. The table is in `docs/07-ops/compose.md` section 3a. The estimate below was written before the measurement and was too high.
 
 ### Expected size (before measurement)
 
