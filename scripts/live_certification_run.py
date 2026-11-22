@@ -831,6 +831,8 @@ def _register_models(api: str, auth: dict[str, str]) -> None:
             }
             if dimensions is not None:
                 body["embeddingDimensions"] = dimensions
+            if kind == "chat":
+                body.update(_served_limits())
             _made, _headers, created = _json("POST", f"{api}/api/v1/models", body, auth)
             if isinstance(created, dict) and created.get("id"):
                 rows.append(created)
@@ -860,6 +862,19 @@ def _register_models(api: str, auth: dict[str, str]) -> None:
             {"alias": "embed", "kind": "embedding", "primaryModelId": embed_id},
             auth,
         )
+
+
+def _served_limits() -> dict[str, int]:
+    """The window and output limit the provider serves for the chat model, when they are given."""
+    limits: dict[str, int] = {}
+    for field, name in (
+        ("contextWindow", "AR_CERT_CONTEXT_WINDOW"),
+        ("maxOutputTokens", "AR_CERT_MAX_OUTPUT_TOKENS"),
+    ):
+        raw = os.environ.get(name, "").strip()
+        if raw.isdigit() and int(raw) > 0:
+            limits[field] = int(raw)
+    return limits
 
 
 def _probe(name: str, token: str, url: str) -> dict[str, object]:
