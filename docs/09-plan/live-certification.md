@@ -41,6 +41,28 @@ export API_PROXY_URL=http://127.0.0.1:${AR_PORT}
 docker compose --profile production up -d --build
 ```
 
+## One command
+
+`scripts/certify_stack.sh` does everything below on a machine that has Docker and 16 GB of memory: it writes `.env` when there is none, builds the computer image, starts the install in the staging environment with every feature file and the file scanner, seeds one tenant with an admin and a reviewer, and runs the parts named in `AR_CERT_PARTS`.
+
+```bash
+export AR_LLM_API_KEY=...            # never commit this
+export AR_CERT_PARTS="live tools"    # any of: live tools agents; live is required, it connects the model
+bash scripts/certify_stack.sh
+```
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `AR_CERT_PARTS` | none | `live` runs `scripts/certify_live.sh`, `tools` runs `scripts/tool_certification.py`, `agents` runs `scripts/agent_certification.py`. With none, the install and the seed are the check |
+| `AR_CERT_REPEAT` | 2 | Times each tool flow runs |
+| `AR_CERT_EVIDENCE` | `var/certification` | Where the scorecards, each part's log and exit code, the container list, memory use and the last 400 log lines of each service are written |
+| `AR_CERT_CONTEXT_WINDOW`, `AR_CERT_MAX_OUTPUT_TOKENS` | the product default | The limits the provider serves for the chat model, sent when the run registers it |
+| `AR_CERT_DOCUMENT`, `AR_CERT_RESEARCH_QUESTION` | `docs/00-overview/vision.md` and a question it answers | The document the run uploads and the research question |
+
+The admin and reviewer passwords are generated for the run unless `AR_ADMIN_PASSWORD` and `AR_SECOND_PASSWORD` are set. The script stops with a non-zero exit when a part does not pass, and it leaves the install running so a person can look at it; `docker compose down -v` removes it. An `.env` that is already in the checkout is used as it is and is not rewritten.
+
+The `certification` CI job runs the same script on a hosted runner. Start it from the Actions page (**certification**, **Run workflow**) after adding the provider's key as the repository secret `AR_LLM_API_KEY`. The evidence is the run's `certification-<run id>` artifact, kept for 30 days. The repository is public, so the artifact and the job log are public too; the key and the two passwords are masked, and nothing else in the evidence is a secret.
+
 ## Command
 
 With the stack up and a real document on disk. `scripts/certify_live.sh` installs Playwright Chromium into `PLAYWRIGHT_BROWSERS_PATH` (default `.playwright-browsers` in the checkout) so it does not touch a shared browser cache.
