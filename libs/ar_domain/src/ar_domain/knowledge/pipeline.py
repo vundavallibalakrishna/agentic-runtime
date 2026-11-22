@@ -4,7 +4,6 @@ Activities are idempotent. The dev API runs them inline; Temporal activities
 call the same functions.
 """
 
-import asyncio
 import hashlib
 import uuid
 from typing import TYPE_CHECKING
@@ -104,10 +103,6 @@ async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) 
     return "indexed"
 
 
-# How long a request waits for the worker to finish a large file before it answers.
-_WORKER_WAIT_S = 120
-
-
 def _inline_max_bytes() -> int:
     from ar_common.settings import get_settings  # noqa: PLC0415
 
@@ -157,6 +152,7 @@ async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> s
         return await ingest_document_async(store, document_id, raw)
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
     from ar_domain.durable.hydrate import reload_document  # noqa: PLC0415
+    from ar_domain.durable.waiting import WORKER_WAIT_S, worker_result  # noqa: PLC0415
 
     await flush_store(store)
     digest = hashlib.sha256(raw).hexdigest()[:16]
@@ -167,8 +163,12 @@ async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> s
         task_queue="ar-ingest",
     )
     try:
-        await asyncio.wait_for(handle.result(), timeout=_WORKER_WAIT_S if large else 20)
-    except TimeoutError:
+        finished, _answer = await worker_result(handle, WORKER_WAIT_S if large else 20)
+    except Exception:  # the worker wrote the reason on the document
+        await reload_document(store, document_id)
+        raise_embedding_error(store.knowledge_documents.get(document_id))
+        raise
+    if not finished:
         if not large:
             return await ingest_document_async(store, document_id, raw)
         # The worker is still reading a large file. It finishes on its own; parsing the
@@ -176,10 +176,6 @@ async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> s
         await reload_document(store, document_id)
         waiting = store.knowledge_documents.get(document_id)
         return str(waiting.get("status") or "pending") if isinstance(waiting, dict) else "missing"
-    except Exception:  # the worker wrote the reason on the document
-        await reload_document(store, document_id)
-        raise_embedding_error(store.knowledge_documents.get(document_id))
-        raise
     await reload_document(store, document_id)
     document = store.knowledge_documents.get(document_id)
     if isinstance(document, dict):

@@ -212,10 +212,6 @@ def reprocess(
     return DocumentLibrary(store)._view(row, detail=True)
 
 
-# How long a request waits for the worker to read the file again before it answers.
-_WORKER_WAIT_S = 120
-
-
 async def reprocess_document(
     store: Any, actor: Actor, document_id: uuid.UUID, *, engine: str = ""
 ) -> dict[str, object]:
@@ -224,7 +220,6 @@ async def reprocess_document(
     The worker has the layout parser and the converters, and a long read there does not
     hold up the API. Without a worker the file is read in this process, off the loop.
     """
-    import asyncio  # noqa: PLC0415
 
     from ar_common.errors import ArError, ErrorCode  # noqa: PLC0415
     from ar_common.ids import new_id  # noqa: PLC0415
@@ -235,6 +230,7 @@ async def reprocess_document(
         _load_library_id,
     )
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.durable.waiting import WORKER_WAIT_S, worker_result  # noqa: PLC0415
 
     row = _owned(store, actor, document_id)
     client = getattr(store, "temporal_client", None)
@@ -261,9 +257,8 @@ async def reprocess_document(
         task_queue="ar-ingest",
     )
     library = DocumentLibrary(store)
-    try:
-        answer = await asyncio.wait_for(handle.result(), timeout=_WORKER_WAIT_S)
-    except TimeoutError:
+    finished, answer = await worker_result(handle, WORKER_WAIT_S)
+    if not finished:
         # The worker is still reading. It finishes on its own; the row is as it was.
         return library._view(row, detail=True)
     if isinstance(answer, dict) and answer.get("status") == "failed":

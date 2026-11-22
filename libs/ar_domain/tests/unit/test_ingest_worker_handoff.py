@@ -408,3 +408,86 @@ async def test_without_a_worker_the_file_is_read_here_and_strangers_find_nothing
     store.library_documents[document_id]["object_key"] = ""
     with pytest.raises(NotFoundError):
         await reprocess_document(store, actor, document_id)
+
+
+class _EndedPoll:
+    """A workflow whose result poll the workflow service ended before the worker finished."""
+
+    async def result(self) -> dict[str, object]:
+        from temporalio.service import RPCError, RPCStatusCode
+
+        raise RPCError("context deadline exceeded", RPCStatusCode.DEADLINE_EXCEEDED, b"")
+
+
+class _Busy:
+    async def start_workflow(self, *_a: object, **_k: object) -> _EndedPoll:
+        return _EndedPoll()
+
+
+@pytest.mark.asyncio
+async def test_an_upload_the_worker_is_still_reading_answers_with_the_staged_row(
+    durable_store: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ar_domain.documents.library import _parse_on_worker
+
+    store = durable_store
+    actor = Actor(uuid.uuid4(), uuid.uuid4(), frozenset({"chat:use"}))
+
+    staged = await _parse_on_worker(
+        store, actor, _Busy(), data=_docx(), filename="long.docx", media_type="", source="upload"
+    )
+
+    # The poll ended, not the work: the person gets the row, and the worker finishes it.
+    assert staged["status"] == "parsing"
+    assert staged["id"]
+
+
+@pytest.mark.asyncio
+async def test_an_upload_the_worker_cannot_read_says_why(
+    durable_store: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ar_domain.documents.library import _parse_on_worker
+
+    store = durable_store
+
+    def _refuse(*_a: object, **_k: object) -> object:
+        raise ExtractError("unsupported", "This kind of file cannot be read.")
+
+    monkeypatch.setattr("ar_domain.documents.library.parse_layout", _refuse)
+    actor = Actor(uuid.uuid4(), uuid.uuid4(), frozenset({"chat:use"}))
+
+    with pytest.raises(ArError) as refused:
+        await _parse_on_worker(
+            store,
+            actor,
+            _Worker(store),
+            data=_docx(),
+            filename="odd.docx",
+            media_type="",
+            source="upload",
+        )
+
+    # The reason reaches the person as a refusal, not as a server error after three tries.
+    assert refused.value.code is ErrorCode.UNSUPPORTED_MEDIA_TYPE
+    assert refused.value.detail == "This kind of file cannot be read."
+    failed = [row for row in store.library_documents.values() if row.get("filename") == "odd.docx"]  # type: ignore[attr-defined]
+    assert failed[0]["status"] == "failed"
+    assert failed[0]["error_message"] == "This kind of file cannot be read."
+
+
+def test_a_container_that_is_not_an_office_file_is_known_by_its_name() -> None:
+    import io
+    import zipfile
+
+    from ar_domain.documents.extract import sniff
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as book:
+        book.writestr("content.xml", "<office/>")
+    container = buffer.getvalue()
+    assert container.startswith(b"PK")
+    for name in ("notes.odt", "sheet.ods", "bundle.zip"):
+        assert sniff(container, name, "") == "convert"
+    # An office file is still known by what is inside, whatever it is called.
+    assert sniff(_docx(), "renamed.zip", "") == "docx"
+    assert sniff(container, "unknown.bin", "") == ""

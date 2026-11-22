@@ -114,7 +114,11 @@ def sniff(data: bytes, filename: str, media_type: str) -> str:  # noqa: PLR0911,
     if data.startswith(b"%PDF"):
         return "pdf"
     if data.startswith(b"PK"):
-        return _office_kind(data)
+        # A zip container. Word, Excel and PowerPoint files are known by what is inside;
+        # any other container (an OpenDocument file, a plain archive) is known by its name.
+        office = _office_kind(data)
+        if office:
+            return office
     if data.startswith(b"\x89PNG") or data.startswith(b"\xff\xd8") or data.startswith(b"GIF"):
         return "image"
     if data.startswith(b"RIFF") and b"WEBP" in data[:16]:
@@ -137,7 +141,7 @@ def sniff(data: bytes, filename: str, media_type: str) -> str:  # noqa: PLR0911,
         return "md"
     if name.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")) or stated.startswith("image/"):
         return "image"
-    if name.endswith((".doc", ".xls", ".odt", ".rtf", ".eml", ".msg", ".zip")):
+    if name.endswith((".doc", ".xls", ".odt", ".ods", ".rtf", ".eml", ".msg", ".zip")):
         return "convert"
     if name.endswith(".txt") or stated.startswith("text/"):
         return "txt"

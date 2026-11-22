@@ -94,8 +94,9 @@ async def parse_library_activity(payload: dict[str, Any]) -> dict[str, Any]:
     row = store.library_documents.get(document_id)
     owner = row.get("owner_user_id") if isinstance(row, dict) else None
     actor = Actor(tenant_id, owner if isinstance(owner, uuid.UUID) else tenant_id, frozenset())
+    from ar_common.errors import ArError, NotFoundError  # noqa: PLC0415
+
     if payload.get("reprocess"):
-        from ar_common.errors import ArError  # noqa: PLC0415
         from ar_common.offload import run_sync  # noqa: PLC0415
         from ar_domain.documents.lifecycle import reread  # noqa: PLC0415
 
@@ -111,6 +112,14 @@ async def parse_library_activity(payload: dict[str, Any]) -> dict[str, Any]:
         return {"status": "ready", "document_id": str(document_id)}
     try:
         saved = library.finish_parse(actor, document_id)
+    except NotFoundError:
+        # The row or its bytes are not visible here yet. The retry reads them again.
+        raise
+    except ArError as exc:
+        # The file cannot be read, and the row now says why. Trying again reads the same
+        # file, so the reason goes back to the person who uploaded it.
+        await flush_store(store)
+        return {"status": "failed", "code": exc.code.value, "message": exc.detail}
     except Exception:
         await flush_store(store)
         raise

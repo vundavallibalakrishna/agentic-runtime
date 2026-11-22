@@ -132,9 +132,8 @@ async def _parse_on_worker(
     source: str,
 ) -> dict[str, object]:
     """Store the bytes and let the ingest worker parse them. The API does not."""
-    import asyncio  # noqa: PLC0415
-
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.durable.waiting import WORKER_WAIT_S, worker_result  # noqa: PLC0415
 
     library = DocumentLibrary(store)
     staged = library.ingest(
@@ -153,10 +152,12 @@ async def _parse_on_worker(
         id=f"library-parse-{document_id}",
         task_queue="ar-ingest",
     )
-    try:
-        await asyncio.wait_for(handle.result(), timeout=120)
-    except TimeoutError:
+    finished, answer = await worker_result(handle, WORKER_WAIT_S)
+    if not finished:
+        # The worker is still reading. The row says so, and the worker finishes it.
         return staged
+    if isinstance(answer, dict) and answer.get("status") == "failed":
+        raise ArError(ErrorCode(str(answer.get("code"))), str(answer.get("message") or ""))
     loaded = await _load_library_id(store, actor.tenant_id, document_id)
     if loaded is None:
         return staged

@@ -153,9 +153,11 @@ async def test_a_long_run_continues_as_new(temporal_env: WorkflowEnvironment) ->
 async def test_fanout_timeout_and_cancel_while_waiting(temporal_env: WorkflowEnvironment) -> None:
     """A fan-out step runs sub-tasks, then an unanswered wait expires."""
     subtasks: list[str] = []
+    handed: list[object] = []
 
     @activity.defn(name="advance_chat_step")
     async def step(payload: dict[str, Any]) -> dict[str, Any]:
+        handed.append(payload.get("results"))
         decision = payload.get("decision")
         if isinstance(decision, dict):
             return {
@@ -202,6 +204,8 @@ async def test_fanout_timeout_and_cancel_while_waiting(temporal_env: WorkflowEnv
         )
     assert subtasks == ["1"]
     assert expired["status"] == "completed"
+    # The step after the fan-out is handed what the sub-tasks found, and only that step.
+    assert handed == [None, {"1": {"status": "done"}}, None]
 
 
 async def test_cancel_during_a_wait_and_a_non_dict_result(

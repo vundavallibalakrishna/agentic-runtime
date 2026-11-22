@@ -175,6 +175,27 @@ def _upload(api: str, headers: dict[str, str], path: Path) -> tuple[int, object]
     return response.status_code, parsed
 
 
+def _read_document(api: str, auth: dict[str, str], document_id: str) -> dict[str, object]:
+    """The uploaded document was read: it reaches ``ready`` and has passages.
+
+    A large file answers the upload while the worker is still reading, so this waits.
+    """
+    route = f"{api}/api/v1/library-documents/{document_id}"
+    state = ""
+    deadline = time.monotonic() + float(os.environ.get("AR_CERT_PARSE_S", "600"))
+    while time.monotonic() < deadline:
+        _status, _headers, row = _json("GET", route, {}, auth)
+        state = str(row.get("status") or "") if isinstance(row, dict) else ""
+        if state not in {"parsing", "pending", "processing", "queued"}:
+            break
+        time.sleep(5)
+    status, _headers, body = _json("GET", f"{route}/passages", {}, auth)
+    listed = body.get("passages") if isinstance(body, dict) else None
+    count = len(listed) if isinstance(listed, list) else 0
+    ok = state == "ready" and status == 200 and count > 0
+    return {"step": "documents.read", "ok": ok, "status": state, "passages": count}
+
+
 def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PLR0915
     """One live pass. ``ok`` is true only when every required step succeeded."""
     email = os.environ["AR_ADMIN_EMAIL"]
@@ -198,13 +219,7 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PL
         document_id = uploaded.get("id") if isinstance(uploaded, dict) else None
         steps.append({"step": "upload", "ok": upload_status in {200, 201} and bool(document_id)})
         if document_id:
-            judge_status, _headers, judged = _json(
-                "POST",
-                f"{api}/api/v1/library-documents/{document_id}:judge",
-                {"statements": ["The document states what it is about."], "modelAlias": "chat"},
-                auth,
-            )
-            steps.append({"step": "documents.judge", "ok": judge_status == 200, "body": judged})
+            steps.append(_read_document(api, auth, str(document_id)))
     else:
         steps.append({"step": "upload", "ok": False, "error": "AR_CERT_DOCUMENT is missing"})
     agent_status, _headers, agents = _json("GET", f"{api}/api/v1/agents", {}, auth)

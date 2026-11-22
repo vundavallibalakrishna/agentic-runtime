@@ -10,6 +10,7 @@ from ar_domain.research.engine import (
     pending_subtasks,
     save_state,
     state_of,
+    store_failure,
     store_subtask,
 )
 from ar_domain.tools.agent_loop import _finish
@@ -65,19 +66,26 @@ async def execute_subtask(
     from ar_domain.research.gateway import subtask_via_gateway  # noqa: PLC0415
 
     result = subtask_via_gateway(store, run, query)
-    store_results(run, {query["id"]: result})
+    if result.get("status") == "done":
+        store_subtask(run, query["id"], result)
     _emit_progress(store, run, "reading")
     return result
 
 
 def store_results(run: dict[str, object], results: object) -> None:
-    """Keep each finished sub-task. The step stores every result it is handed, so a
-    result one parallel sub-task overwrote on another worker is put back."""
+    """Keep what one round of sub-tasks returned. The step stores every result it is handed,
+    so a result one parallel sub-task overwrote on another worker is put back. A failed
+    search is counted here, once a round, and research goes on without it after the last
+    attempt instead of asking for it until the steps run out."""
     if not isinstance(results, dict):
         return
     for query_id, result in results.items():
-        if isinstance(result, dict) and result.get("status") == "done":
+        if not isinstance(result, dict):
+            continue
+        if result.get("status") == "done":
             store_subtask(run, str(query_id), result)
+        elif result.get("status") == "failed":
+            store_failure(run, str(query_id), str(result.get("reason") or "the search failed"))
 
 
 def exhaust(store: Any, run: dict[str, object]) -> None:
@@ -106,8 +114,10 @@ def state_question(run: dict[str, object]) -> str:
 
 async def _inline_subtasks(store: Any, run: dict[str, object], question: str) -> None:
     state = state_of(run, question)
-    for query in pending_subtasks(state):
-        await execute_subtask(store, run, query)
+    results = {
+        query["id"]: await execute_subtask(store, run, query) for query in pending_subtasks(state)
+    }
+    store_results(run, results)
     state = state_of(run, question)
     state["phase"] = "awaiting"
     save_state(run, state)

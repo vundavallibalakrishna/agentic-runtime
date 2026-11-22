@@ -86,6 +86,9 @@ class TurnWorkflow:
         carried = payload.get("decision")
         decision = carried if isinstance(carried, dict) else None
         result: dict[str, Any] = {"status": "failed", "kind": "final", "run_id": _run_id(payload)}
+        # What the last fan-out's sub-tasks returned. The next step stores all of it, so a
+        # result one parallel sub-task overwrote on another is put back.
+        found: dict[str, Any] = {}
         while taken < max_steps and step < history_steps and not self.cancelled:
             if step > 0 and workflow.info().is_continue_as_new_suggested():
                 break
@@ -96,6 +99,9 @@ class TurnWorkflow:
             if decision is not None:
                 body["decision"] = decision
                 decision = None
+            if found:
+                body["results"] = found
+                found = {}
             self.turn = workflow.start_activity(
                 "advance_chat_step",
                 body,
@@ -117,7 +123,7 @@ class TurnWorkflow:
             if self.cancelled:
                 break
             if kind == "fanout":
-                await self._fanout(payload, result.get("subtasks"))
+                found = await self._fanout(payload, result.get("subtasks"))
                 continue
             if kind == "sections":
                 await self._sections(payload, result.get("sections"))
@@ -200,13 +206,19 @@ class TurnWorkflow:
         self.decision = None
         return found
 
-    async def _fanout(self, payload: dict[str, Any], raw: object) -> None:
-        """Run research sub-tasks as activities of this workflow, then the next step collects."""
+    async def _fanout(self, payload: dict[str, Any], raw: object) -> dict[str, Any]:
+        """Run research sub-tasks as activities of this workflow and return what each found.
+
+        The sub-tasks run side by side and each saves the run. The last save wins, so the
+        next step is handed every result and stores them together.
+        """
         items = raw if isinstance(raw, list) else []
         handles = []
+        ids: list[str] = []
         for item in items:
             if not isinstance(item, dict):
                 continue
+            ids.append(str(item.get("id") or ""))
             handles.append(
                 workflow.start_activity(
                     "research_subtask",
@@ -220,8 +232,12 @@ class TurnWorkflow:
                     retry_policy=RetryPolicy(maximum_attempts=2),
                 )
             )
-        if handles:
-            await asyncio.gather(*handles)
+        if not handles:
+            return {}
+        results = await asyncio.gather(*handles)
+        return {
+            key: value for key, value in zip(ids, results, strict=True) if isinstance(value, dict)
+        }
 
     async def _sections(self, payload: dict[str, Any], raw: object) -> None:
         """Read document sections a few at a time. Cancelling stops the next batch."""
