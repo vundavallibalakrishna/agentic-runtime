@@ -20,6 +20,9 @@ import httpx
 from temporalio.client import Client
 
 ROOT = Path(__file__).resolve().parents[1]
+# The service that runs agent turns: the combined worker, or runtime-worker when the
+# install runs the workers apart (compose.split-workers.yaml).
+WORKER = os.environ.get("AR_SMOKE_WORKER", "worker")
 sys.path.insert(0, str(ROOT / "scripts"))
 from sign_in import password_for  # noqa: E402
 
@@ -141,7 +144,7 @@ def _prove_gateway_hop() -> None:
             "production",
             "exec",
             "-T",
-            "runtime-worker",
+            WORKER,
             "python",
             "-c",
             script,
@@ -152,6 +155,37 @@ def _prove_gateway_hop() -> None:
     )
     status = completed.stdout.strip().splitlines()[-1]
     print(f"worker tool call reached mcp-gateway ({status})")
+
+
+# Every queue the install's workers serve. One process may serve several of them, so a
+# healthy container is not proof: each queue must have a worker polling it.
+QUEUES = ("ar-runtime", "ar-system", "ar-eval", "ar-ingest")
+
+
+async def _prove_pollers(temporal: Client) -> None:
+    from temporalio.api.enums.v1 import TaskQueueType  # noqa: PLC0415
+    from temporalio.api.taskqueue.v1 import TaskQueue  # noqa: PLC0415
+    from temporalio.api.workflowservice.v1 import DescribeTaskQueueRequest  # noqa: PLC0415
+
+    deadline = time.monotonic() + 90
+    idle: list[str] = list(QUEUES)
+    while time.monotonic() < deadline:
+        idle = []
+        for queue in QUEUES:
+            described = await temporal.workflow_service.describe_task_queue(
+                DescribeTaskQueueRequest(
+                    namespace="default",
+                    task_queue=TaskQueue(name=queue),
+                    task_queue_type=TaskQueueType.TASK_QUEUE_TYPE_WORKFLOW,
+                )
+            )
+            if not described.pollers:
+                idle.append(queue)
+        if not idle:
+            print(f"every task queue has a worker: {', '.join(QUEUES)}")
+            return
+        await asyncio.sleep(3)
+    raise RuntimeError(f"no worker is polling: {', '.join(idle)}")
 
 
 def main() -> None:  # noqa: PLR0915
@@ -210,6 +244,7 @@ def main() -> None:  # noqa: PLR0915
 
     async def _prove() -> tuple[str, str]:
         temporal = await Client.connect(temporal_address)
+        await _prove_pollers(temporal)
         before = await temporal.get_workflow_handle(f"run-{run_id}").describe()
         workflow_id = before.id
         system = await Client.connect(temporal_address, namespace="temporal-system")
@@ -226,7 +261,7 @@ def main() -> None:  # noqa: PLR0915
     restart = os.environ.get("AR_SMOKE_RESTART", "1")
     if restart != "1":
         return
-    subprocess.run(
+    subprocess.run(  # noqa: S603
         [  # noqa: S607
             "docker",
             "compose",
@@ -238,7 +273,7 @@ def main() -> None:  # noqa: PLR0915
             "production",
             "restart",
             "temporal",
-            "runtime-worker",
+            WORKER,
         ],
         check=True,
     )

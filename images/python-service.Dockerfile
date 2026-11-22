@@ -22,9 +22,13 @@ COPY packs/examples/task-templates packs/examples/task-templates
 # that serves the OPA bundle; without them that build fails, which is the intent.
 COPY policies/rego/ar policies/rego/ar
 
+# SERVICE names the package to install. A second package, for an image that runs two
+# workers in one process, is named in ALSO.
 ARG SERVICE=api
-RUN package="ar-$(printf '%s' "$SERVICE" | tr '_' '-')" \
-    && uv sync --frozen --no-dev --no-editable --package "$package" \
+ARG ALSO=
+RUN packages="--package ar-$(printf '%s' "$SERVICE" | tr '_' '-')" \
+    && if [ -n "$ALSO" ]; then packages="$packages --package ar-$(printf '%s' "$ALSO" | tr '_' '-')"; fi \
+    && uv sync --frozen --no-dev --no-editable $packages \
     && chown -R app:app /app
 
 ENV PATH="/app/.venv/bin:$PATH" \

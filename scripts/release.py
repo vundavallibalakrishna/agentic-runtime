@@ -40,6 +40,7 @@ def package(destination: Path) -> Path:
             "compose.opa.yaml",
             "compose.vault.yaml",
             "compose.model-gateway.yaml",
+            "compose.split-workers.yaml",
             "deploy/compose",
             "scripts/backup_postgres.sh",
             "scripts/restore_postgres.sh",
