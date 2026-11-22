@@ -45,6 +45,12 @@ BASE = "https://embed.example/v1"
 ROOT = Path(__file__).resolve().parents[4]
 
 
+@pytest.fixture(autouse=True)
+def _no_waiting_on_a_busy_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A test that answers 503 means "the model is down": do not wait and ask again."""
+    monkeypatch.setenv("AR_EMBEDDING_RETRIES", "0")
+
+
 def _actor() -> Actor:
     return Actor(TENANT, demo_id("admin"), PERMISSION_KEYS, roles=frozenset({"tenant_admin"}))
 
@@ -203,6 +209,46 @@ def test_a_provider_failure_is_reported_and_never_replaced_by_a_made_up_vector()
         respx.post(f"{BASE}/embeddings").mock(side_effect=_answer(size=8))
         with pytest.raises(EmbeddingUnconfiguredError, match="8 numbers and this needs 1024"):
             embed(target, ["one"], size=1024)
+
+
+def test_a_busy_provider_is_asked_again_after_the_wait_it_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ar_domain.models import embedding
+
+    waits: list[float] = []
+    monkeypatch.delenv("AR_EMBEDDING_RETRIES")
+    monkeypatch.setattr(embedding.time, "sleep", waits.append)
+    store = _bare_store()
+    _register(store, "busy-embed")
+    target = embedding_model(store, TENANT)
+    busy = httpx.Response(429, headers={"retry-after": "3"})
+    with respx.mock:
+        route = respx.post(f"{BASE}/embeddings").mock(
+            side_effect=[busy, httpx.Response(503), httpx.Response(200, json=_vectors(1, 4))]
+        )
+        assert len(embed(target, ["one"])) == 1
+    assert route.call_count == 3
+    # The provider's own wait first, then the next step of 1, 2, 4.
+    assert waits == [3.0, 2.0]
+    # Still busy after the last try: the refusal is reported, as before.
+    waits.clear()
+    with respx.mock:
+        route = respx.post(f"{BASE}/embeddings").mock(
+            return_value=httpx.Response(429, headers={"retry-after": "600"})
+        )
+        with pytest.raises(EmbeddingFailedError, match="refused the request \\(HTTP 429\\)"):
+            embed(target, ["one"])
+    assert route.call_count == 3
+    assert waits == [10.0, 10.0]
+    monkeypatch.setenv("AR_EMBEDDING_RETRIES", "0")
+    with respx.mock:
+        route = respx.post(f"{BASE}/embeddings").mock(return_value=httpx.Response(429))
+        with pytest.raises(EmbeddingFailedError):
+            embed(target, ["one"])
+    assert route.call_count == 1
+    monkeypatch.setenv("AR_EMBEDDING_RETRIES", "many")
+    assert embedding._retries() == 2
 
 
 def test_a_collection_records_the_model_that_indexed_it_and_keeps_using_it() -> None:

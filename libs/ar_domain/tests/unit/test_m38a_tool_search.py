@@ -40,6 +40,12 @@ TOOLS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _no_waiting_on_a_busy_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A test that answers 503 means "the model is down": do not wait and ask again."""
+    monkeypatch.setenv("AR_EMBEDDING_RETRIES", "0")
+
+
 def _bare() -> ChatService:
     """A tenant with a chat model and no embedding model."""
     store = ChatService(allow_loopback=True)

@@ -31,3 +31,29 @@ def test_schema_gate_refuses_a_missing_url(
     error = capsys.readouterr().err
     assert "AR_DATABASE_URL is unset" in error
     assert "secret" not in error
+
+
+def test_a_failed_upgrade_shows_the_end_of_its_output(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from types import SimpleNamespace
+
+    from ar_domain.db import schema_gate
+
+    monkeypatch.setenv("POSTGRES_PASSWORD", "s3cret-value")
+    output = (
+        "Traceback (most recent call last):\n"
+        + "  frame\n" * 400
+        + "KeyError: 'the cause' for s3cret-value\n"
+    )
+    monkeypatch.setattr(
+        schema_gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=1, stderr=output, stdout=""),
+    )
+    with pytest.raises(SystemExit):
+        schema_gate._run_alembic()
+    shown = capsys.readouterr().err
+    assert "KeyError: 'the cause' for [redacted]" in shown
+    assert "s3cret-value" not in shown
+    assert len(shown) < 2100

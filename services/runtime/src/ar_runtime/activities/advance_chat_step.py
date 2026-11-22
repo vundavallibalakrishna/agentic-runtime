@@ -55,6 +55,7 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
                 )
             await flush_store(store)
             return {"status": "quota_exceeded", "kind": "final", "run_id": str(run_id)}
+    _keep_results(run, payload.get("results"))
     source = getattr(store, "messages", {}).get(run.get("input_message_id"), {})
     text = str(source.get("text") or payload.get("text") or "") if isinstance(source, dict) else ""
     parts = source.get("content") if isinstance(source, dict) else None
@@ -87,6 +88,14 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
     if not run_is_active(status):
         kind = "final"
     return _step_body(run if isinstance(run, dict) else {}, status, str(kind), str(run_id), text)
+
+
+def _keep_results(run: dict[str, Any], results: object) -> None:
+    """Store what the last fan-out's research sub-tasks found, all of it in one write."""
+    if isinstance(results, dict):
+        from ar_domain.research.driver import store_results  # noqa: PLC0415
+
+        store_results(run, results)
 
 
 async def _stop_or_apply(

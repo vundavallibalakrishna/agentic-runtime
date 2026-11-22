@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import os
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -142,11 +143,8 @@ def embed(
         with client_for(target.base_url, timeout=_timeout(target), supplied=True) as http:
             for start in range(0, len(rows), _BATCH):
                 embed_url = f"{target.base_url}/embeddings"
-                response = blocking(
-                    http.post,
-                    embed_url,
-                    json={**payload, "input": rows[start : start + _BATCH]},
-                    headers=_call_headers(target, embed_url),
+                response = _post(
+                    http, target, embed_url, {**payload, "input": rows[start : start + _BATCH]}
                 )
                 response.raise_for_status()
                 _take(response.json(), ordered, start)
@@ -202,7 +200,7 @@ def rerank(target: ModelTarget, query: str, documents: Sequence[str]) -> list[fl
         from ar_common.internal_http import client_for  # noqa: PLC0415
 
         with client_for(url, timeout=_timeout(target), supplied=True) as http:
-            response = blocking(http.post, url, json=payload, headers=_call_headers(target, url))
+            response = _post(http, target, url, payload)
             response.raise_for_status()
     except httpx.HTTPError as exc:
         raise EmbeddingFailedError(f"The rerank model {target.label} did not answer.") from exc
@@ -317,6 +315,43 @@ def _timeout(target: ModelTarget) -> float:
     except ValueError:
         chosen = target.timeout_s
     return chosen if chosen > 0 else 60.0
+
+
+# A provider that is busy says so with one of these. The request was not processed.
+_BUSY = frozenset({429, 503})
+_MAX_WAIT_S = 10.0
+
+
+def _retries() -> int:
+    """``AR_EMBEDDING_RETRIES``: how often a request a busy provider refused is sent again."""
+    raw = os.environ.get("AR_EMBEDDING_RETRIES", "").strip()
+    try:
+        chosen = int(raw) if raw else 2
+    except ValueError:
+        chosen = 2
+    return max(0, min(chosen, 5))
+
+
+def _wait_s(response: httpx.Response, attempt: int) -> float:
+    """The provider's ``Retry-After`` when it gives seconds, else 1, 2, 4. Never over 10."""
+    try:
+        asked = float(response.headers.get("retry-after", ""))
+    except ValueError:
+        asked = float(2**attempt)
+    return max(0.0, min(asked, _MAX_WAIT_S))
+
+
+def _post(
+    http: httpx.Client, target: ModelTarget, url: str, payload: dict[str, object]
+) -> httpx.Response:
+    """Send one request. A busy provider (429 or 503) is asked again after it says to."""
+    attempts = _retries()
+    for attempt in range(attempts + 1):
+        response = blocking(http.post, url, json=payload, headers=_call_headers(target, url))
+        if response.status_code not in _BUSY or attempt == attempts:
+            break
+        blocking(time.sleep, _wait_s(response, attempt))
+    return response
 
 
 def _headers(target: ModelTarget) -> dict[str, str]:

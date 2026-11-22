@@ -109,6 +109,10 @@ def _wait_until_ready(url: str, wait_s: float) -> None:
     raise SystemExit(1)
 
 
+# How much of a failed upgrade's output is shown: the end, where the cause is.
+_ERROR_TAIL = 2000
+
+
 def _run_alembic() -> None:
     ini = _alembic_ini()
     completed = subprocess.run(  # noqa: S603
@@ -118,8 +122,9 @@ def _run_alembic() -> None:
         text=True,
     )
     if completed.returncode != 0:
-        detail = _redact(completed.stderr or completed.stdout)
-        sys.stderr.write(f"schema upgrade failed: {detail[:400]}\n")
+        # A Python error names its cause on the last lines, after the traceback.
+        detail = _scrub(completed.stderr or completed.stdout).strip()
+        sys.stderr.write(f"schema upgrade failed: {detail[-_ERROR_TAIL:]}\n")
         raise SystemExit(1)
 
 
@@ -150,12 +155,19 @@ def _sync_url(url: str) -> str:
     return owner
 
 
-def _redact(message: str) -> str:
+def _scrub(message: str) -> str:
+    """The message with every database password this process knows taken out."""
     redacted = message
     for name in (*PASSWORD_ENV.values(), "POSTGRES_PASSWORD", "POSTGRES_PWD", "SQL_PASSWORD"):
         secret = os.environ.get(name, "")
         if secret:
             redacted = redacted.replace(secret, "[redacted]")
+    return redacted
+
+
+def _redact(message: str) -> str:
+    """One line of an error, without passwords."""
+    redacted = _scrub(message)
     line = redacted.splitlines()[0] if redacted else ""
     return line[:300]
 

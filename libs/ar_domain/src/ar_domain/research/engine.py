@@ -5,6 +5,7 @@ A step reads the checkpoint and writes it back. Repeating a finished step is a n
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -100,12 +101,19 @@ def max_steps(state: dict[str, object]) -> int:
     return _whole(state.get("max_steps"), _DEFAULTS["max_steps"])
 
 
+_SENTENCE_END = re.compile(r"(?<=[.?!])\s+")
+# How often one query is searched before research goes on without it.
+_SUBTASK_ATTEMPTS = 2
+
+
 def plan_queries(question: str, *, breadth: int) -> list[dict[str, str]]:
     """Deterministic queries. A model may replace these before the search step."""
     text = " ".join(question.split())
     if not text:
         return []
-    pieces = [part.strip() for part in text.replace("?", ".").split(".") if part.strip()]
+    # A sentence ends at a full stop, question mark or exclamation mark followed by a space.
+    # A full stop inside a word ("2.0", "example.com") is part of the word.
+    pieces = [part.strip(" .?!") for part in _SENTENCE_END.split(text) if part.strip(" .?!")]
     if not pieces:
         pieces = [text]
     queries: list[dict[str, str]] = []
@@ -223,7 +231,7 @@ def pending_subtasks(state: dict[str, object]) -> list[dict[str, str]]:
         if not isinstance(query, dict):
             continue
         item_id = str(query.get("id") or "")
-        if item_id and item_id not in finished:
+        if item_id and item_id not in finished and not _gave_up(state, item_id):
             pending.append(
                 {"id": item_id, "text": str(query.get("text") or ""), "status": "pending"}
             )
@@ -237,6 +245,24 @@ def store_subtask(run: dict[str, object], query_id: str, result: dict[str, objec
     book[query_id] = result
     state["subtasks"] = book
     save_state(run, state)
+
+
+def store_failure(run: dict[str, object], query_id: str, reason: str) -> None:
+    """Count a search that failed. After the last attempt research goes on without it."""
+    state = state_of(run, "")
+    failures = state.get("failures")
+    book = dict(failures) if isinstance(failures, dict) else {}
+    seen = book.get(query_id)
+    attempts = _whole(seen.get("attempts")) if isinstance(seen, dict) else 0
+    book[query_id] = {"attempts": attempts + 1, "reason": reason[:300]}
+    state["failures"] = book
+    save_state(run, state)
+
+
+def _gave_up(state: dict[str, object], query_id: str) -> bool:
+    failures = state.get("failures")
+    seen = failures.get(query_id) if isinstance(failures, dict) else None
+    return isinstance(seen, dict) and _whole(seen.get("attempts")) >= _SUBTASK_ATTEMPTS
 
 
 def _plan(state: dict[str, object], run: dict[str, object]) -> str:
@@ -291,12 +317,12 @@ def _verify(state: dict[str, object], run: dict[str, object]) -> str:
 
 
 def _subtask_failure(state: dict[str, object]) -> str:
-    subtasks = state.get("subtasks")
-    if not isinstance(subtasks, dict):
-        return ""
-    for result in subtasks.values():
-        if isinstance(result, dict) and result.get("status") == "failed":
-            return str(result.get("reason") or "the search failed")[:300]
+    failures = state.get("failures")
+    done = state.get("subtasks")
+    finished = set(done) if isinstance(done, dict) else set()
+    for query_id, seen in failures.items() if isinstance(failures, dict) else []:
+        if query_id not in finished and isinstance(seen, dict):
+            return str(seen.get("reason") or "the search failed")[:300]
     return ""
 
 
