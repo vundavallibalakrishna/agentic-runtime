@@ -92,6 +92,7 @@ make gen         # regenerate OpenAPI, schemas, clients and CLAUDE.md; CI fails 
 
 Things that catch people out:
 
+- **Stop what you started.** The owner made this a hard rule on 23 November 2026. Before you finish a piece of work, stop every container, Compose project and long-running process you started on the machine, and check with `docker ps` that none of yours is left. Give a stack you start its own project name so it is clear whose it is. Do not leave one running for later or for someone to look at unless the owner asked for that. A test that leaves a container behind is a defect to fix. Another person's or agent's stack is not yours to stop: say that it is running and ask.
 - **Several agents may share a checkout.** Work in your own git worktree under `.claude/worktrees/<name>`, on a fresh branch from `origin/main`, with your own ports and database. Never use a bare `git stash`: the stash stack is shared.
 - **`.env` leaks into unit tests.** `pydantic-settings` reads it, so `AR_OPA_URL` can point a test at a shared OPA, and a dev tenant seeded before a flag existed needs `make seed` again. Rule this out before blaming your change.
 - **Next.js rewrites tracked files.** `next build` with `AR_NEXT_DIST` rewrites `apps/web/next-env.d.ts`, and `next dev` manages `apps/web/AGENTS.md`. Do not commit those changes by accident.
