@@ -24,13 +24,21 @@ Errors:
 
 ## 2. Tools
 
-Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `summarise`, `compare`, `judge`, `missing`, `crosscheck`, `rewrite`, `redact`, `extract`, `create`, `ocr`.
+Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `map`, `extract`, `edit`, `create`, `ocr`. The task tools (summarise, compare, judge, missing, crosscheck, rewrite, redact) were removed ([OQ-154](../open-questions.md)): the model plans those with the tools here.
 
 `ocr` takes `fileId`, a workspace `path`, a `url`, or `documentId`. `engine` defaults to `tesseract`, which is proof `unit` (a local binary, not a model). `engine` `vision` uses the configured vision alias. That result is proof `live` only when the model answers, and the result names the model id and the date. Otherwise the result is `text_not_extracted` and the proof stays `unit`. `google_document_ai`, `aws_textract` and `azure_document_intelligence` return `not_live` and are not called. A PDF is Unicode text, or the tool returns `not_unicode` or `text_not_extracted`.
 
 `image.ask` is server `builtin://image`, tool `ask`. It takes `fileId`, a workspace `path`, or a `url`, plus `question`. The image is PNG, JPEG, GIF or WebP, at most 8 MB. A PDF is refused; the caller uses `documents.ocr`. The call uses the agent `visionAlias` when it is set, otherwise the alias `vision`, through the same sealed provider key as chat. The key is not logged and is not returned. A fake alias, or a model that is not vision-capable, returns `vision_unavailable` and does not send the image. The image is untrusted data.
 
-`ingest` takes `fileId`, a workspace `path`, or a `url`. A URL uses the same egress rules as `general.fetch`.
+`ingest` takes `fileId`, a workspace `path`, or a `url`. A URL is read the way `general.fetch` reads one ([spec 08, "Reading public sites"](08-tool-registry-mcp.md)): the same egress rules, robots.txt, per-host limit and refusals, up to `AR_DOCUMENT_MAX_BYTES`. An address that answers with an error is not ingested.
+
+**Copies of one address.** A document ingested from a URL has `source: connection` and `source_ref` set to the URL, and `metadata.fetched` holds what was measured when it was read (`status`, `etag`, `lastModified`, `contentType`, `bytes`, `sha256`, `fetchedAt`). A document is never overwritten, so reading the same URL again gives one of three results:
+
+- **The content is new.** A new document is stored. If the caller can see an earlier copy of that URL, the result has `changed: true` and `previous` (the newest earlier copy), and the new document's `metadata.versionOf` is that copy's id. This is the link `documents.edit` already writes for an edited version.
+- **The content is the same.** Nothing is stored. The result has `changed: false` and the existing document, whose `metadata.fetched` is brought up to date.
+- **The site says it has not changed.** With `ifNoneMatch` or `ifModifiedSince` (the values from an earlier copy's `metadata.fetched`), a 304 stores nothing and returns `changed: false`.
+
+`list` with `sourceRef` returns every copy of that URL the caller can see, newest first. Each copy stays readable with `read`, `outline` and `search`, so what changed between two copies is found by reading both. Nothing here knows what the address is for.
 
 `read` returns at most 12,000 characters. A longer file is searched and read by page or anchor.
 
