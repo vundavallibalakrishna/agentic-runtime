@@ -6,6 +6,12 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import {
+  type DeliveryChoice,
+  DeliveryFields,
+  deliveryTargets,
+  NO_DELIVERY,
+} from "@/components/routines/delivery-fields";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +55,7 @@ export function SchedulesScreen() {
   const [cron, setCron] = useState("0 9 * * 1");
   const [timezone, setTimezone] = useState("UTC");
   const [overlap, setOverlap] = useState("skip");
+  const [delivery, setDelivery] = useState<DeliveryChoice>(NO_DELIVERY);
   const [agentId, setAgentId] = useState("");
 
   const load = useCallback(async () => {
@@ -106,7 +113,7 @@ export function SchedulesScreen() {
             kind === "webhook"
               ? { type: "webhook", executeModel: true }
               : { type: "schedule", cron, timezone, executeModel: true },
-          delivery: [{ type: "conversation" }],
+          delivery: deliveryTargets(delivery),
         }),
       });
       setNotice(t("secretOnce"));
@@ -260,6 +267,7 @@ export function SchedulesScreen() {
           </select>
           <span className="mt-1 block text-[var(--muted-foreground)]">{t("overlapHelp")}</span>
         </label>
+        <DeliveryFields idPrefix="schedule" onChange={setDelivery} value={delivery} />
         <Button disabled={busy || !agentId} type="submit">
           {busy ? t("creating") : t("create")}
         </Button>

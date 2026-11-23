@@ -9,6 +9,7 @@ import { ActionStatus, BackButton, DetailState } from "@/components/common/detai
 import { Facts } from "@/components/common/facts";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { DeliveryList, type DeliveryTarget } from "@/components/routines/delivery-fields";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -24,6 +25,7 @@ type Routine = {
   webhookUrl?: string | null;
   nextFires?: string[];
   consecutiveFailures?: number;
+  delivery?: DeliveryTarget[];
 };
 
 type RoutineEvent = {
@@ -37,6 +39,7 @@ type RoutineEvent = {
 export function RoutineDetail({ routineId }: { routineId: string }) {
   const t = useTranslations("routines");
   const detail = useTranslations("detail");
+  const deliveryText = useTranslations("delivery");
   const [busy, setBusy] = useState(false);
   const [runId, setRunId] = useState("");
   const [routine, setRoutine] = useState<Routine | null>(null);
@@ -158,6 +161,13 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
                   value: routine.pausedReason
                     ? `${routine.status} · ${routine.pausedReason}`
                     : null,
+                },
+                {
+                  label: deliveryText("label"),
+                  value:
+                    routine.delivery && routine.delivery.length > 0 ? (
+                      <DeliveryList targets={routine.delivery} />
+                    ) : null,
                 },
                 {
                   label: t("webhook"),

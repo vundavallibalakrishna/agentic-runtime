@@ -8,6 +8,12 @@ import { AppShell } from "@/components/app-shell";
 import { ActionStatus } from "@/components/common/detail-state";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import {
+  type DeliveryChoice,
+  DeliveryFields,
+  deliveryTargets,
+  NO_DELIVERY,
+} from "@/components/routines/delivery-fields";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +47,7 @@ export function RoutinesScreen() {
   const [agentId, setAgentId] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
+  const [delivery, setDelivery] = useState<DeliveryChoice>(NO_DELIVERY);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,7 +101,7 @@ export function RoutinesScreen() {
           agentId,
           instructions,
           trigger: { type: "schedule", cron, timezone },
-          delivery: [{ type: "conversation" }],
+          delivery: deliveryTargets(delivery),
         }),
       });
       window.location.assign(`/routines/${created.id}`);
@@ -181,6 +188,7 @@ export function RoutinesScreen() {
                   />
                 </div>
               </div>
+              <DeliveryFields idPrefix="routine" onChange={setDelivery} value={delivery} />
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button onClick={() => void showPreview()} type="button" variant="outline">
                   {t("preview")}
