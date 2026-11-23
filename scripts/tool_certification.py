@@ -168,6 +168,17 @@ def fixed(**arguments: object) -> Callable[[Ctx], dict[str, object]]:
     return lambda _ctx: dict(arguments)
 
 
+def new_version(result: Result, _ctx: Ctx) -> str | None:
+    """The edit stored a new library document: a .docx that names the one it came from."""
+    structured = result.get("structured")
+    row = structured if isinstance(structured, dict) else {}
+    meta = row.get("metadata")
+    source = meta.get("versionOf") if isinstance(meta, dict) else None
+    if not str(row.get("filename") or "").lower().endswith(".docx"):
+        return "the result is not a new .docx document"
+    return None if source else "the new document does not name the one it came from"
+
+
 def any_result(_result: Result, _ctx: Ctx) -> str | None:
     return None
 
@@ -396,7 +407,7 @@ def document_cases() -> list[Case]:
                 "documentId": ctx["doc"],
                 "changes": [{"anchor": "p1", "text": "Edited by the certification."}],
             },
-            wrote(".docx"),
+            new_version,
         ),
         Case(
             "documents.compare",
