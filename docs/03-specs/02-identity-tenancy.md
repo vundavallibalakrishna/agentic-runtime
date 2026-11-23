@@ -85,7 +85,7 @@ Permission: `users:manage` + step-up. Starts `ErasureWorkflow` (DPDP erasure): d
 Permission: `users:manage`.
 
 #### POST /api/v1/invitations
-Permission: `users:manage`. Body `{emails: [string] (≤ 100), role_keys: [string]}`. For each email: inserts `invitations` (token hash, expiring after `AR_INVITATION_TTL_DAYS`, default 7) and mails a link to `{AR_PUBLIC_URL}/invite?token=…` through the install's mail sender. Response: list of `Invitation`, each with its `token` and `mail` (`{result: sent | failed, reason?}`), so the person who invited is told when a mail did not go out and can pass the link on.
+Permission: `users:manage`. Body `{emails: [string] (≤ 100), role_keys: [string]}`. For each email: inserts `invitations` (token hash, expiring after `AR_INVITATION_TTL_DAYS`, default 7) and mails a link to `{AR_PUBLIC_URL}/invite?token=…` through the install's mail sender. Response: list of `Invitation`, each with its `token` and `mail` (`{result: sent | failed, reason?}`), so the person who invited is told when a mail did not go out and can pass the link on. Each `Invitation` also has `status`: `pending`, `accepted`, `revoked` or `expired`. In the web app, the Users screen has the invite form and the list of invitations still pending, for a person with `users:manage` ([spec 19](19-web-app.md)).
 
 #### DELETE /api/v1/invitations/{invitation_id}
 Permission: `users:manage`. Revoke.

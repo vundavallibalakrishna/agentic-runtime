@@ -153,6 +153,26 @@ def test_with_no_mail_server_the_invitation_is_made_and_says_its_mail_did_not_go
     assert invited.json()[0]["token"]
 
 
+def test_the_list_says_where_each_invitation_stands(mail: Any) -> None:
+    app = demo_application()
+    admin = _admin(app)
+    made = admin.post(
+        "/api/v1/invitations", json={"emails": ["one@example.test", "two@example.test"]}
+    ).json()
+    assert {row["status"] for row in made} == {"pending"}
+    assert admin.delete(f"/api/v1/invitations/{made[0]['id']}").status_code == 200
+    token = made[1]["token"]
+    TestClient(app).post(
+        "/api/v1/auth/invitation/accept",
+        json={"token": token, "displayName": "Two", "password": "a-good-password"},
+    )
+    listed = {
+        row["email"]: row["status"] for row in admin.get("/api/v1/invitations").json()["items"]
+    }
+    assert listed == {"one@example.test": "revoked", "two@example.test": "accepted"}
+    assert len(mail.messages) == 2
+
+
 def test_a_token_that_is_not_an_invitation_is_refused() -> None:
     visitor = TestClient(demo_application())
     shown = visitor.post("/api/v1/auth/invitation", json={"token": "not-a-token"})
