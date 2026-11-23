@@ -376,3 +376,58 @@ def test_another_persons_copy_is_not_named_as_the_one_before(site: Any) -> None:
     assert theirs["is_error"] is False
     assert "previous" not in theirs["structured"]["presentation"]
     assert "versionOf" not in theirs["structured"]["presentation"]["document"]["metadata"]
+
+
+def test_diff_lists_only_the_sections_that_differ_between_two_copies(site: Any) -> None:
+    store = _store()
+    url = _url(site, "/policy")
+    before = (
+        b"<h1>Policy</h1><h2>Scope</h2><p>All branches are in scope.</p>"
+        b"<h2>Limits</h2><p>The daily limit is 10.</p>"
+        b"<h2>Fees</h2><p>A fee of 2 applies.</p>"
+    )
+    after = (
+        b"<h1>Policy</h1><h2>Scope</h2><p>All   branches are in scope.</p>"
+        b"<h2>Limits</h2><p>The daily limit is 25.</p>"
+        b"<h2>Reporting</h2><p>Report each month.</p>"
+    )
+    site.pages["/policy"] = (200, "text/html", before, {})
+    first = _ingest(store, url)["structured"]["presentation"]["document"]["id"]
+    site.pages["/policy"] = (200, "text/html", after, {})
+    second = _ingest(store, url)["structured"]["presentation"]["document"]["id"]
+    who = demo_id("admin")
+    result = _call(store, "documents", "diff", leftId=first, rightId=second, _user_id=who)
+    assert result["is_error"] is False
+    body = result["structured"]["presentation"]
+    found = {(row["status"], row["heading"]) for row in body["sections"]}
+    assert ("changed", "Limits") in found
+    assert ("removed", "Fees") in found
+    assert ("added", "Reporting") in found
+    # A section whose words are the same is counted, not listed; a reflow is not a change.
+    assert not any(heading == "Scope" for _status, heading in found)
+    assert body["counts"]["unchanged"] >= 1
+    assert body["counts"]["changed"] == 1
+    assert body["total"] == len(body["sections"])
+    changed = next(row for row in body["sections"] if row["status"] == "changed")
+    assert "limit is 10" in changed["leftQuote"]
+    assert "limit is 25" in changed["rightQuote"]
+    assert "limit is 25" in result["text"]
+    assert "untrusted" in result["text"].lower() or "data" in result["text"].lower()
+    capped = _call(store, "documents", "diff", leftId=first, rightId=second, limit=1, _user_id=who)
+    shown = capped["structured"]["presentation"]
+    assert len(shown["sections"]) == 1
+    assert shown["total"] == body["total"]
+    assert "The first 1 of" in capped["text"]
+
+
+def test_diff_of_a_document_with_itself_finds_nothing_and_hides_other_peoples(site: Any) -> None:
+    store = _store()
+    mine = _ingest(store, _url(site, "/"))["structured"]["presentation"]["document"]["id"]
+    same = _call(store, "documents", "diff", leftId=mine, rightId=mine, _user_id=demo_id("admin"))
+    assert same["structured"]["presentation"]["sections"] == []
+    assert same["structured"]["presentation"]["counts"]["changed"] == 0
+    theirs = _call(
+        store, "documents", "diff", leftId=mine, rightId=mine, _user_id=demo_id("member")
+    )
+    assert theirs["is_error"] is True
+    assert theirs["code"] == "not_found"

@@ -99,6 +99,14 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 cursor=str(arguments.get("cursor") or ""),
             )
             return _ok(_lines(body["outline"]), {"kind": "document", **body})
+        if name == "diff":
+            body = library.diff(
+                actor,
+                _uuid(arguments.get("leftId") or arguments.get("left_id")),
+                _uuid(arguments.get("rightId") or arguments.get("right_id")),
+                limit=_as_int(arguments.get("limit"), 0),
+            )
+            return _ok(_diff_text(body), {"kind": "document", **body})
         if name == "tables":
             body = library.tables(
                 actor,
@@ -350,6 +358,29 @@ def _ingest_address(
             f"taken {previous.get('created_at')}."
         )
     return _ok(text, body)
+
+
+def _diff_text(body: dict[str, object]) -> str:
+    counts = body["counts"]
+    sections = body["sections"]
+    assert isinstance(counts, dict)  # noqa: S101
+    assert isinstance(sections, list)  # noqa: S101
+    lines = [
+        f"{counts['changed']} sections changed, {counts['added']} added, "
+        f"{counts['removed']} removed, {counts['unchanged']} the same."
+    ]
+    if int(str(body["total"])) > len(sections):
+        lines.append(f"The first {len(sections)} of {body['total']} differing sections follow.")
+    if sections:
+        lines.append(_OPEN)
+    for section in sections:
+        heading = section["heading"] or "(no heading)"
+        lines.append(f"\n[{section['status']}] {heading}")
+        if section["leftQuote"]:
+            lines.append(f"before ({section['leftAnchor']}): {section['leftQuote']}")
+        if section["rightQuote"]:
+            lines.append(f"after ({section['rightAnchor']}): {section['rightQuote']}")
+    return "\n".join(lines)
 
 
 def _listed(row: dict[str, object]) -> str:

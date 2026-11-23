@@ -39,9 +39,7 @@ def align(left: list[dict[str, object]], right: list[dict[str, object]]) -> list
             sections.append(_section("removed", row, None))
             continue
         sections.append(_section("paired", row, match))
-    for index, row in enumerate(right):
-        if index not in used:
-            sections.append(_section("added", None, row))
+    sections.extend(_section("added", None, row) for row in right if id(row) not in used)
     return sections
 
 

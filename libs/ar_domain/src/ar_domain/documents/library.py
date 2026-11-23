@@ -741,6 +741,51 @@ class DocumentLibrary:
         self._audit(actor, "library_document.versioned", document_id, {"redline": redline})
         return created
 
+    def diff(
+        self,
+        actor: Actor,
+        left_id: uuid.UUID,
+        right_id: uuid.UUID,
+        *,
+        limit: int = 0,
+    ) -> dict[str, object]:
+        """The sections that differ between two stored documents. No model is asked.
+
+        Sections are paired by heading, then by the words they share. A pair whose text
+        is the same is counted and not listed. Every quote is a stored passage.
+        """
+        from ar_domain.documents.align import align  # noqa: PLC0415
+
+        left = self._own(actor, left_id)
+        right = self._own(actor, right_id)
+        counts = {"changed": 0, "added": 0, "removed": 0, "unchanged": 0}
+        differing: list[dict[str, object]] = []
+        for section in align(_rows(left.get("passages")), _rows(right.get("passages"))):
+            status = str(section["status"])
+            if status == "paired":
+                same = _squeezed(section["leftQuote"]) == _squeezed(section["rightQuote"])
+                status = "unchanged" if same else "changed"
+            counts[status] += 1
+            if status != "unchanged":
+                differing.append({**section, "status": status})
+        cap = limit if limit > 0 else int(get_settings().document_search_hits)
+        quote = int(get_settings().document_diff_quote_chars)
+        shown = [
+            {
+                **section,
+                "leftQuote": str(section["leftQuote"])[:quote],
+                "rightQuote": str(section["rightQuote"])[:quote],
+            }
+            for section in differing[:cap]
+        ]
+        return {
+            "left": self._view(left),
+            "right": self._view(right),
+            "counts": counts,
+            "sections": shown,
+            "total": len(differing),
+        }
+
     def rows_for_map(
         self,
         actor: Actor,
@@ -1069,6 +1114,11 @@ def _note_origin(
         noted["versionOf"] = str(previous["id"])
     if fetched or previous is not None:
         row["metadata"] = noted
+
+
+def _squeezed(value: object) -> str:
+    """Text with its runs of white space made one space, so a reflow is not a change."""
+    return " ".join(str(value or "").split())
 
 
 def _mapping(value: object) -> dict[str, object]:

@@ -24,7 +24,7 @@ Errors:
 
 ## 2. Tools
 
-Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `map`, `extract`, `edit`, `create`, `ocr`. The task tools (summarise, compare, judge, missing, crosscheck, rewrite, redact) were removed ([OQ-154](../open-questions.md)): the model plans those with the tools here.
+Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `diff`, `map`, `extract`, `edit`, `create`, `ocr`. The task tools (summarise, compare, judge, missing, crosscheck, rewrite, redact) were removed ([OQ-154](../open-questions.md)): the model plans those with the tools here.
 
 `ocr` takes `fileId`, a workspace `path`, a `url`, or `documentId`. `engine` defaults to `tesseract`, which is proof `unit` (a local binary, not a model). `engine` `vision` uses the configured vision alias. That result is proof `live` only when the model answers, and the result names the model id and the date. Otherwise the result is `text_not_extracted` and the proof stays `unit`. `google_document_ai`, `aws_textract` and `azure_document_intelligence` return `not_live` and are not called. A PDF is Unicode text, or the tool returns `not_unicode` or `text_not_extracted`.
 
@@ -38,7 +38,9 @@ Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outlin
 - **The content is the same.** Nothing is stored. The result has `changed: false` and the existing document, whose `metadata.fetched` is brought up to date.
 - **The site says it has not changed.** With `ifNoneMatch` or `ifModifiedSince` (the values from an earlier copy's `metadata.fetched`), a 304 stores nothing and returns `changed: false`.
 
-`list` with `sourceRef` returns every copy of that URL the caller can see, newest first. Each copy stays readable with `read`, `outline` and `search`, so what changed between two copies is found by reading both. Nothing here knows what the address is for.
+`list` with `sourceRef` returns every copy of that URL the caller can see, newest first. Each copy stays readable with `read`, `outline` and `search`. Nothing here knows what the address is for.
+
+**Diff.** `diff` takes `leftId` and `rightId` (two documents the caller can see: two copies of a URL, two versions of a file, or any two documents) and an optional `limit`. It pairs their sections by heading and then by shared wording (`documents.align`, with the floors `AR_DOCUMENT_ALIGN_LEXICAL` and `AR_DOCUMENT_ALIGN_COSINE`) and returns the sections that differ: `changed`, `added` or `removed`, each with its heading, anchors, pages and the stored text before and after, cut at `AR_DOCUMENT_DIFF_QUOTE_CHARS`. `counts` gives the number of each, and of sections that are the same; `total` is the number that differ, when `limit` cut the list. Text that differs only in white space is the same. No model is asked and nothing is judged: whether a change matters is for the caller. This is not the `compare` task tool that OQ-154 removed, which asked a model for a verdict ([OQ-171](../open-questions.md)).
 
 `read` returns at most 12,000 characters. A longer file is searched and read by page or anchor.
 

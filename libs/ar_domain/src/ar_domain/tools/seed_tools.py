@@ -1763,6 +1763,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
+            _diff_tool(),
             _tool(
                 "tables",
                 "Read tables",
@@ -2159,6 +2160,7 @@ def ensure_m34b(store: Any) -> None:
     # earlier canned `web.fetch` gets the real tool, and the refresh below retires the old.
     _web_server(store)
     _append_tools(store, "web", _web_tools())
+    _append_tools(store, "documents", [_diff_tool()])
     refresh_builtins(store)
 
 
@@ -3055,6 +3057,37 @@ def _context_tools() -> list[dict[str, object]]:
             {"readOnlyHint": True},
         )
     ]
+
+
+def _diff_tool() -> dict[str, object]:
+    return _tool(
+        "diff",
+        "Diff two documents",
+        "List the sections that differ between two stored documents: changed, added "
+        "and removed, with the text before and after. Sections are paired by heading "
+        "and wording; no model is asked and nothing is judged. Use it on two copies "
+        "of one URL, or two versions of a file, before reading either in full.",
+        {
+            "type": "object",
+            "properties": {
+                "leftId": {
+                    "type": "string",
+                    "description": "The id of the earlier document.",
+                },
+                "rightId": {
+                    "type": "string",
+                    "description": "The id of the later document.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "The most differing sections to list. Omit for the default.",
+                },
+            },
+            "required": ["leftId", "rightId"],
+        },
+        "R0",
+        {"readOnlyHint": True},
+    )
 
 
 def _web_server(store: Any) -> None:
