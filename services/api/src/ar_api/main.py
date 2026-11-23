@@ -199,8 +199,13 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
         from ar_domain.identity.tenant_settings import permissions_for_features  # noqa: PLC0415
 
         permissions = permissions_for_features(product, data.tenant_id, permissions)
+        # The person's status is read on every request, so a suspension takes effect on
+        # the sessions they already have and on every replica, not at their next sign-in.
+        statuses = getattr(product, "user_statuses", None)
+        status = statuses.get(data.user_id, "active") if isinstance(statuses, dict) else "active"
         return Principal(
             kind="user",
+            user_status=str(status),
             id=str(data.user_id),
             tenant_id=data.tenant_id,
             permissions=permissions,
