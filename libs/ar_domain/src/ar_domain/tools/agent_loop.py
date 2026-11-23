@@ -48,7 +48,12 @@ def model_alias_for(store: Any, run: dict[str, object]) -> str:
 def read_budget(
     definition: dict[str, object], run: dict[str, object] | None = None
 ) -> dict[str, int]:
-    """Customer limits, with the platform defaults for anything omitted."""
+    """Customer limits, with the platform defaults for anything omitted.
+
+    The agent's budget is the base. A routine's own budget is a ceiling under it: a run a
+    routine started gets the lower of the two for each limit, so a routine can be held
+    tighter than its agent and can never be given more.
+    """
     raw = definition.get("budget")
     source = raw if isinstance(raw, dict) else {}
     defaults = {
@@ -66,7 +71,21 @@ def read_budget(
         for key, value in override.items():
             if key in limits and isinstance(value, int) and not isinstance(value, bool):
                 limits[key] = min(limits[key], value)
+    if isinstance(run, dict) and run.get("trigger") == "routine":
+        _apply_ceiling(limits, run.get("budget"))
     return limits
+
+
+def _apply_ceiling(limits: dict[str, int], ceiling: object) -> None:
+    """Lower each limit to the routine's. A cost of 0 on a routine sets no cost ceiling."""
+    if not isinstance(ceiling, dict):
+        return
+    for key, value in ceiling.items():
+        if key not in limits or isinstance(value, bool) or not isinstance(value, int):
+            continue
+        if key == "max_cost_micros" and value == 0:
+            continue
+        limits[key] = min(limits[key], value)
 
 
 async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915

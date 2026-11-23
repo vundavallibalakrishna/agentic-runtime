@@ -29,6 +29,7 @@ from ar_domain.routines.engine import (
 from ar_domain.routines.metrics import ACTIVE
 from ar_domain.routines.schedule import describe_cron, min_gap_seconds, preview_schedule
 from ar_domain.routines.signature import idempotency_key, new_secret, new_token, verify
+from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 
 if TYPE_CHECKING:
     from typing import Any
@@ -755,14 +756,8 @@ def _whole(value: object, default: int) -> int:
 
 
 def _budget() -> dict[str, int]:
-    return {
-        "max_steps": 8,
-        "max_tokens": 8000,
-        "max_cost_micros": 0,
-        "max_wall_clock_s": 300,
-        "max_tool_calls": 4,
-        "max_parallel_tool_calls": 1,
-    }
+    """A routine that names no budget gets the run default, so it adds no limit of its own."""
+    return dict(DEFAULT_RUN_BUDGET)
 
 
 def _iso(value: object) -> str | None:
