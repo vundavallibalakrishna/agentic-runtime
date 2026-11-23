@@ -103,7 +103,7 @@ uv run python scripts/seed_tenant.py --slug cert --name Cert \
 
 The admin password is `AR_ADMIN_PASSWORD` when that variable is set. Otherwise the script reads one line from stdin, or asks twice on a terminal. `AR_SECOND_PASSWORD` is required when `AR_SECOND_EMAIL` is set. The role key defaults to `approver`.
 
-The approval flow in `scripts/tool_certification.py` signs in as a second person. Set `AR_CERT_APPROVER_EMAIL` and `AR_CERT_APPROVER_PASSWORD` to that person's email and password (the seeded reviewer above). Without them the approval case is blocked, not failed.
+The approval flow in `scripts/tool_certification.py` signs in as a second person. Set `AR_CERT_APPROVER_EMAIL` and `AR_CERT_APPROVER_PASSWORD` to that person's email and password (the seeded reviewer above). Without them the approval flow is `blocked`, not failed. A flow is `blocked` when it cannot start without something the owner supplies, and a blocked flow does not fail the run. The agent-to-agent flow is blocked when the install's own address is this machine or a private network and `AR_CERT_A2A_URL` names no peer: one install cannot call itself from inside a container.
 
 The run registers the chat model and an embedding model. The embedding default is `Qwen/Qwen3-Embedding-8B` (`AR_EMBED_MODEL`), which DeepInfra serves at `{AR_LLM_BASE_URL}/embeddings`, with `embeddingDimensions` 1024. `BAAI/bge-m3` is the other model DeepInfra serves for the same API. Aliases `chat`, `reasoning`, `fast` and `vision` point at the chat model. `embed` points at the embedding model. Retrieval fails with `embedding_unconfigured` when `embed` is missing; it does not pretend the library was empty.
 

@@ -16,6 +16,9 @@ A case ends as one of:
 - ``absent``    the tool is not in this install's catalogue (a dev-only fixture);
 - ``fail``      anything else, including a server error.
 
+A flow ends as ``pass``, ``flaky`` (it passed some of its runs), ``fail``, or ``blocked``
+when it could not start without something the owner supplies.
+
     AR_API_URL=http://127.0.0.1:18010 AR_ADMIN_EMAIL=... AR_ADMIN_PASSWORD=... \\
         uv run python scripts/tool_certification.py --out var/tool-certification
 
@@ -25,6 +28,7 @@ Exit code 1 when a case fails or a built-in tool has no case.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import os
 import re
 import sys
@@ -318,6 +322,13 @@ def general_cases() -> list[Case]:
             needs="egress",
         ),
         Case(
+            "web.discover",
+            "list what a site publishes",
+            fixed(url="https://example.com"),
+            any_result,
+            needs="egress",
+        ),
+        Case(
             "general.http",
             "call an HTTP API",
             fixed(url="https://example.com", method="GET"),
@@ -362,6 +373,30 @@ def document_cases() -> list[Case]:
                 },
             },
             has("ZEBRA-4417", "7"),
+        ),
+        Case(
+            "documents.diff",
+            "list what differs between two versions",
+            lambda ctx: {"leftId": ctx["doc"], "rightId": ctx["doc2"]},
+            has("10 years"),
+        ),
+        Case(
+            "documents.map",
+            "answer one question of every section",
+            lambda ctx: {
+                "documentIds": [ctx["doc"]],
+                "instruction": "State any period of time this section names, or say none.",
+            },
+            has("7 years"),
+        ),
+        Case(
+            "documents.edit",
+            "write an edited copy",
+            lambda ctx: {
+                "documentId": ctx["doc"],
+                "changes": [{"anchor": "p1", "text": "Edited by the certification."}],
+            },
+            wrote(".docx"),
         ),
         Case(
             "documents.compare",
@@ -1064,6 +1099,24 @@ def outcome(case: Case, status: int, result: Result, ctx: Ctx) -> tuple[str, str
     return _refused(case, code, message)
 
 
+class Needs(str):
+    """What a flow could not run without. The flow is blocked, not failed."""
+
+    __slots__ = ()
+
+
+def _own_address(url: str) -> bool:
+    """The address is this machine or a private network, not one another install could reach."""
+    host = urlparse(url).hostname or ""
+    if host == "localhost":
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return "." not in host
+    return address.is_loopback or address.is_private
+
+
 def _refused(case: Case, code: str, message: str) -> tuple[str, str]:
     """A refusal is blocked when the case named a need and the tool said that is missing."""
     if case.needs and code in NEEDS:
@@ -1477,6 +1530,10 @@ def flow_agent_to_agent(chat: Chat) -> str | None:
     installs. The tool-test endpoint cannot show this for a peer on the same API: it holds
     the API while the tool runs, so the call back into it is never answered.
     """
+    if not os.environ.get("AR_CERT_A2A_URL", "").strip() and _own_address(chat.stack.api):
+        # The peer would be published on this install, at this machine's own address. A
+        # tool run in a container cannot reach that, and a private address is refused.
+        return Needs("a second agent at a public address (set AR_CERT_A2A_URL)")
     ctx = Ctx()
     prepare_peer(chat.stack, ctx)
     if not ctx["peer_url"]:
@@ -1522,9 +1579,8 @@ def flow_approval_waits(chat: Chat) -> str | None:
     """
     second = _approver()
     if second is None:
-        return (
-            "needs a second person's sign-in: set AR_CERT_APPROVER_EMAIL and "
-            "AR_CERT_APPROVER_PASSWORD"
+        return Needs(
+            "a second person's sign-in (set AR_CERT_APPROVER_EMAIL and AR_CERT_APPROVER_PASSWORD)"
         )
     me = second.get("/api/v1/me")
     agent, problem = _approval_agent(chat.stack, str(me.get("id") if isinstance(me, dict) else ""))
@@ -1699,6 +1755,9 @@ def run_flows(stack: Stack, repeat: int, only: list[str] | None = None) -> dict[
                 problems.append(problem)
         passed = repeat - len(problems)
         verdict = "pass" if passed == repeat else ("flaky" if passed else "fail")
+        if problems and all(isinstance(problem, Needs) for problem in problems):
+            verdict = "blocked"
+            problems = [f"needs {problems[0]}"]
         rows.append(
             {
                 "flow": name,
