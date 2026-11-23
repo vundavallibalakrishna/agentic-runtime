@@ -1,9 +1,6 @@
 """Contains all the data models used in inputs/outputs"""
 
 from .accept_body import AcceptBody
-from .accept_invitation_api_v1_invitations_token_accept_post_response_accept_invitation_api_v1_invitations_token_accept_post import (
-    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost,
-)
 from .accept_message_api_v1_messages_message_id_accept_post_response_accept_message_api_v1_messages_message_id_accept_post import (
     AcceptMessageApiV1MessagesMessageIdAcceptPostResponseAcceptMessageApiV1MessagesMessageIdAcceptPost,
 )
@@ -721,7 +718,13 @@ from .internal_integrations_internal_v1_channels_integrations_get_response_inter
 from .internal_test_internal_v1_connections_test_post_response_internal_test_internal_v1_connections_test_post import (
     InternalTestInternalV1ConnectionsTestPostResponseInternalTestInternalV1ConnectionsTestPost,
 )
+from .invitation_accept_api_v1_auth_invitation_accept_post_body_type_0 import (
+    InvitationAcceptApiV1AuthInvitationAcceptPostBodyType0,
+)
 from .invitation_create import InvitationCreate
+from .invitation_details_api_v1_auth_invitation_post_body_type_0 import (
+    InvitationDetailsApiV1AuthInvitationPostBodyType0,
+)
 from .item_body import ItemBody
 from .item_body_subjectref import ItemBodySubjectref
 from .jwks_api_v1_well_known_jwks_json_get_response_jwks_api_v1_well_known_jwks_json_get import (
@@ -1548,7 +1551,6 @@ from .widget_upload_api_v1_widget_files_post_response_widget_upload_api_v1_widge
 
 __all__ = (
     "AcceptBody",
-    "AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost",
     "AcceptMessageApiV1MessagesMessageIdAcceptPostResponseAcceptMessageApiV1MessagesMessageIdAcceptPost",
     "ActivateBody",
     "ActivateMessageApiV1ConversationsConversationIdMessagesMessageIdActivatePostResponseActivateMessageApiV1ConversationsConversationIdMessagesMessageIdActivatePost",
@@ -1852,7 +1854,9 @@ __all__ = (
     "InternalInboundInternalV1ChannelsInboundPostResponseInternalInboundInternalV1ChannelsInboundPost",
     "InternalIntegrationsInternalV1ChannelsIntegrationsGetResponseInternalIntegrationsInternalV1ChannelsIntegrationsGet",
     "InternalTestInternalV1ConnectionsTestPostResponseInternalTestInternalV1ConnectionsTestPost",
+    "InvitationAcceptApiV1AuthInvitationAcceptPostBodyType0",
     "InvitationCreate",
+    "InvitationDetailsApiV1AuthInvitationPostBodyType0",
     "ItemBody",
     "ItemBodySubjectref",
     "JwksApiV1WellKnownJwksJsonGetResponseJwksApiV1WellKnownJwksJsonGet",

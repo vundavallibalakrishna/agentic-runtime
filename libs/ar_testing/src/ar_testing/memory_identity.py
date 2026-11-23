@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.chat.service import demo_id
-from ar_domain.identity.models import Plan, Role, RoleAssignment, Tenant, User
+from ar_domain.identity.models import Invitation, Plan, Role, RoleAssignment, Tenant, User
 from ar_domain.identity.passwords import hash_password
 from ar_domain.identity.permissions import SYSTEM_ROLE_PERMISSIONS
 from ar_domain.identity.recovery_tables import PasswordReset
@@ -58,6 +59,8 @@ class MemoryIdentityStore:
             created_at=now,
         )
         self.password_resets: dict[str, PasswordReset] = {}
+        self.invitations: dict[str, Invitation] = {}
+        self.assignments: list[RoleAssignment] = []
         self.users = {
             demo_id(email.split("@", 1)[0]): User(
                 id=demo_id(email.split("@", 1)[0]),
@@ -107,7 +110,14 @@ class MemoryIdentityStore:
         """Tenant-scope role grants of a demo person, shaped like database rows."""
         person = next((row for row in catalogue().values() if row.user_id == user_id), None)
         if person is None:
-            return []
+            # Someone who joined by invitation: the roles their invitation granted.
+            return [
+                (row, _role(key))
+                for row in self.assignments
+                if row.principal_id == user_id
+                for key in SYSTEM_ROLE_PERMISSIONS
+                if row.role_id == _role(key).id
+            ]
         return [
             (
                 RoleAssignment(
@@ -133,9 +143,29 @@ class MemoryIdentityStore:
         del user
 
     def add(self, row: object) -> None:
-        """Keep a new row. The memory store holds password resets; nothing else is added."""
+        """Keep a new row: a reset, an invitation, an invited person or their role."""
         if isinstance(row, PasswordReset):
             self.password_resets[row.token_hash] = row
+        elif isinstance(row, Invitation):
+            if row.id is None:
+                row.id = new_id()
+            self.invitations[row.token_hash] = row
+        elif isinstance(row, User):
+            self.users[row.id] = row
+        elif isinstance(row, RoleAssignment):
+            self.assignments.append(row)
+
+    async def invitation_by_hash(self, token_hash: str) -> Invitation | None:
+        return self.invitations.get(token_hash)
+
+    async def list_invitations(self) -> list[Invitation]:
+        return list(self.invitations.values())
+
+    async def get_invitation(self, invitation_id: uuid.UUID) -> Invitation | None:
+        return next((row for row in self.invitations.values() if row.id == invitation_id), None)
+
+    async def get_role_by_key(self, key: str) -> Role | None:
+        return _role(key) if key in SYSTEM_ROLE_PERMISSIONS else None
 
     async def password_reset_by_hash(self, token_hash: str) -> PasswordReset | None:
         return self.password_resets.get(token_hash)
@@ -154,6 +184,16 @@ class MemoryIdentityStore:
 
     async def emit(self, topic: str, payload: dict[str, object]) -> None:
         del topic, payload
+
+
+def _role(key: str) -> Role:
+    """A system role as the memory store hands it out: one fixed id for each key."""
+    return Role(
+        id=demo_id(f"role-{key}"),
+        key=key,
+        name=key,
+        permissions=sorted(SYSTEM_ROLE_PERMISSIONS[key]),
+    )
 
 
 def memory_identity(chat: object, ctx: TenantContext) -> IdentityService:

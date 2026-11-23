@@ -729,8 +729,9 @@ async def test_identity_service_flows() -> None:
     assert created[0][1]
     await service.revoke_invitation(created[0][0].id)
     fresh = await service.invite(["d@dev.local"], ["member"])
-    accepted = await service.accept_invitation(sha256_hex(fresh[0][1]), "d@dev.local")
-    assert accepted.accepted_at is not None
+    joined = await service.accept_invitation(fresh[0][1], "Dee", "a-new-password")
+    assert (joined.email, joined.display_name) == ("d@dev.local", "Dee")
+    assert fresh[0][0].accepted_at is not None
     with pytest.raises(ValidationFailedError):
         await service.invite(["x@dev.local"] * 101, ["member"])
     group = await service.create_group("local")

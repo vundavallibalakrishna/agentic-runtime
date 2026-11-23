@@ -103,7 +103,17 @@
     "resetMismatch": "The two passwords are not the same.",
     "resetFailed": "The password could not be changed.",
     "resetNoToken": "This page needs the link from your reset mail.",
-    "resetAskAgain": "Ask for a new link"
+    "resetAskAgain": "Ask for a new link",
+    "inviteTitle": "Accept your invitation",
+    "inviteBody": "Choose your name and a password to make your account.",
+    "inviteBodyFor": "Choose your name and a password to join {tenant}.",
+    "inviteName": "Your name",
+    "invitePassword": "Password",
+    "invitePasswordAgain": "Password again",
+    "inviteSubmit": "Create my account",
+    "inviteDone": "Your account is ready. Sign in with your email and the password you chose.",
+    "inviteNoToken": "This page needs the link from your invitation mail.",
+    "inviteFailed": "The invitation could not be used."
   },
   "chat": {
     "product": "Cura Works",

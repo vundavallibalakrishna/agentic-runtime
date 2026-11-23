@@ -397,6 +397,8 @@ class BaseServiceSettings(BaseSettings):
     # How long a mailed password-reset link works, and the shortest password it accepts.
     password_reset_ttl_minutes: int = Field(default=120, ge=5)
     password_min_length: int = Field(default=8, ge=8)
+    # How long a mailed invitation can be accepted.
+    invitation_ttl_days: int = Field(default=7, ge=1)
     # What every outbound request names itself as. A site owner reads this in their logs,
     # so an install that reads public pages puts a contact address in it.
     http_user_agent: str = "agentic-runtime"

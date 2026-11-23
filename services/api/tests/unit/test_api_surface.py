@@ -239,9 +239,6 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
     assert conflict.json()["code"] == "idempotency_key_reused"
     assert client.get("/api/v1/invitations").status_code == 200
     invitation_id = invited.json()[0]["id"]
-    token = invited.json()[0].get("token")
-    if token:
-        client.post(f"/api/v1/invitations/{token}:accept")
     assert client.delete(f"/api/v1/invitations/{invitation_id}").status_code in {200, 204, 404}
     group = client.post("/api/v1/groups", json={"name": "Ops"})
     assert group.status_code == 200, group.text
