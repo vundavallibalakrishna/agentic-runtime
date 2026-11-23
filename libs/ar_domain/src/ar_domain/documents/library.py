@@ -259,7 +259,14 @@ class DocumentLibrary:
         ocr: Any = None,
         extracted: Extracted | None = None,
         defer_parse: bool = False,
+        fetched: dict[str, object] | None = None,
     ) -> dict[str, object]:
+        """Store ``data`` as a new library document, or return the one that already holds it.
+
+        ``fetched`` is what was measured when the bytes came from an address (``source_ref``):
+        it is kept on the document, and the document is linked to the copy of that address
+        taken before it, so the versions of one address can be listed and read.
+        """
         if source not in {"upload", "workspace", "connection"}:
             raise ValidationFailedError("source must be upload, workspace or connection")
         cap = max_document_bytes()
@@ -292,9 +299,14 @@ class DocumentLibrary:
                     data=data,
                     media_type=str(existing.get("media_type") or media_type),
                 )
+            if existing.get("source_ref") == source_ref:
+                # The address was read again and holds the same bytes: note when, and the
+                # validators it sent this time.
+                _note_origin(existing, fetched, None)
             view = self._view(existing)
             view["deduped"] = True
             return view
+        previous = self._latest_from(actor, source_ref) if fetched else None
         if defer_parse:
             extracted = Extracted(
                 title=(filename or "upload")[: int(get_settings().document_create_max_title)],
@@ -361,9 +373,32 @@ class DocumentLibrary:
             "created_at": now,
             "updated_at": now,
         }
+        _note_origin(row, fetched, previous)
         self.store.library_documents[document_id] = row
         self._audit(actor, "library_document.ingested", document_id, {"filename": row["filename"]})
-        return self._view(row)
+        view = self._view(row)
+        if previous is not None:
+            view["previous"] = self._view(previous)
+        return view
+
+    def _latest_from(self, actor: Actor, source_ref: str) -> dict[str, object] | None:
+        """The newest document this person can see that was read from ``source_ref``."""
+        found = self.versions(actor, source_ref)
+        return found[0] if found else None
+
+    def versions(self, actor: Actor, source_ref: str) -> list[dict[str, object]]:
+        """Every copy of one address this person can see, newest first."""
+        if not source_ref:
+            return []
+        rows = [
+            row
+            for row in self._scoped(actor, "library", None)
+            if row.get("source") == "connection"
+            and row.get("source_ref") == source_ref
+            and self._visible(actor, row)
+        ]
+        rows.sort(key=lambda item: _iso(item.get("created_at")), reverse=True)
+        return rows
 
     def finish_parse(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         """Fill a staged row from the layout parser. The original bytes are already stored."""
@@ -410,10 +445,17 @@ class DocumentLibrary:
         scope: str = "library",
         run: dict[str, object] | None = None,
         cursor: str = "",
+        source_ref: str = "",
     ) -> dict[str, object]:
-        """Documents in one scope. A later page is ``nextCursor``, never a silent cut."""
-        rows = [row for row in self._scoped(actor, scope, run) if self._visible(actor, row)]
-        rows.sort(key=lambda item: str(item.get("title") or ""))
+        """Documents in one scope. A later page is ``nextCursor``, never a silent cut.
+
+        With ``source_ref`` the list is the copies of that one address, newest first.
+        """
+        if source_ref:
+            rows = self.versions(actor, source_ref)
+        else:
+            rows = [row for row in self._scoped(actor, scope, run) if self._visible(actor, row)]
+            rows.sort(key=lambda item: str(item.get("title") or ""))
         start = _cursor_index(cursor)
         cap = int(get_settings().document_search_hits)
         page = rows[start : start + cap]
@@ -1012,6 +1054,25 @@ def _extract_error(exc: ExtractError) -> ArError:
     if exc.code == "too_many_pages":
         return PayloadTooLargeError(exc.message)
     return ValidationFailedError(exc.message)
+
+
+def _note_origin(
+    row: dict[str, object],
+    fetched: dict[str, object] | None,
+    previous: dict[str, object] | None,
+) -> None:
+    """Keep what was measured when the bytes were fetched, and which copy came before."""
+    noted = _mapping(row.get("metadata"))
+    if fetched:
+        noted["fetched"] = fetched
+    if previous is not None:
+        noted["versionOf"] = str(previous["id"])
+    if fetched or previous is not None:
+        row["metadata"] = noted
+
+
+def _mapping(value: object) -> dict[str, object]:
+    return dict(value) if isinstance(value, dict) else {}
 
 
 def _as_uuid(value: object) -> uuid.UUID | None:

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from ar_common.errors import ArError, ErrorCode
 from ar_common.sandboxkit import PathEscapeError, confine
+from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.documents.extract import ExtractError, extract_bytes
 from ar_domain.documents.library import DocumentLibrary
@@ -48,14 +49,11 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 scope=str(arguments.get("scope") or "library"),
                 run=_run(store, arguments),
                 cursor=str(arguments.get("cursor") or ""),
+                source_ref=str(arguments.get("sourceRef") or arguments.get("source_ref") or ""),
             )
             rows = body.get("documents")
             listed = rows if isinstance(rows, list) else []
-            text = "\n".join(
-                f"{row['id']} {row['title']} ({row.get('page_count')} pages)"
-                for row in listed
-                if isinstance(row, dict)
-            )
+            text = "\n".join(_listed(row) for row in listed if isinstance(row, dict))
             return _ok(text or "No documents yet.", {"kind": "document", **body})
         if name == "search":
             found = library.search(
@@ -279,6 +277,9 @@ def _ocr(  # noqa: PLR0911, PLR0912, PLR0915
 def _ingest(
     library: DocumentLibrary, store: Any, actor: Actor, arguments: dict[str, object]
 ) -> dict[str, object]:
+    url = str(arguments.get("url") or "").strip()
+    if url and not _optional_uuid(arguments.get("fileId") or arguments.get("file_id")):
+        return _ingest_address(library, store, actor, arguments, url)
     data, filename, media, source, ref = _source_bytes(store, arguments)
     saved = library.ingest(
         actor,
@@ -292,6 +293,71 @@ def _ingest(
     if saved.get("deduped"):
         text = f"This file is already in the library as {saved['title']} ({saved['id']})."
     return _ok(text, {"kind": "document", "document": saved})
+
+
+def _ingest_address(
+    library: DocumentLibrary, store: Any, actor: Actor, arguments: dict[str, object], url: str
+) -> dict[str, object]:
+    """Keep a copy of what an address holds now, linked to the copy taken before it."""
+    from ar_domain.documents.library import max_document_bytes  # noqa: PLC0415
+    from ar_domain.tools.general import fetch_facts, polite_get, validators  # noqa: PLC0415
+
+    sent = validators(
+        {
+            "if_none_match": arguments.get("ifNoneMatch") or arguments.get("if_none_match"),
+            "if_modified_since": arguments.get("ifModifiedSince")
+            or arguments.get("if_modified_since"),
+        }
+    )
+    response, failure = polite_get(
+        store, arguments, url, tool="fetch", headers=sent, max_bytes=max_document_bytes()
+    )
+    if failure is not None or response is None:
+        return failure or _error("upstream_error", "The URL could not be fetched.")
+    facts = fetch_facts(url, response)
+    fetched = {**facts, "fetchedAt": utcnow().isoformat()}
+    fetched.pop("kind", None)
+    if facts["status"] == 304:
+        return _ok(
+            f"Not modified: {url} is the same as the copy these validators came from. "
+            "Nothing new was stored.",
+            {"kind": "document", "changed": False, "fetched": fetched},
+        )
+    saved = library.ingest(
+        actor,
+        data=response.content,
+        filename=url.rstrip("/").rsplit("/", 1)[-1] or "download",
+        media_type=str(response.headers.get("content-type") or ""),
+        source="connection",
+        source_ref=url,
+        fetched=fetched,
+    )
+    previous = saved.pop("previous", None)
+    body: dict[str, object] = {"kind": "document", "document": saved, "fetched": fetched}
+    if saved.get("deduped"):
+        body["changed"] = False
+        return _ok(
+            f"{url} holds the same content as {saved['title']} ({saved['id']}), which is "
+            "already in the library. Nothing new was stored.",
+            body,
+        )
+    text = f"Ingested {saved['title']} ({saved['id']}), {saved['page_count']} pages."
+    if isinstance(previous, dict):
+        body["changed"] = True
+        body["previous"] = previous
+        text += (
+            f" The address has changed: the copy before this one is {previous['id']}, "
+            f"taken {previous.get('created_at')}."
+        )
+    return _ok(text, body)
+
+
+def _listed(row: dict[str, object]) -> str:
+    """One document on a list line; a copy of an address also says when it was taken."""
+    line = f"{row['id']} {row['title']} ({row.get('page_count')} pages)"
+    if row.get("source") == "connection" and row.get("source_ref"):
+        line += f" from {row['source_ref']}, taken {row.get('created_at')}"
+    return line
 
 
 def _source_bytes(store: Any, arguments: dict[str, object]) -> tuple[bytes, str, str, str, str]:
@@ -317,13 +383,12 @@ def _source_bytes(store: Any, arguments: dict[str, object]) -> tuple[bytes, str,
         )
     url = str(arguments.get("url") or "").strip()
     if url:
-        from ar_domain.tools.general import _exchange  # noqa: PLC0415
-        from ar_domain.tools.web import site_refusal  # noqa: PLC0415
+        from ar_domain.documents.library import max_document_bytes  # noqa: PLC0415
+        from ar_domain.tools.general import polite_get  # noqa: PLC0415
 
-        failure = site_refusal(store, arguments, url, tool="fetch")
-        response = None
-        if failure is None:
-            response, failure = _exchange(store, arguments, "GET", url, tool="fetch", timeout=20)
+        response, failure = polite_get(
+            store, arguments, url, tool="fetch", max_bytes=max_document_bytes()
+        )
         if failure is not None or response is None:
             message = str((failure or {}).get("text") or "The URL could not be fetched.")
             raise ArError(ErrorCode.VALIDATION_FAILED, message)

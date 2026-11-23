@@ -1590,7 +1590,8 @@ def _documents_server(store: Any) -> None:
                 "list",
                 "List documents",
                 "List documents. scope is turn, conversation or library. "
-                "A nextCursor means another page remains.",
+                "A nextCursor means another page remains. With sourceRef, list every copy "
+                "that was ingested from that one URL, newest first.",
                 {
                     "type": "object",
                     "properties": {
@@ -1601,6 +1602,12 @@ def _documents_server(store: Any) -> None:
                         "cursor": {
                             "type": "string",
                             "description": "The nextCursor from a previous list.",
+                        },
+                        "sourceRef": {
+                            "type": "string",
+                            "description": "A URL that was ingested. The list is then the "
+                            "copies taken of that URL, newest first, each with when it was "
+                            "taken and the ETag it was fetched with.",
                         },
                     },
                 },
@@ -1646,7 +1653,10 @@ def _documents_server(store: Any) -> None:
                 "ingest",
                 "Ingest a document",
                 "Extract a PDF, DOCX, XLSX, PPTX, TXT, MD, HTML or image into the library so it "
-                "can be searched and read. Give one source. Returns the new document's id.",
+                "can be searched and read. Give one source. Returns the new document's id. "
+                "A url is stored once per content: when the address holds something new, the "
+                "result says so and names the copy taken before, so the two can be read and "
+                "compared; when it holds the same content, nothing new is stored.",
                 {
                     "type": "object",
                     "properties": {
@@ -1664,6 +1674,18 @@ def _documents_server(store: Any) -> None:
                             "type": "string",
                             "description": "An https URL to fetch and ingest. Give one of "
                             "fileId, path or url.",
+                        },
+                        "ifNoneMatch": {
+                            "type": "string",
+                            "description": "With url: the ETag the last copy of this URL was "
+                            "fetched with. Nothing is stored when the site answers that the "
+                            "address has not changed.",
+                        },
+                        "ifModifiedSince": {
+                            "type": "string",
+                            "description": "With url: the Last-Modified value the last copy "
+                            "of this URL was fetched with, used the same way when the site "
+                            "sends no ETag.",
                         },
                     },
                 },
