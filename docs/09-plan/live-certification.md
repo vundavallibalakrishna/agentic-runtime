@@ -57,6 +57,7 @@ bash scripts/certify_stack.sh
 | `AR_CERT_REPEAT` | 2 | Times each tool flow runs |
 | `AR_CERT_EVIDENCE` | `var/certification` | Where the scorecards, each part's log and exit code, the container list, memory use, every service's log and each computer's log are written |
 | `AR_CERT_CONTEXT_WINDOW`, `AR_CERT_MAX_OUTPUT_TOKENS` | the product default | The limits the provider serves for the chat model, sent when the run registers it |
+| `AR_CERT_POLICY_WAIT_S` | 20 | Seconds the approval flow waits after activating its policy, so a policy engine that polls has read it |
 | `AR_CERT_DOCUMENT`, `AR_CERT_RESEARCH_QUESTION` | `docs/00-overview/vision.md` and a question it answers | The document the run uploads and the research question |
 
 The admin and reviewer passwords are generated for the run unless `AR_ADMIN_PASSWORD` and `AR_SECOND_PASSWORD` are set. The script stops with a non-zero exit when a part does not pass, and it leaves the install running so a person can look at it; `docker compose down -v` removes it. An `.env` that is already in the checkout is used as it is and is not rewritten.

@@ -1483,6 +1483,9 @@ def _approval_agent(stack: Stack, approver_id: str) -> tuple[str, str]:
     status, _active = stack.post(f"/api/v1/policies/{policy_id}:activate", version=version)
     if status not in {200, 201}:
         return "", f"the approval policy was not activated (http {status})"
+    # Where a policy engine decides tool calls, it reads the new rule at its next poll
+    # (at most 15 seconds in the Compose install). Asking sooner tests the old rules.
+    time.sleep(float(os.environ.get("AR_CERT_POLICY_WAIT_S", "20")))
     return agent, ""
 
 
