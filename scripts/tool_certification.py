@@ -352,7 +352,14 @@ def document_cases() -> list[Case]:
             "extract fields",
             lambda ctx: {
                 "documentId": ctx["doc"],
-                "fields": ["reference code", "log retention period"],
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "referenceCode": {"type": "string"},
+                        "logRetentionPeriod": {"type": "string"},
+                    },
+                    "required": ["referenceCode", "logRetentionPeriod"],
+                },
             },
             has("ZEBRA-4417", "7"),
         ),

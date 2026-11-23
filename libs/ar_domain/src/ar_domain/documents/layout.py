@@ -66,7 +66,13 @@ def _docling(data: bytes, filename: str, media_type: str) -> tuple[Extracted | N
     """The layout parser's reading, or none and the reason it gave none."""
     import importlib.util  # noqa: PLC0415
 
-    if importlib.util.find_spec("docling.document_converter") is None:
+    try:
+        found = importlib.util.find_spec("docling.document_converter")
+    except ModuleNotFoundError:
+        # Asking for a module inside a package that is not installed raises. A process
+        # without the layout parser, such as the tool gateway, is in that case.
+        found = None
+    if found is None:
         return None, "layout_parser_not_installed"
     name = Path(filename or "upload").name
     try:

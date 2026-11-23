@@ -243,6 +243,22 @@ def test_a_layout_parser_that_fails_is_named_on_the_document(
     ]
 
 
+def test_a_process_without_the_parser_package_uses_the_fallback_reader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Looking for a module inside a package that is not installed raises. Certification
+    run 8: ``documents.ingest`` in the tool gateway answered with an internal error."""
+
+    def absent(name: str, *_a: object) -> None:
+        raise ModuleNotFoundError(f"No module named {name.split('.')[0]!r}")
+
+    monkeypatch.setattr("importlib.util.find_spec", absent)
+    extracted = layout.parse_layout(_docx(), filename="policy.docx")
+    assert extracted.metadata["parser"] == "fallback"
+    assert extracted.metadata["parserNote"] == "layout_parser_not_installed"
+    assert extracted.passages
+
+
 def test_a_missing_layout_parser_is_named_too(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("importlib.util.find_spec", lambda *_a: None)
     extracted = layout.parse_layout(_docx(), filename="policy.docx")

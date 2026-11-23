@@ -109,3 +109,24 @@ def test_click_and_type_act_on_the_named_element(monkeypatch: object) -> None:
     assert asyncio.run(browser._click(page, {"ref": "e1"}))["text"] == "page"
     assert asyncio.run(browser._type(page, {"ref": "e1", "text": "hello"}))["text"] == "page"
     assert page.element.done == ["click", "fill:hello"]
+
+
+def test_the_browser_is_given_the_proxy_and_its_sign_in(monkeypatch: object) -> None:
+    """Certification run 8: the proxy answered 407 to the browser and no page loaded,
+    because Chromium takes the proxy address from the environment but not the sign-in."""
+    from ar_sandbox_agent import browser
+
+    set_env = monkeypatch.setenv  # type: ignore[attr-defined]
+    drop_env = monkeypatch.delenv  # type: ignore[attr-defined]
+    set_env("HTTPS_PROXY", "http://sbx-01a2:to%2Fken%40x@squid:3128")
+    assert browser.egress_proxy() == {
+        "server": "http://squid:3128",
+        "username": "sbx-01a2",
+        "password": "to/ken@x",
+    }
+    # A computer with no proxy, as in a test that publishes its port, launches plainly.
+    drop_env("HTTPS_PROXY")
+    drop_env("HTTP_PROXY", raising=False)
+    assert browser.egress_proxy() is None
+    set_env("HTTP_PROXY", "http://squid:3128")
+    assert browser.egress_proxy() == {"server": "http://squid:3128"}
