@@ -2584,6 +2584,20 @@ export type RoutinePatch = {
      * Delivery
      */
     delivery?: Array<DeliveryBody> | null;
+    /**
+     * Budget
+     */
+    budget?: {
+        [key: string]: number;
+    } | null;
+    /**
+     * Maxrunsperday
+     */
+    maxRunsPerDay?: number | null;
+    /**
+     * Concurrencypolicy
+     */
+    concurrencyPolicy?: string | null;
 };
 
 /**

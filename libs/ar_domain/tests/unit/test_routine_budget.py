@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
+
+from ar_common.errors import ValidationFailedError
 from ar_domain.agents.access import Actor
 from ar_domain.demo_ids import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
@@ -107,3 +110,81 @@ def test_a_routines_run_is_started_with_the_step_allowance_of_its_budget() -> No
     # Asking again for a run that is already open gives the same allowance.
     again = prepare_routine_run(store, routine_id, uuid.UUID(str(accepted["event_id"])))
     assert again["workflow"] == carried
+
+
+def _plain_routine(store: object, actor: Actor) -> uuid.UUID:
+    agent = store.ensure_assistant(actor.tenant_id, actor.user_id)  # type: ignore[attr-defined]
+    made = RoutineBook(store).create(
+        actor,
+        {
+            "name": f"Editable {uuid.uuid4().hex[:6]}",
+            "agent_id": agent["id"],
+            "instructions": "Say hello.",
+            "trigger": {"type": "schedule", "cron": "0 7 * * *", "timezone": "UTC"},
+        },
+    )
+    return uuid.UUID(str(made["id"]))
+
+
+def test_a_routines_limits_can_be_changed_after_it_is_made() -> None:
+    store = demo_store()
+    actor = _actor()
+    routine_id = _plain_routine(store, actor)
+    book = RoutineBook(store)
+    changed = book.patch(
+        actor,
+        routine_id,
+        {
+            "max_runs_per_day": 12,
+            "concurrency_policy": "buffer_one",
+            "budget": {"max_tool_calls": 6},
+        },
+    )
+    assert changed["max_runs_per_day"] == 12
+    assert changed["concurrency_policy"] == "buffer_one"
+    # The limit named is replaced; the others are kept.
+    assert changed["budget"] == {**DEFAULT_RUN_BUDGET, "max_tool_calls": 6}
+    row = store.routines[routine_id]
+    assert store.temporal_schedules[row["temporal_schedule_id"]]["overlap"] == "buffer_one"
+    audit = [item for item in store.audit_log if item.get("action") == "routine.updated"]
+    assert audit[-1]["detail"] == {"limits": ["budget", "concurrency_policy", "max_runs_per_day"]}
+    # A change of name alone leaves the limits as they are.
+    renamed = book.patch(actor, routine_id, {"name": "Renamed"})
+    assert (renamed["max_runs_per_day"], renamed["budget"]["max_tool_calls"]) == (12, 6)
+
+
+def test_a_limit_that_makes_no_sense_is_refused_and_nothing_changes() -> None:
+    store = demo_store()
+    actor = _actor()
+    routine_id = _plain_routine(store, actor)
+    book = RoutineBook(store)
+    before = dict(store.routines[routine_id])
+    for body in (
+        {"max_runs_per_day": 0},
+        {"max_runs_per_day": 20_000},
+        {"concurrency_policy": "sometimes"},
+        {"budget": {"max_tool_calls": -1}},
+        {"budget": {"max_steps": 0}},
+        {"budget": {"max_laps": 3}},
+        {"max_runs_per_day": 5, "budget": {"max_steps": True}},
+    ):
+        with pytest.raises(ValidationFailedError):
+            book.patch(actor, routine_id, body)
+    after = store.routines[routine_id]
+    assert (after["max_runs_per_day"], after["budget"], after["concurrency_policy"]) == (
+        before["max_runs_per_day"],
+        before["budget"],
+        before["concurrency_policy"],
+    )
+    agent = store.ensure_assistant(actor.tenant_id, actor.user_id)
+    with pytest.raises(ValidationFailedError):
+        book.create(
+            actor,
+            {
+                "name": "Bad from the start",
+                "agent_id": agent["id"],
+                "instructions": "Say hello.",
+                "trigger": {"type": "manual"},
+                "budget": {"max_tokens": 0},
+            },
+        )

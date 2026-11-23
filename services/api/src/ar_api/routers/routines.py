@@ -64,6 +64,9 @@ class RoutinePatch(ApiModel):
     agent_id: uuid.UUID | None = None
     trigger: TriggerBody | None = None
     delivery: list[DeliveryBody] | None = None
+    budget: dict[str, int] | None = None
+    max_runs_per_day: int | None = None
+    concurrency_policy: str | None = None
 
 
 class RoutineRunBody(ApiModel):

@@ -560,6 +560,9 @@ def test_dispatch_map_extract_edit_and_pack_tool(monkeypatch: pytest.MonkeyPatch
         },
     )
     assert edited["is_error"] is False
+    # The certification's check for this tool reads the same result. Runs 11 and 12 failed
+    # on the check alone, because it looked in the wrong place.
+    assert _certification_check("new_version")(edited, None) is None  # type: ignore[operator]
     register_document_tool("ping", lambda _store, _args: {"text": "pong", "is_error": False})
     assert dispatch_documents(store, "ping", base)["text"] == "pong"
     register_document_tool("drop", lambda _store, _args: "nope")
@@ -1203,3 +1206,18 @@ def _run(actor: Actor) -> dict[str, object]:
         "checkpoint": {},
         "request": {},
     }
+
+
+def _certification_check(name: str) -> object:
+    """A check from ``scripts/tool_certification.py``, loaded as the script loads itself."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[4] / "scripts" / "tool_certification.py"
+    spec = importlib.util.spec_from_file_location("tool_certification_checks", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return getattr(module, name)

@@ -73,6 +73,21 @@ async def execute_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
     return {"status": status, "run_id": str(run_id)}
 
 
+def stop_words(payload: dict[str, Any]) -> tuple[str, str]:
+    """Why the workflow ended a run that did not end itself, and what to tell its reader."""
+    if payload.get("reason") == "step_limit":
+        allowed = payload.get("max_steps")
+        count = f"all {allowed} steps" if isinstance(allowed, int) else "all the steps"
+        return (
+            "step_limit",
+            f"The run used {count} its budget allows and was stopped before it finished. "
+            "Raise the step or tool-call limit on the agent, or on the routine if it has a "
+            "lower one, or ask for less in one run.",
+        )
+    reason = str(payload.get("reason") or "step_failed")
+    return reason, "The agent could not finish this reply. Please try again."
+
+
 @activity.defn(name="finish_chat_turn")
 @repository_activity(process_store)
 async def finish_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
@@ -92,14 +107,19 @@ async def finish_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
     if run.get("status") in {"completed", "failed", "cancelled"}:
         return {"run_id": str(run_id), "status": str(run["status"])}
     if payload.get("status") != "cancelled":
+        from ar_common.logging import get_logger  # noqa: PLC0415
         from ar_domain.runs.failure import fail_run  # noqa: PLC0415
 
-        fail_run(
-            store,
-            run,
-            code="internal_error",
-            message="The agent could not finish this reply. Please try again.",
+        reason, message = stop_words(payload)
+        # No content: the run, why the workflow ended it, and how far it had got.
+        get_logger(__name__).warning(
+            "run_ended_by_workflow",
+            run_id=str(run_id),
+            reason=reason,
+            steps=payload.get("steps"),
+            max_steps=payload.get("max_steps"),
         )
+        fail_run(store, run, code="internal_error", message=message, reason=reason)
     else:
         run["status"] = "cancelled"
         run["ended_at"] = utcnow()

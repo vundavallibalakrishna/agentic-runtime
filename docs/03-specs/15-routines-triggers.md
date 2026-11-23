@@ -63,7 +63,7 @@ Body `{name, description?, agent_id, agent_version_id?, instructions, trigger: R
 Includes full config, standing approvals, schedule info (next 5 fire times).
 
 #### PATCH /api/v1/routines/{routine_id}
-Owner or `routines:manage_all`. Updates schedule/poller atomically; changing agent or delivery targets revokes and re-creates standing approvals (requires the permission again).
+Owner or `routines:manage_all`. Updates schedule/poller atomically; changing agent or delivery targets revokes and re-creates standing approvals (requires the permission again). The body may also carry `budget`, `max_runs_per_day` and `concurrency_policy`: the daily run limit is a whole number from 1 to 10,000, the overlap rule is `skip`, `buffer_one` or `allow`, and each limit named in `budget` replaces the stored one while the others are kept. A value that makes no sense (an unknown limit, a negative number, zero steps) is 422 `validation_failed` and nothing is changed; the same checks apply on create. The `routine.updated` audit event names which of the three changed.
 
 #### DELETE /api/v1/routines/{routine_id}
 Deletes schedule/poller, revokes standing approvals; past runs/conversations remain.
