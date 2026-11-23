@@ -118,9 +118,9 @@ class RoutineBook:
             "trigger_config": self._trigger_config(_map(trigger)),
             "event_filter": body.get("event_filter"),
             "delivery": delivery,
-            "budget": body.get("budget") if isinstance(body.get("budget"), dict) else _budget(),
-            "max_runs_per_day": _whole(body.get("max_runs_per_day"), 48),
-            "concurrency_policy": str(body.get("concurrency_policy") or "skip"),
+            "budget": _budget_of(body.get("budget")) or _budget(),
+            "max_runs_per_day": _runs_per_day(body.get("max_runs_per_day"), 48),
+            "concurrency_policy": _overlap(body.get("concurrency_policy")),
             "status": "paused" if paused_reason else "active",
             "paused_reason": paused_reason,
             "temporal_schedule_id": f"routine-{routine_id}" if trigger_type == "schedule" else None,
@@ -188,6 +188,7 @@ class RoutineBook:
             )
             row["delivery"] = delivery
             self._grant_standing(actor, row, delivery)
+        changed = self._patch_limits(row, body)
         row["updated_at"] = utcnow()
         remember(
             self.store,
@@ -196,9 +197,28 @@ class RoutineBook:
             action="routine.updated",
             target_type="routine",
             target_id=routine_id,
-            detail={},
+            detail={"limits": changed} if changed else {},
         )
         return self._detail(row)
+
+    def _patch_limits(self, row: dict[str, object], body: dict[str, object]) -> list[str]:
+        """Change the daily run limit, the budget and the overlap rule. Returns what changed.
+
+        A value left out is kept. Each value is checked before any is stored.
+        """
+        fresh: dict[str, object] = {}
+        if body.get("max_runs_per_day") is not None:
+            fresh["max_runs_per_day"] = _runs_per_day(body["max_runs_per_day"], 0)
+        if body.get("concurrency_policy") is not None:
+            fresh["concurrency_policy"] = _overlap(body["concurrency_policy"])
+        if body.get("budget") is not None:
+            # The limits named replace the stored ones; a limit not named is kept.
+            fresh["budget"] = {**_map(row.get("budget")), **_budget_of(body["budget"])}
+        changed = sorted(key for key, value in fresh.items() if row.get(key) != value)
+        row.update(fresh)
+        if "concurrency_policy" in changed:
+            self._sync_schedule(row)
+        return changed
 
     def delete(self, actor: Actor, routine_id: uuid.UUID) -> None:
         row = self._owned(actor, routine_id)
@@ -749,10 +769,45 @@ def _map(value: object) -> dict[str, object]:
     return {str(key): item for key, item in value.items()}
 
 
-def _whole(value: object, default: int) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
+_OVERLAP = ("skip", "buffer_one", "allow")
+_AT_LEAST_ONE = frozenset(
+    {"max_steps", "max_tokens", "max_wall_clock_s", "max_parallel_tool_calls"}
+)
+
+
+def _runs_per_day(value: object, default: int) -> int:
+    """The daily run limit: a whole number from 1 to 10,000."""
+    if value is None and default:
         return default
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 10_000:
+        raise ValidationFailedError("max_runs_per_day must be a whole number from 1 to 10000")
     return value
+
+
+def _overlap(value: object) -> str:
+    """What happens when a run is due while one is going."""
+    chosen = str(value or "skip")
+    if chosen not in _OVERLAP:
+        raise ValidationFailedError("concurrency_policy must be skip, buffer_one or allow")
+    return chosen
+
+
+def _budget_of(value: object) -> dict[str, int]:
+    """The limits a caller named, checked. An unknown limit or a bad number is refused."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValidationFailedError("budget must be an object of limits")
+    limits: dict[str, int] = {}
+    for key, number in value.items():
+        if key not in DEFAULT_RUN_BUDGET:
+            known = ", ".join(sorted(DEFAULT_RUN_BUDGET))
+            raise ValidationFailedError(f"budget.{key} is not a limit; the limits are {known}")
+        low = 1 if key in _AT_LEAST_ONE else 0
+        if isinstance(number, bool) or not isinstance(number, int) or number < low:
+            raise ValidationFailedError(f"budget.{key} must be a whole number of at least {low}")
+        limits[str(key)] = number
+    return limits
 
 
 def _budget() -> dict[str, int]:

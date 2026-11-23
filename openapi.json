@@ -24834,6 +24834,42 @@
               }
             ],
             "title": "Delivery"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget"
+          },
+          "maxRunsPerDay": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxrunsperday"
+          },
+          "concurrencyPolicy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concurrencypolicy"
           }
         },
         "additionalProperties": false,

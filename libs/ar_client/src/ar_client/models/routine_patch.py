@@ -14,6 +14,7 @@ from uuid import UUID
 
 if TYPE_CHECKING:
     from ..models.delivery_body import DeliveryBody
+    from ..models.routine_patch_budget_type_0 import RoutinePatchBudgetType0
     from ..models.trigger_body import TriggerBody
 
 
@@ -30,6 +31,9 @@ class RoutinePatch:
         agent_id (None | Unset | UUID):
         trigger (None | TriggerBody | Unset):
         delivery (list[DeliveryBody] | None | Unset):
+        budget (None | RoutinePatchBudgetType0 | Unset):
+        max_runs_per_day (int | None | Unset):
+        concurrency_policy (None | str | Unset):
     """
 
     name: None | str | Unset = UNSET
@@ -38,9 +42,13 @@ class RoutinePatch:
     agent_id: None | Unset | UUID = UNSET
     trigger: None | TriggerBody | Unset = UNSET
     delivery: list[DeliveryBody] | None | Unset = UNSET
+    budget: None | RoutinePatchBudgetType0 | Unset = UNSET
+    max_runs_per_day: int | None | Unset = UNSET
+    concurrency_policy: None | str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.delivery_body import DeliveryBody  # noqa: PLC0415
+        from ..models.routine_patch_budget_type_0 import RoutinePatchBudgetType0  # noqa: PLC0415
         from ..models.trigger_body import TriggerBody  # noqa: PLC0415
 
         name: None | str | Unset
@@ -89,6 +97,26 @@ class RoutinePatch:
         else:
             delivery = self.delivery
 
+        budget: dict[str, Any] | None | Unset
+        if isinstance(self.budget, Unset):
+            budget = UNSET
+        elif isinstance(self.budget, RoutinePatchBudgetType0):
+            budget = self.budget.to_dict()
+        else:
+            budget = self.budget
+
+        max_runs_per_day: int | None | Unset
+        if isinstance(self.max_runs_per_day, Unset):
+            max_runs_per_day = UNSET
+        else:
+            max_runs_per_day = self.max_runs_per_day
+
+        concurrency_policy: None | str | Unset
+        if isinstance(self.concurrency_policy, Unset):
+            concurrency_policy = UNSET
+        else:
+            concurrency_policy = self.concurrency_policy
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update({})
@@ -104,12 +132,19 @@ class RoutinePatch:
             field_dict["trigger"] = trigger
         if delivery is not UNSET:
             field_dict["delivery"] = delivery
+        if budget is not UNSET:
+            field_dict["budget"] = budget
+        if max_runs_per_day is not UNSET:
+            field_dict["maxRunsPerDay"] = max_runs_per_day
+        if concurrency_policy is not UNSET:
+            field_dict["concurrencyPolicy"] = concurrency_policy
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.delivery_body import DeliveryBody  # noqa: PLC0415
+        from ..models.routine_patch_budget_type_0 import RoutinePatchBudgetType0  # noqa: PLC0415
         from ..models.trigger_body import TriggerBody  # noqa: PLC0415
 
         d = dict(src_dict)
@@ -197,6 +232,41 @@ class RoutinePatch:
 
         delivery = _parse_delivery(d.pop("delivery", UNSET))
 
+        def _parse_budget(data: object) -> None | RoutinePatchBudgetType0 | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                budget_type_0 = RoutinePatchBudgetType0.from_dict(data)
+
+                return budget_type_0
+            except TypeError, ValueError, AttributeError, KeyError:
+                pass
+            return cast(None | RoutinePatchBudgetType0 | Unset, data)
+
+        budget = _parse_budget(d.pop("budget", UNSET))
+
+        def _parse_max_runs_per_day(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        max_runs_per_day = _parse_max_runs_per_day(d.pop("maxRunsPerDay", UNSET))
+
+        def _parse_concurrency_policy(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        concurrency_policy = _parse_concurrency_policy(d.pop("concurrencyPolicy", UNSET))
+
         routine_patch = cls(
             name=name,
             description=description,
@@ -204,6 +274,9 @@ class RoutinePatch:
             agent_id=agent_id,
             trigger=trigger,
             delivery=delivery,
+            budget=budget,
+            max_runs_per_day=max_runs_per_day,
+            concurrency_policy=concurrency_policy,
         )
 
         return routine_patch

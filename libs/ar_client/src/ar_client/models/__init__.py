@@ -1304,6 +1304,7 @@ from .routes_body import RoutesBody
 from .routine_body import RoutineBody
 from .routine_body_budget_type_0 import RoutineBodyBudgetType0
 from .routine_patch import RoutinePatch
+from .routine_patch_budget_type_0 import RoutinePatchBudgetType0
 from .routine_run_body import RoutineRunBody
 from .rule_set_body import RuleSetBody
 from .rule_set_item import RuleSetItem
@@ -2088,6 +2089,7 @@ __all__ = (
     "RoutineBody",
     "RoutineBodyBudgetType0",
     "RoutinePatch",
+    "RoutinePatchBudgetType0",
     "RoutineRunBody",
     "RuleSetBody",
     "RuleSetItem",
