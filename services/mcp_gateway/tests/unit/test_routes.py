@@ -74,3 +74,36 @@ def test_execute_lists_and_calls_a_seeded_tool() -> None:
         json={"agentVersionId": str(desk["published_version_id"]), "userId": str(demo_id("admin"))},
     )
     assert missing.status_code == 500
+
+
+def test_a_console_test_stores_its_run_as_the_conversations_agent() -> None:
+    """The gateway stores the run a console test belongs to, with the call, in one place."""
+    app = create_application()
+    client = signed_client(app)
+    store = app.state.chat
+    seed_demo_tenant(store)
+    desk = next(row for row in store.agents.values() if row.get("slug") == "desk")
+    talk = store.create_conversation(demo_id("tenant"), demo_id("admin"), agent_id=desk["id"])
+    version = next(
+        row for row in store.tool_versions.values() if row.get("qualified_name") == "files.list"
+    )
+    tested = client.post(
+        "/internal/v1/tool-calls:test",
+        json={
+            "tenantId": str(demo_id("tenant")),
+            "userId": str(demo_id("admin")),
+            "toolVersionId": str(version["id"]),
+            "conversationId": str(talk["id"]),
+            "permissions": ["tools:create"],
+            "arguments": {},
+            "modelCallId": "test",
+        },
+    )
+    assert tested.status_code == 200, tested.text
+    assert tested.json()["status"] == "succeeded"
+    [run] = [row for row in store.runs.values() if row.get("synthetic") is True]
+    assert str(run["conversation_id"]) == str(talk["id"])
+    assert run["agent_id"] == desk["id"]
+    assert run["trigger"] == "api"
+    call = next(row for row in store.tool_calls.values() if row.get("run_id") == run["id"])
+    assert call["status"] == "succeeded"

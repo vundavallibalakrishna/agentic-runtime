@@ -187,3 +187,49 @@ def test_a_console_test_cannot_use_another_persons_conversation() -> None:
         f"/api/v1/tools/{tool_id}:test", json={"arguments": {}, "conversationId": conversation}
     )
     assert refused.status_code == 404
+
+
+def test_a_console_test_goes_through_the_tool_gateway(monkeypatch: object) -> None:
+    """Where a gateway runs tools, the console test is sent to it and nothing runs here."""
+    from ar_domain.tools import gateway_client
+
+    client = _client()
+    store = client.app.state.chat  # type: ignore[attr-defined]
+    conversation = client.post("/api/v1/conversations", json={}).json()["id"]
+    tool_id = _tool_id(client, "general.write_file")
+    runs_before = len(store.runs)
+    calls_before = len(store.tool_calls)
+    sent: list[tuple[str, dict[str, object]]] = []
+
+    class _Answer:
+        status_code = 200
+
+        def json(self) -> dict[str, object]:
+            return {"status": "succeeded", "result_preview": "from the gateway"}
+
+    def send(url: str, body: dict[str, object], timeout: float) -> _Answer:
+        del timeout
+        sent.append((url, body))
+        return _Answer()
+
+    monkeypatch.setenv("AR_MCP_GATEWAY_URL", "http://mcp-gateway:8002")  # type: ignore[attr-defined]
+    monkeypatch.setattr(gateway_client, "_send", send)  # type: ignore[attr-defined]
+    store.tool_gateway_http = True
+    try:
+        tested = client.post(
+            f"/api/v1/tools/{tool_id}:test",
+            json={"arguments": {"path": "a.txt", "content": "x"}, "conversationId": conversation},
+        )
+    finally:
+        store.tool_gateway_http = False
+    assert tested.status_code == 200, tested.text
+    assert tested.json()["resultPreview"] == "from the gateway"
+    [(url, body)] = sent
+    assert url == "http://mcp-gateway:8002/internal/v1/tool-calls:test"
+    assert body["conversation_id"] == conversation
+    assert body["synthetic"] is True
+    assert "tools:create" in body["permissions"]  # type: ignore[operator]
+    assert body["arguments"] == {"path": "a.txt", "content": "x"}
+    # The gateway stores the run and the call. This process stored neither.
+    assert len(store.runs) == runs_before
+    assert len(store.tool_calls) == calls_before

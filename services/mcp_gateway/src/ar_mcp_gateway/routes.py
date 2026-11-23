@@ -10,6 +10,7 @@ from ar_domain.agents.access import Actor
 from ar_domain.chat.service import ChatBehaviour
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.readmodel.model import RepositoryReadModel
+from ar_domain.tools.console import open_console_run
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.registry import ToolRegistry
 from ar_mcp_gateway.pipeline import execute
@@ -41,6 +42,13 @@ class ExecuteBody(ApiModel):
     call_index: int | None = None
 
 
+class ConsoleTestBody(ExecuteBody):
+    # The conversation whose working folder and agent the test uses, and what the
+    # person who asked may do. The API has checked both.
+    conversation_id: uuid.UUID | None = None
+    permissions: list[str] | None = None
+
+
 class DiscoverBody(ApiModel):
     server_id: uuid.UUID
     version_id: uuid.UUID
@@ -55,16 +63,25 @@ def _store(request: Request) -> ChatBehaviour:
     return service
 
 
-async def _run(request: Request, payload: dict[str, object]) -> dict[str, object]:
-    """Execute on the test double, or on a repository unit that commits the audit chain."""
+async def _run(
+    request: Request,
+    payload: dict[str, object],
+    *,
+    console: bool = False,
+) -> dict[str, object]:
+    """Execute on the test double, or on a repository unit that commits the audit chain.
+
+    A console test first stores the run its call belongs to, in the same unit.
+    """
     service = request.app.state.chat
     if isinstance(service, RepositoryReadModel):
         tenant = payload.get("tenant_id")
         if not isinstance(tenant, uuid.UUID):
             raise TypeError("tool call has no tenant")
         async with service.open(tenant) as unit:
-            return execute(unit, payload)
-    return execute(_store(request), payload)
+            return execute(unit, open_console_run(unit, payload) if console else payload)
+    store = _store(request)
+    return execute(store, open_console_run(store, payload) if console else payload)
 
 
 def _actor(tenant_id: uuid.UUID, user_id: uuid.UUID) -> Actor:
@@ -93,11 +110,12 @@ async def execute_call(body: ExecuteBody, request: Request) -> dict[str, object]
 
 
 @router.post("/internal/v1/tool-calls:test")
-async def test_call(body: ExecuteBody, request: Request) -> dict[str, object]:
+async def test_call(body: ConsoleTestBody, request: Request) -> dict[str, object]:
+    """A console test: the run it belongs to is stored here, with the call, in one unit."""
     payload = body.model_dump(by_alias=False)
-    payload["synthetic"] = True
-    payload["dry_run"] = True if body.dry_run else payload.get("dry_run")
-    return await _run(request, payload)
+    if body.permissions is None:
+        del payload["permissions"]
+    return await _run(request, payload, console=True)
 
 
 @router.post("/internal/v1/discover")

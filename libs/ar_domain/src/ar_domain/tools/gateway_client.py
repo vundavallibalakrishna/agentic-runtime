@@ -46,14 +46,37 @@ def execute_tool(store: Any, request: dict[str, object]) -> dict[str, object]:
     return _post(store, request)
 
 
-def _post(store: Any, request: dict[str, object]) -> dict[str, object]:
+def run_console_test(store: Any, request: dict[str, object]) -> dict[str, object]:
+    """Run a console test of one tool. It goes where every tool call goes."""
+    if not http_gateway(store):
+        from ar_domain.tools.console import open_console_run  # noqa: PLC0415
+        from ar_domain.tools.pipeline import ToolPipeline  # noqa: PLC0415
+
+        return ToolPipeline(store).execute(open_console_run(store, request))
+    body = _body(request)
+    conversation_id = request.get("conversation_id")
+    if isinstance(conversation_id, uuid.UUID):
+        body["conversation_id"] = str(conversation_id)
+    permissions = request.get("permissions")
+    if isinstance(permissions, list):
+        body["permissions"] = [str(item) for item in permissions]
+    return _post(store, request, route="tool-calls:test", body=body)
+
+
+def _post(
+    store: Any,
+    request: dict[str, object],
+    *,
+    route: str = "tool-calls:execute",
+    body: dict[str, object] | None = None,
+) -> dict[str, object]:
     url = os.environ.get("AR_MCP_GATEWAY_URL", "").strip().rstrip("/")
     if not url:
         return _unavailable("the tool gateway URL is not set")
     timeout = _timeout(store, request)
-    body = _body(request)
+    body = _body(request) if body is None else body
     try:
-        response = _send(f"{url}/internal/v1/tool-calls:execute", body, timeout)
+        response = _send(f"{url}/internal/v1/{route}", body, timeout)
     except httpx.HTTPError as exc:
         reason = str(getattr(exc, "reason", "") or exc).strip()
         get_logger(__name__).warning(
