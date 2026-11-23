@@ -270,6 +270,8 @@ BUCKETS = (
     "review_items",
     "signoffs",
     "saved_queries",
+    "packs",
+    "pack_resources",
     "extension_rows",
 )
 

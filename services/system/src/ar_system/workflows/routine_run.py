@@ -132,6 +132,24 @@ async def reconcile_activity() -> dict[str, int]:
     return totals
 
 
+def _turn_payload(prepared: dict[str, Any]) -> dict[str, Any]:
+    """What the run's turn is started with.
+
+    ``workflow`` carries the step allowance of the run's budget, worked out where the run
+    was opened. Without it the turn would get the small default and stop a routine whose
+    agent uses more than a few tools.
+    """
+    carried = prepared.get("workflow")
+    base = dict(carried) if isinstance(carried, dict) else {}
+    return {
+        **base,
+        "run_id": prepared["run_id"],
+        "text": base.get("text") or prepared.get("text") or "",
+        "names": [],
+        "steps": True,
+    }
+
+
 @workflow.defn(name="RoutineRunWorkflow")
 class RoutineRunWorkflow:
     """Accept an event, run the agent, then record delivery."""
@@ -140,7 +158,7 @@ class RoutineRunWorkflow:
     async def run(self, payload: dict[str, Any]) -> dict[str, Any]:
         if payload.get("event_id") and payload.get("run_id"):
             accepted = {"event_id": payload["event_id"]}
-            prepared = {"run_id": payload["run_id"]}
+            prepared = {"run_id": payload["run_id"], "workflow": payload.get("workflow")}
         else:
             accepted = await workflow.execute_activity(
                 accept_activity, payload, start_to_close_timeout=timedelta(seconds=30)
@@ -157,12 +175,7 @@ class RoutineRunWorkflow:
         queue = str(payload.get("runtime_queue") or "ar-runtime")
         child = await workflow.execute_child_workflow(
             "AgentRunWorkflow",
-            {
-                "run_id": prepared["run_id"],
-                "text": prepared.get("text") or "",
-                "names": [],
-                "steps": True,
-            },
+            _turn_payload(prepared),
             id=f"run-{prepared['run_id']}",
             task_queue=queue,
         )

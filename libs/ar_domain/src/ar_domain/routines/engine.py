@@ -91,12 +91,7 @@ def prepare_routine_run(
     prior = store.runs.get(event.get("run_id"))
     if isinstance(prior, dict):
         message = store.messages.get(prior.get("input_message_id"), {})
-        return {
-            "status": "ready",
-            "run_id": str(prior["id"]),
-            "conversation_id": str(prior["conversation_id"]),
-            "text": str(message.get("text") or ""),
-        }
+        return _ready(store, prior, str(message.get("text") or ""))
     owner = routine.get("owner_user_id")
     statuses = getattr(store, "user_statuses", {})
     status = statuses.get(owner, "active") if isinstance(statuses, dict) else "active"
@@ -113,13 +108,32 @@ def prepare_routine_run(
         _notify(store, routine, "routine_paused")
         _domain(store, "routine.paused", routine, None)
         return {"status": "paused", "reason": "owner_reauth_required"}
-    conversation, message, run = _open_run(store, routine, event)
+    _conversation, message, run = _open_run(store, routine, event)
     event["run_id"] = run["id"]
+    return _ready(store, run, str(message.get("text") or ""))
+
+
+def turn_payload(store: Any, run: dict[str, object]) -> dict[str, object]:
+    """What the worker is given to carry out a routine's run: the same as for a chat turn.
+
+    It holds the step allowance of the run's budget. Without it the turn would get the
+    workflow's small default and stop a routine whose agent uses more than a few tools.
+    """
+    from ar_domain.runs.dispatch import workflow_payload  # noqa: PLC0415
+
+    message = store.messages.get(run.get("input_message_id"), {})
+    text = str(message.get("text") or "") if isinstance(message, dict) else ""
+    return workflow_payload(store, run, uuid.UUID(str(run["id"])), text)
+
+
+def _ready(store: Any, run: dict[str, object], text: str) -> dict[str, object]:
+    """The run a routine opened, and what the worker needs to carry it out."""
     return {
         "status": "ready",
         "run_id": str(run["id"]),
-        "conversation_id": str(conversation["id"]),
-        "text": str(message.get("text") or ""),
+        "conversation_id": str(run["conversation_id"]),
+        "text": text,
+        "workflow": turn_payload(store, run),
     }
 
 
