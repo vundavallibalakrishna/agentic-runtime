@@ -66,3 +66,26 @@ test("routines schedule, run now, and stay accessible", async ({ page }) => {
   const result = await new AxeBuilder({ page }).analyze();
   expect(result.violations).toEqual([]);
 });
+
+test("a routine can email its result only when there is something to report", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/routines");
+  await expect(
+    page.getByRole("heading", { name: "Routines", exact: true, level: 1 }),
+  ).toBeVisible();
+  const only = page.getByRole("checkbox", { name: /Only when there is something to report/ });
+  await expect(only).toBeDisabled();
+  await page.getByLabel("Name").fill("Quiet check");
+  await page.getByLabel("Instructions").fill("Check the notes and report only what changed.");
+  await page.getByLabel("Email the result to (optional)").fill("lead@example.test");
+  await only.check();
+  const form = await new AxeBuilder({ page }).analyze();
+  expect(form.violations).toEqual([]);
+  await page.getByRole("button", { name: "Create a routine" }).click();
+  await expect(page.getByRole("heading", { name: "Quiet check" })).toBeVisible();
+  await expect(page.getByText("Your conversation")).toBeVisible();
+  await expect(page.getByText("Email to lead@example.test")).toBeVisible();
+  await expect(page.getByText("only when there is something to report")).toBeVisible();
+  const detail = await new AxeBuilder({ page }).analyze();
+  expect(detail.violations).toEqual([]);
+});

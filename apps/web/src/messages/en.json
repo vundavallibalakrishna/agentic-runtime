@@ -1071,6 +1071,20 @@
     "webhook": "Webhook address",
     "webhookSecret": "Webhook secret"
   },
+  "delivery": {
+    "label": "Delivery",
+    "email": "Email the result to (optional)",
+    "emailPlaceholder": "name@example.com",
+    "emailHint": "The result always stays in your conversation. The first email waits for your approval.",
+    "onlyReports": "Only when there is something to report.",
+    "onlyReportsHint": "A run that finds nothing is not emailed.",
+    "whenReports": "only when there is something to report",
+    "to": {
+      "conversation": "Your conversation",
+      "email": "Email to {to}",
+      "webhook": "Webhook at {to}"
+    }
+  },
   "runs": {
     "title": "Runs",
     "body": "Every answer leaves a trace. Open one to see the steps and any subagents.",
