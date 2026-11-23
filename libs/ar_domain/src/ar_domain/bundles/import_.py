@@ -1,7 +1,11 @@
-"""Import a bundle. Apply creates drafts and never publishes."""
+"""Import a bundle. Apply creates drafts and never publishes.
+
+A routine is created paused: nothing a bundle or a pack brings runs on a schedule until
+its owner has read it and turned it on.
+"""
 
 import uuid
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 from pydantic import JsonValue
@@ -13,14 +17,17 @@ from ar_domain.agents.service import AgentLifecycle
 from ar_domain.agents.validation import schema_errors
 from ar_domain.bundles.diff import classify, resource_hash
 
-_READY = frozenset({"Agent", "Skill"})
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+_READY = frozenset({"Agent", "Skill", "Routine"})
+_IMPORTED_PAUSED = "imported"
 _SKIPPED = frozenset(
     {
         "ToolServer",
         "DataConnection",
         "KnowledgeCollection",
         "Policy",
-        "Routine",
         "ModelAlias",
         "SandboxTemplate",
         "ChannelIntegration",
@@ -66,7 +73,7 @@ def _current_hash(store: Any, agent: dict[str, object]) -> str | None:
     return definition_hash(cleaned)
 
 
-def import_bundle(  # noqa: PLR0912
+def import_bundle(  # noqa: PLR0912, PLR0915
     store: Any,
     actor: Actor,
     payload: object,
@@ -76,9 +83,14 @@ def import_bundle(  # noqa: PLR0912
     """Plan or apply. Kinds without a module are skipped."""
     life = AgentLifecycle(store)
     results: list[dict[str, object]] = []
-    for resource in parse_bundle(payload):
+    # A routine names its agent, so the agents in the same bundle are made first.
+    resources = sorted(parse_bundle(payload), key=lambda item: item.get("kind") == "Routine")
+    for resource in resources:
         kind = str(resource.get("kind") or "")
         key = _slug(resource)
+        if kind == "Routine":
+            results.append(_import_routine(store, actor, resource, key, dry_run=dry_run))
+            continue
         if kind in _SKIPPED:
             results.append({"kind": kind, "key": key, "action": "skipped"})
             continue
@@ -207,6 +219,83 @@ def _import_skill(
     created = SkillBook(store).create(actor, body)
     result["id"] = created.get("id")
     return result
+
+
+def _import_routine(  # noqa: PLR0911
+    store: Any,
+    actor: Actor,
+    resource: dict[str, object],
+    key: str,
+    *,
+    dry_run: bool,
+) -> dict[str, object]:
+    """Plan or create a routine, paused. A routine of the same name is left as it is."""
+    from pydantic import ValidationError  # noqa: PLC0415
+
+    from ar_contracts.definitions import RoutineDefinition  # noqa: PLC0415
+    from ar_domain.routines.book import RoutineBook  # noqa: PLC0415
+
+    result: dict[str, object] = {"kind": "Routine", "key": key, "action": "create"}
+
+    def failed(*errors: Mapping[str, object]) -> dict[str, object]:
+        return {**result, "action": "error", "errors": list(errors)}
+
+    try:
+        spec = RoutineDefinition.model_validate(resource.get("spec"))
+    except ValidationError as exc:
+        return failed(
+            *(
+                {"msg": str(item["msg"]), "loc": ".".join(str(part) for part in item["loc"])}
+                for item in exc.errors()
+            )
+        )
+    if not key:
+        return failed({"msg": "a routine needs metadata.name"})
+    for row in getattr(store, "routines", {}).values():
+        if (
+            isinstance(row, dict)
+            and row.get("tenant_id") == actor.tenant_id
+            and row.get("name") == key
+        ):
+            return {**result, "action": "unchanged", "id": str(row.get("id"))}
+    agent = _find(store, actor.tenant_id, spec.agent)
+    if dry_run:
+        # A plan is made before the bundle's own agents exist, so the agent is not checked.
+        return result
+    if agent is None:
+        return failed(
+            {"msg": f"the routine names the agent {spec.agent}, which is not in this workspace"}
+        )
+    trigger = spec.trigger
+    body: dict[str, object] = {
+        "name": key,
+        "description": spec.description,
+        "agent_id": agent["id"],
+        "instructions": spec.instructions,
+        "trigger": {
+            "type": trigger.type,
+            "cron": trigger.cron,
+            "timezone": trigger.timezone,
+            "jitter_s": trigger.jitter_s,
+            "catchup_window_s": trigger.catchup_window_s,
+            **trigger.config,
+        },
+        "event_filter": spec.event_filter,
+        # A bundle cannot approve its own deliveries: each one waits for the owner.
+        "delivery": [
+            {**target.model_dump(by_alias=False, exclude_none=True), "pre_approved": False}
+            for target in spec.delivery
+        ]
+        or None,
+        "budget": spec.budget.model_dump(by_alias=False),
+        "max_runs_per_day": spec.max_runs_per_day,
+        "concurrency_policy": spec.concurrency_policy,
+    }
+    try:
+        created = RoutineBook(store).create(actor, body, paused_reason=_IMPORTED_PAUSED)
+    except ArError as exc:
+        return failed({"msg": exc.detail or exc.title})
+    return {**result, "id": str(created.get("id"))}
 
 
 def bundle_yaml(document: dict[str, JsonValue]) -> str:

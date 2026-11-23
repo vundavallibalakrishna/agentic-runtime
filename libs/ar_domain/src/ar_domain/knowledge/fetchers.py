@@ -31,7 +31,7 @@ def list_changes(source: dict[str, object], *, mode: str) -> dict[str, object]: 
         }
     kind = str(source.get("kind") or "")
     if kind == "web":
-        return _web(source, config)
+        return _web(source, config, mode=mode)
     if kind == "s3":
         return _s3(config)
     if kind == "sharepoint":
@@ -141,7 +141,9 @@ def _hosts(row: dict[str, object]) -> list[str]:
     return tenant_hosts(store, tenant)
 
 
-def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911
+def _web(  # noqa: PLR0911
+    source: dict[str, object], config: dict[str, object], *, mode: str
+) -> dict[str, object]:
     start = str(config.get("url") or "")
     if not start:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
@@ -179,12 +181,22 @@ def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, obje
                 "done": True,
                 "error": "the site's robots.txt asks automated readers not to fetch this page",
             }
-        page = client.get(start, headers={"If-None-Match": str(config.get("etag") or "")})
+        # The validator the last sync was answered with is on the source's cursor. A full
+        # sync reads the page whatever the site says about it.
+        cursor = source.get("cursor")
+        kept = dict(cursor) if isinstance(cursor, dict) else {}
+        etag = str(kept.get("etag") or "") if mode != "full" else ""
+        page = client.get(start, headers={"If-None-Match": etag} if etag else {})
     finally:
         client.close()
     if page.status_code == 304:
-        return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
+        return {"items": [], "deleted_external_ids": [], "next_cursor": kept, "done": True}
     digest = hashlib.sha256(page.content).hexdigest()
+    measured = {
+        "status": page.status_code,
+        "etag": page.headers.get("etag", ""),
+        "lastModified": page.headers.get("last-modified", ""),
+    }
     return {
         "items": [
             {
@@ -193,12 +205,13 @@ def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, obje
                 "uri": start,
                 "mime_type": "text/html",
                 "version_hint": page.headers.get("etag") or digest,
+                "measured": measured,
                 "text": page.text,
                 "acl": [],
             }
         ],
         "deleted_external_ids": [],
-        "next_cursor": {"etag": page.headers.get("etag") or digest},
+        "next_cursor": {"etag": page.headers.get("etag", ""), "sha256": digest},
         "done": True,
     }
 

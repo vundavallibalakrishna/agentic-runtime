@@ -164,8 +164,13 @@ async def reap_now(request: Request) -> dict[str, int]:
 
 
 @router.get("/internal/v1/egress/check")
-async def egress(sandbox_id: str, host: str, token: str, request: Request) -> Response:
-    """Answer the proxy: may this computer reach this host. Anything unknown is refused."""
+async def egress(sandbox_id: str, host: str, request: Request) -> Response:
+    """Answer the proxy: may this computer reach this host. Anything unknown is refused.
+
+    The computer's token comes in the ``X-AR-Sandbox-Token`` header, never in the address,
+    so it is not written to an access log.
+    """
+    token = request.headers.get("x-ar-sandbox-token", "")
     try:
         key = uuid.UUID(sandbox_id)
     except ValueError:

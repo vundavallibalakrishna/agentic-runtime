@@ -68,6 +68,7 @@
 | 0059 | `eval_run_options` | Expand only. `eval_runs` gains `tags text[]` and `mock_all_tools boolean`, both with defaults, so the worker that carries a run out reads what the run was asked to do. Downgrade drops the two columns |
 | 0060 | `one_upload_per_content` | `uq_files_durable_sha` covers `kind = 'upload'` only. A file an agent writes may hold the same bytes as another; with the wider index the second could not be saved. No data change. Downgrade restores the wider index and fails if two agent-written files share their bytes |
 | 0061 | `routine_event_deliveries` | `routine_events.detail` (`jsonb`, default `{}`): what happened to each delivery of the event (sent, failed and why, waiting for its owner, refused). It was kept only in the process that completed the event. Expand only. Downgrade drops the column |
+| 0062 | `document_revisions` | New table `document_revisions`: one row per version of a knowledge document a sync fetched, pointing at the `files` row that holds its bytes, with what was measured on the fetch. Tenant RLS and grants in the same revision. Expand only; downgrade drops the table and leaves the files |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 
