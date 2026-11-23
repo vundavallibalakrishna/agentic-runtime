@@ -43,7 +43,7 @@ docker compose --profile production up -d --build
 
 ## One command
 
-`scripts/certify_stack.sh` does everything below on a machine that has Docker and 16 GB of memory: it writes `.env` when there is none, builds the computer image, starts the install in the staging environment with every feature file and the file scanner, seeds one tenant with an admin and a reviewer, starts a computer and checks the manager reached it, and runs the parts named in `AR_CERT_PARTS`.
+`scripts/certify_stack.sh` does everything below on a machine that has Docker and 16 GB of memory: it writes `.env` when there is none, builds the computer image, starts the install in the staging environment with every feature file and the file scanner, seeds one tenant with an admin and a reviewer, starts a computer and runs one command on it through the console's tool test, and runs the parts named in `AR_CERT_PARTS`.
 
 ```bash
 export AR_LLM_API_KEY=...            # never commit this
