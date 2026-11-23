@@ -23,6 +23,11 @@ five times with the model the install uses for certification, through DeepInfra.
 | 4 | Nothing changed, pack 1.0.1 | completed | 69 s | 11 | 83,607 | Read all three sources in the run; "No material change on 3 sources." |
 | 5 | Test page changed (effective date, section removed), pack 1.0.1 | completed | 74 s | 10 | 48,681 | Read all three sources in the run; reported the new date and the removed section with quotes, wrote the digest, ended "Needs acknowledgement" |
 
+| 6 | Started by the schedule itself at 13:00 India time, nothing changed | completed | not timed | 10 | not recorded | Read all three sources; reported no change that matters. It wrote a digest document and a longer answer where the instructions ask for one line |
+
+Runs 1 to 5 were started by hand with `POST /api/v1/routines/{id}:run`. Run 6 was started by
+the routine's own schedule, on the Temporal clock, with nobody asking.
+
 Every run stayed inside the agent's budget (40 steps, 60 tool calls, 400,000 tokens).
 
 What this shows: the routine reads a real feed and real pages, keeps a copy of each, compares a
@@ -50,6 +55,13 @@ Fixed in the pack:
 4. **A claim without a check.** In run 3 the agent said the RBI page was unchanged, and it had
    not read that page in that run. The instructions now say that a source counts as checked only
    when a tool was called on it in the same run. Runs 4 and 5 read every source.
+
+Open in the pack:
+
+5. **A quiet run is not always one line.** Of the four runs with nothing to report, two
+   answered in one line and two added detail; run 6 also wrote a digest document. Nothing false
+   was said, but an install that mails every result would get more than it should. The wording
+   of the quiet-run rule needs another pass against the model.
 
 Open, recorded in [open-questions](../../open-questions.md) (OQ-178):
 
@@ -80,5 +92,4 @@ Open, recorded in [open-questions](../../open-questions.md) (OQ-178):
   delivery to its owner's conversation only.
 - The customer's own policy collections: none was named, so the step that searches them was
   skipped in every run.
-- A run started by the schedule itself. Each run here was started by hand.
 - A licensed feed.
