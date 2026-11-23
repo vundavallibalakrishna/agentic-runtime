@@ -2,6 +2,9 @@ name: images
 
 on:
   pull_request:
+    # Markdown under docs/ is in no image.
+    paths-ignore:
+      - "docs/**/*.md"
   push:
     branches: [main]
 
