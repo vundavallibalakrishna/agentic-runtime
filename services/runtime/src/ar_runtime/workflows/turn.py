@@ -70,7 +70,11 @@ class TurnWorkflow:
                 pass
         result = await workflow.execute_activity(
             "finish_chat_turn",
-            {"run_id": payload["run_id"], "status": "cancelled" if self.cancelled else "failed"},
+            {
+                "run_id": payload["run_id"],
+                "status": "cancelled" if self.cancelled else "failed",
+                "reason": "step_failed",
+            },
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=RetryPolicy(maximum_attempts=3),
         )
@@ -86,6 +90,8 @@ class TurnWorkflow:
         carried = payload.get("decision")
         decision = carried if isinstance(carried, dict) else None
         result: dict[str, Any] = {"status": "failed", "kind": "final", "run_id": _run_id(payload)}
+        # Why the run is ended here when it did not end itself: recorded on the run.
+        why = ""
         # What the last fan-out's sub-tasks returned. The next step stores all of it, so a
         # result one parallel sub-task overwrote on another is put back.
         found: dict[str, Any] = {}
@@ -113,6 +119,7 @@ class TurnWorkflow:
             try:
                 raw = await self.turn
             except ActivityError, asyncio.CancelledError:
+                why = "step_failed"
                 break
             self.turn = None
             result = raw if isinstance(raw, dict) else result
@@ -131,6 +138,7 @@ class TurnWorkflow:
             if kind == "paused" or status in {"waiting_approval", "waiting_input"}:
                 decision = await self._await_person(payload, result)
                 if decision is None:
+                    why = "wait_ended"
                     break
                 continue
             if kind not in {"model", "tools"}:
@@ -158,11 +166,16 @@ class TurnWorkflow:
                 continued["decision"] = decision
             workflow.continue_as_new(continued)
         if kind in {"model", "tools", "fanout", "paused", "sections"} or self.cancelled:
+            if not why:
+                why = "step_limit" if taken >= max_steps else "step_failed"
             finished = await workflow.execute_activity(
                 "finish_chat_turn",
                 {
                     "run_id": payload["run_id"],
                     "status": "cancelled" if self.cancelled else "failed",
+                    "reason": why,
+                    "steps": taken,
+                    "max_steps": max_steps,
                 },
                 start_to_close_timeout=timedelta(seconds=30),
                 retry_policy=RetryPolicy(maximum_attempts=3),
