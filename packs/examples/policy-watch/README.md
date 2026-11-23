@@ -41,6 +41,11 @@ what counts as a change that matters) are in this pack and nowhere in the platfo
 The digest is a document in the library. Every copy of every page is kept, so the evidence
 for a change can be opened later.
 
+## Proof
+
+The pack has been run on a real public site with a real model: see
+[the report](../../../docs/testing/policy-watch-2026-11/report.md).
+
 ## What it does not do
 
 - **It does not get round a site.** A site that refuses, a robots.txt that disallows an

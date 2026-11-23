@@ -11,6 +11,10 @@ sources:
     url: https://www.rbi.org.in/Scripts/NotificationUser.aspx
     watch: page          # page: keep a copy when the content changes, and diff it
 
+# How many of a feed's newest items one run looks at. Raise it for a feed that publishes
+# more than this between two runs, and raise the agent's budget with it.
+feed_items_per_run: 5
+
 # Knowledge collections that hold your own policies. The watch searches these for the
 # sections a change touches. Leave empty to skip that step.
 internal_collections: []

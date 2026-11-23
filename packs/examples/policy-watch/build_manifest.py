@@ -55,7 +55,7 @@ def manifest() -> dict[str, object]:
         "kind": "ContentPack",
         "metadata": {
             "id": "policy_watch",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "name": "Policy watch",
             "minPlatform": "1.0.0",
         },
