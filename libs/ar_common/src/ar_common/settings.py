@@ -394,6 +394,9 @@ class BaseServiceSettings(BaseSettings):
     # a person presses Stop. Temporal's own default is 0.8 of the heartbeat timeout.
     activity_heartbeat_throttle_s: int = Field(default=2, ge=1, le=60)
     sandbox_ensure_timeout_s: int = Field(default=30, ge=1)
+    # How long a mailed password-reset link works, and the shortest password it accepts.
+    password_reset_ttl_minutes: int = Field(default=120, ge=5)
+    password_min_length: int = Field(default=8, ge=8)
     # What every outbound request names itself as. A site owner reads this in their logs,
     # so an install that reads public pages puts a contact address in it.
     http_user_agent: str = "agentic-runtime"

@@ -74,7 +74,7 @@ def sync_detailed(
 ) -> Response[Any | HTTPValidationError]:
     """Password Reset
 
-     Accept a reset request. The response does not say whether the address exists.
+     Mail a reset link. The response does not say whether the address can sign in.
 
     Args:
         body (None | PasswordResetApiV1AuthPasswordResetPostBodyType0 | Unset):
@@ -105,7 +105,7 @@ def sync(
 ) -> Any | HTTPValidationError | None:
     """Password Reset
 
-     Accept a reset request. The response does not say whether the address exists.
+     Mail a reset link. The response does not say whether the address can sign in.
 
     Args:
         body (None | PasswordResetApiV1AuthPasswordResetPostBodyType0 | Unset):
@@ -131,7 +131,7 @@ async def asyncio_detailed(
 ) -> Response[Any | HTTPValidationError]:
     """Password Reset
 
-     Accept a reset request. The response does not say whether the address exists.
+     Mail a reset link. The response does not say whether the address can sign in.
 
     Args:
         body (None | PasswordResetApiV1AuthPasswordResetPostBodyType0 | Unset):
@@ -160,7 +160,7 @@ async def asyncio(
 ) -> Any | HTTPValidationError | None:
     """Password Reset
 
-     Accept a reset request. The response does not say whether the address exists.
+     Mail a reset link. The response does not say whether the address can sign in.
 
     Args:
         body (None | PasswordResetApiV1AuthPasswordResetPostBodyType0 | Unset):

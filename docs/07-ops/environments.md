@@ -183,6 +183,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_OUTBOX_BATCH_SIZE` | `500` | Rows per outbox relay batch | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_PASSWORD_LOGIN` | `false` | Explicit opt-in for password sign-in on a single-tenant install outside dev and ci | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
 | `AR_PASSWORD_MFA` | `false` | When true, password sign-in also requires the user's TOTP | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_PASSWORD_MIN_LENGTH` | `8` | The shortest password a reset accepts. Not below 8 | [spec 02](../03-specs/02-identity-tenancy.md) |
+| `AR_PASSWORD_RESET_TTL_MINUTES` | `120` | How long a mailed password-reset link works | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_PGVECTOR_DIMENSIONS` | `1024` (memory and tool-search embeddings only; knowledge supports 384/768/1024/1536/3072, [spec 10 §7.1](../03-specs/10-knowledge.md#71-storage); fixed; changing requires a migration and re-embed job `scripts/reembed_memory.py`) |  | [spec 11](../03-specs/11-memory.md) |
 | `AR_PII_LANGUAGE_MODEL` | `en_core_web_sm` | The installed spaCy model the personal-data recognisers use. The default ships with the product. A deployment that masks names and places installs a larger model and names it here; a name that is not installed stops the first masking with an error, and nothing is downloaded | [data protection §5](../06-security/data-protection.md#5-pii-handling) |
 | `AR_PLATFORM_DB_DENY_CIDRS` | empty | Comma-separated CIDRs of the platform database pods and services. A resolved address inside one of them is refused. The chart copies `cluster.podCIDR` and `cluster.serviceCIDR`. | [egress](egress-closed.md) |

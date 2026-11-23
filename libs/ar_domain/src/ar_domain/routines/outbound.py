@@ -12,11 +12,10 @@ from typing import TYPE_CHECKING
 import httpx
 
 from ar_common.egress_http import EgressDenied, current_allow, guard, sync_client
-from ar_common.settings import get_settings
 from ar_common.time import utcnow
 from ar_domain.channels.posts import load_credentials
 from ar_domain.events.sign import public_json_bytes, sign_body
-from ar_domain.notifications.smtp_mail import send_smtp
+from ar_domain.notifications.smtp_mail import install_server, send_smtp
 
 if TYPE_CHECKING:
     from typing import Any
@@ -82,15 +81,7 @@ def _mail_server(store: Any, tenant_id: object, named: object) -> dict[str, obje
             "password": str(found.get("password") or ""),
             "starttls": bool(found.get("username")),
         }
-    settings = get_settings()
-    return {
-        "host": settings.smtp_host,
-        "port": settings.smtp_port,
-        "from": settings.smtp_from,
-        "username": settings.smtp_username,
-        "password": settings.smtp_password.get_secret_value(),
-        "starttls": settings.smtp_starttls,
-    }
+    return install_server()
 
 
 def _integration(store: Any, tenant_id: object, named: str) -> dict[str, object] | None:

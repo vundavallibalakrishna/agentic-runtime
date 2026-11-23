@@ -2,7 +2,7 @@
 
 Push delivery signs a VAPID JWT with the named secret ``web_push_vapid_private``.
 Without a usable key the subscription is stored and the send stays pending.
-A 404 or 410 drops that subscription. Email is queued for the SMTP activity.
+A 404 or 410 drops that subscription. An email is sent through the install's mail server.
 """
 
 from __future__ import annotations
@@ -11,8 +11,9 @@ import uuid
 from typing import Any  # noqa: TC003
 
 from ar_common.ids import new_id
+from ar_common.offload import blocking
 from ar_common.time import utcnow
-from ar_domain.identity.recovery import deliver
+from ar_domain.notifications.smtp_mail import send_install_mail
 from ar_domain.notifications.web_push import load_private_key, post_push
 from ar_domain.tools.named_secrets import read_named_secret
 
@@ -64,7 +65,7 @@ def notify_user(
     body: str,
     email: str = "",
 ) -> dict[str, object]:
-    """Send a Web Push where a VAPID key exists, and queue an email for SMTP."""
+    """Send a Web Push where a VAPID key exists, and an email through the install's server."""
     secret = read_named_secret(store, tenant_id, "web_push_vapid_private")
     targets = [
         row
@@ -93,9 +94,11 @@ def notify_user(
         "proof": "contract" if key is not None else "unit",
         "pending": key is None,
     }
+    mailed: dict[str, str] | None = None
     if email:
-        deliver(store, {"to": email, "subject": title, "body": body})
-    return {"push": push, "email": bool(email)}
+        # One attempt, off the event loop. What happened is returned, not assumed.
+        mailed = blocking(send_install_mail, email, title, body)
+    return {"push": push, "email": bool(mailed and mailed["result"] == "sent"), "mail": mailed}
 
 
 def _book(store: Any) -> dict[object, dict[str, object]]:

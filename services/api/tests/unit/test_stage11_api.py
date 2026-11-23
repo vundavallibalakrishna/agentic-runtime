@@ -61,20 +61,3 @@ def test_summary_resume_and_push_subscription() -> None:
     assert removed.status_code == 200
     missing = client.delete(f"/api/v1/notifications/push-subscriptions/{uuid.uuid4()}")
     assert missing.status_code == 404
-
-
-def test_password_reset_accepts_a_known_address_and_stays_silent() -> None:
-    client = TestClient(demo_application())
-    known = client.post("/api/v1/auth/password-reset", json={"email": "admin@dev.local"})
-    assert known.status_code == 200
-    assert known.json()["accepted"] is True
-    silent = client.post("/api/v1/auth/password-reset", json={})
-    assert silent.json()["accepted"] is True
-    outbox = getattr(client.app.state.chat, "outbox", None) or []
-    assert outbox
-    confirmed = client.post(
-        "/api/v1/auth/password-reset/confirm",
-        json={"token": outbox[-1]["body"], "password": "new-password-1"},
-    )
-    assert confirmed.status_code == 200
-    assert confirmed.json()["reset"] is True

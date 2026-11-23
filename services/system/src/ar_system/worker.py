@@ -53,10 +53,6 @@ async def run_worker() -> None:
         EvalRunWorkflow,
         execute_eval_activity,
     )
-    from ar_system.workflows.notification_mail import (  # noqa: PLC0415
-        NotificationEmailWorkflow,
-        send_smtp_notification,
-    )
     from ar_system.workflows.routine_poll import RoutinePollWorkflow, poll_activity  # noqa: PLC0415
     from ar_system.workflows.routine_run import (  # noqa: PLC0415
         RoutineDeliveryWorkflow,
@@ -96,7 +92,6 @@ async def run_worker() -> None:
                     RoutineDeliveryWorkflow,
                     RoutinePollWorkflow,
                     RoutineReconcileWorkflow,
-                    NotificationEmailWorkflow,
                     ConversationSummaryWorkflow,
                 ],
                 activities=[
@@ -107,7 +102,6 @@ async def run_worker() -> None:
                     release_activity,
                     poll_activity,
                     reconcile_activity,
-                    send_smtp_notification,
                     refresh_conversation_summary,
                 ],
                 **temporal_worker_kwargs(),

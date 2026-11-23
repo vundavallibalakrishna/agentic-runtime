@@ -263,7 +263,7 @@ export const switchTenantApiV1AuthSwitchTenantPostMutation = (options?: Partial<
 /**
  * Password Reset
  *
- * Accept a reset request. The response does not say whether the address exists.
+ * Mail a reset link. The response does not say whether the address can sign in.
  */
 export const passwordResetApiV1AuthPasswordResetPostMutation = (options?: Partial<Options<PasswordResetApiV1AuthPasswordResetPostData>>): UseMutationOptions<unknown, PasswordResetApiV1AuthPasswordResetPostError, Options<PasswordResetApiV1AuthPasswordResetPostData>> => {
     const mutationOptions: UseMutationOptions<unknown, PasswordResetApiV1AuthPasswordResetPostError, Options<PasswordResetApiV1AuthPasswordResetPostData>> = {
@@ -281,6 +281,8 @@ export const passwordResetApiV1AuthPasswordResetPostMutation = (options?: Partia
 
 /**
  * Password Reset Confirm
+ *
+ * Set the new password for the person the token was mailed to.
  */
 export const passwordResetConfirmApiV1AuthPasswordResetConfirmPostMutation = (options?: Partial<Options<PasswordResetConfirmApiV1AuthPasswordResetConfirmPostData>>): UseMutationOptions<unknown, PasswordResetConfirmApiV1AuthPasswordResetConfirmPostError, Options<PasswordResetConfirmApiV1AuthPasswordResetConfirmPostData>> => {
     const mutationOptions: UseMutationOptions<unknown, PasswordResetConfirmApiV1AuthPasswordResetConfirmPostError, Options<PasswordResetConfirmApiV1AuthPasswordResetConfirmPostData>> = {

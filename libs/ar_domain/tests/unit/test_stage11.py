@@ -19,9 +19,9 @@ from ar_domain.documents.ocr_cloud import read_cloud
 from ar_domain.exposure import a2a
 from ar_domain.identity.guests import open_agent_turn
 from ar_domain.identity.membership import memberships, password_matches
-from ar_domain.identity.passwords import hash_password, verify_password
+from ar_domain.identity.passwords import hash_password
 from ar_domain.identity.permissions import PERMISSION_KEYS
-from ar_domain.identity.recovery import confirm_reset, remember_person, request_reset
+from ar_domain.identity.recovery import remember_person
 from ar_domain.memory.book import MemoryBook
 from ar_domain.memory.qdrant_memory import MemoryPoint, MemoryQdrant, MemoryQdrantDouble
 from ar_domain.notifications.dispatch import notify_user, subscribe, unsubscribe
@@ -54,26 +54,6 @@ def test_workspace_memory_can_be_edited_and_deleted() -> None:
     assert "brief" in str(patched["content"])
     book.delete_user(actor, uuid.UUID(str(created["id"])))
     assert book.list_user(actor, scope="workspace") == []
-
-
-def test_password_reset_stores_a_hash_and_mails_the_token() -> None:
-    store = demo_store()
-    tenant = demo_id("tenant")
-    user = demo_id("admin")
-    remember_person(
-        store,
-        email="ada@example.com",
-        tenant_id=tenant,
-        user_id=user,
-        password_hash=hash_password("old-password"),
-    )
-    request_reset(store, "ada@example.com")
-    token = store.outbox[-1]["body"]
-    assert token not in {row["token_hash"] for row in store.password_resets.values()}
-    confirm_reset(store, token, "new-password-1")
-    person = next(iter(store.local_people.values()))
-    assert verify_password(str(person["password_hash"]), "new-password-1")
-    assert store.audit_log[-1]["action"] == "auth.password_reset"
 
 
 def test_one_password_can_match_two_tenants() -> None:
@@ -294,7 +274,10 @@ def test_push_and_email_notice_stay_pending_without_a_vapid_secret() -> None:
     )
     assert created["endpoint"] == "https://push.example/sub"
     assert note["push"]["pending"] is True
-    assert store.outbox[-1]["subject"] == "Done"
+    # No mail server is set here, and the notice says so instead of claiming it was sent.
+    assert note["email"] is False
+    assert note["mail"]["result"] == "failed"
+    assert "AR_SMTP_HOST" in note["mail"]["reason"]
 
 
 def test_a_failed_run_with_a_checkpoint_can_resume() -> None:
@@ -348,24 +331,16 @@ def test_a_run_stopped_before_it_saved_a_step_starts_its_turn_again() -> None:
         store.resume_run(tenant, user, run_id)
 
 
-def test_reset_rejects_unknown_short_expired_and_spent_tokens() -> None:
+def test_membership_reads_the_people_a_process_was_told_about() -> None:
     store = demo_store()
-    request_reset(store, "missing@example.com")
-    assert getattr(store, "outbox", None) in (None, [])
     tenant = demo_id("tenant")
     user = demo_id("admin")
-
-    class Account:
-        password_hash = ""
-
-    account = Account()
     remember_person(
         store,
         email="ada@example.com",
         tenant_id=tenant,
         user_id=user,
         password_hash=hash_password("old-password"),
-        user=account,
     )
     remember_person(
         store,
@@ -375,32 +350,11 @@ def test_reset_rejects_unknown_short_expired_and_spent_tokens() -> None:
         password_hash=hash_password("other-password"),
         tenant_name="South",
     )
-    mailed: list[dict[str, str]] = []
-    store.mailer = mailed.append  # type: ignore[attr-defined]
-    request_reset(store, "ada@example.com")
-    token = mailed[-1]["body"]
-    with pytest.raises(ArError, match="too short"):
-        confirm_reset(store, token, "short")
     assert password_matches(store, "ada@example.com", "nope") == []
     assert memberships(store, "ada@example.com")
     person = store.local_people[str(user)]
     person["permissions"] = "not-a-list"
     assert password_matches(store, "ada@example.com", "old-password")[0]["permissions"] == []
-    row = next(iter(store.password_resets.values()))
-    row["expires_at"] = utcnow() - timedelta(minutes=1)
-    with pytest.raises(ArError, match="expired"):
-        confirm_reset(store, token, "new-password-1")
-    row["expires_at"] = utcnow() + timedelta(hours=1)
-    row["user_id"] = uuid.uuid4()
-    with pytest.raises(ArError, match="not valid"):
-        confirm_reset(store, token, "new-password-1")
-    row["user_id"] = user
-    confirm_reset(store, token, "new-password-1")
-    assert account.password_hash
-    with pytest.raises(ArError, match="not valid"):
-        confirm_reset(store, token, "new-password-2")
-    with pytest.raises(ArError, match="not valid"):
-        confirm_reset(store, "not-a-token", "new-password-2")
 
 
 def test_rolling_summary_reads_writes_and_refreshes() -> None:

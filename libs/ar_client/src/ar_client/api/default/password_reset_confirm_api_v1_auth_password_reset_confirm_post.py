@@ -74,6 +74,8 @@ def sync_detailed(
 ) -> Response[Any | HTTPValidationError]:
     """Password Reset Confirm
 
+     Set the new password for the person the token was mailed to.
+
     Args:
         body (None | PasswordResetConfirmApiV1AuthPasswordResetConfirmPostBodyType0 | Unset):
 
@@ -103,6 +105,8 @@ def sync(
 ) -> Any | HTTPValidationError | None:
     """Password Reset Confirm
 
+     Set the new password for the person the token was mailed to.
+
     Args:
         body (None | PasswordResetConfirmApiV1AuthPasswordResetConfirmPostBodyType0 | Unset):
 
@@ -126,6 +130,8 @@ async def asyncio_detailed(
     body: None | PasswordResetConfirmApiV1AuthPasswordResetConfirmPostBodyType0 | Unset = UNSET,
 ) -> Response[Any | HTTPValidationError]:
     """Password Reset Confirm
+
+     Set the new password for the person the token was mailed to.
 
     Args:
         body (None | PasswordResetConfirmApiV1AuthPasswordResetConfirmPostBodyType0 | Unset):
@@ -153,6 +159,8 @@ async def asyncio(
     body: None | PasswordResetConfirmApiV1AuthPasswordResetConfirmPostBodyType0 | Unset = UNSET,
 ) -> Any | HTTPValidationError | None:
     """Password Reset Confirm
+
+     Set the new password for the person the token was mailed to.
 
     Args:
         body (None | PasswordResetConfirmApiV1AuthPasswordResetConfirmPostBodyType0 | Unset):
