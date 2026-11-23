@@ -9,6 +9,25 @@ on:
     branches: [main]
 
 jobs:
+  # What the change touches. A pull request that changes only Markdown under docs/ runs
+  # the title, the industry check and the docs job, and skips the suite: nothing a test,
+  # a build or an image reads has changed. A push to main always runs everything.
+  changes:
+    if: github.event.action != 'edited'
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.files.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: files
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/ci_changes.sh
+
   pr-title:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -28,7 +47,8 @@ jobs:
         run: python3 scripts/check_domain_agnostic.py
 
   python-lint:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +65,8 @@ jobs:
       - run: make deptry
 
   python-unit:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +83,8 @@ jobs:
       - run: uv run pytest -m "not integration and not e2e and not qdrant" -q --cov
 
   python-integration:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     services:
       greenmail:
@@ -95,7 +117,8 @@ jobs:
     # tool is invoked through the real pipeline (offline, no model, no network) and the run
     # fails if any tool crashes, errors unexpectedly or has a malformed schema. See
     # docs/testing/platform-certification.md.
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +138,8 @@ jobs:
         run: uv run python scripts/document_toolchain.py --check
 
   web:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -134,7 +158,8 @@ jobs:
       - run: pnpm --filter @ar/web build
 
   web-e2e:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -169,7 +194,8 @@ jobs:
           retention-days: 7
 
   codegen-drift:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -191,7 +217,8 @@ jobs:
       - run: git diff --exit-code
 
   opa-test:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -204,7 +231,8 @@ jobs:
       - run: opa test --ignore fixtures policies/ --coverage
 
   migrations:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -229,7 +257,8 @@ jobs:
           uv run alembic -c libs/ar_domain/alembic.ini upgrade head
 
   compose-smoke:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -279,7 +308,8 @@ jobs:
           fi
 
   fresh-clone:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -346,7 +376,8 @@ jobs:
         run: make down
 
   conformance-qdrant:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     services:
       qdrant:
@@ -378,7 +409,8 @@ jobs:
           uv run pytest -m qdrant -q
 
   security:
-    if: github.event.action != 'edited'
+    needs: changes
+    if: github.event.action != 'edited' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

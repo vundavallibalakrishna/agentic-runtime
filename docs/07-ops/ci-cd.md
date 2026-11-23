@@ -10,6 +10,8 @@ CI runs on the repository's hosted CI (workflow files in `.github/workflows/`; a
 
 ## 2. Jobs
 
+A pull request whose every changed file is Markdown under `docs/` runs `pr-title`, `domain-agnostic` and `docs` only. The `changes` job (`scripts/ci_changes.sh`) decides this from the pull request's whole diff, and every other job in `ci` is skipped; `images` is not started. Nothing a test, a build or an image reads has changed in such a pull request. Any other file, including a Markdown file outside `docs/` such as `AGENTS.md`, runs the full suite, and so does every push to `main`. A code pull request runs the full suite on each push, including a push that only merges `main` in.
+
 | Job | Trigger | Required | Runs | Budget |
 |---|---|---|---|---|
 | `pr-title` | PR | yes | Conventional-commit lint | 10 s |
