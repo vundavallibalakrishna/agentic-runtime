@@ -57,6 +57,7 @@ bash scripts/certify_stack.sh
 | `AR_CERT_REPEAT` | 2 | Times each tool flow runs |
 | `AR_CERT_EVIDENCE` | `var/certification` | Where the scorecards, each part's log and exit code, the container list, memory use, every service's log and each computer's log are written |
 | `AR_CERT_CONTEXT_WINDOW`, `AR_CERT_MAX_OUTPUT_TOKENS` | the product default | The limits the provider serves for the chat model, sent when the run registers it |
+| `AR_CERT_POLICY_WAIT_S` | 20 | Seconds the approval flow waits after activating its policy, so a policy engine that polls has read it |
 | `AR_CERT_DOCUMENT`, `AR_CERT_RESEARCH_QUESTION` | `docs/00-overview/vision.md` and a question it answers | The document the run uploads and the research question |
 
 The admin and reviewer passwords are generated for the run unless `AR_ADMIN_PASSWORD` and `AR_SECOND_PASSWORD` are set. The script stops with a non-zero exit when a part does not pass, and it leaves the install running so a person can look at it; `docker compose down -v` removes it. An `.env` that is already in the checkout is used as it is and is not rewritten.
@@ -103,7 +104,7 @@ uv run python scripts/seed_tenant.py --slug cert --name Cert \
 
 The admin password is `AR_ADMIN_PASSWORD` when that variable is set. Otherwise the script reads one line from stdin, or asks twice on a terminal. `AR_SECOND_PASSWORD` is required when `AR_SECOND_EMAIL` is set. The role key defaults to `approver`.
 
-The approval flow in `scripts/tool_certification.py` signs in as a second person. Set `AR_CERT_APPROVER_EMAIL` and `AR_CERT_APPROVER_PASSWORD` to that person's email and password (the seeded reviewer above). Without them the approval case is blocked, not failed.
+The approval flow in `scripts/tool_certification.py` signs in as a second person. Set `AR_CERT_APPROVER_EMAIL` and `AR_CERT_APPROVER_PASSWORD` to that person's email and password (the seeded reviewer above). Without them the approval flow is `blocked`, not failed. A flow is `blocked` when it cannot start without something the owner supplies, and a blocked flow does not fail the run. The agent-to-agent flow is blocked when the install's own address is this machine or a private network and `AR_CERT_A2A_URL` names no peer: one install cannot call itself from inside a container.
 
 The run registers the chat model and an embedding model. The embedding default is `Qwen/Qwen3-Embedding-8B` (`AR_EMBED_MODEL`), which DeepInfra serves at `{AR_LLM_BASE_URL}/embeddings`, with `embeddingDimensions` 1024. `BAAI/bge-m3` is the other model DeepInfra serves for the same API. Aliases `chat`, `reasoning`, `fast` and `vision` point at the chat model. `embed` points at the embedding model. Retrieval fails with `embedding_unconfigured` when `embed` is missing; it does not pretend the library was empty.
 

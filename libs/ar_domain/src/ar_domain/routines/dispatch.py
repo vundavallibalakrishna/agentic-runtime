@@ -15,7 +15,7 @@ from ar_common.errors import UnavailableError
 from ar_domain.durable.after import after_commit
 from ar_domain.durable.flush import flush_store
 from ar_domain.routines.clock import build_schedule
-from ar_domain.routines.engine import close_delivery
+from ar_domain.routines.engine import close_delivery, turn_payload
 
 if TYPE_CHECKING:
     import uuid
@@ -83,6 +83,7 @@ async def start_run(store: ChatBehaviour, run_id: uuid.UUID) -> None:
                 "routine_id": str(run["routine_id"]),
                 "event_id": str(event["id"]),
                 "run_id": str(run_id),
+                "workflow": turn_payload(store, run),
             },
             id=f"routine-event-{event['id']}",
             task_queue="ar-system",

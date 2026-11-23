@@ -85,6 +85,10 @@ async def test_dispatch_flushes_before_start_and_reports_cluster_failure(monkeyp
         order.append("dispatch")
         assert kwargs["id"] == f"routine-event-{event_id}"
         assert args[1]["run_id"] == str(run_id)
+        # The turn is started with the step allowance of the run's budget, as a chat turn
+        # is: the workflow's own default is a handful of steps.
+        assert args[1]["workflow"]["run_id"] == str(run_id)
+        assert args[1]["workflow"]["max_steps"] >= 16
 
     monkeypatch.setattr("ar_domain.routines.dispatch.flush_store", flush)
     client.start_workflow.side_effect = start

@@ -977,22 +977,62 @@ class DocumentLibrary:
         hits = found.get("hits") if isinstance(found, dict) else None
         if not isinstance(hits, list):
             return []
-        return [
-            {
-                "document_id": str(hit.get("library_document_id") or hit.get("document_id") or ""),
-                "title": hit.get("title"),
-                "passage_id": str(hit.get("anchor") or ""),
-                "anchor": str(hit.get("anchor") or ""),
-                "page": hit.get("page"),
-                "heading": hit.get("heading"),
-                "snippet": str(hit.get("snippet") or "")[
-                    : int(get_settings().document_search_snippet_chars)
-                ],
-                "score": hit.get("score"),
-            }
-            for hit in hits
-            if isinstance(hit, dict)
-        ]
+        placed: list[dict[str, object]] = []
+        for hit in hits:
+            if not isinstance(hit, dict):
+                continue
+            document_id, anchor = self._place(visible, hit)
+            placed.append(
+                {
+                    "document_id": document_id,
+                    "title": hit.get("title"),
+                    "passage_id": anchor,
+                    "anchor": anchor,
+                    "page": hit.get("page"),
+                    "heading": hit.get("heading"),
+                    "snippet": str(hit.get("snippet") or "")[
+                        : int(get_settings().document_search_snippet_chars)
+                    ],
+                    "score": hit.get("score"),
+                }
+            )
+        return placed
+
+    def _place(self, visible: list[dict[str, object]], hit: dict[str, object]) -> tuple[str, str]:
+        """The library document and the passage an index hit belongs to.
+
+        A document indexed as a member of a collection names both on its chunks. The same
+        bytes ingested into a collection another way name neither: the hit carries the
+        knowledge document's id and no anchor. A caller that follows the address, as
+        research does, could then not open it. Such a hit is placed on the library document
+        with the same bytes and on its passage closest to the hit's text.
+        """
+        named = str(hit.get("library_document_id") or "")
+        anchor = str(hit.get("anchor") or "")
+        row = next((item for item in visible if str(item.get("id")) == named), None)
+        if row is None:
+            row = self._same_bytes(visible, hit.get("document_id"))
+        if row is None:
+            return named or str(hit.get("document_id") or ""), anchor
+        passages = _rows(row.get("passages"))
+        if not anchor or all(str(item.get("anchor") or "") != anchor for item in passages):
+            anchor = _closest_anchor(passages, str(hit.get("text") or hit.get("snippet") or ""))
+        return str(row.get("id")), anchor
+
+    def _same_bytes(
+        self, visible: list[dict[str, object]], knowledge_document_id: object
+    ) -> dict[str, object] | None:
+        """The visible library document whose bytes this knowledge document holds."""
+        documents = getattr(self.store, "knowledge_documents", {})
+        document = documents.get(knowledge_document_id) if isinstance(documents, dict) else None
+        if not isinstance(document, dict):
+            return None
+        files = getattr(self.store, "files", {})
+        for row in visible:
+            digest = str(row.get("content_hash") or "")
+            if digest and _holds_hash(files, document, digest):
+                return row
+        return None
 
     def _by_attached_file(self, actor: Actor, file_id: uuid.UUID) -> dict[str, object] | None:
         files = getattr(self.store, "files", None)
@@ -1134,6 +1174,17 @@ def _as_uuid(value: object) -> uuid.UUID | None:
         return uuid.UUID(value)
     except ValueError:
         return None
+
+
+def _closest_anchor(passages: list[dict[str, object]], text: str) -> str:
+    """The anchor of the passage that shares the most words with ``text``."""
+    wanted = set(text.lower().split())
+    best, best_shared = "", 0
+    for passage in passages:
+        shared = len(wanted & set(str(passage.get("text") or "").lower().split()))
+        if shared > best_shared:
+            best, best_shared = str(passage.get("anchor") or ""), shared
+    return best
 
 
 def _rows(value: object) -> list[dict[str, object]]:
