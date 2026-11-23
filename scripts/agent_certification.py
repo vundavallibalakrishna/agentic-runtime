@@ -470,8 +470,15 @@ def case_knowledge(bench: Bench) -> str:
     question = "What is the reference code of the access control policy?"
     turn = bench.ask(reader, question)
     expect("ZEBRA-4417" in turn.text, f"the bound agent did not find it: {turn.text[:120]}")
+    # Memory is off: the person asking has put the same question to other agents in this
+    # run, and what an agent recalls about a person is not what this case is about.
     other, _ = bench.agent(
-        "no-library", {"instructions": "Answer briefly. Say so if unsure.", "tools": []}
+        "no-library",
+        {
+            "instructions": "Answer briefly. Say so if unsure.",
+            "tools": [],
+            "memory": {"enabled": False},
+        },
     )
     without = bench.ask(other, question)
     expect("ZEBRA-4417" not in without.text, "an agent with no knowledge tool knew the answer")
@@ -2202,6 +2209,9 @@ def main() -> None:
     for row in rows:
         counts[str(row["verdict"])] = counts.get(str(row["verdict"]), 0) + 1
     print(orjson.dumps(counts).decode())
+    # A failed case fails the run. A blocked one does not: it was not tested.
+    if counts.get("fail", 0):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

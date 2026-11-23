@@ -1,9 +1,13 @@
 name: certification
 
 # A fresh install with every feature on, certified against the tenant's real model.
-# Started by hand: it calls a paid model. A pull request that changes the job runs the
-# install and the seed only, with no model key.
+# It calls a paid model, so it runs once a night and when started by hand, not on every
+# change. A pull request that changes the job runs the install and the seed only, with
+# no model key.
 on:
+  # Every night, on main, with every part. 21:00 UTC is 02:30 in India.
+  schedule:
+    - cron: "0 21 * * *"
   workflow_dispatch:
     inputs:
       parts:
@@ -47,11 +51,12 @@ jobs:
       - run: uv sync --all-packages --all-groups --frozen
       - name: Certify
         env:
-          AR_LLM_API_KEY: ${{ github.event_name == 'workflow_dispatch' && secrets.AR_LLM_API_KEY || '' }}
+          # A pull request gets no key and no parts: the install and the seed are its check.
+          AR_LLM_API_KEY: ${{ github.event_name != 'pull_request' && secrets.AR_LLM_API_KEY || '' }}
           AR_LLM_BASE_URL: ${{ vars.AR_LLM_BASE_URL || 'https://api.deepinfra.com/v1/openai' }}
-          AR_LLM_MODEL: ${{ inputs.model }}
-          AR_CERT_PARTS: ${{ inputs.parts }}
-          AR_CERT_REPEAT: ${{ inputs.repeat }}
+          AR_LLM_MODEL: ${{ inputs.model || vars.AR_LLM_MODEL || 'Qwen/Qwen3.8-27B' }}
+          AR_CERT_PARTS: ${{ inputs.parts || (github.event_name == 'schedule' && 'live tools agents' || '') }}
+          AR_CERT_REPEAT: ${{ inputs.repeat || '2' }}
           AR_CERT_CONTEXT_WINDOW: ${{ inputs.context_window }}
         run: bash scripts/certify_stack.sh
       - name: Evidence

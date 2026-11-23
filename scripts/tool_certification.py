@@ -562,16 +562,16 @@ def state_cases() -> list[Case]:
         Case(
             "memory.save",
             "save a fact",
-            fixed(scope="user", content="The certification marker is OPAL-3391."),
+            fixed(scope="user", content="The certification marker is TOPAZ-3391."),
             has("saved"),
         ),
         Case(
-            "memory.search", "find the fact", fixed(query="certification marker"), has("OPAL-3391")
+            "memory.search", "find the fact", fixed(query="certification marker"), has("TOPAZ-3391")
         ),
         Case(
             "memory.forget",
             "forget the fact",
-            fixed(query="certification marker OPAL-3391"),
+            fixed(query="certification marker TOPAZ-3391"),
             any_result,
         ),
         Case(
