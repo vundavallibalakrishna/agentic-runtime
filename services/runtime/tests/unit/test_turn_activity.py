@@ -126,3 +126,40 @@ async def test_a_finished_turn_that_was_not_saved_is_saved_on_retry(
     retried = await execute_chat_turn({"run_id": str(run_id)})
     assert retried["status"] == "completed"
     assert saves.await_count == 2
+
+
+async def test_a_run_that_ran_out_of_steps_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    store, run_id = queued()
+    monkeypatch.setattr("ar_runtime.activities.execute_chat_turn.current_store", lambda: store)
+    monkeypatch.setattr("ar_domain.durable.flush.flush_store", AsyncMock())
+    monkeypatch.setattr("ar_domain.durable.hydrate.reload_run", AsyncMock())
+    payload = {
+        "run_id": str(run_id),
+        "status": "failed",
+        "reason": "step_limit",
+        "steps": 48,
+        "max_steps": 48,
+    }
+    await finish_chat_turn(payload)
+    run = store.runs[run_id]
+    assert run["status"] == "failed"
+    assert run["error"]["reason"] == "step_limit"
+    assert "all 48 steps" in run["error"]["message"]
+    assert "limit on the agent" in run["error"]["message"]
+    assert store.messages[run["assistant_message_id"]]["text"] == run["error"]["message"]
+
+
+async def test_a_step_that_failed_is_recorded_as_that(monkeypatch: pytest.MonkeyPatch) -> None:
+    store, run_id = queued()
+    monkeypatch.setattr("ar_runtime.activities.execute_chat_turn.current_store", lambda: store)
+    monkeypatch.setattr("ar_domain.durable.flush.flush_store", AsyncMock())
+    monkeypatch.setattr("ar_domain.durable.hydrate.reload_run", AsyncMock())
+    await finish_chat_turn({"run_id": str(run_id), "status": "failed", "reason": "step_failed"})
+    error = store.runs[run_id]["error"]
+    assert error["reason"] == "step_failed"
+    assert error["message"] == "The agent could not finish this reply. Please try again."
+    # A workflow from a release before this one names no reason.
+    other, other_id = queued()
+    monkeypatch.setattr("ar_runtime.activities.execute_chat_turn.current_store", lambda: other)
+    await finish_chat_turn({"run_id": str(other_id), "status": "failed"})
+    assert other.runs[other_id]["error"]["reason"] == "step_failed"

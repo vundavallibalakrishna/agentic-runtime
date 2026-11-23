@@ -363,3 +363,37 @@ async def test_a_terminal_activity_that_is_not_a_dict_is_failed(
             task_queue=queue,
         )
     assert result["status"] == "failed"
+
+
+async def _ended(temporal_env: WorkflowEnvironment, step: Any, *, max_steps: int) -> dict[str, Any]:
+    """Run the turn with ``step`` and return what the workflow told the finish activity."""
+    told: list[dict[str, Any]] = []
+
+    @activity.defn(name="finish_chat_turn")
+    async def finish(payload: dict[str, Any]) -> dict[str, Any]:
+        told.append(payload)
+        return {"status": "failed"}
+
+    queue = f"test-why-{uuid.uuid4()}"
+    async with Worker(
+        temporal_env.client, task_queue=queue, workflows=[TurnWorkflow], activities=[step, finish]
+    ):
+        await temporal_env.client.execute_workflow(
+            TurnWorkflow.run,
+            {"run_id": str(uuid.uuid4()), "steps": True, "max_steps": max_steps},
+            id=queue,
+            task_queue=queue,
+        )
+    assert len(told) == 1
+    return told[0]
+
+
+async def test_running_out_of_steps_is_named_as_the_reason(
+    temporal_env: WorkflowEnvironment,
+) -> None:
+    @activity.defn(name="advance_chat_step")
+    async def step(payload: dict[str, str]) -> dict[str, str]:
+        return {"run_id": str(payload["run_id"]), "status": "running", "kind": "model"}
+
+    told = await _ended(temporal_env, step, max_steps=3)
+    assert (told["reason"], told["steps"], told["max_steps"]) == ("step_limit", 3, 3)
