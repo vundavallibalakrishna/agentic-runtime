@@ -8,9 +8,9 @@ from pydantic import Field
 
 from ar_api.deps import expose, require_permission
 from ar_api.routers.tooling import actor, chat, page
-from ar_common.ids import new_id
 from ar_contracts.api_model import ApiModel
-from ar_domain.tools.pipeline import ToolPipeline
+from ar_domain.tools.console import console_request
+from ar_domain.tools.gateway_client import run_console_test
 from ar_domain.tools.registry import ToolRegistry
 from ar_domain.tools.views import list_calls
 
@@ -77,47 +77,16 @@ async def enable_tool(tool_id: uuid.UUID, request: Request) -> dict[str, object]
 @expose(public=False, permission="tools:create")
 async def test_tool(tool_id: uuid.UUID, body: TestBody, request: Request) -> dict[str, object]:
     store = chat(request)
-    who = actor(request)
-    detail = ToolRegistry(store).get_tool(who, tool_id)
-    run_id = new_id()
-    # A console test still has to reference a real agent version. A run with no
-    # agent is skipped on flush, and the tool-call row then violates the run
-    # foreign key and fails every later save in this process.
-    agent = _console_agent(store, who.tenant_id)
-    if body.conversation_id is not None:
-        # Another tenant's or another person's conversation is not found.
-        talk = store._conversation(who.tenant_id, who.user_id, body.conversation_id, read_all=False)
-        # A test in a conversation runs as that conversation's agent: its computer
-        # template and its tool settings, as a turn there would.
-        owner = talk.get("agent_id")
-        agent = (store.agents.get(owner) if isinstance(owner, uuid.UUID) else None) or agent
-    version_id = None if agent is None else agent.get("published_version_id")
-    store.runs[run_id] = {
-        "id": run_id,
-        "tenant_id": who.tenant_id,
-        "user_id": who.user_id,
-        "conversation_id": body.conversation_id,
-        "agent_id": None if agent is None else agent.get("id"),
-        "trigger": "api",
-        "depth": 0,
-        "root_run_id": run_id,
-        "synthetic": True,
-        "status": "completed",
-    }
-    return ToolPipeline(store).execute(
-        {
-            "tenant_id": who.tenant_id,
-            "user_id": who.user_id,
-            "run_id": run_id,
-            "agent_id": None if agent is None else agent.get("id"),
-            "agent_version_id": version_id if isinstance(version_id, uuid.UUID) else None,
-            "synthetic": True,
-            "tool_version_id": uuid.UUID(str(detail["tool_version_id"])),
-            "arguments": body.arguments,
-            "permissions": sorted(who.permissions),
-            "dry_run": body.dry_run,
-            "model_call_id": "test",
-        }
+    return run_console_test(
+        store,
+        console_request(
+            store,
+            actor(request),
+            tool_id,
+            arguments=body.arguments,
+            dry_run=body.dry_run,
+            conversation_id=body.conversation_id,
+        ),
     )
 
 
@@ -134,16 +103,3 @@ async def list_tool_calls(
     return page(
         list_calls(chat(request), who.tenant_id, run_id=run_id, tool_id=tool_id, status=status, q=q)
     )
-
-
-def _console_agent(store: object, tenant_id: uuid.UUID) -> dict[str, object] | None:
-    """An agent this tenant already published, so the console run can be stored."""
-    agents = getattr(store, "agents", None)
-    if not isinstance(agents, dict):
-        return None
-    for row in agents.values():
-        if not isinstance(row, dict) or row.get("tenant_id") != tenant_id:
-            continue
-        if row.get("published_version_id") or row.get("draft_version_id"):
-            return row
-    return None

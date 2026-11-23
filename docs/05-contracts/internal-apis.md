@@ -32,7 +32,7 @@ Allowed callers: `runtime-worker`, `api` (discovery, test calls), `system-worker
 | POST | `/internal/v1/catalog:resolve` | Input: `{agent_version_id, user_id, query?: string}` → model-facing tool list (names, descriptions, schemas) after entitlement filtering and optional tool search. With a `query` and tool search active, the answer carries `ranked_by`: `meaning_and_words` when the tenant's embedding model ranked the tools, `words` when there is none or it did not answer. |
 | POST | `/internal/v1/tool-calls:execute` | Input: `ExecuteToolCallRequest` → `ExecuteToolCallResult`. |
 | POST | `/internal/v1/discover` | Input: `{tool_server_version_id}` → manifest + created tool versions. |
-| POST | `/internal/v1/tool-calls:test` | Builder "test tool" with explicit arguments (always runs policy; W2/W3 refused in test mode unless `dry_run` supported). |
+| POST | `/internal/v1/tool-calls:test` | Builder "test tool" with explicit arguments (always runs policy; W2/W3 refused in test mode unless `dry_run` supported). Input: `ExecuteToolCallRequest` plus `conversation_id` (the conversation whose working folder and agent the test uses) and `permissions` (what the caller may do); the API has checked both. The gateway stores the run the call belongs to in the same unit as the call. The API's `POST /api/v1/tools/{id}:test` calls this in staging and production. |
 | GET | `/healthz`, `/readyz`, `/metrics` | |
 
 `ExecuteToolCallRequest`:
