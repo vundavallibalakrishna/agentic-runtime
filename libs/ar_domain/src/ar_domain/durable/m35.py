@@ -18,7 +18,7 @@ _JOB_STATUS = {"running", "completed", "interrupted", "failed"}
 
 
 async def save_durability(session: AsyncSession, pending: dict[str, list[dict[str, Any]]]) -> None:
-    await _files(session, pending.get("files", []))
+    await save_files(session, pending.get("files", []))
     await _snapshots(session, pending.get("sandboxes", []))
     await _workspace(session, pending.get("workspace_files", []))
     await _jobs(session, pending.get("job_progress", []))
@@ -255,7 +255,7 @@ _SCAN_STATUS = frozenset({"pending", "clean", "infected", "skipped", "error"})
 _CLASSIFICATIONS = frozenset({"public", "internal", "confidential", "restricted"})
 
 
-async def _files(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+async def save_files(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
     """A file's row. Its bytes are in the object store under ``object_key``."""
     sql = """
         INSERT INTO files (

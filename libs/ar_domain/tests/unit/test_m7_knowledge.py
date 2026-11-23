@@ -35,7 +35,11 @@ from ar_domain.knowledge.grounding import (
     strip_unknown,
 )
 from ar_domain.knowledge.parse import ParseError, parse_bytes
-from ar_domain.knowledge.pipeline import ingest_document, max_bytes
+from ar_domain.knowledge.pipeline import (
+    ingest_document,
+    max_bytes,
+    stored_bytes,
+)
 from ar_domain.knowledge.qdrant_filter import build_filter, hashed_sparse, physical_name
 from ar_domain.knowledge.retrieval import answerable, apply_rerank
 from ar_domain.knowledge.store import (
@@ -309,7 +313,7 @@ def test_collection_acl_search_and_delete_at_source() -> None:
     added = asyncio.run(book.add_documents(admin, collection_id, {"file_ids": [str(file_id)]}))
     document_id = uuid.UUID(str(added["documents"][0]["id"]))
     assert book.chunks(admin, document_id)
-    again = ingest_document(store, document_id, store.knowledge_blobs[document_id])
+    again = ingest_document(store, document_id, stored_bytes(store, document_id))
     assert again == "unchanged"
     book.patch_collection(admin, collection_id, {"description": "Updated"})
     book.pause(admin, uuid.UUID(str(source["id"])))
@@ -373,6 +377,7 @@ def test_connectors_and_activities(monkeypatch: pytest.MonkeyPatch) -> None:
     created = book.create_collection(admin, {"slug": "box", "name": "Box"})
     file_id = uuid.uuid4()
     store.files[file_id] = {
+        "id": file_id,
         "tenant_id": admin.tenant_id,
         "owner_user_id": admin.user_id,
         "status": "ready",

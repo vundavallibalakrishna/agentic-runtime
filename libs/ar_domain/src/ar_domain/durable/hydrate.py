@@ -554,6 +554,10 @@ async def _documents(session: AsyncSession, store: object, tenant_id: uuid.UUID)
         session, "SELECT * FROM documents WHERE tenant_id = :tenant_id", tenant_id
     ):
         _merge(store, "knowledge_documents", row["id"], row)
+    for row in await _rows(
+        session, "SELECT * FROM document_revisions WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        _merge(store, "document_revisions", row["id"], row)
 
 
 async def _chunks(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:

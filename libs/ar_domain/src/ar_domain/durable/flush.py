@@ -95,7 +95,15 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             await _collections(session, pending["knowledge_collections"])
             await _sources(session, pending["knowledge_sources"])
             await _ingestion_jobs(session, pending["ingestion_jobs"])
+            # A document points at the file its bytes are in, so those files go first.
+            from ar_domain.durable.m35 import save_files  # noqa: PLC0415
+
+            await save_files(
+                session,
+                [row for row in pending.get("files", []) if row.get("kind") == "knowledge_raw"],
+            )
             await _documents(session, pending["knowledge_documents"])
+            await _revisions(session, pending.get("document_revisions", []))
             await _chunks(session, pending["document_chunks"])
             await _facts(session, pending["memory_facts"])
             await _tool_servers(session, pending["tool_servers"])
@@ -580,15 +588,20 @@ async def _sources(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
     sql = """
         INSERT INTO knowledge_sources (
             id, tenant_id, collection_id, name, kind, config, status, cursor, created_by,
-            created_at, updated_at
+            created_at, updated_at, sync_schedule, last_sync_at, last_sync_status
         ) VALUES (
             :id, :tenant_id, :collection_id, :name, :kind, CAST(:config AS jsonb), :status,
-            CAST(:cursor AS jsonb), :created_by, :created_at, :updated_at
+            CAST(:cursor AS jsonb), :created_by, :created_at, :updated_at, :sync_schedule,
+            :last_sync_at, :last_sync_status
         )
         ON CONFLICT (id) DO UPDATE SET
             name = EXCLUDED.name,
             config = EXCLUDED.config,
             status = EXCLUDED.status,
+            cursor = EXCLUDED.cursor,
+            sync_schedule = EXCLUDED.sync_schedule,
+            last_sync_at = EXCLUDED.last_sync_at,
+            last_sync_status = EXCLUDED.last_sync_status,
             updated_at = EXCLUDED.updated_at
     """
     for row in rows:
@@ -613,6 +626,46 @@ async def _sources(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "created_by": as_uuid(row.get("created_by")),
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
+                "sync_schedule": _text_or_none(row.get("sync_schedule")),
+                "last_sync_at": as_dt(row.get("last_sync_at")),
+                "last_sync_status": _text_or_none(row.get("last_sync_status")),
+            },
+        )
+
+
+def _text_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+async def _revisions(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    """The versions a knowledge document has had. A row is written once."""
+    sql = """
+        INSERT INTO document_revisions (
+            id, tenant_id, document_id, file_id, version_hash, size_bytes, metadata, captured_at
+        ) VALUES (
+            :id, :tenant_id, :document_id, :file_id, :version_hash, :size_bytes,
+            CAST(:metadata AS jsonb), :captured_at
+        )
+        ON CONFLICT (id) DO NOTHING
+    """
+    for row in rows:
+        revision_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        document_id = as_uuid(row.get("document_id"))
+        if revision_id is None or tenant_id is None or document_id is None:
+            continue
+        await _one(
+            session,
+            sql,
+            {
+                "id": revision_id,
+                "tenant_id": tenant_id,
+                "document_id": document_id,
+                "file_id": as_uuid(row.get("file_id")),
+                "version_hash": as_text(row.get("version_hash")),
+                "size_bytes": as_int(row.get("size_bytes")),
+                "metadata": as_json(row.get("metadata"), {}),
+                "captured_at": as_dt(row.get("captured_at")) or utcnow(),
             },
         )
 

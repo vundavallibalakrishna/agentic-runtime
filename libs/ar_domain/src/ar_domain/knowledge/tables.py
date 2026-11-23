@@ -243,6 +243,41 @@ class Document(Base):
     updated_at: Mapped[datetime] = updated_at_col()
 
 
+class DocumentRevision(Base):
+    """One version of a knowledge document a sync fetched: which file held it, and when."""
+
+    __tablename__ = "document_revisions"
+    __table_args__ = (
+        Index(
+            "ix_document_revisions_document",
+            "tenant_id",
+            "document_id",
+            sql_text("captured_at DESC"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    file_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("files.id", ondelete="SET NULL")
+    )
+    version_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, server_default=sql_text("0")
+    )
+    revision_metadata: Mapped[dict[str, object]] = mapped_column(
+        "metadata", JSONB, nullable=False, server_default=sql_text("'{}'::jsonb")
+    )
+    captured_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=sql_text("now()")
+    )
+
+
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     __table_args__ = (
