@@ -291,13 +291,16 @@ spec:
     Summarise last week's P1/P2 incidents, compute MTTR, post to #sre-digest.
   trigger:
     type: schedule              # schedule | webhook | channel_event | email | file_arrival | db_change | manual
-    schedule: { cron: "0 9 * * MON", timezone: UTC, jitterS: 120, catchupWindowS: 3600 }
+    cron: "0 9 * * MON"
+    timezone: UTC
+    jitterS: 120
+    catchupWindowS: 3600
   eventFilter: null            # JMESPath on the event envelope
   delivery:
     - { type: slack, integration: corp-slack, channel: "#sre-digest", preApproved: true }
-    - { type: email, to: [sre-leads@example.com], preApproved: false }
+    - { type: email, config: { to: sre-leads@example.com }, preApproved: false }
     - { type: conversation }    # always: run is recorded as a conversation of the owner
-  budget: { maxSteps: 20, maxTokens: 300000, maxWallClockS: 900, maxToolCalls: 30, maxCostMicros: 20000000, maxParallelToolCalls: 4 }
+  budget: { maxSteps: 20, maxTokens: 300000, maxWallClockS: 900, maxToolCalls: 30, maxCostMicros: 20000000, maxParallelToolCalls: 4 }   # all six are required
   maxRunsPerDay: 4
   concurrencyPolicy: skip      # skip | buffer_one | allow
 ```
