@@ -63,7 +63,7 @@ Open in the pack:
    was said, but an install that mails every result would get more than it should. The wording
    of the quiet-run rule needs another pass against the model.
 
-Open, recorded in [open-questions](../../open-questions.md) (OQ-178):
+Open, recorded in [open-questions](../../open-questions.md) (OQ-180):
 
 - A routine's daily run limit, budget and overlap rule cannot be changed after it is created;
   the update endpoint takes only the name, description, instructions, agent, trigger and
