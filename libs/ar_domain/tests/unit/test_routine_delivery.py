@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import orjson
 import pytest
 
-from ar_common.errors import UnavailableError
+from ar_common.errors import UnavailableError, ValidationFailedError
 from ar_common.settings import get_settings, set_settings
 from ar_domain.agents.access import Actor
 from ar_domain.approvals.service import ApprovalBook
@@ -30,7 +30,9 @@ from ar_domain.routines.engine import (
     prepare_routine_run,
     release_delivery,
 )
+from ar_domain.tools.handlers import dispatch
 from ar_domain.tools.named_secrets import read_named_secret
+from ar_domain.tools.seed_tools import shipped_tools
 from ar_testing.demo import demo_store
 from ar_testing.demo_tenant import seed_demo
 
@@ -146,8 +148,17 @@ def _store() -> ChatService:
     return store
 
 
-def _ran(store: ChatService, delivery: list[dict[str, object]], *, name: str = "Digest") -> dict:  # type: ignore[type-arg]
-    """Create a routine, run it once with a finished answer, and complete the event."""
+def _ran(  # type: ignore[type-arg]
+    store: ChatService,
+    delivery: list[dict[str, object]],
+    *,
+    name: str = "Digest",
+    quiet: bool = False,
+) -> dict:
+    """Create a routine, run it once with a finished answer, and complete the event.
+
+    With ``quiet`` the run called ``routines.nothing_to_report`` before it answered.
+    """
     agent = store.ensure_assistant(demo_id("tenant"), demo_id("admin"))
     created = RoutineBook(store).create(
         _actor(),
@@ -172,6 +183,15 @@ def _ran(store: ChatService, delivery: list[dict[str, object]], *, name: str = "
     run = store.runs[uuid.UUID(str(prepared["run_id"]))]
     run["status"] = "completed"
     run["result_summary"] = _TEXT
+    if quiet:
+        call_id = uuid.uuid4()
+        store.tool_calls[call_id] = {
+            "id": call_id,
+            "tenant_id": run["tenant_id"],
+            "run_id": run["id"],
+            "qualified_name": "routines.nothing_to_report",
+            "status": "succeeded",
+        }
     done = complete_routine_event(store, event_id)
     return {"routine_id": routine_id, "event_id": event_id, "run": run, "done": done}
 
@@ -379,3 +399,97 @@ def test_a_failed_run_delivers_nothing(mail: ThreadingTCPServer) -> None:
     done = complete_routine_event(store, event_id, run_status="failed")
     assert done == {"status": "failed", "event_id": str(event_id), "deliveries": []}
     assert mail.messages == []  # type: ignore[attr-defined]
+
+
+def _report_only(**more: object) -> dict[str, object]:
+    return {
+        "type": "email",
+        "channel": "lead@customer.test",
+        "pre_approved": True,
+        "when": "something_to_report",
+        **more,
+    }
+
+
+def test_a_report_only_delivery_is_not_sent_when_the_run_had_nothing_to_report(
+    mail: ThreadingTCPServer,
+) -> None:
+    store = _store()
+    done = _ran(store, [_report_only(), {"type": "conversation"}], quiet=True)["done"]
+    assert done["status"] == "completed"
+    assert done["deliveries"][0] == {
+        "target": "email",
+        "result": "skipped",
+        "reason": "The run had nothing to report.",
+    }
+    assert mail.messages == []  # type: ignore[attr-defined]
+    assert _posts(store) == []
+    # Nothing was held for anyone to approve, and a quiet run is not a failure.
+    assert not [row for row in store.approvals.values() if row.get("status") == "pending"]
+    routine = next(row for row in store.routines.values() if row["name"] == "Digest")
+    assert routine["consecutive_failures"] == 0
+
+
+def test_a_report_only_delivery_is_sent_when_the_run_reports(mail: ThreadingTCPServer) -> None:
+    store = _store()
+    done = _ran(store, [_report_only()])["done"]
+    assert done["deliveries"][0]["result"] == "posted"
+    assert len(mail.messages) == 1  # type: ignore[attr-defined]
+
+
+def test_a_delivery_set_to_always_is_sent_on_a_quiet_run_too(mail: ThreadingTCPServer) -> None:
+    store = _store()
+    always = {"type": "email", "channel": "lead@customer.test", "pre_approved": True}
+    done = _ran(store, [always], quiet=True)["done"]
+    assert done["deliveries"][0]["result"] == "posted"
+    assert len(mail.messages) == 1  # type: ignore[attr-defined]
+
+
+def test_a_report_only_delivery_that_is_not_approved_in_advance_is_not_held_on_a_quiet_run() -> (
+    None
+):
+    store = _store()
+    done = _ran(store, [_report_only(pre_approved=False)], quiet=True)["done"]
+    assert done["deliveries"][0]["result"] == "skipped"
+    assert not [row for row in store.approvals.values() if row.get("status") == "pending"]
+
+
+def test_a_delivery_with_an_unknown_when_is_refused() -> None:
+    store = _store()
+    agent = store.ensure_assistant(demo_id("tenant"), demo_id("admin"))
+    with pytest.raises(ValidationFailedError):
+        RoutineBook(store).create(
+            _actor(),
+            {
+                "name": "Bad when",
+                "instructions": "Say hello.",
+                "agent_id": agent["id"],
+                "trigger": {"type": "manual"},
+                "delivery": [{"type": "email", "channel": "a@b.test", "when": "sometimes"}],
+            },
+        )
+
+
+def test_the_tool_says_what_it_does_for_a_routine_run_and_for_any_other() -> None:
+    store = _store()
+    who = {"_tenant_id": demo_id("tenant"), "_user_id": demo_id("admin")}
+    conversation = store.create_conversation(demo_id("tenant"), demo_id("admin"), None)
+    posted = store.post_message(
+        demo_id("tenant"),
+        demo_id("admin"),
+        uuid.UUID(str(conversation["id"])),
+        "Hi",
+        schedule=False,
+    )
+    run_id = uuid.UUID(str(posted["run"]["id"]))
+    plain = dispatch(
+        store, "builtin://routines", "nothing_to_report", {**who, "_run_id": run_id}, ""
+    )
+    assert plain["is_error"] is False
+    assert "not started by a routine" in plain["text"]
+    store.runs[run_id]["trigger"] = "routine"
+    noted = dispatch(
+        store, "builtin://routines", "nothing_to_report", {**who, "_run_id": run_id}, ""
+    )
+    assert "will not be" in noted["text"]
+    assert "routines.nothing_to_report" in shipped_tools()

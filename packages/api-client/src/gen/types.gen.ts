@@ -1035,6 +1035,10 @@ export type DeliveryBody = {
      */
     preApproved?: boolean;
     /**
+     * When
+     */
+    when?: string;
+    /**
      * Config
      */
     config?: {

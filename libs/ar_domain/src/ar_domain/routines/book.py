@@ -692,6 +692,11 @@ class RoutineBook:
             raise ValidationFailedError("delivery must be a list")
         before = previous if isinstance(previous, list) else []
         kept: list[dict[str, object]] = []
+        for item in raw:
+            if isinstance(item, dict) and item.get("when", "always") not in _WHEN:
+                raise ValidationFailedError(
+                    "a delivery's when must be always or something_to_report"
+                )
         for index, item in enumerate(item for item in raw if isinstance(item, dict)):
             config = item.get("config")
             secret = config.get("secret") if isinstance(config, dict) else None
@@ -808,6 +813,9 @@ def _budget_of(value: object) -> dict[str, int]:
             raise ValidationFailedError(f"budget.{key} must be a whole number of at least {low}")
         limits[str(key)] = number
     return limits
+
+
+_WHEN = ("always", "something_to_report")
 
 
 def _budget() -> dict[str, int]:

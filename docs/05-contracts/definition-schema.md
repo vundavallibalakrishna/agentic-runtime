@@ -298,7 +298,7 @@ spec:
   eventFilter: null            # JMESPath on the event envelope
   delivery:
     - { type: slack, integration: corp-slack, channel: "#sre-digest", preApproved: true }
-    - { type: email, config: { to: sre-leads@example.com }, preApproved: false }
+    - { type: email, config: { to: sre-leads@example.com }, preApproved: false, when: something_to_report }
     - { type: conversation }    # always: run is recorded as a conversation of the owner
   budget: { maxSteps: 20, maxTokens: 300000, maxWallClockS: 900, maxToolCalls: 30, maxCostMicros: 20000000, maxParallelToolCalls: 4 }   # all six are required
   maxRunsPerDay: 4
@@ -317,7 +317,7 @@ spec:
 | `db_change` | `data_connection`, `poll_query` (returns rows with `id` + `updated_at`), `poll_interval_s` (≥ 60) |
 | `manual` | `{}` (run via API/UI only) |
 
-`DeliveryTarget` variants: `conversation`, `slack {integration, channel, thread_ts?}`, `teams {integration, channel_id | conversation_ref}`, `email {to[], cc[], subject_template?}`, `webhook {url, secret}`, `file {}` (artifacts only). `pre_approved: true` creates a `standing_approvals` row for the delivery tool scoped to this routine with an argument constraint equal to the target (requires `approvals:grant_standing` permission of the owner); without it, delivery is approval-gated to the owner.
+`DeliveryTarget` variants: `conversation`, `slack {integration, channel, thread_ts?}`, `teams {integration, channel_id | conversation_ref}`, `email {to[], cc[], subject_template?}`, `webhook {url, secret}`, `file {}` (artifacts only). `pre_approved: true` creates a `standing_approvals` row for the delivery tool scoped to this routine with an argument constraint equal to the target (requires `approvals:grant_standing` permission of the owner); without it, delivery is approval-gated to the owner. `when: something_to_report` (default `always`) skips the target for a run that called `routines.nothing_to_report` ([spec 15 §4](../03-specs/15-routines-triggers.md)).
 
 ## 7. Policy (`kind: Policy`)
 

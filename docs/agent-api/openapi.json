@@ -2622,6 +2622,11 @@
             "title": "Preapproved",
             "default": false
           },
+          "when": {
+            "type": "string",
+            "title": "When",
+            "default": "always"
+          },
           "config": {
             "additionalProperties": {
               "type": "string"

@@ -53,8 +53,9 @@ The pack has been run on a real public site with a real model: see
 - **It does not edit a policy.** It suggests a next step; a person decides.
 - **It does not send mail by itself.** The routine delivers to its owner's conversation. Add
   an email or webhook delivery on the routine to send the result elsewhere; the first time,
-  its owner approves the delivery. A delivery sends every run's result, including the
-  one-line "no change" answer.
+  its owner approves the delivery. Set the delivery's `when` to `something_to_report` and a
+  run that finds nothing is not sent: the agent says so with `routines.nothing_to_report`,
+  and the platform skips that delivery.
 - **It does not read a licensed feed.** `vendor_feeds` in the source list is for a feed
   connector, which is not part of this pack.
 

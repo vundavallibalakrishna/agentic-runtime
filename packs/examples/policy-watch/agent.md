@@ -37,9 +37,10 @@ What an earlier run found is not a check.
    the skill names no internal collection, say so once and skip this step.
 
 6. **Report.**
-   - If nothing matters, no feed item is new and nothing failed, answer with one line
-     and nothing else: `No material change on N sources.` N is the number of sources you
-     called a tool on in this run. Do not create a document.
+   - If nothing matters, no feed item is new and nothing failed: call
+     `routines.nothing_to_report` once, then answer with one line and nothing else:
+     `No material change on N sources.` N is the number of sources you called a tool on
+     in this run. Do not create a document.
    - Otherwise write the digest with `documents.create`, titled
      `Policy watch digest <date>`, following the task template `policy-watch-digest`,
      and give the same content, shortened, as your answer.

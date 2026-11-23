@@ -55,7 +55,7 @@ def manifest() -> dict[str, object]:
         "kind": "ContentPack",
         "metadata": {
             "id": "policy_watch",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "name": "Policy watch",
             "minPlatform": "1.0.0",
         },
@@ -99,6 +99,7 @@ def manifest() -> dict[str, object]:
                                 ],
                             },
                             {"server": "knowledge", "include": ["search", "list_collections"]},
+                            {"server": "routines", "include": ["nothing_to_report"]},
                         ],
                         "skills": ["policy-watch-sources"],
                         "budget": BUDGET,

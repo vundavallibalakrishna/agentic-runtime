@@ -44,6 +44,15 @@
           "title": "Preapproved",
           "type": "boolean"
         },
+        "when": {
+          "default": "always",
+          "enum": [
+            "always",
+            "something_to_report"
+          ],
+          "title": "When",
+          "type": "string"
+        },
         "config": {
           "additionalProperties": {
             "type": "string"
