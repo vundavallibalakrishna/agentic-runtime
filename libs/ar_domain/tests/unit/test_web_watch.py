@@ -297,3 +297,82 @@ def test_an_install_seeded_with_the_canned_page_gets_the_real_tool() -> None:
     ensure_m34b(store)
     assert old["disabled_at"] is not None
     assert discover.get("disabled_at") is None
+
+
+def _ingest(store: Any, url: str, user: str = "admin", **arguments: object) -> dict[str, Any]:
+    return _call(store, "documents", "ingest", url=url, _user_id=demo_id(user), **arguments)
+
+
+def test_each_new_content_of_an_address_is_kept_and_linked_to_the_one_before(site: Any) -> None:
+    store = _store()
+    url = _url(site, "/notice")
+    site.pages["/notice"] = (200, "text/html", b"<h1>Notice</h1><p>Limit is 10.</p>", {})
+    first = _ingest(store, url)
+    assert first["is_error"] is False
+    assert "changed" not in first["structured"]["presentation"]
+    first_id = first["structured"]["presentation"]["document"]["id"]
+    site.pages["/notice"] = (200, "text/html", b"<h1>Notice</h1><p>Limit is 25.</p>", {})
+    second = _ingest(store, url)
+    body = second["structured"]["presentation"]
+    assert body["changed"] is True
+    assert body["previous"]["id"] == first_id
+    assert first_id in second["text"]
+    assert body["document"]["metadata"]["versionOf"] == first_id
+    assert body["document"]["metadata"]["fetched"]["status"] == 200
+    listed = _call(store, "documents", "list", sourceRef=url, _user_id=demo_id("admin"))
+    copies = listed["structured"]["presentation"]["documents"]
+    assert [row["id"] for row in copies] == [body["document"]["id"], first_id]
+    assert url in listed["text"]
+    # Both copies can still be read: the first was not overwritten.
+    old = _call(store, "documents", "read", documentId=first_id, _user_id=demo_id("admin"))
+    assert "Limit is 10." in old["text"]
+    new = _call(
+        store, "documents", "read", documentId=body["document"]["id"], _user_id=demo_id("admin")
+    )
+    assert "Limit is 25." in new["text"]
+
+
+def test_an_address_that_has_not_changed_stores_nothing_new(site: Any) -> None:
+    store = _store()
+    url = _url(site, "/")
+    first = _ingest(store, url)
+    again = _ingest(store, url)
+    assert again["structured"]["presentation"]["changed"] is False
+    assert (
+        again["structured"]["presentation"]["document"]["id"]
+        == first["structured"]["presentation"]["document"]["id"]
+    )
+    assert "Nothing new was stored" in again["text"]
+    etag = first["structured"]["presentation"]["fetched"]["etag"]
+    assert etag == '"v1"'
+    unchanged = _ingest(store, url, ifNoneMatch=etag)
+    assert unchanged["is_error"] is False
+    assert unchanged["structured"]["presentation"]["changed"] is False
+    assert "document" not in unchanged["structured"]["presentation"]
+    listed = _call(store, "documents", "list", sourceRef=url, _user_id=demo_id("admin"))
+    assert len(listed["structured"]["presentation"]["documents"]) == 1
+
+
+def test_an_address_that_answers_with_an_error_is_not_ingested(site: Any) -> None:
+    store = _store()
+    result = _ingest(store, _url(site, "/nowhere"))
+    assert result["is_error"] is True
+    assert "HTTP 404" in result["text"]
+    refused = _ingest(store, _url(site, "/members"))
+    assert refused["code"] == "access_refused"
+    listed = _call(
+        store, "documents", "list", sourceRef=_url(site, "/nowhere"), _user_id=demo_id("admin")
+    )
+    assert listed["structured"]["presentation"]["documents"] == []
+
+
+def test_another_persons_copy_is_not_named_as_the_one_before(site: Any) -> None:
+    store = _store()
+    url = _url(site, "/notice")
+    site.pages["/notice"] = (200, "text/html", b"<h1>Notice</h1><p>Limit is 10.</p>", {})
+    assert _ingest(store, url, user="admin")["is_error"] is False
+    site.pages["/notice"] = (200, "text/html", b"<h1>Notice</h1><p>Limit is 25.</p>", {})
+    theirs = _ingest(store, url, user="member")
+    assert theirs["is_error"] is False
+    assert "previous" not in theirs["structured"]["presentation"]
+    assert "versionOf" not in theirs["structured"]["presentation"]["document"]["metadata"]

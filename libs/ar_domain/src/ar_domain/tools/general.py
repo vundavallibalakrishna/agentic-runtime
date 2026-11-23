@@ -406,11 +406,11 @@ def _fetch(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     url = str(arguments.get("url") or "")
     limits = _limits(store, arguments, "fetch")
     response, failure = polite_get(
-        store, arguments, url, tool="fetch", headers=_validators(arguments)
+        store, arguments, url, tool="fetch", headers=validators(arguments)
     )
     if failure is not None or response is None:
         return failure or _error("upstream_error", "The page could not be fetched.")
-    facts = _facts(url, response)
+    facts = fetch_facts(url, response)
     if response.status_code == httpx.codes.NOT_MODIFIED:
         return _ok(
             f"URL: {url}\nStatus: 304\nNot modified: the page is the same as the copy "
@@ -445,6 +445,7 @@ def polite_get(
     *,
     tool: str,
     headers: dict[str, str] | None = None,
+    max_bytes: int = _MAX_PAGE_BYTES,
 ) -> tuple[httpx.Response | None, dict[str, object] | None]:
     """GET a public page the way a well-behaved reader does, or say why it was not read.
 
@@ -466,7 +467,7 @@ def polite_get(
             tool=tool,
             timeout=_as_limit(limits["timeout_s"]),
             headers=headers or None,
-            max_bytes=_MAX_PAGE_BYTES,
+            max_bytes=max_bytes,
         )
     except httpx.HTTPError:
         host = urlparse(url).hostname or "the host"
@@ -492,7 +493,7 @@ def _answered(
     return response, None
 
 
-def _validators(arguments: dict[str, object]) -> dict[str, str]:
+def validators(arguments: dict[str, object]) -> dict[str, str]:
     """The conditional headers for a page the caller already holds a copy of."""
     headers: dict[str, str] = {}
     etag = str(arguments.get("if_none_match") or "").strip()
@@ -504,7 +505,7 @@ def _validators(arguments: dict[str, object]) -> dict[str, str]:
     return headers
 
 
-def _facts(url: str, response: httpx.Response) -> dict[str, object]:
+def fetch_facts(url: str, response: httpx.Response) -> dict[str, object]:
     """What was measured on this response. A caller compares these between two fetches."""
     body = response.content
     facts: dict[str, object] = {
