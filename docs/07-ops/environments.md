@@ -83,6 +83,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DOCUMENT_CREATE_MAX_TEXT` | `4000` | Characters in one created paragraph. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_CREATE_MAX_TITLE` | `200` | Characters in a created title. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_CROSSCHECK_MAX_CHARS` | `40000` | Characters of one document read in a single cross-check pass. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_DIFF_QUOTE_CHARS` | `600` | The most characters of each section `documents.diff` quotes, before and after. | [spec 24](../03-specs/24-documents.md) |
 | `AR_DOCUMENT_EXCERPT_CHARS` | `1500` | Characters shown when a file does not fit the window. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_HEADING_CAP` | `15` | Outline entries and passage pages returned in one page. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_HISTORY_RESERVE` | `500` | Tokens held back for this turn's history. | [document tasks](../09-plan/document-tasks.md) |

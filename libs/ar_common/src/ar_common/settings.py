@@ -438,6 +438,8 @@ class BaseServiceSettings(BaseSettings):
     document_chunk_overlap: int = Field(default=120, ge=0)
     document_excerpt_chars: int = Field(default=1500, ge=1)
     document_search_hits: int = Field(default=30, ge=1)
+    # The most characters of each section a document diff quotes, before and after.
+    document_diff_quote_chars: int = Field(default=600, ge=80)
     document_search_snippet_chars: int = Field(default=240, ge=1)
     document_search_top_k: int = Field(default=8, ge=1)
     document_search_document_cap: int = Field(default=50, ge=1)
