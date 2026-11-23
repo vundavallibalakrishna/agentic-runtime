@@ -49,6 +49,9 @@ if [ ! -f .env ]; then
   chmod 600 .env
   uv run python scripts/dev_keys.py
   sed -i.bak 's|^AR_CLAMAV_ADDRESS=.*|AR_CLAMAV_ADDRESS=clamav:3310|' .env
+  # Deliveries by email go to the install's local mail server, which keeps them.
+  sed -i.bak -e 's|^AR_SMTP_HOST=.*|AR_SMTP_HOST=mailpit|' -e 's|^AR_SMTP_PORT=.*|AR_SMTP_PORT=1025|' \
+    -e 's|^AR_SMTP_FROM=.*|AR_SMTP_FROM=certification@cert.local|' .env
   rm -f .env.bak
 elif ! grep -q '^AR_CLAMAV_ADDRESS=clamav:3310$' .env; then
   echo "This checkout has an .env without AR_CLAMAV_ADDRESS=clamav:3310. Add it, or move the file away for a fresh install." >&2
@@ -68,6 +71,8 @@ export AR_FILES_SCANNER=clamav
 export AR_EGRESS_ALLOW_LOOPBACK=false
 export COMPOSE_FILE="compose.yaml:compose.computers.yaml:compose.channels.yaml:compose.connectors.yaml:compose.opa.yaml:compose.vault.yaml:compose.model-gateway.yaml"
 export COMPOSE_PROFILES="production,scan"
+# A project of its own, so stopping it at the end can only stop what this script started.
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-ar-certification}"
 
 export AR_API_URL="http://127.0.0.1:${AR_PORT:-8000}"
 export AR_PUBLIC_URL="http://127.0.0.1:${AR_WEB_HOST_PORT:-3000}"
@@ -98,13 +103,38 @@ state() {
     docker logs --tail 200 "$name" >"$evidence/computer-$name.log" 2>&1 || true
   done
 }
-trap state EXIT
+# The certification's own database server, started further down.
+cert_data="${COMPOSE_PROJECT_NAME}-data"
+# Computers that were here before this run are somebody else's.
+computers_before="$(docker ps --all --filter name=ar-sbx- --format '{{.Names}}')"
+
+finish() {
+  state
+  # Stop what this script started (AGENTS.md, "Stop what you started"). The evidence is
+  # already written. AR_CERT_KEEP_INSTALL=1 leaves it up for a person who asked to look.
+  if [ "${AR_CERT_KEEP_INSTALL:-}" = "1" ]; then
+    echo "certification: the install is left running, as asked. Stop it with: docker compose down -v"
+    return
+  fi
+  echo "certification: stopping the install"
+  for name in $(docker ps --all --filter name=ar-sbx- --format '{{.Names}}'); do
+    if ! printf '%s\n' "$computers_before" | grep -qx "$name"; then
+      docker rm -f "$name" >/dev/null 2>&1 || true
+    fi
+  done
+  docker rm -f "$cert_data" >/dev/null 2>&1 || true
+  # Every profile, so the mail server started by name goes too.
+  COMPOSE_PROFILES="production,scan,dev" docker compose down -v >"$evidence/compose-down.log" 2>&1 || true
+}
+trap finish EXIT
 
 echo "certification: building the computer image"
 docker build -q -f images/sandbox/Dockerfile -t "${AR_SANDBOX_IMAGE:-ar-sandbox:dev}" . >/dev/null
 
 echo "certification: starting the install with every feature on"
-docker compose up -d --build --wait --wait-timeout 1800 >"$evidence/compose-up.log" 2>&1 || {
+# The mail server is named: it belongs to the dev profile, which this install does not start.
+docker compose up -d --build --wait --wait-timeout 1800 mailpit >"$evidence/compose-up.log" 2>&1 || true
+docker compose up -d --build --wait --wait-timeout 1800 >>"$evidence/compose-up.log" 2>&1 || {
   echo "The install did not start. See compose-up.log and compose-logs.txt in the evidence." >&2
   exit 1
 }
@@ -196,17 +226,33 @@ if [ -z "${AR_CERT_DATA_DSN:-}" ]; then
   if [ -n "${GITHUB_ACTIONS:-}" ]; then
     echo "::add-mask::$cert_db_password"
   fi
-  docker compose exec -T postgres psql -U postgres -v ON_ERROR_STOP=1 -q >"$evidence/cert-data.log" 2>&1 <<SQL
+  # It is a server of its own. The product refuses a data connection to its own database
+  # server, whatever database is named, so a second database there would not do.
+  docker rm -f "$cert_data" >/dev/null 2>&1 || true
+  docker run -d --name "$cert_data" --network agentic-runtime_app \
+    -e POSTGRES_PASSWORD="$cert_db_password" -e POSTGRES_DB=cert_data \
+    pgvector/pgvector:0.8.7-pg18-trixie >/dev/null
+  ready=0
+  for _ in $(seq 1 40); do
+    if docker exec "$cert_data" pg_isready -U postgres -d cert_data >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+    sleep 2
+  done
+  if [ "$ready" -ne 1 ]; then
+    echo "The certification's own database did not start. See cert-data.log." >&2
+    docker logs --tail 40 "$cert_data" >"$evidence/cert-data.log" 2>&1 || true
+    exit 1
+  fi
+  docker exec -i "$cert_data" psql -U postgres -d cert_data -v ON_ERROR_STOP=1 -q >"$evidence/cert-data.log" 2>&1 <<SQL
 CREATE ROLE cert_reader LOGIN PASSWORD '$cert_db_password';
-CREATE DATABASE cert_data;
-SQL
-  docker compose exec -T postgres psql -U postgres -d cert_data -v ON_ERROR_STOP=1 -q >>"$evidence/cert-data.log" 2>&1 <<'SQL'
 CREATE TABLE regions (region text PRIMARY KEY, count integer NOT NULL);
 INSERT INTO regions VALUES ('North', 12), ('South', 19), ('East', 7), ('West', 15);
 GRANT USAGE ON SCHEMA public TO cert_reader;
 GRANT SELECT ON regions TO cert_reader;
 SQL
-  export AR_CERT_DATA_DSN="postgresql://cert_reader:${cert_db_password}@postgres:5432/cert_data"
+  export AR_CERT_DATA_DSN="postgresql://cert_reader:${cert_db_password}@${cert_data}:5432/cert_data"
   export AR_CERT_DATA_TABLE="${AR_CERT_DATA_TABLE:-regions}"
 fi
 
