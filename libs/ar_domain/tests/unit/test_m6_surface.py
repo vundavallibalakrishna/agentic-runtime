@@ -294,33 +294,39 @@ def test_manager_routes_and_docker_probe(monkeypatch: pytest.MonkeyPatch) -> Non
     assert missed.json()["status"] == "not_found"
     allowed = client.get(
         "/internal/v1/egress/check",
-        params={"sandbox_id": sandbox_id, "host": "example.com", "token": token},
+        params={"sandbox_id": sandbox_id, "host": "example.com"},
+        headers={"x-ar-sandbox-token": token},
     )
     assert allowed.status_code in {200, 403}
     denied = client.get(
         "/internal/v1/egress/check",
-        params={"sandbox_id": "not-a-uuid", "host": "example.com", "token": token},
+        params={"sandbox_id": "not-a-uuid", "host": "example.com"},
+        headers={"x-ar-sandbox-token": token},
     )
     assert denied.status_code == 403
     missing_box = client.get(
         "/internal/v1/egress/check",
-        params={"sandbox_id": str(uuid.uuid4()), "host": "example.com", "token": token},
+        params={"sandbox_id": str(uuid.uuid4()), "host": "example.com"},
+        headers={"x-ar-sandbox-token": token},
     )
     assert missing_box.status_code == 403
     wrong = client.get(
         "/internal/v1/egress/check",
-        params={"sandbox_id": sandbox_id, "host": "example.com", "token": "nope"},
+        params={"sandbox_id": sandbox_id, "host": "example.com"},
+        headers={"x-ar-sandbox-token": "nope"},
     )
     assert wrong.status_code == 403
     template["egress_allowlist"] = ["10.1.0.1"]
     blocked = client.get(
         "/internal/v1/egress/check",
-        params={"sandbox_id": sandbox_id, "host": "10.1.0.1", "token": token},
+        params={"sandbox_id": sandbox_id, "host": "10.1.0.1"},
+        headers={"x-ar-sandbox-token": token},
     )
     assert blocked.status_code == 403
     private = client.get(
         "/internal/v1/egress/check",
-        params={"sandbox_id": sandbox_id, "host": "169.254.169.254", "token": token},
+        params={"sandbox_id": sandbox_id, "host": "169.254.169.254"},
+        headers={"x-ar-sandbox-token": token},
     )
     assert private.status_code == 403
     # Nothing answers at the stand-in container's address, so its folder cannot be copied

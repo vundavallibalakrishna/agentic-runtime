@@ -272,6 +272,9 @@ services:
       dockerfile: images/squid/Dockerfile
     environment:
       AR_SANDBOX_MANAGER_URL: http://sandbox-manager:${AR_SANDBOX_MANAGER_HOST_PORT:-8003}
+      # The proxy asks the manager whether a computer may reach a host. That is a call
+      # between two of the install's own processes, so it is signed like the others.
+      AR_INTERNAL_AUTH_SECRET: ${AR_INTERNAL_AUTH_SECRET:-}
     volumes:
       - ./deploy/compose/squid/allowlist.txt:/etc/squid/allowlist.txt:ro
     ports: ["127.0.0.1:${AR_EGRESS_HOST_PORT:-3128}:3128"]
