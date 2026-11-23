@@ -8,7 +8,7 @@ on:
     inputs:
       parts:
         description: "Parts to run, in words: live tools agents"
-        default: "live tools"
+        default: "live tools agents"
       model:
         description: "Chat model the provider serves"
         default: "Qwen/Qwen3.8-27B"
