@@ -171,7 +171,8 @@ def fixed(**arguments: object) -> Callable[[Ctx], dict[str, object]]:
 def new_version(result: Result, _ctx: Ctx) -> str | None:
     """The edit stored a new library document: a .docx that names the one it came from."""
     structured = result.get("structured")
-    row = structured if isinstance(structured, dict) else {}
+    shown = structured.get("presentation") if isinstance(structured, dict) else None
+    row = shown if isinstance(shown, dict) else {}
     meta = row.get("metadata")
     source = meta.get("versionOf") if isinstance(meta, dict) else None
     if not str(row.get("filename") or "").lower().endswith(".docx"):
