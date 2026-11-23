@@ -128,6 +128,7 @@ uv run python - >"$evidence/computer-check.log" 2>&1 <<'PY' || {
 import importlib.util
 import os
 import sys
+import time
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location("tc", Path("scripts/tool_certification.py"))
@@ -141,9 +142,16 @@ agents = stack.get("/api/v1/agents")
 rows = agents.get("items") if isinstance(agents, dict) else agents
 assistant = next(row for row in rows if isinstance(row, dict) and row.get("slug") == "assistant")
 _made, conversation = stack.post("/api/v1/conversations", agentId=assistant["id"])
-status, body = stack.call(
-    "sandbox.exec", {"command": "echo computer-$((40 + 2))"}, str(conversation["id"])
-)
+# The policy engine reads the new tenant's rules from the API on its next poll. Until
+# then a tool call is refused, which is the right answer and not the one being checked.
+deadline = time.monotonic() + 180
+while True:
+    status, body = stack.call(
+        "sandbox.exec", {"command": "echo computer-$((40 + 2))"}, str(conversation["id"])
+    )
+    if "policy_unavailable" not in tc.text_of(body) or time.monotonic() >= deadline:
+        break
+    time.sleep(5)
 if status != 200 or "computer-42" not in str(body):
     error = body.get("error") if isinstance(body, dict) else None
     code = error.get("code") if isinstance(error, dict) else ""
