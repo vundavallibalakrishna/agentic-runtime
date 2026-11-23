@@ -250,7 +250,7 @@ def test_a_process_without_the_parser_package_uses_the_fallback_reader(
     run 8: ``documents.ingest`` in the tool gateway answered with an internal error."""
 
     def absent(name: str, *_a: object) -> None:
-        raise ModuleNotFoundError(f"No module named {name.split('.')[0]!r}")
+        raise ModuleNotFoundError(f"No module named {name.split('.', maxsplit=1)[0]!r}")
 
     monkeypatch.setattr("importlib.util.find_spec", absent)
     extracted = layout.parse_layout(_docx(), filename="policy.docx")
