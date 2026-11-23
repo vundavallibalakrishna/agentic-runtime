@@ -18,7 +18,8 @@ from ar_domain.knowledge.access import can_manage, can_read_document, can_see
 from ar_domain.knowledge.acl import collection_acl
 from ar_domain.knowledge.embedding import choose_model, collection_dims
 from ar_domain.knowledge.fetchers import check
-from ar_domain.knowledge.pipeline import ingest_or_enqueue
+from ar_domain.knowledge.pipeline import ingest_or_enqueue, stored_bytes
+from ar_domain.knowledge.raw import revisions_of
 from ar_domain.knowledge.searching import search as run_search
 from ar_domain.knowledge.store import memory_index
 from ar_domain.knowledge.store_types import SUPPORTED_DIMS, DeleteFilter, PhysicalCollectionSpec
@@ -102,7 +103,6 @@ class KnowledgeBook:
             "knowledge_documents",
             "document_chunks",
             "ingestion_jobs",
-            "knowledge_blobs",
             "user_emails",
             "user_clearance",
             "user_groups",
@@ -507,7 +507,6 @@ class KnowledgeBook:
             document = self._new_document(
                 actor, collection, source, file_row, principals, external_id=str(file_id)
             )
-            self.store.knowledge_blobs[document["id"]] = raw
             job = open_job(
                 self.store,
                 tenant_id=actor.tenant_id,
@@ -545,6 +544,17 @@ class KnowledgeBook:
         view["summary"] = document.get("summary") or ""
         view["language"] = document.get("language")
         view["can_read"] = can_read_document(self.store, actor, document, collection)
+        view["revisions"] = [
+            {
+                "id": str(row["id"]),
+                "file_id": None if row.get("file_id") is None else str(row["file_id"]),
+                "version_hash": row.get("version_hash"),
+                "size_bytes": row.get("size_bytes"),
+                "captured_at": str(row.get("captured_at") or ""),
+                "metadata": row.get("metadata") if isinstance(row.get("metadata"), dict) else {},
+            }
+            for row in revisions_of(self.store, document["id"])
+        ]
         view["jobs"] = [
             self._job_view(row)
             for row in self.store.ingestion_jobs.values()
@@ -587,7 +597,7 @@ class KnowledgeBook:
 
     async def reingest(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         document, _collection = self._document(actor, document_id, manage=True)
-        raw = bytes(self.store.knowledge_blobs.get(document["id"], b""))
+        raw = stored_bytes(self.store, uuid.UUID(str(document["id"])))
         document["version_hash"] = ""
         await ingest_or_enqueue(self.store, uuid.UUID(str(document["id"])), raw)
         return self._document_view(document)

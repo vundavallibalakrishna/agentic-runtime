@@ -9,7 +9,8 @@ from ar_domain.audit.memory import remember
 from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.access import as_uuid
 from ar_domain.knowledge.fetchers import fetch_bytes, list_acl_changes, list_changes, map_item_acl
-from ar_domain.knowledge.pipeline import embedding_error, ingest_document
+from ar_domain.knowledge.pipeline import embedding_error, ingest_document, stored_bytes
+from ar_domain.knowledge.raw import keep_raw
 from ar_domain.knowledge.store import memory_index
 from ar_domain.knowledge.store_types import DeleteFilter
 from ar_domain.knowledge.syncutil import run_sync
@@ -172,7 +173,7 @@ def reindex(store: Any, collection: dict[str, object], *, actor_id: object) -> d
     for document in _collection_documents(store, collection["id"]):
         if document.get("status") == "deleted":
             continue
-        raw = bytes(getattr(store, "knowledge_blobs", {}).get(document["id"], b""))
+        raw = stored_bytes(store, as_uuid(document["id"]))
         document["status"] = "pending"
         document["version_hash"] = ""
         collection["index_version"] = pending
@@ -244,9 +245,6 @@ def delete_document(store: Any, document: dict[str, object], *, actor_id: object
     ]
     for key in stale:
         store.document_chunks.pop(key, None)
-    blobs = getattr(store, "knowledge_blobs", None)
-    if isinstance(blobs, dict):
-        blobs.pop(document.get("id"), None)
     document["status"] = "deleted"
     document["updated_at"] = utcnow()
     store.domain_events.append(
@@ -299,8 +297,14 @@ def _upsert_item(
     document["acl_principals"] = principals
     document["acl_hash"] = hashlib.sha256("|".join(sorted(principals)).encode()).hexdigest()
     document["version_hint"] = hint
-    blobs = store.knowledge_blobs
-    blobs[document["id"]] = raw
+    measured = item.get("measured")
+    keep_raw(
+        store,
+        document,
+        raw,
+        mime_type=mime,
+        measured=measured if isinstance(measured, dict) else {"versionHint": hint},
+    )
     if unmapped:
         current = int(_stats(job).get("unmapped_principals") or 0)  # type: ignore[call-overload]
         _stats(job)["unmapped_principals"] = current + unmapped

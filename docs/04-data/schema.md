@@ -1925,7 +1925,7 @@ CREATE TABLE tenant_pack_flags (
 | binder_exports | records | 27 |
 | pack_registrations, tenant_pack_flags | packs | 28 |
 
-Core total is 97 tables: 74 in §19 plus these 23. Retired pack schemas are not in this list. `service_connections` (revision 0025) and the four M24 tables below are further additions.
+Core total is 97 tables: 74 in §19 plus these 23. Retired pack schemas are not in this list. `service_connections` (revision 0025), the four M24 tables below, `saved_queries` (§32) and `document_revisions` (§33) are further additions.
 
 ## 31. Document library (`ar_domain.documents`)
 
@@ -2000,3 +2000,22 @@ CREATE INDEX ix_saved_queries_tenant ON saved_queries(tenant_id, name);
 ```
 
 Trigger `append_only` on `saved_queries`.
+
+## 33. Document revisions (`ar_domain.knowledge`)
+
+Revision `0062`. Tenant owned, with the RLS policy from [rls §3](rls.md). One row is one version of a knowledge document that a sync fetched. A knowledge document is one `documents` row per item of its source; each fetched body is stored as a `files` row (`kind = knowledge_raw`), `documents.raw_file_id` points at the newest, and this table records every one, so earlier versions can be listed and their bytes read ([spec 10 §5.2.1](../03-specs/10-knowledge.md)). `metadata` holds what was measured on the fetch (for a web source: `status`, `etag`, `lastModified`). The table is generic: every source kind writes it, and no column says what a document is about. A library document is not versioned here: it is never overwritten, and its copies are separate rows ([spec 24](../03-specs/24-documents.md)).
+
+```sql
+CREATE TABLE document_revisions (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  document_id   uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  file_id       uuid REFERENCES files(id) ON DELETE SET NULL,
+  version_hash  text NOT NULL,                      -- sha256 of the bytes
+  size_bytes    bigint NOT NULL DEFAULT 0,
+  metadata      jsonb NOT NULL DEFAULT '{}',
+  captured_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_document_revisions_document ON document_revisions(tenant_id, document_id, captured_at DESC);
+```
+

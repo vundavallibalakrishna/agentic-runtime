@@ -115,13 +115,20 @@ Signature `ReindexCollectionWorkflow(collection_id, new_settings, target_backend
 | kind | Change detection | ACL source |
 |---|---|---|
 | `upload` | n/a (API) | from request or collection |
-| `web` | crawl with ETag/Last-Modified; robots.txt; egress proxy + allowlist; same-domain links; `max_pages`, `max_depth` | collection |
+| `web` | one page (`config.url`); robots.txt parsed as RFC 9309 says; `If-None-Match` with the ETag of the last sync, kept on the source's `cursor`; egress allowlist | collection |
 | `s3` | `ListObjectsV2` + ETag | collection |
 | `sharepoint` | Microsoft Graph delta queries per drive | Graph permissions (users by email/UPN, groups by Entra group id) |
 | `confluence` | CQL `lastmodified > cursor` | space permissions + page restrictions (users by email, groups by name) |
 | `google_drive` | Drive changes API (`startPageToken`) | Drive permissions (users/groups by email; `domain` → `tenant:*`; `anyone` → `tenant:*`) |
 | `database` | `updated_at > watermark` via `mcp-sql`-equivalent guarded query (same read-only DSN rules) | optional `acl` column (array of emails/group names) |
 | `mcp_resource` | `resources/list` + resource version/etag via `mcp-gateway` | collection |
+
+### 5.2.1 Fetched bytes and versions
+Every body a sync fetches is stored as a file (`files.kind = knowledge_raw`) in the object store, `documents.raw_file_id` points at the newest, and a `document_revisions` row records each one ([schema §33](../04-data/schema.md)). Nothing is overwritten, and nothing a sync fetched lives only in the process that fetched it: re-indexing a document or a collection reads the stored file, on any replica. Bytes equal to the version a document already points at are not stored again. Text added by hand (`kind: text`) is kept the same way, so it can be re-indexed. `GET /api/v1/knowledge/documents/{document_id}` returns `revisions`, newest first: `id`, `fileId`, `versionHash`, `sizeBytes`, `capturedAt` and `metadata` (what was measured on the fetch). A source's `cursor`, `sync_schedule`, `last_sync_at` and `last_sync_status` are saved with it.
+
+An incremental sync of a `web` source sends the ETag of the last sync; a 304 changes nothing. A full sync reads the page whatever the site says.
+
+Not built: a schedule that runs a source's sync. `sync_schedule` is stored, and a sync runs when a person or a routine asks for one ([OQ-172](../open-questions.md)).
 
 ### 5.3 Principal mapping
 External principals `{type: user|group|domain|anyone, id?, email?, name?}` → `user:{users.id}` by email match (case-insensitive), `group:{groups.id}` by `groups.external_id` then `groups.name`, `domain`/`anyone` (same company domain verified in `tenant_domains`) → `tenant:*`. Unmapped principals are dropped and counted (`stats.unmapped_principals`); a document left with no principals is readable by nobody except via `collection` override (never defaults to public).

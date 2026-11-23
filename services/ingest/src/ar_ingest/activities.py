@@ -42,18 +42,15 @@ async def ingest_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     document_id = uuid.UUID(str(payload["document_id"]))
     raw_b64 = payload.get("raw_b64")
-    if isinstance(raw_b64, str) and raw_b64:
-        store.knowledge_blobs[document_id] = base64.b64decode(raw_b64)
+    raw = base64.b64decode(raw_b64) if isinstance(raw_b64, str) and raw_b64 else b""
     from ar_domain.durable.hydrate import reload_document  # noqa: PLC0415
 
     await reload_document(store, document_id)
-    raw = bytes(store.knowledge_blobs.get(document_id, b""))
     if not raw:
         # A large upload does not travel with the request: it is read from the file store.
         from ar_domain.knowledge.pipeline import stored_bytes  # noqa: PLC0415
 
         raw = stored_bytes(store, document_id)
-        store.knowledge_blobs[document_id] = raw
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
     try:

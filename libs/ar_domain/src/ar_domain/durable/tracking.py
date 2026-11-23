@@ -233,6 +233,7 @@ BUCKETS = (
     "knowledge_sources",
     "ingestion_jobs",
     "knowledge_documents",
+    "document_revisions",
     "document_chunks",
     "tool_servers",
     "tool_server_versions",

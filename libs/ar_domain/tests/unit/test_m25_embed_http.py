@@ -69,7 +69,6 @@ def test_text_member_is_unchanged_until_refresh() -> None:
     )
     assert second["result"] == "unchanged"
     document_id = uuid.UUID(str(first["document"]["id"]))
-    store.knowledge_blobs[document_id] = b"The badge colour is green."
     refreshed = asyncio.run(refresh_document(store, actor, document_id))
     assert refreshed["result"] == "indexed"
     with pytest.raises(ValidationFailedError):

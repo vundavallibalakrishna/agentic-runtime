@@ -21,7 +21,8 @@ from ar_domain.knowledge.acl import collection_acl
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.knowledge.chunker import ChunkDraft, chunk_markdown, token_count
 from ar_domain.knowledge.embedding import embed_for_collection
-from ar_domain.knowledge.pipeline import _stats
+from ar_domain.knowledge.pipeline import _stats, stored_bytes
+from ar_domain.knowledge.raw import keep_raw
 from ar_domain.knowledge.store import active_index
 from ar_domain.knowledge.store_types import DeleteFilter, IndexedChunk
 from ar_domain.models.embedding import refresh_registry
@@ -83,6 +84,9 @@ async def add_member(
     document["error"] = None
     document["size_bytes"] = sum(len(item["text"]) for item in passages)
     document["summary"] = passages[0]["text"][:400]
+    if kind in {"upload", "text"}:
+        # Text that was typed or pasted has no other home: keep it, so it can be re-indexed.
+        keep_raw(store, document, str(body.get("text") or "").encode(), mime_type="text/plain")
     drafts = _drafts(passages)
     vectors = embed_for_collection(store, collection, [item.text for item in drafts])
     await _write_chunks(store, collection, document, drafts, vectors, passages=passages)
@@ -122,7 +126,7 @@ async def refresh_document(store: Any, actor: Actor, document_id: uuid.UUID) -> 
     elif uri.startswith("http://") or uri.startswith("https://"):
         body = {"kind": "url", "url": uri, "title": document.get("title"), "force": True}
     else:
-        raw = bytes(store.knowledge_blobs.get(document["id"], b""))
+        raw = stored_bytes(store, uuid.UUID(str(document["id"])))
         if not raw:
             raise ValidationFailedError("this document has no stored text to re-index")
         body = {

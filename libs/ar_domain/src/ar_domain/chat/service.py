@@ -475,7 +475,7 @@ class ChatBehaviour:
     knowledge_documents: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     document_chunks: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     ingestion_jobs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
-    knowledge_blobs: dict[uuid.UUID, bytes] = field(default_factory=dict)
+    document_revisions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     user_emails: dict[uuid.UUID, str] = field(default_factory=dict)
     user_clearance: dict[uuid.UUID, str] = field(default_factory=dict)
     group_keys: dict[str, str] = field(default_factory=dict)
