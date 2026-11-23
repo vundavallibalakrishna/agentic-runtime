@@ -7,7 +7,7 @@ items in ``config`` instead.
 
 import hashlib
 from typing import TYPE_CHECKING
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import httpx
 
@@ -153,7 +153,8 @@ def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, obje
     host = urlparse(start).hostname or ""
     if allow and host not in allow and urlparse(start).netloc not in allow:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
-    from ar_common.egress_http import guard, sync_client  # noqa: PLC0415
+    from ar_common import robots  # noqa: PLC0415
+    from ar_common.egress_http import guard, sync_client, user_agent  # noqa: PLC0415
 
     hosts = _hosts(source)
     if guard(start, hosts) is not None:
@@ -168,9 +169,16 @@ def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, obje
         }
     client = sync_client(allow=hosts, timeout=5.0, follow_redirects=False)
     try:
-        robots = client.get(urljoin(start, "/robots.txt"))
-        if robots.status_code == 200 and "Disallow: /" in robots.text:
-            return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
+        answer = client.get(robots.address(start))
+        rules = robots.Robots(robots.text_for(answer.status_code, answer.text), user_agent())
+        if not rules.allows(start):
+            return {
+                "items": [],
+                "deleted_external_ids": [],
+                "next_cursor": {},
+                "done": True,
+                "error": "the site's robots.txt asks automated readers not to fetch this page",
+            }
         page = client.get(start, headers={"If-None-Match": str(config.get("etag") or "")})
     finally:
         client.close()

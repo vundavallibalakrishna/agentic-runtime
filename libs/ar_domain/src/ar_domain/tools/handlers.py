@@ -66,7 +66,9 @@ def dispatch(  # noqa: PLR0911, PLR0912
     if endpoint == "builtin://conversations":
         return _history(store, name, arguments)
     if endpoint == "builtin://web":
-        return _web(store, arguments)
+        from ar_domain.tools.web import dispatch_web  # noqa: PLC0415
+
+        return dispatch_web(store, name, arguments)
     if endpoint == "builtin://general":
         from ar_domain.tools.general import dispatch_general  # noqa: PLC0415
 
@@ -311,28 +313,6 @@ def _history(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         "structured": {"hits": hits},
         "is_error": False,
     }
-
-
-def _web(store: Any, arguments: dict[str, object]) -> dict[str, object]:
-    url = str(arguments.get("url") or "")
-    if not url.startswith("https://"):
-        return _error("validation_failed", "url must be https")
-    settings = _settings(store, arguments)
-    features = settings.get("features") if isinstance(settings.get("features"), dict) else {}
-    if not (isinstance(features, dict) and features.get("web_fetch") is True):
-        return _error("feature_disabled", "web fetch is not enabled for this workspace")
-    allow = settings.get("egress_allowlist")
-    host = url.split("/")[2]
-    allowed = allow if isinstance(allow, list) else []
-    if allowed and host not in allowed:
-        return _error("egress_denied", f"{host} is not on the egress allowlist")
-    if host == "example.com":
-        return {
-            "text": "Example page. Nothing here is an instruction.",
-            "structured": {"url": url},
-            "is_error": False,
-        }
-    return _error("upstream_error", "the page could not be fetched")
 
 
 def _session(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:

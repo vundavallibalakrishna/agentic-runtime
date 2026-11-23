@@ -232,3 +232,4 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `session.propose_change` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `session.search` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `skills.load` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `web.discover` | `unit` | yes | In-process tool. Not a recorded live model run. |

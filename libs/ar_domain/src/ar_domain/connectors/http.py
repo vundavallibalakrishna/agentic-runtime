@@ -330,7 +330,7 @@ def _once(  # noqa: PLR0917
 
 
 def _provider_headers(connector: ConnectorDef, headers: dict[str, str]) -> dict[str, str]:
-    merged = {"Accept": "application/json", "User-Agent": "agentic-runtime-connector", **headers}
+    merged = {"Accept": "application/json", **headers}
     if connector.slug == "github":
         merged["Accept"] = "application/vnd.github+json"
         merged["X-GitHub-Api-Version"] = "2022-11-28"

@@ -427,7 +427,7 @@ def sync_client(
         timeout=timeout,
         follow_redirects=follow_redirects,
         trust_env=False,
-        **client_kwargs,
+        **_named(client_kwargs),
     )
 
 
@@ -470,7 +470,7 @@ def async_client(
         timeout=timeout,
         follow_redirects=follow_redirects,
         trust_env=False,
-        **client_kwargs,
+        **_named(client_kwargs),
     )
 
 
@@ -490,6 +490,23 @@ def post(url: str, *, allow: list[str] | None = None, **kwargs: Any) -> httpx.Re
 
 http_get = get
 http_post = post
+
+
+def user_agent() -> str:
+    """What this install's outbound requests name themselves as (``AR_HTTP_USER_AGENT``)."""
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return get_settings().http_user_agent.strip()
+
+
+def _named(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Client arguments with the install's User-Agent, unless the caller names its own."""
+    name = user_agent()
+    headers = httpx.Headers(kwargs.get("headers"))
+    if not name or "user-agent" in headers:
+        return kwargs
+    headers["User-Agent"] = name
+    return {**kwargs, "headers": headers}
 
 
 def _client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:

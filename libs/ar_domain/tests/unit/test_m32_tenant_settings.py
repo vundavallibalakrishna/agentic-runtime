@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from ar_domain.identity.tenant_settings import section, settings_for
 from ar_domain.pii.analyzer import Masking, _presidio, maskable_entities, redact
 from ar_domain.security.guardrails import apply_result_safety
-from ar_domain.tools.handlers import dispatch
 from ar_testing.demo import demo_store
 from records_pack.vault import EvidenceBook
 
@@ -65,20 +64,6 @@ def test_tenant_can_skip_entity_types() -> None:
     assert kept == PHONE
     masked, _ = apply_result_safety(store, PHONE, open_world=False, tenant_id=uuid.uuid4())
     assert "ada@acme.com" not in masked
-
-
-def test_web_fetch_feature_is_read_per_tenant() -> None:
-    store = demo_store()
-    tenant_on, tenant_off = uuid.uuid4(), uuid.uuid4()
-    store.tenant_settings[tenant_on] = {"features": {"web_fetch": True}}
-    store.tenant_settings[tenant_off] = {"features": {"web_fetch": False}}
-    url = "https://example.com/"
-    denied = dispatch(store, "builtin://web", "fetch", {"url": url, "_tenant_id": tenant_off}, None)
-    assert denied["code"] == "feature_disabled"
-    allowed = dispatch(store, "builtin://web", "fetch", {"url": url, "_tenant_id": tenant_on}, None)
-    assert allowed.get("code") != "feature_disabled"
-    anonymous = dispatch(store, "builtin://web", "fetch", {"url": url}, None)
-    assert anonymous["code"] == "feature_disabled", "no tenant means the default, which is off"
 
 
 def test_evidence_tsa_requirement_is_the_actors_tenant() -> None:

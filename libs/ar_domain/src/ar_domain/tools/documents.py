@@ -318,8 +318,12 @@ def _source_bytes(store: Any, arguments: dict[str, object]) -> tuple[bytes, str,
     url = str(arguments.get("url") or "").strip()
     if url:
         from ar_domain.tools.general import _exchange  # noqa: PLC0415
+        from ar_domain.tools.web import site_refusal  # noqa: PLC0415
 
-        response, failure = _exchange(store, arguments, "GET", url, tool="fetch", timeout=20)
+        failure = site_refusal(store, arguments, url, tool="fetch")
+        response = None
+        if failure is None:
+            response, failure = _exchange(store, arguments, "GET", url, tool="fetch", timeout=20)
         if failure is not None or response is None:
             message = str((failure or {}).get("text") or "The URL could not be fetched.")
             raise ArError(ErrorCode.VALIDATION_FAILED, message)

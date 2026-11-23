@@ -84,7 +84,7 @@ Credentials are **never** placed in tool arguments, model context, sandbox envir
 | `files` | builtin | `files.list`, `files.read`, `files.attach_to_sandbox` | R0, R0, W1 |
 | `skills` | builtin | `skills.load` | R0 |
 | `conversations` | builtin | `conversations.search_history` | R1 |
-| `web` | builtin | `web.fetch` (GET a URL through the egress proxy; tenant allowlist applies) | R0 (open-world) |
+| `web` | builtin | `web.discover` (list a feed's items, a sitemap's entries or a page's links; tenant allowlist, robots.txt and the per-host limit apply) | R1 (open-world) |
 | `agents` | builtin (control) | `agents.delegate` | W1 |
 | `plan` | builtin (control) | `plan.update` | W1 |
 | `delivery` | builtin (system) | `delivery.slack_post`, `delivery.teams_post`, `delivery.email_send`, `delivery.webhook_post` (never offered to models and not served by the gateway; the system worker makes these calls in the routine delivery phase, [spec 15 §4](../03-specs/15-routines-triggers.md#4-delivery-phase-in-complete_routine_event-after-the-run-has-ended)) | W2 |

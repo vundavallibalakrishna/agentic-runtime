@@ -51,8 +51,8 @@ Script format (also used in YAML scenario files `services/fake_llm/scenarios/*.y
 ```yaml
 - match: {contains: "weather"}            # or {regex: "..."} or {last_tool_result: {tool: "x", contains: "..."}} or {system_contains: "..."}
   respond:
-    tool_calls: [{name: "web.fetch", arguments: {url: "https://example.test"}}]
-- match: {last_tool_result: {tool: "web.fetch"}}
+    tool_calls: [{name: "general.fetch", arguments: {url: "https://example.test"}}]
+- match: {last_tool_result: {tool: "general.fetch"}}
   respond: {text: "It is sunny.", delay_ms: 20, tokens_per_chunk: 3}
 - match: {contains: "fail"}
   respond: {error: {status: 503}}
