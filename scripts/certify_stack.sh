@@ -64,6 +64,8 @@ export AR_AUTH_MODE=password
 export AR_PASSWORD_LOGIN=true
 export AR_DEPLOYMENT_MODE=single_tenant
 export AR_FILES_SCANNER=clamav
+# Inside a container this machine's own address is the container, never the install.
+export AR_EGRESS_ALLOW_LOOPBACK=false
 export COMPOSE_FILE="compose.yaml:compose.computers.yaml:compose.channels.yaml:compose.connectors.yaml:compose.opa.yaml:compose.vault.yaml:compose.model-gateway.yaml"
 export COMPOSE_PROFILES="production,scan"
 

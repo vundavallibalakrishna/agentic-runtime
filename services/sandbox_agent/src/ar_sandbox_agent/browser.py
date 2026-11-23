@@ -17,6 +17,7 @@ import contextlib
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote, urlsplit
 
 from ar_common.sandboxkit import confine
 
@@ -100,7 +101,7 @@ class _Session:
         from playwright.async_api import async_playwright  # noqa: PLC0415
 
         self._pw = await async_playwright().start()
-        self._browser = await self._pw.chromium.launch(args=["--no-sandbox"])
+        self._browser = await self._pw.chromium.launch(args=["--no-sandbox"], proxy=egress_proxy())
 
     async def _ensure(self) -> None:
         await self._ensure_browser()
@@ -137,6 +138,25 @@ class _Session:
 
 
 _SESSION = _Session()
+
+
+def egress_proxy() -> dict[str, str] | None:
+    """The proxy this computer's traffic must leave through, with its sign-in.
+
+    The manager puts the address in ``HTTPS_PROXY`` with the computer's name and token in
+    it. Chromium reads the address from the environment but not the name and token, so the
+    proxy answers 407 and no page loads. The browser is given both here.
+    """
+    raw = os.environ.get("HTTPS_PROXY", "").strip() or os.environ.get("HTTP_PROXY", "").strip()
+    parts = urlsplit(raw)
+    if not parts.hostname:
+        return None
+    port = f":{parts.port}" if parts.port else ""
+    proxy = {"server": f"{parts.scheme or 'http'}://{parts.hostname}{port}"}
+    if parts.username:
+        proxy["username"] = unquote(parts.username)
+        proxy["password"] = unquote(parts.password or "")
+    return proxy
 
 
 async def restore_session(storage_state: dict[str, object], handle: str) -> dict[str, object]:
