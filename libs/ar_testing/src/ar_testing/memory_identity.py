@@ -6,7 +6,7 @@ provider. The product reads identity from its database and nowhere else.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ar_common.ids import new_id
 from ar_common.time import utcnow
@@ -164,6 +164,13 @@ class MemoryIdentityStore:
     async def get_invitation(self, invitation_id: uuid.UUID) -> Invitation | None:
         return next((row for row in self.invitations.values() if row.id == invitation_id), None)
 
+    async def list_api_keys(
+        self, *, user_id: uuid.UUID | None, service_account_id: uuid.UUID | None
+    ) -> list[object]:
+        """The memory store keeps no personal keys."""
+        del user_id, service_account_id
+        return []
+
     async def list_roles(self) -> list[Role]:
         return [_role(key) for key in sorted(SYSTEM_ROLE_PERMISSIONS)]
 
@@ -199,11 +206,30 @@ def _role(key: str) -> Role:
     )
 
 
+class _Statuses(dict[object, str]):
+    """People's status as the product store reads it, answered from the identity rows.
+
+    A database-backed store reloads this from the ``users`` table on every request. With
+    no database the rows live in ``MemoryIdentityStore``, so the lookup goes there.
+    """
+
+    def __init__(self, known: dict[object, str], users: dict[uuid.UUID, User]) -> None:
+        super().__init__(known)
+        self._users = users
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        user = self._users.get(key)
+        return user.status if user is not None else super().get(key, default)
+
+
 def memory_identity(chat: object, ctx: TenantContext) -> IdentityService:
     """One store per process, retargeted to the caller of this request."""
     store = getattr(chat, "_memory_identity", None)
     if not isinstance(store, MemoryIdentityStore):
         store = MemoryIdentityStore(ctx)
         chat._memory_identity = store  # type: ignore[attr-defined]
+        known = getattr(chat, "user_statuses", None)
+        if isinstance(known, dict):
+            chat.user_statuses = _Statuses(known, store.users)  # type: ignore[attr-defined]
     store.ctx = ctx
     return IdentityService(cast("IdentityStore", store))

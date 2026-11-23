@@ -218,8 +218,13 @@ class IdentityService:
         if status is not None:
             if status not in {"active", "suspended"}:
                 raise ValidationFailedError("status must be active or suspended")
+            if status == "suspended" and user_id == self.ctx.user_id:
+                raise ValidationFailedError("you cannot suspend your own account")
+            was = user.status
             user.status = status
-            if status == "suspended":
+            if status == "active" and was != "active":
+                await self.store.audit(AuditAction.USER_REACTIVATED, "user", str(user_id), {})
+            if status == "suspended" and was != "suspended":
                 await self._revoke_user_keys(user_id)
                 await self.store.audit(AuditAction.USER_SUSPENDED, "user", str(user_id), {})
                 await self.store.emit("user.deprovisioned", {"user_id": str(user_id)})

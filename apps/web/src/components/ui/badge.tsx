@@ -36,6 +36,7 @@ const waiting = new Set([
   "proposed",
   "waiting_input",
   "waiting_approval",
+  "suspended",
 ]);
 const broken = new Set([
   "failed",
