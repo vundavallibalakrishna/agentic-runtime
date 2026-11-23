@@ -567,6 +567,26 @@
     "usersBody": "The people who can sign in to this workspace.",
     "role": "Role"
   },
+  "people": {
+    "inviteTitle": "Invite people",
+    "inviteBody": "Each person gets a mail with a link to choose their name and password.",
+    "emails": "Email addresses",
+    "emailsPlaceholder": "One or more addresses, separated by commas or new lines",
+    "role": "Role",
+    "invite": "{count, plural, =0 {Invite} one {Invite 1 person} other {Invite # people}}",
+    "inviteError": "The invitations could not be sent.",
+    "sentTitle": "Invitations just made",
+    "mailSent": "Mail sent",
+    "mailNotSent": "Mail not sent",
+    "passLink": "Pass this link on yourself:",
+    "pendingTitle": "Waiting to be accepted",
+    "pendingEmpty": "Nobody is waiting to accept an invitation.",
+    "expires": "Expires {when}",
+    "revoke": "Revoke",
+    "revokeError": "The invitation could not be revoked.",
+    "loadError": "Invitations could not be loaded.",
+    "retry": "Try again"
+  },
   "soon": {
     "body": "This section arrives in a later milestone. Chat, agents, models and users are ready now.",
     "back": "Back to chat"

@@ -9,6 +9,7 @@ from pydantic import Field
 
 from ar_api.deps import IdentityDep, expose, require_permission
 from ar_common.settings import get_settings
+from ar_common.time import utcnow
 from ar_contracts.api_model import ApiModel
 from ar_domain.notifications.smtp_mail import send_install_mail
 
@@ -27,7 +28,20 @@ def _invite(row: object) -> dict[str, object]:
         "role_keys": list(row.role_keys),  # type: ignore[attr-defined]
         "expires_at": row.expires_at.isoformat(),  # type: ignore[attr-defined]
         "accepted_at": None if row.accepted_at is None else row.accepted_at.isoformat(),  # type: ignore[attr-defined]
+        "status": _status(row),
     }
+
+
+def _status(row: object) -> str:
+    """Where an invitation stands: accepted, revoked, expired, or still pending."""
+    if getattr(row, "accepted_at", None) is not None:
+        return "accepted"
+    if getattr(row, "revoked_at", None) is not None:
+        return "revoked"
+    expires = getattr(row, "expires_at", None)
+    if expires is not None and expires < utcnow():
+        return "expired"
+    return "pending"
 
 
 @router.get("/api/v1/invitations", dependencies=[Depends(require_permission("users:manage"))])
