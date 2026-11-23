@@ -65,7 +65,7 @@ bash scripts/certify_stack.sh
 
 The admin and reviewer passwords are generated for the run unless `AR_ADMIN_PASSWORD` and `AR_SECOND_PASSWORD` are set. The script stops with a non-zero exit when a part does not pass. Whatever the result, it writes the evidence and then stops everything it started: the install, under the Compose project `ar-certification`, with its volumes; the certification's own database server; and the computers the run created. `AR_CERT_KEEP_INSTALL=1` leaves it running for a person who asked to look. An `.env` that is already in the checkout is used as it is and is not rewritten.
 
-The `certification` CI job runs the same script on a hosted runner. Start it from the Actions page (**certification**, **Run workflow**) after adding the provider's key as the repository secret `AR_LLM_API_KEY`. The evidence is the run's `certification-<run id>` artifact, kept for 30 days. The repository is public, so the artifact and the job log are public too; the key and the two passwords are masked, and nothing else in the evidence is a secret.
+The `certification` CI job runs the same script on a hosted runner. It runs only when a person starts it: a run takes about 40 minutes and calls a paid model on the owner's account, so it has no schedule, nothing starts it on a merge, and nobody starts it without the owner knowing (owner, 23 November 2026). Start it from the Actions page (**certification**, **Run workflow**) after adding the provider's key as the repository secret `AR_LLM_API_KEY`. The evidence is the run's `certification-<run id>` artifact, kept for 30 days. The repository is public, so the artifact and the job log are public too; the key and the two passwords are masked, and nothing else in the evidence is a secret.
 
 ## Command
 
