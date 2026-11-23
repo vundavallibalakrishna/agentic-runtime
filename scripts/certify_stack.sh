@@ -168,6 +168,48 @@ if [ "$computer" -ne 0 ]; then
 fi
 state
 
+# What the certification's tenant is given, as its admin would give it. Each of these
+# was a blocked case: nothing in the product was wrong, the install had not been told.
+echo "certification: giving the tenant an allowed host and a database to read"
+uv run python - >"$evidence/tenant-setup.log" 2>&1 <<'PY'
+import importlib.util
+import os
+import sys
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location("tc", Path("scripts/tool_certification.py"))
+tc = importlib.util.module_from_spec(spec)
+sys.modules["tc"] = tc
+spec.loader.exec_module(tc)
+stack = tc.Stack(
+    os.environ["AR_API_URL"], os.environ["AR_ADMIN_EMAIL"], os.environ["AR_ADMIN_PASSWORD"]
+)
+hosts = os.environ.get("AR_CERT_ALLOWED_HOSTS", "example.com").split()
+answer = stack.client.patch("/api/v1/tenant", json={"settings": {"egressAllowlist": hosts}})
+print(f"allowed hosts {hosts}: HTTP {answer.status_code}")
+if answer.status_code != 200:
+    raise SystemExit(1)
+PY
+if [ -z "${AR_CERT_DATA_DSN:-}" ]; then
+  # A small database of its own, beside the product's, read by a role that can only read.
+  cert_db_password="$(new_password)"
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "::add-mask::$cert_db_password"
+  fi
+  docker compose exec -T postgres psql -U postgres -v ON_ERROR_STOP=1 -q >"$evidence/cert-data.log" 2>&1 <<SQL
+CREATE ROLE cert_reader LOGIN PASSWORD '$cert_db_password';
+CREATE DATABASE cert_data;
+SQL
+  docker compose exec -T postgres psql -U postgres -d cert_data -v ON_ERROR_STOP=1 -q >>"$evidence/cert-data.log" 2>&1 <<'SQL'
+CREATE TABLE regions (region text PRIMARY KEY, count integer NOT NULL);
+INSERT INTO regions VALUES ('North', 12), ('South', 19), ('East', 7), ('West', 15);
+GRANT USAGE ON SCHEMA public TO cert_reader;
+GRANT SELECT ON regions TO cert_reader;
+SQL
+  export AR_CERT_DATA_DSN="postgresql://cert_reader:${cert_db_password}@postgres:5432/cert_data"
+  export AR_CERT_DATA_TABLE="${AR_CERT_DATA_TABLE:-regions}"
+fi
+
 if [ -z "$parts" ]; then
   echo "certification: the install started and the tenant was seeded. No part was asked for."
   exit 0

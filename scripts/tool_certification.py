@@ -587,6 +587,12 @@ def state_cases() -> list[Case]:
         ),
         Case("routines.list", "list routines", fixed(), has("routines")),
         Case(
+            "routines.nothing_to_report",
+            "note that a run found nothing to report",
+            fixed(),
+            has("Noted"),
+        ),
+        Case(
             "session.plan_update",
             "update the plan",
             fixed(plan=[{"id": "1", "title": "Certify", "status": "in_progress"}]),

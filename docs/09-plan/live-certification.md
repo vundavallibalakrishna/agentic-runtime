@@ -57,6 +57,8 @@ bash scripts/certify_stack.sh
 | `AR_CERT_REPEAT` | 2 | Times each tool flow runs |
 | `AR_CERT_EVIDENCE` | `var/certification` | Where the scorecards, each part's log and exit code, the container list, memory use, every service's log and each computer's log are written |
 | `AR_CERT_CONTEXT_WINDOW`, `AR_CERT_MAX_OUTPUT_TOKENS` | the product default | The limits the provider serves for the chat model, sent when the run registers it |
+| `AR_CERT_ALLOWED_HOSTS` | `example.com` | Hosts the script puts on the tenant's allowed list before the parts run, so the page and HTTP tools are tested and not refused |
+| `AR_CERT_DATA_DSN`, `AR_CERT_DATA_TABLE` | a database the script makes | The database the data tools read. With none named, the script creates `cert_data` in the install's Postgres with one table, `regions`, and a role that can only read it |
 | `AR_CERT_POLICY_WAIT_S` | 20 | Seconds the approval flow waits after activating its policy, so a policy engine that polls has read it |
 | `AR_CERT_DOCUMENT`, `AR_CERT_RESEARCH_QUESTION` | `docs/00-overview/vision.md` and a question it answers | The document the run uploads and the research question |
 
