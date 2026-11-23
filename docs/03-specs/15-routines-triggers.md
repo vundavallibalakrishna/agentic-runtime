@@ -69,7 +69,7 @@ Owner. Body `{input?: string (appended as event data), test?: false}`. `test=tru
 
 #### POST /api/v1/routines/{routine_id}:pause
 #### POST /api/v1/routines/{routine_id}:resume
-Resume clears `consecutive_failures` and `paused_reason`; requires the owner to be active with a valid delegation token (else 409 `invalid_state` reason `owner_reauth_required`).
+A routine that came from a bundle or a pack starts `paused` with `paused_reason: imported` ([spec 05 §3](05-agent-registry.md#3-public-api)); its owner resumes it. Resume clears `consecutive_failures` and `paused_reason`; requires the owner to be active with a valid delegation token (else 409 `invalid_state` reason `owner_reauth_required`).
 
 #### POST /api/v1/routines/{routine_id}:transfer
 `routines:manage_all`. Body `{new_owner_user_id}`. Revokes standing approvals; routine → `needs_review` until the new owner resumes it.

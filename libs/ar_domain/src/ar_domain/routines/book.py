@@ -76,7 +76,11 @@ class RoutineBook:
         rows.sort(key=lambda item: str(item.get("name")))
         return rows
 
-    def create(self, actor: Actor, body: dict[str, object]) -> dict[str, object]:
+    def create(
+        self, actor: Actor, body: dict[str, object], *, paused_reason: str | None = None
+    ) -> dict[str, object]:
+        """Create a routine. With ``paused_reason`` it starts paused and nothing is scheduled
+        until its owner resumes it."""
         self._require(actor, "routines:create")
         name = str(body.get("name") or "").strip()
         instructions = str(body.get("instructions") or "")
@@ -116,8 +120,8 @@ class RoutineBook:
             "budget": body.get("budget") if isinstance(body.get("budget"), dict) else _budget(),
             "max_runs_per_day": _whole(body.get("max_runs_per_day"), 48),
             "concurrency_policy": str(body.get("concurrency_policy") or "skip"),
-            "status": "active",
-            "paused_reason": None,
+            "status": "paused" if paused_reason else "active",
+            "paused_reason": paused_reason,
             "temporal_schedule_id": f"routine-{routine_id}" if trigger_type == "schedule" else None,
             "webhook_path_token": token or None,
             "webhook_secret": secret,
@@ -141,7 +145,7 @@ class RoutineBook:
             target_id=routine_id,
             detail={"trigger_type": trigger_type},
         )
-        ACTIVE.labels(status="active").inc()
+        ACTIVE.labels(status=str(row["status"])).inc()
         view = self._detail(row)
         if secret:
             view["webhook"] = {
