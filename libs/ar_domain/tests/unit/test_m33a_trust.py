@@ -179,6 +179,8 @@ def test_fetch_retries_transient_failures_and_keeps_the_allowlist() -> None:
 
     def send(method: str, url: str, **kwargs: object) -> httpx.Response:
         del method, kwargs
+        if url.endswith("/robots.txt"):
+            return httpx.Response(404)
         calls["n"] += 1
         if calls["n"] == 1:
             raise httpx.ConnectError("refused")

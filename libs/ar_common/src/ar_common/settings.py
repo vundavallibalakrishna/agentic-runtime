@@ -394,6 +394,11 @@ class BaseServiceSettings(BaseSettings):
     # a person presses Stop. Temporal's own default is 0.8 of the heartbeat timeout.
     activity_heartbeat_throttle_s: int = Field(default=2, ge=1, le=60)
     sandbox_ensure_timeout_s: int = Field(default=30, ge=1)
+    # What every outbound request names itself as. A site owner reads this in their logs,
+    # so an install that reads public pages puts a contact address in it.
+    http_user_agent: str = "agentic-runtime"
+    # How many requests a minute the page tools send to one host, across every tenant.
+    fetch_per_host_per_minute: int = Field(default=30, ge=1)
     # The mail server the product sends through: invitations, and a routine's result when
     # its delivery names no email integration. An empty host means no mail is sent.
     smtp_host: str = ""

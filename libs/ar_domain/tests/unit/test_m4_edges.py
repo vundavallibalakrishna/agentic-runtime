@@ -306,12 +306,7 @@ def test_handlers_cover_each_builtin() -> None:
             }
         },
         data_connections={},
-        tenant_settings={
-            demo_id("tenant"): {
-                "features": {"web_fetch": True},
-                "egress_allowlist": ["example.com"],
-            }
-        },
+        tenant_settings={demo_id("tenant"): {"egress_allowlist": ["example.com"]}},
     )
     assert dispatch(store, "memory://nowhere", "x", {}, "")["code"] == "upstream_error"
     assert dispatch(store, "memory://tickets", "create_ticket", {"title": "a"}, "")["code"] == (
@@ -356,15 +351,11 @@ def test_handlers_cover_each_builtin() -> None:
     history = dispatch(store, "builtin://conversations", "search", {"query": "stapler", **me}, "")
     assert "stapler" in history["text"]
     who = {"_tenant_id": tenant}
-    page = dispatch(store, "builtin://web", "fetch", {"url": "https://example.com/page", **who}, "")
-    assert page["is_error"] is False
     blocked = dispatch(
-        store, "builtin://web", "fetch", {"url": "https://evil.example/x", **who}, ""
+        store, "builtin://web", "discover", {"url": "https://evil.example/x", **who}, ""
     )
     assert blocked["code"] == "egress_denied"
-    assert dispatch(store, "builtin://web", "fetch", {"url": "http://example.com", **who}, "")[
-        "is_error"
-    ]
+    assert dispatch(store, "builtin://web", "fetch", {**who}, "")["code"] == "unknown_tool"
     plan = dispatch(
         store,
         "builtin://session",

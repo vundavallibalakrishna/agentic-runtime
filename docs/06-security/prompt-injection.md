@@ -17,7 +17,7 @@ Principle: **model output is a proposal; tool output is data.** No text that rea
 2. Approvals bind to the exact canonical arguments (`args_hash`) and show the full arguments and rendered preview to a human ([ADR-0015](../02-architecture/adr/ADR-0015-approval-args-hash.md)).
 3. On-behalf-of identity: the agent can only do what the user can do.
 4. `W3` is never auto-allowed; standing approvals never cover `W3`.
-5. Egress control on sandboxes and `web.fetch`; markdown link/image filtering on rendered output (§6).
+5. Egress control on sandboxes and the page tools (`general.fetch`, `web.discover`); markdown link/image filtering on rendered output (§6).
 6. Delivery tools are never offered to the model; routine delivery targets come from configuration.
 7. Secrets never enter prompts.
 8. Eval runs never execute `W2`/`W3` tools.
@@ -72,7 +72,7 @@ Guardrail decisions are recorded in `run_steps.detail.guardrails` (category, act
 ## 6. Exfiltration via images, links and tools
 
 - Rendered Markdown (web, email, Slack, Teams) drops remote images unless the host is in the tenant `egress_allowlist` or is the platform origin (files API); links are rendered with visible full URLs on hover and `rel="noopener noreferrer nofollow"`; links whose query strings exceed 200 characters or contain base64-like segments ≥ 40 chars are rendered as plain text with a warning icon.
-- `web.fetch`, browser navigation and sandbox egress are allowlisted; URLs built from conversation data are visible in tool-call cards.
+- `general.fetch`, `web.discover`, browser navigation and sandbox egress are allowlisted; URLs built from conversation data are visible in tool-call cards.
 - Approval previews show every argument (no truncation in the approval detail view).
 - PII redaction (tenant feature `pii_redaction`, default on) applies to tool results that are not document analysis, and to delivery tool payloads sent outside the tenant (email to external domains, webhooks). Document analysis keeps dates, locations and control ids unless `features.document_analysis_redaction` or the agent `safety.pii_masking` flag is on. See [mcp-integration §7](../05-contracts/mcp-integration.md).
 

@@ -41,7 +41,7 @@ def test_a_new_store_holds_no_tenant() -> None:
     assert store.tool_servers
     assert {row.get("tenant_id") for row in store.tool_servers.values()} == {None}
     slugs = {str(row["slug"]) for row in store.tool_servers.values()}
-    assert not slugs & {"tickets", "petstore", "warehouse", "web"}
+    assert not slugs & {"tickets", "petstore", "warehouse"}
 
 
 def test_the_test_library_builds_the_demo_tenant() -> None:
