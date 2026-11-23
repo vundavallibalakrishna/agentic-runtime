@@ -31,6 +31,8 @@ async def save_shared_rows(session: AsyncSession, pending: dict[str, list[dict[s
     await save_review_items(session, pending.get("review_items", []))
     await save_signoffs(session, pending.get("signoffs", []))
     await save_saved_queries(session, pending.get("saved_queries", []))
+    await save_installed_packs(session, pending.get("packs", []))
+    await save_pack_resources(session, pending.get("pack_resources", []))
 
 
 async def load_shared_rows(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
@@ -69,6 +71,20 @@ async def load_shared_rows(session: AsyncSession, store: object, tenant_id: uuid
         store,
         "saved_queries",
         "SELECT * FROM saved_queries WHERE tenant_id = :tenant_id",
+        tenant_id,
+    )
+    await _load(
+        session,
+        store,
+        "packs",
+        "SELECT * FROM installed_packs WHERE tenant_id = :tenant_id ORDER BY installed_at",
+        tenant_id,
+    )
+    await _load(
+        session,
+        store,
+        "pack_resources",
+        "SELECT * FROM installed_pack_resources WHERE tenant_id = :tenant_id",
         tenant_id,
     )
 
@@ -306,6 +322,78 @@ async def save_saved_queries(session: AsyncSession, rows: list[dict[str, Any]]) 
                 "description": as_text(row.get("description"), ""),
                 "content_hash": as_text(row.get("content_hash"), "0"),
                 "created_by_user_id": author,
+                "created_at": as_dt(row.get("created_at")) or utcnow(),
+            },
+        )
+
+
+async def save_installed_packs(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    """Record each installed pack version. Only its status changes afterwards."""
+    sql = """
+        INSERT INTO installed_packs (
+            id, tenant_id, pack_id, version, status, manifest, manifest_hash, signature,
+            signature_key_id, installed_by, installed_at
+        ) VALUES (
+            :id, :tenant_id, :pack_id, :version, :status, CAST(:manifest AS jsonb),
+            :manifest_hash, :signature, :signature_key_id, :installed_by, :installed_at
+        )
+        ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status
+    """
+    for row in rows:
+        row_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        pack_id = as_text(row.get("pack_id"))
+        if row_id is None or tenant_id is None or not pack_id:
+            continue
+        status = as_text(row.get("status"), "installed")
+        await _one(
+            session,
+            sql,
+            {
+                "id": row_id,
+                "tenant_id": tenant_id,
+                "pack_id": pack_id,
+                "version": as_text(row.get("version"), "0.0.0"),
+                "status": status if status in {"installed", "uninstalled"} else "installed",
+                "manifest": as_json(row.get("manifest"), {}),
+                "manifest_hash": as_text(row.get("manifest_hash")),
+                "signature": row.get("signature")
+                if isinstance(row.get("signature"), str)
+                else None,
+                "signature_key_id": row.get("signature_key_id")
+                if isinstance(row.get("signature_key_id"), str)
+                else None,
+                "installed_by": as_uuid(row.get("installed_by")),
+                "installed_at": as_dt(row.get("installed_at")) or utcnow(),
+            },
+        )
+
+
+async def save_pack_resources(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    """Record which resources a pack install made, so an upgrade or uninstall finds them."""
+    sql = """
+        INSERT INTO installed_pack_resources (
+            id, tenant_id, pack_row_id, kind, slug, resource_id, created_at
+        ) VALUES (:id, :tenant_id, :pack_row_id, :kind, :slug, :resource_id, :created_at)
+        ON CONFLICT (id) DO NOTHING
+    """
+    for row in rows:
+        link_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        pack_row_id = as_uuid(row.get("pack_row_id"))
+        resource_id = as_uuid(row.get("resource_id"))
+        if None in {link_id, tenant_id, pack_row_id, resource_id}:
+            continue
+        await _one(
+            session,
+            sql,
+            {
+                "id": link_id,
+                "tenant_id": tenant_id,
+                "pack_row_id": pack_row_id,
+                "kind": as_text(row.get("kind")),
+                "slug": as_text(row.get("slug")),
+                "resource_id": resource_id,
                 "created_at": as_dt(row.get("created_at")) or utcnow(),
             },
         )

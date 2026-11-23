@@ -127,6 +127,12 @@ def _url(store: Any) -> str:
     return os.environ.get("AR_OPA_URL", "")
 
 
+def _routine_ref(run: object) -> str | None:
+    """The routine that started the run, as text: the input is sent to OPA as JSON."""
+    found = run.get("routine_id") if isinstance(run, dict) else None
+    return None if found is None else str(found)
+
+
 def _timeout(store: Any) -> float:
     raw = getattr(store, "opa_timeout_ms", None)
     if raw is None:
@@ -256,7 +262,7 @@ def _input(
             "trigger": "chat" if not isinstance(run, dict) else str(run.get("trigger") or "chat"),
             "channel": "web",
             "depth": 0,
-            "routine_id": None if not isinstance(run, dict) else run.get("routine_id"),
+            "routine_id": _routine_ref(run),
         },
         "user": {
             "id": str(user_id or ""),

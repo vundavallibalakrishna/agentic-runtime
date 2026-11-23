@@ -74,3 +74,36 @@ def test_a_new_routine_adds_no_limit_until_someone_sets_one() -> None:
     held = _budget(store, _run_of(store, uuid.UUID(str(tight["id"]))))
     assert held["max_tool_calls"] == 2
     assert held["max_steps"] == agents_own["max_steps"]
+
+
+def test_a_routines_run_is_started_with_the_step_allowance_of_its_budget() -> None:
+    store = demo_store()
+    actor = _actor()
+    agent = store.ensure_assistant(actor.tenant_id, actor.user_id)
+    made = RoutineBook(store).create(
+        actor,
+        {
+            "name": "Stepped",
+            "agent_id": agent["id"],
+            "instructions": "Say hello.",
+            "trigger": {"type": "manual"},
+        },
+    )
+    routine_id = uuid.UUID(str(made["id"]))
+    accepted = accept_routine_event(
+        store,
+        routine_id=routine_id,
+        source="manual",
+        idempotency_key=uuid.uuid4().hex,
+        envelope={"type": "manual"},
+    )
+    prepared = prepare_routine_run(store, routine_id, uuid.UUID(str(accepted["event_id"])))
+    run = store.runs[uuid.UUID(str(prepared["run_id"]))]
+    limits = _budget(store, run)
+    carried = prepared["workflow"]
+    assert carried["run_id"] == prepared["run_id"]  # type: ignore[index]
+    # One activity per model call and up to two per tool call, as for a chat turn.
+    assert carried["max_steps"] == limits["max_steps"] + 2 * limits["max_tool_calls"]  # type: ignore[index]
+    # Asking again for a run that is already open gives the same allowance.
+    again = prepare_routine_run(store, routine_id, uuid.UUID(str(accepted["event_id"])))
+    assert again["workflow"] == carried
