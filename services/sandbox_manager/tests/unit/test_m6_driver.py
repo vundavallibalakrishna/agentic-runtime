@@ -103,6 +103,50 @@ def test_egress_helper_reads_the_auth_note() -> None:
     assert host == "example.com"
 
 
+def test_egress_helper_signs_its_question_and_keeps_the_token_out_of_the_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Certification run 9: the proxy asked the manager unsigned and was refused, so no
+    page loaded; and the token it sent was in the address, which an access log keeps."""
+    import importlib.util
+
+    from ar_common.internal_auth import verify_request
+
+    path = _SQUID / "ar-egress-helper.py"
+    spec = importlib.util.spec_from_file_location("ar_egress_helper_signing", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    asked: list[object] = []
+
+    class _Answer:
+        status = 200
+
+        def __enter__(self) -> _Answer:
+            return self
+
+        def __exit__(self, *_a: object) -> None:
+            return None
+
+    def urlopen(request: object, timeout: float) -> _Answer:
+        del timeout
+        asked.append(request)
+        return _Answer()
+
+    monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
+    monkeypatch.setenv("AR_INTERNAL_AUTH_SECRET", "install-secret")
+    monkeypatch.setattr(module.urllib.request, "urlopen", urlopen)
+    assert module.verdict("12345678-aaaa-bbbb-cccc-ddddeeeeffff:deadbeef", "example.com") == "OK"
+    [request] = asked
+    address = request.full_url  # type: ignore[attr-defined]
+    assert "deadbeef" not in address
+    assert address.startswith("http://sandbox-manager:8003/internal/v1/egress/check?")
+    headers = {key.lower(): value for key, value in request.header_items()}  # type: ignore[attr-defined]
+    assert headers["x-ar-sandbox-token"] == "deadbeef"
+    # The manager accepts the signature as it accepts any other internal caller's.
+    verify_request("install-secret", "GET", "/internal/v1/egress/check", headers["x-ar-internal"])
+
+
 def test_no_image_says_which_setting_to_change(monkeypatch: pytest.MonkeyPatch) -> None:
     from ar_domain.sandboxes.manager_launch import NoSandboxImage, docker_launcher
 

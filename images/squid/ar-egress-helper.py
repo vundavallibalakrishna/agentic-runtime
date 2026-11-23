@@ -26,14 +26,15 @@ def verdict(login: str, host: str) -> str:
     if not base or ":" not in login or not host:
         return "ERR"
     sandbox_id, token = login.split(":", 1)
-    query = urllib.parse.urlencode({"sandbox_id": sandbox_id, "host": host, "token": token})
+    # The token travels in a header. An address is written to access logs; a header is not.
+    query = urllib.parse.urlencode({"sandbox_id": sandbox_id, "host": host})
     path = "/internal/v1/egress/check"
     secret = os.environ.get("AR_INTERNAL_AUTH_SECRET", "")
     stamp = str(int(time.time()))
     digest = hmac.new(secret.encode(), f"{stamp}.GET.{path}".encode(), hashlib.sha256).hexdigest()
     request = urllib.request.Request(  # noqa: S310 - manager URL is operator config
         f"{base}{path}?{query}",
-        headers={"X-AR-Internal": f"{stamp}.{digest}"},
+        headers={"X-AR-Internal": f"{stamp}.{digest}", "X-AR-Sandbox-Token": token},
     )
     try:
         with urllib.request.urlopen(request, timeout=2) as response:  # noqa: S310

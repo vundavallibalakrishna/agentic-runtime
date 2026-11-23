@@ -88,7 +88,7 @@ Allowed callers: `mcp-gateway`, `api`, `system-worker` (and `squid` for `/intern
 | GET | `/internal/v1/sandboxes/{sandbox_id}/files?path=` | List workspace files (for the UI computer panel, proxied by `api`). |
 | GET | `/internal/v1/sandboxes/{sandbox_id}/files/content?path=` | Stream a workspace file (≤ 100 MiB). |
 | POST | `/internal/v1/sandboxes/{sandbox_id}/files:export` | Store a workspace file as an artifact (`files.kind='artifact'`) → `{file_id}` |
-| GET | `/internal/v1/egress/check?sandbox_id=&host=&token=` | Squid external ACL helper: 200 allow / 403 deny (caller: `squid`) |
+| GET | `/internal/v1/egress/check?sandbox_id=&host=` with the computer's token in the `X-AR-Sandbox-Token` header (a header is not written to an access log) | Squid external ACL helper: 200 allow / 403 deny (caller: `squid`) |
 | GET | `/healthz`, `/readyz`, `/metrics` | |
 
 ## 5. `sandbox-agent` (inside the sandbox, `http://<sandbox-ip>:8080`)
