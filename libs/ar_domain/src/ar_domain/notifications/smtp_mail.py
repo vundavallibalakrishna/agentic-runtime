@@ -1,4 +1,9 @@
-"""One SMTP attempt. The worker activity retries with backoff. The body is not logged."""
+"""The one place the product sends mail from: one SMTP attempt, and the install's server.
+
+Invitations, password resets, notices and a routine's email delivery all send through
+``send_smtp``. ``install_server`` is the mail server the install is set to use
+(``AR_SMTP_*``). The body is never logged.
+"""
 
 from __future__ import annotations
 
@@ -43,3 +48,46 @@ def send_smtp(message: dict[str, Any]) -> str:
             client.login(username, str(message.get("password") or ""))
         client.send_message(mail)
     return str(mail["Message-ID"])
+
+
+def install_server() -> dict[str, object]:
+    """The install's own mail server, as ``send_smtp`` takes it. An empty host means none."""
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    settings = get_settings()
+    return {
+        "host": settings.smtp_host,
+        "port": settings.smtp_port,
+        "from": settings.smtp_from,
+        "username": settings.smtp_username,
+        "password": settings.smtp_password.get_secret_value(),
+        "starttls": settings.smtp_starttls,
+    }
+
+
+def mail_is_set_up() -> bool:
+    """Whether this install has a mail server to send through."""
+    return bool(install_server()["host"])
+
+
+def send_install_mail(to: str, subject: str, body: str) -> dict[str, str]:
+    """Send one message through the install's server, and say what happened.
+
+    ``result`` is ``sent`` or ``failed``; a failure carries a ``reason`` a person can act
+    on. Nothing is raised: a caller that must not reveal whether an address exists decides
+    what to say.
+    """
+    server = install_server()
+    if not server["host"]:
+        return {
+            "result": "failed",
+            "reason": "No mail server is set. An administrator sets AR_SMTP_HOST.",
+        }
+    try:
+        message_id = send_smtp({**server, "to": to, "subject": subject, "body": body})
+    except OSError as exc:  # a refusal by the server is an OSError too
+        return {
+            "result": "failed",
+            "reason": f"The mail server refused the message ({type(exc).__name__}).",
+        }
+    return {"result": "sent", "message_id": message_id}

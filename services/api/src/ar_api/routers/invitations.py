@@ -1,14 +1,15 @@
 """Invitations. Spec: docs/03-specs/02-identity-tenancy.md §3.4."""
 
+import asyncio
 import uuid
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from pydantic import Field
 
 from ar_api.deps import IdentityDep, expose, require_permission
 from ar_contracts.api_model import ApiModel
-from ar_domain.identity.mail import send_email
 from ar_domain.identity.tokens import sha256_hex
+from ar_domain.notifications.smtp_mail import send_install_mail
 
 router = APIRouter()
 
@@ -38,14 +39,14 @@ async def list_invitations(identity: IdentityDep) -> dict[str, object]:
 @router.post("/api/v1/invitations", dependencies=[Depends(require_permission("users:manage"))])
 @expose(public=False, permission="users:manage")
 async def create_invitations(
-    body: InvitationCreate, identity: IdentityDep, request: Request
+    body: InvitationCreate, identity: IdentityDep
 ) -> list[dict[str, object]]:
     created = await identity.invite(body.emails, body.role_keys)
-    settings = request.app.state.settings
     sent: list[dict[str, object]] = []
     for row, token in created:
-        _send(settings, row.email, token)
-        sent.append(_invite(row) | {"token": token})
+        mailed = await asyncio.to_thread(_send, row.email, token)
+        # The invitation exists either way; the caller is told whether its mail went out.
+        sent.append(_invite(row) | {"token": token, "mail": mailed})
     return sent
 
 
@@ -66,21 +67,6 @@ async def accept_invitation(token: str, identity: IdentityDep) -> dict[str, str]
     return {"email": row.email, "status": "accepted"}
 
 
-def _send(settings: object, email: str, token: str) -> None:
-    host = str(getattr(settings, "smtp_host", ""))
-    if not host:
-        return
-    try:
-        send_email(
-            host=host,
-            port=int(getattr(settings, "smtp_port", 1025)),
-            sender=str(getattr(settings, "smtp_from", "noreply@localhost")),
-            recipient=email,
-            subject="You are invited to Cura Works",
-            body=f"Open /invite/{token} to join.",
-            username=str(getattr(settings, "smtp_username", "")),
-            password=getattr(settings, "smtp_password", ""),
-            starttls=bool(getattr(settings, "smtp_starttls", False)),
-        )
-    except OSError:
-        return
+def _send(email: str, token: str) -> dict[str, str]:
+    """Mail one invitation through the install's server and say what happened."""
+    return send_install_mail(email, "You are invited", f"Open /invite/{token} to join.")

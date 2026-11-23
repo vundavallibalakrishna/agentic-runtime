@@ -13,15 +13,20 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   async function submit() {
     setBusy(true);
+    setError("");
     try {
       await api("/api/v1/auth/password-reset", {
         method: "POST",
         body: JSON.stringify({ email }),
       });
       setSent(true);
+    } catch (caught) {
+      // For example an install with no mail server: the API says so in words.
+      setError(caught instanceof Error ? caught.message : t("forgotFailed"));
     } finally {
       setBusy(false);
     }
@@ -58,6 +63,11 @@ export default function ForgotPasswordPage() {
               value={email}
             />
           </div>
+          {error ? (
+            <p className="text-sm text-[var(--destructive)]" role="alert">
+              {error}
+            </p>
+          ) : null}
           <Button className="h-10 w-full" disabled={busy} type="submit">
             {t("forgotSubmit")}
           </Button>

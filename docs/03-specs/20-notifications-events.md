@@ -105,6 +105,8 @@ POST JSON envelope with headers (`X-AR-Signature`, `X-AR-Event-Id`, `X-AR-Topic`
 | `AR_SMTP_USERNAME` / `AR_SMTP_PASSWORD` | |
 | `AR_SMTP_FROM` | `Cura Works <no-reply@localhost>` |
 | `AR_SMTP_STARTTLS` | `false` (dev) |
+
+**One sender.** Everything the product mails goes through `ar_domain.notifications.smtp_mail`: `send_smtp` makes one SMTP attempt, and `send_install_mail(to, subject, body)` sends through the install's own server (`AR_SMTP_*`) and returns `{result: sent | failed, reason?}` without raising. Password reset, invitations, a notice to a person and a routine's email delivery all use it. With no `AR_SMTP_HOST` nothing is sent and the result says so; no caller records a mail as sent that was not. There is no mail queue and no workflow for mail: the worker-side `NotificationEmailWorkflow` was registered and never started, and is removed ([OQ-183](../open-questions.md)).
 | `AR_OUTBOX_BATCH_SIZE` | `500` |
 | `AR_WEBHOOK_ALLOW_PRIVATE` | `false` |
 

@@ -103,7 +103,7 @@ export const switchTenantApiV1AuthSwitchTenantPost = <ThrowOnError extends boole
 /**
  * Password Reset
  *
- * Accept a reset request. The response does not say whether the address exists.
+ * Mail a reset link. The response does not say whether the address can sign in.
  */
 export const passwordResetApiV1AuthPasswordResetPost = <ThrowOnError extends boolean = false>(options?: Options<PasswordResetApiV1AuthPasswordResetPostData, ThrowOnError>): RequestResult<PasswordResetApiV1AuthPasswordResetPostResponses, PasswordResetApiV1AuthPasswordResetPostErrors, ThrowOnError> => (options?.client ?? client).post<PasswordResetApiV1AuthPasswordResetPostResponses, PasswordResetApiV1AuthPasswordResetPostErrors, ThrowOnError>({
     url: '/api/v1/auth/password-reset',
@@ -116,6 +116,8 @@ export const passwordResetApiV1AuthPasswordResetPost = <ThrowOnError extends boo
 
 /**
  * Password Reset Confirm
+ *
+ * Set the new password for the person the token was mailed to.
  */
 export const passwordResetConfirmApiV1AuthPasswordResetConfirmPost = <ThrowOnError extends boolean = false>(options?: Options<PasswordResetConfirmApiV1AuthPasswordResetConfirmPostData, ThrowOnError>): RequestResult<PasswordResetConfirmApiV1AuthPasswordResetConfirmPostResponses, PasswordResetConfirmApiV1AuthPasswordResetConfirmPostErrors, ThrowOnError> => (options?.client ?? client).post<PasswordResetConfirmApiV1AuthPasswordResetConfirmPostResponses, PasswordResetConfirmApiV1AuthPasswordResetConfirmPostErrors, ThrowOnError>({
     url: '/api/v1/auth/password-reset/confirm',

@@ -1,97 +1,83 @@
-"""Self-service password reset. The token is mailed. Only its hash is stored."""
+"""Self-service password reset. The token is mailed in a link. Only its hash is stored.
+
+A reset is a row in ``password_resets`` and the new password is written to the user's
+row, both through the identity store, so the request and its completion can be served
+by different replicas and survive a restart.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
+
+from ar_common.errors import ArError, ErrorCode
+from ar_common.ids import new_id
+from ar_common.settings import get_settings
+from ar_common.time import utcnow
+from ar_domain.identity.passwords import hash_password
+from ar_domain.identity.recovery_tables import PasswordReset
 
 if TYPE_CHECKING:
     import uuid
 
-from ar_common.errors import ArError, ErrorCode
-from ar_common.ids import new_id
-from ar_common.time import utcnow
-from ar_domain.audit.actions import AuditAction
-from ar_domain.audit.memory import remember
-from ar_domain.identity.passwords import hash_password
+    from ar_domain.identity.models import User
+    from ar_domain.identity.service import IdentityStore
 
-_HOURS = 2
+_NOT_VALID = "This reset link is not valid. Ask for a new one."
 
 
-def request_reset(store: Any, email: str) -> None:
-    """Queue a reset when the address is known. Unknown addresses stay silent."""
-    person = _person(store, email)
-    if person is None:
-        return
+async def request_reset(identity: IdentityStore, email: str) -> str | None:
+    """Open a reset for the person with this address and return its token to be mailed.
+
+    None when nobody with a password has the address: the caller answers the same either
+    way, so the reply does not say whether an address can sign in. Only the token's hash
+    is stored, in ``password_resets``, so any replica can complete the reset.
+    """
+    user = await identity.get_user_by_email(email.strip().lower())
+    if user is None or not user.password_hash or user.status != "active":
+        return None
     token = secrets.token_urlsafe(32)
-    row_id = new_id()
-    _resets(store)[row_id] = {
-        "id": row_id,
-        "tenant_id": person["tenant_id"],
-        "user_id": person["user_id"],
-        "token_hash": _hash(token),
-        "expires_at": utcnow() + timedelta(hours=_HOURS),
-        "used_at": None,
-        "created_at": utcnow(),
-    }
-    deliver(
-        store,
-        {
-            "to": str(person["email"]),
-            "subject": "Reset your password",
-            "body": token,
-        },
-    )
-
-
-def confirm_reset(store: Any, token: str, password: str) -> dict[str, object]:
-    """Set a new password when the token is unused and unexpired."""
-    if len(password) < 8:
-        raise ArError(ErrorCode.VALIDATION_FAILED, "password is too short")
-    digest = _hash(token)
-    now = utcnow()
-    for row in _resets(store).values():
-        if row.get("token_hash") != digest or row.get("used_at") is not None:
-            continue
-        expires = row.get("expires_at")
-        if isinstance(expires, datetime) and expires < now:
-            raise ArError(ErrorCode.VALIDATION_FAILED, "reset token has expired")
-        person = _person_by_id(store, row.get("user_id"))
-        if person is None:
-            raise ArError(ErrorCode.VALIDATION_FAILED, "reset token is not valid")
-        person["password_hash"] = hash_password(password)
-        account: Any = person.get("user")
-        if account is not None:
-            account.password_hash = person["password_hash"]
-        row["used_at"] = now
-        remember(
-            store,
-            tenant_id=person["tenant_id"],
-            actor_id=person["user_id"],
-            action=AuditAction.AUTH_PASSWORD_RESET.value,
-            target_type="user",
-            target_id=person["user_id"],
-            detail={},
+    identity.add(
+        PasswordReset(
+            id=new_id(),
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            token_hash=_hash(token),
+            expires_at=utcnow() + timedelta(minutes=get_settings().password_reset_ttl_minutes),
         )
-        return {
-            "user_id": str(person["user_id"]),
-            "tenant_id": str(person["tenant_id"]),
-        }
-    raise ArError(ErrorCode.VALIDATION_FAILED, "reset token is not valid")
+    )
+    return token
 
 
-def deliver(store: Any, message: dict[str, str]) -> None:
-    """Hand a message to the outbox and to a configured mailer. The body is not logged."""
-    outbox = getattr(store, "outbox", None)
-    if not isinstance(outbox, list):
-        outbox = []
-        store.outbox = outbox
-    outbox.append(dict(message))
-    mailer = getattr(store, "mailer", None)
-    if callable(mailer):
-        mailer(dict(message))
+async def confirm_reset(identity: IdentityStore, token: str, password: str) -> User:
+    """Set a new password when the token is unused and unexpired. The token works once."""
+    shortest = get_settings().password_min_length
+    if len(password) < shortest:
+        raise ArError(
+            ErrorCode.VALIDATION_FAILED, f"The password needs at least {shortest} characters."
+        )
+    row = await identity.password_reset_by_hash(_hash(token))
+    if row is None or row.used_at is not None:
+        raise ArError(ErrorCode.VALIDATION_FAILED, _NOT_VALID)
+    if row.expires_at < utcnow():
+        raise ArError(
+            ErrorCode.VALIDATION_FAILED, "This reset link has expired. Ask for a new one."
+        )
+    user = await identity.get_user(row.user_id)
+    if user is None or user.status != "active":
+        raise ArError(ErrorCode.VALIDATION_FAILED, _NOT_VALID)
+    user.password_hash = hash_password(password)
+    user.password_set_at = utcnow()
+    row.used_at = utcnow()
+    await identity.audit_password_reset(user)
+    return user
+
+
+def reset_link(public_url: str, token: str) -> str:
+    """The address a person opens to choose a new password."""
+    return f"{public_url.rstrip('/')}/reset-password?token={token}"
 
 
 def remember_person(
@@ -133,23 +119,6 @@ def _people(store: Any) -> dict[str, dict[str, object]]:
         current = {}
         store.local_people = current
     return current
-
-
-def _resets(store: Any) -> dict[object, dict[str, object]]:
-    current = getattr(store, "password_resets", None)
-    if not isinstance(current, dict):
-        current = {}
-        store.password_resets = current
-    return current
-
-
-def _person(store: Any, email: str) -> dict[str, object] | None:
-    found = people_for(store, email)
-    return found[0] if len(found) == 1 else (found[0] if found else None)
-
-
-def _person_by_id(store: Any, user_id: object) -> dict[str, object] | None:
-    return _people(store).get(str(user_id))
 
 
 def _hash(token: str) -> str:

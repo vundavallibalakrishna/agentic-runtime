@@ -92,7 +92,18 @@
     "forgotTitle": "Reset your password",
     "forgotBody": "We will email a reset link if this address can sign in.",
     "forgotSent": "If the address can sign in, a reset message is on its way.",
-    "forgotSubmit": "Send reset"
+    "forgotSubmit": "Send reset",
+    "forgotFailed": "The reset could not be started. Try again.",
+    "resetTitle": "Choose a new password",
+    "resetBody": "Type the new password twice. The link in your mail works once.",
+    "resetNew": "New password",
+    "resetAgain": "New password again",
+    "resetSubmit": "Set password",
+    "resetDone": "Your password is changed. Sign in with the new one.",
+    "resetMismatch": "The two passwords are not the same.",
+    "resetFailed": "The password could not be changed.",
+    "resetNoToken": "This page needs the link from your reset mail.",
+    "resetAskAgain": "Ask for a new link"
   },
   "chat": {
     "product": "Cura Works",

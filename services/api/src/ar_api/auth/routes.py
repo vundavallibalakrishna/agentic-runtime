@@ -5,7 +5,9 @@ customer's OIDC provider (authorization code in the browser, JWKS for bearers).
 Spec: docs/03-specs/01-api-bff.md §3.
 """
 
+import asyncio
 import uuid
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Query, Request
@@ -27,10 +29,14 @@ from ar_common.errors import (
     UnauthenticatedError,
     UnavailableError,
 )
+from ar_common.logging import get_logger
+from ar_common.settings import get_settings
 from ar_common.time import utcnow
 from ar_common.web.problems import problem_response
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from ar_api.auth.session import SessionData
     from ar_domain.db.context import Principal
     from ar_domain.identity.service import IdentityStore
@@ -358,14 +364,39 @@ async def switch_tenant(request: Request, body: dict[str, str]) -> JSONResponse:
 @router.post("/api/v1/auth/password-reset")
 @expose(public=True, permission=None)
 async def password_reset(request: Request, body: dict[str, object] | None = None) -> JSONResponse:
-    """Accept a reset request. The response does not say whether the address exists."""
-    payload = body or {}
-    email = str(payload.get("email") or "").strip()
-    if email:
-        await _remember_signed_in_person(request, email)
-        from ar_domain.identity.recovery import request_reset  # noqa: PLC0415
+    """Mail a reset link. The response does not say whether the address can sign in."""
+    from ar_domain.identity.recovery import request_reset, reset_link  # noqa: PLC0415
+    from ar_domain.notifications.smtp_mail import (  # noqa: PLC0415
+        mail_is_set_up,
+        send_install_mail,
+    )
 
-        request_reset(request.app.state.chat, email)
+    if not mail_is_set_up():
+        # Said before any address is looked at, so it tells nothing about an account.
+        raise UnavailableError(
+            "This install cannot send mail, so it cannot mail a reset link. "
+            "Ask an administrator to set a new password for you."
+        )
+    email = str((body or {}).get("email") or "").strip()
+    token: str | None = None
+    if email:
+        async with _login_identity(request) as identity:
+            if identity is not None:
+                token = await request_reset(identity, email)
+    if token is not None:
+        link = reset_link(str(request.app.state.settings.public_url), token)
+        minutes = get_settings().password_reset_ttl_minutes
+        sent = await asyncio.to_thread(
+            send_install_mail,
+            email,
+            "Reset your password",
+            f"Open this link to choose a new password:\n\n{link}\n\n"
+            f"The link works once, for {minutes} minutes. If you did not ask for it, "
+            "ignore this message: your password has not changed.",
+        )
+        if sent["result"] != "sent":
+            # No address, no token, no reason text: only that a reset mail did not go out.
+            get_logger(__name__).warning("password_reset_mail_failed")
     return JSONResponse({"accepted": True})
 
 
@@ -374,14 +405,16 @@ async def password_reset(request: Request, body: dict[str, object] | None = None
 async def password_reset_confirm(
     request: Request, body: dict[str, object] | None = None
 ) -> JSONResponse:
-    payload = body or {}
+    """Set the new password for the person the token was mailed to."""
     from ar_domain.identity.recovery import confirm_reset  # noqa: PLC0415
 
-    confirm_reset(
-        request.app.state.chat,
-        str(payload.get("token") or ""),
-        str(payload.get("password") or ""),
-    )
+    payload = body or {}
+    async with _login_identity(request) as identity:
+        if identity is None:
+            raise UnavailableError("Sign-in is not available yet. Try again shortly.")
+        await confirm_reset(
+            identity, str(payload.get("token") or ""), str(payload.get("password") or "")
+        )
     return JSONResponse({"reset": True})
 
 
@@ -464,32 +497,23 @@ def _switch_result(request: Request, principal: object, tenant_id: str) -> dict[
     return None
 
 
-async def _remember_signed_in_person(request: Request, email: str) -> None:
-    """Copy the identity row onto the reset book so the mailed token can change it."""
+@asynccontextmanager
+async def _login_identity(request: Request) -> AsyncIterator[IdentityStore | None]:
+    """The identity rows of the tenant this install signs people in to, in one transaction.
+
+    None when the tenant cannot be found yet. The caller is nobody signed in, so the
+    rows are opened as the system, the same way sign-in opens them.
+    """
     from ar_api.auth.identity import _login_binding  # noqa: PLC0415
     from ar_api.deps import identity_store  # noqa: PLC0415
     from ar_domain.db.context import Principal as DomainPrincipal  # noqa: PLC0415
     from ar_domain.db.context import TenantContext  # noqa: PLC0415
-    from ar_domain.identity.recovery import remember_person  # noqa: PLC0415
 
-    try:
-        _store, binding, engine = await _login_binding(request)
-    except Exception:  # noqa: BLE001 - reset stays silent when identity is down
-        return
+    _store, binding, engine = await _login_binding(request)
     if binding is None:
+        yield None
         return
     principal = DomainPrincipal(kind="system", id="login", tenant_id=binding.tenant_id)
     ctx = TenantContext.from_principal(principal, str(getattr(request.state, "request_id", "")))
     async with identity_store(request, ctx, engine=engine) as identity:
-        user = await identity.get_user_by_email(email.strip().lower())
-    if user is None or not getattr(user, "password_hash", None):
-        return
-    remember_person(
-        request.app.state.chat,
-        email=user.email,
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        password_hash=str(user.password_hash),
-        display_name=str(getattr(user, "display_name", "") or ""),
-        user=user,
-    )
+        yield identity

@@ -2,11 +2,9 @@
 
 import asyncio
 import uuid
-from typing import Any
 
 import pytest
 
-from ar_domain.identity.mail import send_email
 from ar_domain.identity.seed import apply, ensure_admin, plan_limits
 from ar_testing.factories import tenant_factory, user_factory
 from ar_testing.tenancy import fill_path, paths_with_ids
@@ -101,40 +99,3 @@ def test_factories_and_path_helper() -> None:
     assert paths == ["/users/{user_id}"]
     assert fill_path("/users/{user_id}", user_id="u1") == "/users/u1"
     assert paths_with_ids({}) == []
-
-
-def test_send_email_uses_the_smtp_client(monkeypatch: Any) -> None:
-    sent: list[object] = []
-
-    class _Client:
-        def __init__(self, host: str, port: int, timeout: int) -> None:
-            del host, port, timeout
-
-        def __enter__(self) -> _Client:
-            return self
-
-        def __exit__(self, *exc: object) -> None:
-            return None
-
-        def starttls(self) -> None:
-            return None
-
-        def login(self, username: str, password: str) -> None:
-            del username, password
-
-        def send_message(self, message: object) -> None:
-            sent.append(message)
-
-    monkeypatch.setattr("ar_domain.identity.mail.smtplib.SMTP", _Client)
-    send_email(
-        host="localhost",
-        port=1025,
-        sender="from@dev.local",
-        recipient="to@dev.local",
-        subject="hi",
-        body="body",
-        username="mail",
-        password="mail",  # noqa: S106
-        starttls=True,
-    )
-    assert sent

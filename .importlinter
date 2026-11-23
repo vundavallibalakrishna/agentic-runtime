@@ -165,7 +165,6 @@ ignore_imports =
     ar_domain.connectors.mail -> imaplib
     ar_domain.connectors.dispatch -> smtplib
     ar_domain.notifications.smtp_mail -> smtplib
-    ar_domain.identity.mail -> smtplib
     ar_domain.tools.database -> psycopg
     ar_domain.tools.database -> pymysql
     ar_channels.email_channel -> aiosmtplib

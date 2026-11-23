@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select, text
 
+from ar_domain.audit.actions import AuditAction
 from ar_domain.audit.service import record, record_for_context
 from ar_domain.db import BaseRepository
 from ar_domain.events.service import emit
@@ -28,11 +29,11 @@ from ar_domain.identity.models import (
     TenantDomain,
     User,
 )
+from ar_domain.identity.recovery_tables import PasswordReset
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from ar_domain.audit.actions import AuditAction
     from ar_domain.db.context import TenantContext
 
 
@@ -336,6 +337,11 @@ class IdentityRepository(BaseRepository):
             select(Invitation).where(Invitation.token_hash == token_hash)
         )
 
+    async def password_reset_by_hash(self, token_hash: str) -> PasswordReset | None:
+        return await self.session.scalar(
+            select(PasswordReset).where(PasswordReset.token_hash == token_hash)
+        )
+
     async def list_domains(self) -> list[TenantDomain]:
         rows = await self.session.scalars(
             select(TenantDomain).where(TenantDomain.tenant_id == self.ctx.tenant_id)
@@ -403,6 +409,18 @@ class IdentityRepository(BaseRepository):
             actor_type="user",
             actor_id=str(user.id),
             action="auth.login",
+            target_type="user",
+            target_id=str(user.id),
+        )
+
+    async def audit_password_reset(self, user: User) -> None:
+        """Record a reset, with the person whose password changed as the actor."""
+        await record(
+            self.session,
+            tenant_id=self.ctx.tenant_id,
+            actor_type="user",
+            actor_id=str(user.id),
+            action=AuditAction.AUTH_PASSWORD_RESET.value,
             target_type="user",
             target_id=str(user.id),
         )

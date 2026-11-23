@@ -13,6 +13,7 @@ from ar_domain.chat.service import demo_id
 from ar_domain.identity.models import Plan, Role, RoleAssignment, Tenant, User
 from ar_domain.identity.passwords import hash_password
 from ar_domain.identity.permissions import SYSTEM_ROLE_PERMISSIONS
+from ar_domain.identity.recovery_tables import PasswordReset
 from ar_domain.identity.seed import DEV_PASSWORD, DEV_USERS, plan_limits
 from ar_domain.identity.service import IdentityService, IdentityStore
 from ar_domain.identity.tenant_settings import dev_tenant_settings
@@ -56,6 +57,7 @@ class MemoryIdentityStore:
             is_public=True,
             created_at=now,
         )
+        self.password_resets: dict[str, PasswordReset] = {}
         self.users = {
             demo_id(email.split("@", 1)[0]): User(
                 id=demo_id(email.split("@", 1)[0]),
@@ -128,6 +130,17 @@ class MemoryIdentityStore:
         return []
 
     async def audit_login(self, user: User) -> None:
+        del user
+
+    def add(self, row: object) -> None:
+        """Keep a new row. The memory store holds password resets; nothing else is added."""
+        if isinstance(row, PasswordReset):
+            self.password_resets[row.token_hash] = row
+
+    async def password_reset_by_hash(self, token_hash: str) -> PasswordReset | None:
+        return self.password_resets.get(token_hash)
+
+    async def audit_password_reset(self, user: User) -> None:
         del user
 
     async def audit(
