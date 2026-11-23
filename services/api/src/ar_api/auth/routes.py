@@ -418,6 +418,53 @@ async def password_reset_confirm(
     return JSONResponse({"reset": True})
 
 
+@router.post("/api/v1/auth/invitation")
+@expose(public=True, permission=None)
+async def invitation_details(
+    request: Request, body: dict[str, object] | None = None
+) -> JSONResponse:
+    """What a mailed invitation is for, so the page can say who is joining what."""
+    from ar_domain.identity.service import IdentityService  # noqa: PLC0415
+
+    async with _login_identity(request) as identity:
+        if identity is None:
+            raise UnavailableError("Sign-in is not available yet. Try again shortly.")
+        row = await IdentityService(identity).pending_invitation(_token(body))
+        tenant = await identity.get_tenant()
+    return JSONResponse(
+        {
+            "email": row.email,
+            "tenantName": str(getattr(tenant, "name", "") or ""),
+            "expiresAt": row.expires_at.isoformat(),
+        }
+    )
+
+
+@router.post("/api/v1/auth/invitation/accept")
+@expose(public=True, permission=None)
+async def invitation_accept(
+    request: Request, body: dict[str, object] | None = None
+) -> JSONResponse:
+    """Create the invited person with the name and password they chose."""
+    from ar_domain.identity.service import IdentityService  # noqa: PLC0415
+
+    payload = body or {}
+    async with _login_identity(request) as identity:
+        if identity is None:
+            raise UnavailableError("Sign-in is not available yet. Try again shortly.")
+        user = await IdentityService(identity).accept_invitation(
+            _token(body),
+            str(payload.get("displayName") or payload.get("display_name") or ""),
+            str(payload.get("password") or ""),
+        )
+    return JSONResponse({"accepted": True, "email": user.email})
+
+
+def _token(body: dict[str, object] | None) -> str:
+    """The token of a mailed link. It travels in the body, so it is not in any access log."""
+    return str((body or {}).get("token") or "")
+
+
 @router.post("/api/v1/auth/step-up")
 @expose(public=False, permission=None)
 async def step_up(request: Request, body: dict[str, object] | None = None) -> dict[str, str]:

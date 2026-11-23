@@ -2,13 +2,14 @@
 
 import asyncio
 import uuid
+from functools import partial
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import Field
 
 from ar_api.deps import IdentityDep, expose, require_permission
+from ar_common.settings import get_settings
 from ar_contracts.api_model import ApiModel
-from ar_domain.identity.tokens import sha256_hex
 from ar_domain.notifications.smtp_mail import send_install_mail
 
 router = APIRouter()
@@ -39,12 +40,19 @@ async def list_invitations(identity: IdentityDep) -> dict[str, object]:
 @router.post("/api/v1/invitations", dependencies=[Depends(require_permission("users:manage"))])
 @expose(public=False, permission="users:manage")
 async def create_invitations(
-    body: InvitationCreate, identity: IdentityDep
+    body: InvitationCreate, identity: IdentityDep, request: Request
 ) -> list[dict[str, object]]:
     created = await identity.invite(body.emails, body.role_keys)
+    tenant = await identity.store.get_tenant()
+    send = partial(
+        _send,
+        public_url=str(request.app.state.settings.public_url),
+        tenant=str(getattr(tenant, "name", "") or ""),
+        days=get_settings().invitation_ttl_days,
+    )
     sent: list[dict[str, object]] = []
     for row, token in created:
-        mailed = await asyncio.to_thread(_send, row.email, token)
+        mailed = await asyncio.to_thread(send, row.email, token)
         # The invitation exists either way; the caller is told whether its mail went out.
         sent.append(_invite(row) | {"token": token, "mail": mailed})
     return sent
@@ -60,13 +68,12 @@ async def revoke_invitation(invitation_id: uuid.UUID, identity: IdentityDep) -> 
     return {"revoked": True}
 
 
-@router.post("/api/v1/invitations/{token}:accept")
-@expose(public=True, permission=None)
-async def accept_invitation(token: str, identity: IdentityDep) -> dict[str, str]:
-    row = await identity.accept_invitation(sha256_hex(token), identity.ctx.principal.email or "")
-    return {"email": row.email, "status": "accepted"}
-
-
-def _send(email: str, token: str) -> dict[str, str]:
+def _send(email: str, token: str, *, public_url: str, tenant: str, days: int) -> dict[str, str]:
     """Mail one invitation through the install's server and say what happened."""
-    return send_install_mail(email, "You are invited", f"Open /invite/{token} to join.")
+    link = f"{public_url.rstrip('/')}/invite?token={token}"
+    return send_install_mail(
+        email,
+        f"You are invited to join {tenant}" if tenant else "You are invited",
+        f"Open this link to choose your name and password:\n\n{link}\n\n"
+        f"The link works once, for {days} days.",
+    )

@@ -85,13 +85,18 @@ Permission: `users:manage` + step-up. Starts `ErasureWorkflow` (DPDP erasure): d
 Permission: `users:manage`.
 
 #### POST /api/v1/invitations
-Permission: `users:manage`. Body `{emails: [string] (≤ 100), role_keys: [string]}`. For each email: inserts `invitations` (token hash, expires 7 days) and sends email via SMTP with link `/invite/{token}`; the invited person sets their password on accept. Response: list of `Invitation`.
+Permission: `users:manage`. Body `{emails: [string] (≤ 100), role_keys: [string]}`. For each email: inserts `invitations` (token hash, expiring after `AR_INVITATION_TTL_DAYS`, default 7) and mails a link to `{AR_PUBLIC_URL}/invite?token=…` through the install's mail sender. Response: list of `Invitation`, each with its `token` and `mail` (`{result: sent | failed, reason?}`), so the person who invited is told when a mail did not go out and can pass the link on.
 
 #### DELETE /api/v1/invitations/{invitation_id}
 Permission: `users:manage`. Revoke.
 
-#### POST /api/v1/invitations/{token}:accept
-Public (then redirects to login). Validates token and expiry; marks accepted on first successful login of that email in the tenant (role assignments applied then).
+#### POST /api/v1/auth/invitation
+Public. Body `{token}`. Returns `{email, tenantName, expiresAt}` for an invitation that can still be accepted, so the page can say who is joining what. An unknown, revoked, used or expired token is 422 with the reason. The token travels in the body, never in the address, so it is in no access log.
+
+#### POST /api/v1/auth/invitation/accept
+Public. Body `{token, displayName, password}`. Creates the person: a `users` row (active, the password as an argon2id hash), a tenant-scope `role_assignments` row for each role of the invitation that exists, `invitations.accepted_at`, and the audit event `user.provisioned` (`{via: invitation, roles}`), in one transaction. The person does not exist until this call, so nobody is signed in. The token works once. A password shorter than `AR_PASSWORD_MIN_LENGTH` is 422. An address that already has an account is 409 and nothing changes, so an invitation cannot be used to set someone else's password. The plan's user cap is checked again. Response `{accepted: true, email}`; the person then signs in on the sign-in page.
+
+The earlier `POST /api/v1/invitations/{token}:accept` is removed ([OQ-184](../open-questions.md)): it needed a signed-in person whose address matched, which an invited person cannot be, and it put the token in the address.
 
 ### 3.5 Groups
 

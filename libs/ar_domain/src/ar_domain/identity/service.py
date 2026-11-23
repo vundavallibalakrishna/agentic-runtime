@@ -12,6 +12,8 @@ from ar_common.errors import (
     NotFoundError,
     ValidationFailedError,
 )
+from ar_common.ids import new_id
+from ar_common.settings import get_settings
 from ar_common.time import utcnow
 from ar_contracts.tenants import PlanLimits, TenantSettings, UserSettings
 from ar_domain.audit.actions import AuditAction
@@ -39,6 +41,7 @@ from ar_domain.identity.models import (
     TenantDomain,
     User,
 )
+from ar_domain.identity.passwords import hash_password
 from ar_domain.identity.permissions import PERMISSION_KEYS, SYSTEM_ROLE_NAMES
 from ar_domain.identity.plan_limits import LimitContext, check
 from ar_domain.identity.resolver import RoleGrant, resolve_access
@@ -50,6 +53,7 @@ from ar_domain.identity.tokens import (
     new_split_api_key,
     rotate_legacy_secret,
     rotate_split_secret,
+    sha256_hex,
 )
 
 if TYPE_CHECKING:
@@ -244,7 +248,7 @@ class IdentityService:
                 role_keys=role_keys or ["member"],
                 token_hash=digest,
                 invited_by=self.ctx.user_id,
-                expires_at=utcnow() + timedelta(days=7),
+                expires_at=utcnow() + timedelta(days=get_settings().invitation_ttl_days),
             )
             self.store.add(row)
             created.append((row, raw))
@@ -280,16 +284,78 @@ class IdentityService:
             raise NotFoundError("invitation not found")
         row.revoked_at = utcnow()
 
-    async def accept_invitation(self, token_hash: str, email: str) -> Invitation:
-        row = await self.store.invitation_by_hash(token_hash)
-        if row is None or row.revoked_at is not None or row.accepted_at is not None:
-            raise NotFoundError("invitation not found")
+    async def pending_invitation(self, token: str) -> Invitation:
+        """The invitation a mailed token belongs to, when it can still be accepted."""
+        row = await self.store.invitation_by_hash(sha256_hex(token))
+        if row is None or row.revoked_at is not None:
+            raise ArError(
+                ErrorCode.VALIDATION_FAILED,
+                "This invitation is not valid. Ask the person who invited you for a new one.",
+            )
+        if row.accepted_at is not None:
+            raise ArError(
+                ErrorCode.VALIDATION_FAILED, "This invitation has already been used. Sign in."
+            )
         if row.expires_at < utcnow():
-            raise ArError(ErrorCode.INVALID_STATE, "invitation expired")
-        if row.email.lower() != email.lower():
-            raise ForbiddenError("invitation email does not match")
-        row.accepted_at = utcnow()
+            raise ArError(
+                ErrorCode.VALIDATION_FAILED,
+                "This invitation has expired. Ask the person who invited you for a new one.",
+            )
         return row
+
+    async def accept_invitation(self, token: str, display_name: str, password: str) -> User:
+        """Create the invited person, with the password they chose and the roles they were given.
+
+        The person does not exist until they accept, so nobody has to be signed in. The
+        token works once. An address that already has an account is refused, so an
+        invitation cannot be used to change someone's password.
+        """
+        row = await self.pending_invitation(token)
+        shortest = get_settings().password_min_length
+        if len(password) < shortest:
+            raise ValidationFailedError(f"The password needs at least {shortest} characters.")
+        address = row.email.strip().lower()
+        if await self.store.get_user_by_email(address) is not None:
+            raise ConflictError(
+                "This address already has an account. Sign in, or reset the password."
+            )
+        await self._enforce_user_cap(1)
+        user = User(
+            id=new_id(),
+            tenant_id=row.tenant_id,
+            idp_subject=address,
+            email=address,
+            display_name=display_name.strip()[:200] or address.split("@", 1)[0],
+            status="active",
+            password_hash=hash_password(password),
+            password_set_at=utcnow(),
+        )
+        self.store.add(user)
+        granted: list[str] = []
+        for key in row.role_keys:
+            role = await self.store.get_role_by_key(key)
+            if role is None:
+                continue
+            self.store.add(
+                RoleAssignment(
+                    tenant_id=row.tenant_id,
+                    role_id=role.id,
+                    principal_type="user",
+                    principal_id=user.id,
+                    scope_type="tenant",
+                    created_by=row.invited_by,
+                )
+            )
+            granted.append(key)
+        row.accepted_at = utcnow()
+        await self.store.audit(
+            AuditAction.USER_PROVISIONED,
+            "user",
+            str(user.id),
+            {"via": "invitation", "roles": granted},
+        )
+        await self.store.emit("membership.changed", {"user_id": str(user.id), "op": "invited"})
+        return user
 
     async def create_group(self, name: str) -> Group:
         row = Group(tenant_id=self.ctx.tenant_id, name=name, source="local")

@@ -9,15 +9,12 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-T = TypeVar(
-    "T",
-    bound="AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost",
-)
+T = TypeVar("T", bound="InvitationDetailsApiV1AuthInvitationPostBodyType0")
 
 
 @_attrs_define
-class AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost:
-    additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
+class InvitationDetailsApiV1AuthInvitationPostBodyType0:
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
 
@@ -29,19 +26,19 @@ class AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApi
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        accept_invitation_api_v1_invitations_token_accept_post_response_accept_invitation_api_v1_invitations_token_accept_post = cls()
+        invitation_details_api_v1_auth_invitation_post_body_type_0 = cls()
 
-        accept_invitation_api_v1_invitations_token_accept_post_response_accept_invitation_api_v1_invitations_token_accept_post.additional_properties = d
-        return accept_invitation_api_v1_invitations_token_accept_post_response_accept_invitation_api_v1_invitations_token_accept_post
+        invitation_details_api_v1_auth_invitation_post_body_type_0.additional_properties = d
+        return invitation_details_api_v1_auth_invitation_post_body_type_0
 
     @property
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> str:
+    def __getitem__(self, key: str) -> Any:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: str) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

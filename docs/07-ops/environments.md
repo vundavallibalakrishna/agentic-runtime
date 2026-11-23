@@ -140,6 +140,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_INTERNAL_AUTH_SECRET` | (unset) | Shared HMAC for `sandbox-manager`, `mcp-gateway`, and `/metrics`. Empty fails closed | [internal-apis](../05-contracts/internal-apis.md) |
 | `AR_INTERNAL_JWT_JWKS` | `http://api:8000/internal/v1/.well-known/jwks.json` | JWKS URL or inline JSON for verifying internal JWTs | [internal-apis](../05-contracts/internal-apis.md) |
 | `AR_INTERNAL_JWT_PRIVATE_KEY` | (required) | Ed25519 PEM for signing internal service JWTs; mounted Secret | [authn-authz §8](../06-security/authn-authz.md) |
+| `AR_INVITATION_TTL_DAYS` | `7` | How long a mailed invitation can be accepted | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_KNOWLEDGE_FETCH_MAX_BYTES` | `2000000` | Characters kept from one fetched page. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_MIN_SCORE` | (unset) | Install default for chat retrieval. A chunk must clear this rerank or similarity score. The agent and the tenant can override it | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_RERANK_CANDIDATES` | `50` | Candidates passed to the reranker | [spec 10](../03-specs/10-knowledge.md) |

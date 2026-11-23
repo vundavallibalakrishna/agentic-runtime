@@ -56,7 +56,6 @@ Spec: [02-identity-tenancy.md](../03-specs/02-identity-tenancy.md)
 | GET | [`/api/v1/invitations`](../03-specs/02-identity-tenancy.md#get-apiv1invitations) | `users:manage` | 3. Public API |
 | POST | [`/api/v1/invitations`](../03-specs/02-identity-tenancy.md#post-apiv1invitations) | `users:manage` | 3. Public API |
 | DELETE | [`/api/v1/invitations/{invitation_id}`](../03-specs/02-identity-tenancy.md#delete-apiv1invitationsinvitation_id) | `users:manage` | 3. Public API |
-| POST | [`/api/v1/invitations/{token}:accept`](../03-specs/02-identity-tenancy.md#post-apiv1invitationstokenaccept) | `users:manage` | 3. Public API |
 | GET | [`/api/v1/groups`](../03-specs/02-identity-tenancy.md#get-apiv1groups) | `users:read` | 3. Public API |
 | POST | [`/api/v1/groups`](../03-specs/02-identity-tenancy.md#post-apiv1groups) | `users:manage` | 3. Public API |
 | DELETE | [`/api/v1/groups/{group_id}`](../03-specs/02-identity-tenancy.md#delete-apiv1groupsgroup_id) | `users:manage` | 3. Public API |
@@ -669,6 +668,8 @@ Routes present in `openapi.json` and absent from the spec tables above.
 | GET | `/api/v1/conversations/{conversation_id}/summary` | `chat:use` | stage 11 |
 | POST | `/api/v1/auth/password-reset` | public | stage 11 |
 | POST | `/api/v1/auth/password-reset/confirm` | public | stage 11 |
+| POST | `/api/v1/auth/invitation` | public | account mail |
+| POST | `/api/v1/auth/invitation/accept` | public | account mail |
 | POST | `/api/v1/conversations/{conversation_id}/summary:refresh` | `chat:use` | stage 11 |
 | POST | `/api/v1/guest/agents/{agent_id}/turns` | guest session | stage 11 |
 | POST | `/api/v1/notifications/push-subscriptions` | session | stage 11 |

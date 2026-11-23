@@ -4179,6 +4179,62 @@ export type PasswordResetConfirmApiV1AuthPasswordResetConfirmPostResponses = {
     200: unknown;
 };
 
+export type InvitationDetailsApiV1AuthInvitationPostData = {
+    /**
+     * Body
+     */
+    body?: {
+        [key: string]: unknown;
+    } | null;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/invitation';
+};
+
+export type InvitationDetailsApiV1AuthInvitationPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InvitationDetailsApiV1AuthInvitationPostError = InvitationDetailsApiV1AuthInvitationPostErrors[keyof InvitationDetailsApiV1AuthInvitationPostErrors];
+
+export type InvitationDetailsApiV1AuthInvitationPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type InvitationAcceptApiV1AuthInvitationAcceptPostData = {
+    /**
+     * Body
+     */
+    body?: {
+        [key: string]: unknown;
+    } | null;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/invitation/accept';
+};
+
+export type InvitationAcceptApiV1AuthInvitationAcceptPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InvitationAcceptApiV1AuthInvitationAcceptPostError = InvitationAcceptApiV1AuthInvitationAcceptPostErrors[keyof InvitationAcceptApiV1AuthInvitationAcceptPostErrors];
+
+export type InvitationAcceptApiV1AuthInvitationAcceptPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type StepUpApiV1AuthStepUpPostData = {
     /**
      * Body
@@ -4527,40 +4583,6 @@ export type RevokeInvitationApiV1InvitationsInvitationIdDeleteResponses = {
 };
 
 export type RevokeInvitationApiV1InvitationsInvitationIdDeleteResponse = RevokeInvitationApiV1InvitationsInvitationIdDeleteResponses[keyof RevokeInvitationApiV1InvitationsInvitationIdDeleteResponses];
-
-export type AcceptInvitationApiV1InvitationsTokenAcceptPostData = {
-    body?: never;
-    path: {
-        /**
-         * Token
-         */
-        token: string;
-    };
-    query?: never;
-    url: '/api/v1/invitations/{token}:accept';
-};
-
-export type AcceptInvitationApiV1InvitationsTokenAcceptPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AcceptInvitationApiV1InvitationsTokenAcceptPostError = AcceptInvitationApiV1InvitationsTokenAcceptPostErrors[keyof AcceptInvitationApiV1InvitationsTokenAcceptPostErrors];
-
-export type AcceptInvitationApiV1InvitationsTokenAcceptPostResponses = {
-    /**
-     * Response Accept Invitation Api V1 Invitations  Token  Accept Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: string;
-    };
-};
-
-export type AcceptInvitationApiV1InvitationsTokenAcceptPostResponse = AcceptInvitationApiV1InvitationsTokenAcceptPostResponses[keyof AcceptInvitationApiV1InvitationsTokenAcceptPostResponses];
 
 export type ListGroupsApiV1GroupsGetData = {
     body?: never;

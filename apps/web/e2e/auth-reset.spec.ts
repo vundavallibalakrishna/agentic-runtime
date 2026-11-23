@@ -32,3 +32,17 @@ test("a link that is not valid says so and changes nothing", async ({ page }) =>
   await page.getByRole("button", { name: "Set password" }).click();
   await expect(page.getByText("This reset link is not valid. Ask for a new one.")).toBeVisible();
 });
+
+test("the invitation page opens for someone who is signed out and refuses a bad link", async ({
+  page,
+}) => {
+  await page.goto("/invite");
+  await expect(page).toHaveURL(/\/invite$/);
+  await expect(page.getByRole("heading", { name: "Accept your invitation" })).toBeVisible();
+  await expect(page.getByText("This page needs the link from your invitation mail.")).toBeVisible();
+  const empty = await new AxeBuilder({ page }).analyze();
+  expect(empty.violations).toEqual([]);
+
+  await page.goto("/invite?token=not-a-real-token");
+  await expect(page.getByText(/This invitation is not valid/)).toBeVisible();
+});

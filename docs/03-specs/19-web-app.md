@@ -78,7 +78,8 @@ Each page lists: route, access, API calls, main components, URL state.
 |---|---|---|
 | `/login` | An email + password form that posts to `POST /api/v1/auth/login`; a wrong password is shown in place, success redirects into the app. | `GET /api/v1/meta` (branding, self-signup flag) |
 | `/select-tenant` | For users in multiple tenants (platform admins) | `GET /api/v1/auth/session`, `POST /api/v1/auth/switch-tenant` |
-| `/invite/[token]` | Accept invitation → login | `POST /api/v1/invitations/{token}:accept` |
+| `/invite?token=…` | Accept an invitation: shows the address and the workspace, takes a name and a password twice, then points to sign-in. Opens without a session | `POST /api/v1/auth/invitation`, `POST /api/v1/auth/invitation/accept` |
+| `/forgot-password`, `/reset-password?token=…` | Ask for a reset link; choose a new password with the mailed link. Both open without a session | `POST /api/v1/auth/password-reset`, `POST /api/v1/auth/password-reset/confirm` |
 | `/suspended` | Tenant suspended notice | – |
 
 ### 3.2 Chat (`/chat`, `/chat/[conversationId]`) — `chat:use`

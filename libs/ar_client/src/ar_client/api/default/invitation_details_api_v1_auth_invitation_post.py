@@ -8,39 +8,41 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.accept_invitation_api_v1_invitations_token_accept_post_response_accept_invitation_api_v1_invitations_token_accept_post import (
-    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost,
-)
 from ...models.http_validation_error import HTTPValidationError
+from ...models.invitation_details_api_v1_auth_invitation_post_body_type_0 import (
+    InvitationDetailsApiV1AuthInvitationPostBodyType0,
+)
+from ...types import UNSET, Unset
 from typing import cast
 
 
 def _get_kwargs(
-    token: str,
+    *,
+    body: InvitationDetailsApiV1AuthInvitationPostBodyType0 | None | Unset = UNSET,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/invitations/{token}:accept".format(
-            token=quote(str(token), safe=""),
-        ),
+        "url": "/api/v1/auth/invitation",
     }
 
+    if isinstance(body, InvitationDetailsApiV1AuthInvitationPostBodyType0):
+        _kwargs["json"] = body.to_dict()
+    else:
+        _kwargs["json"] = body
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> (
-    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
-    | HTTPValidationError
-    | None
-):
+) -> Any | HTTPValidationError | None:
     if response.status_code == 200:
-        response_200 = AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost.from_dict(
-            response.json()
-        )
-
+        response_200 = response.json()
         return response_200
 
     if response.status_code == 422:
@@ -56,10 +58,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[
-    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
-    | HTTPValidationError
-]:
+) -> Response[Any | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,28 +68,27 @@ def _build_response(
 
 
 def sync_detailed(
-    token: str,
     *,
     client: AuthenticatedClient | Client,
-) -> Response[
-    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
-    | HTTPValidationError
-]:
-    """Accept Invitation
+    body: InvitationDetailsApiV1AuthInvitationPostBodyType0 | None | Unset = UNSET,
+) -> Response[Any | HTTPValidationError]:
+    """Invitation Details
+
+     What a mailed invitation is for, so the page can say who is joining what.
 
     Args:
-        token (str):
+        body (InvitationDetailsApiV1AuthInvitationPostBodyType0 | None | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError]
+        Response[Any | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
-        token=token,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -101,56 +99,53 @@ def sync_detailed(
 
 
 def sync(
-    token: str,
     *,
     client: AuthenticatedClient | Client,
-) -> (
-    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
-    | HTTPValidationError
-    | None
-):
-    """Accept Invitation
+    body: InvitationDetailsApiV1AuthInvitationPostBodyType0 | None | Unset = UNSET,
+) -> Any | HTTPValidationError | None:
+    """Invitation Details
+
+     What a mailed invitation is for, so the page can say who is joining what.
 
     Args:
-        token (str):
+        body (InvitationDetailsApiV1AuthInvitationPostBodyType0 | None | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError
+        Any | HTTPValidationError
     """
 
     return sync_detailed(
-        token=token,
         client=client,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
-    token: str,
     *,
     client: AuthenticatedClient | Client,
-) -> Response[
-    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
-    | HTTPValidationError
-]:
-    """Accept Invitation
+    body: InvitationDetailsApiV1AuthInvitationPostBodyType0 | None | Unset = UNSET,
+) -> Response[Any | HTTPValidationError]:
+    """Invitation Details
+
+     What a mailed invitation is for, so the page can say who is joining what.
 
     Args:
-        token (str):
+        body (InvitationDetailsApiV1AuthInvitationPostBodyType0 | None | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError]
+        Response[Any | HTTPValidationError]
     """
 
     kwargs = _get_kwargs(
-        token=token,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -159,30 +154,28 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    token: str,
     *,
     client: AuthenticatedClient | Client,
-) -> (
-    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
-    | HTTPValidationError
-    | None
-):
-    """Accept Invitation
+    body: InvitationDetailsApiV1AuthInvitationPostBodyType0 | None | Unset = UNSET,
+) -> Any | HTTPValidationError | None:
+    """Invitation Details
+
+     What a mailed invitation is for, so the page can say who is joining what.
 
     Args:
-        token (str):
+        body (InvitationDetailsApiV1AuthInvitationPostBodyType0 | None | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError
+        Any | HTTPValidationError
     """
 
     return (
         await asyncio_detailed(
-            token=token,
             client=client,
+            body=body,
         )
     ).parsed
