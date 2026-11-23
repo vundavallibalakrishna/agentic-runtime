@@ -164,6 +164,9 @@ class MemoryIdentityStore:
     async def get_invitation(self, invitation_id: uuid.UUID) -> Invitation | None:
         return next((row for row in self.invitations.values() if row.id == invitation_id), None)
 
+    async def list_roles(self) -> list[Role]:
+        return [_role(key) for key in sorted(SYSTEM_ROLE_PERMISSIONS)]
+
     async def get_role_by_key(self, key: str) -> Role | None:
         return _role(key) if key in SYSTEM_ROLE_PERMISSIONS else None
 

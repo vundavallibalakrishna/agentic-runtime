@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
+import { InvitationsPanel } from "@/components/people/invitations-panel";
 import { PermissionGate } from "@/components/permission-gate";
 import { UsersDirectory } from "@/components/users-directory";
 
@@ -12,6 +13,7 @@ export default async function UsersPage() {
       <PageHeader body={admin("usersBody")} title={admin("usersTitle")} />
       <PermissionGate allowed>
         <UsersDirectory />
+        <InvitationsPanel />
       </PermissionGate>
     </AppShell>
   );
