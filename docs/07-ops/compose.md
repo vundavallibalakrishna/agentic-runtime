@@ -133,7 +133,7 @@ The backup is three `pg_dump -Fc` files: `agentic_runtime`, `temporal` and `temp
 
 Network `agentic-runtime_app` carries the product. Model calls leave from `api` and `runtime-worker` on that network.
 
-Network `agentic-runtime_sandbox` is internal and is used by the computers feature (`compose.computers.yaml`). Sandbox containers join it and no other network. Their HTTP and HTTPS go through Squid (`AR_SANDBOX_EGRESS_PROXY`, default `http://squid:3128`) with the sandbox token. The docker driver drops all capabilities, sets a read-only root with tmpfs for `/tmp`, `/workspace` and `/home/sandbox`, and sets cpu, memory and pid limits. `sandbox-manager` is the only service that mounts the docker socket, and the only creator of those containers.
+Network `agentic-runtime_sandbox` is internal and is used by the computers feature (`compose.computers.yaml`). Sandbox containers join it and no other network. `sandbox-manager`, which waits for a computer to start, and `mcp-gateway`, which runs tools on it, join it as well as the app network; no other service does. Their HTTP and HTTPS go through Squid (`AR_SANDBOX_EGRESS_PROXY`, default `http://squid:3128`) with the sandbox token. The docker driver drops all capabilities, sets a read-only root with tmpfs for `/tmp`, `/workspace` and `/home/sandbox`, and sets cpu, memory and pid limits. `sandbox-manager` is the only service that mounts the docker socket, and the only creator of those containers.
 
 `AR_SANDBOX_ALLOW_UNISOLATED` is not required for that default. It allows a host process instead of a container.
 

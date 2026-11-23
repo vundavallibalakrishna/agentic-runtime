@@ -88,7 +88,13 @@ state() {
   docker compose ps --all --format 'table {{.Service}}\t{{.Status}}' >"$evidence/compose-ps.txt" 2>&1 || true
   docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' \
     >"$evidence/docker-stats.txt" 2>&1 || true
-  docker compose logs --no-color --tail 400 >"$evidence/compose-logs.txt" 2>&1 || true
+  # Every line of every service: a fault early in a long run is not in the last lines.
+  docker compose logs --no-color >"$evidence/compose-logs.txt" 2>&1 || true
+  # Computers are started by the product, not by Compose, so their logs are read by name.
+  docker ps --all --filter name=ar-sbx- --format '{{.Names}}\t{{.Status}}' >"$evidence/computers.txt" 2>&1 || true
+  for name in $(docker ps --all --filter name=ar-sbx- --format '{{.Names}}'); do
+    docker logs --tail 200 "$name" >"$evidence/computer-$name.log" 2>&1 || true
+  done
 }
 trap state EXIT
 
@@ -114,6 +120,53 @@ docker compose exec -T postgres psql -U postgres -d agentic_runtime -Atc \
   >"$evidence/providers-after-seed.txt"
 if [ "$(tr -d '\n' <"$evidence/providers-after-seed.txt")" != "00" ]; then
   echo "A fresh tenant already has a model provider or a model. See providers-after-seed.txt." >&2
+  exit 1
+fi
+
+echo "certification: starting a computer"
+# Asking for one command on a computer makes the manager start it. The check is that
+# the manager reached the new computer on the sandbox network: the computer's own log
+# has the manager's health request. The command's result is kept but not judged here,
+# because the console's tool test does not go through the tool gateway yet (OQ-165).
+uv run python - >"$evidence/computer-check.log" 2>&1 <<'PY' || true
+import importlib.util
+import os
+import sys
+import time
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location("tc", Path("scripts/tool_certification.py"))
+tc = importlib.util.module_from_spec(spec)
+sys.modules["tc"] = tc
+spec.loader.exec_module(tc)
+stack = tc.Stack(
+    os.environ["AR_API_URL"], os.environ["AR_ADMIN_EMAIL"], os.environ["AR_ADMIN_PASSWORD"]
+)
+agents = stack.get("/api/v1/agents")
+rows = agents.get("items") if isinstance(agents, dict) else agents
+assistant = next(row for row in rows if isinstance(row, dict) and row.get("slug") == "assistant")
+_made, conversation = stack.post("/api/v1/conversations", agentId=assistant["id"])
+# The policy engine reads the new tenant's rules from the API on its next poll. Until
+# then a tool call is refused, which is the right answer and not the one being checked.
+deadline = time.monotonic() + 180
+while True:
+    status, body = stack.call(
+        "sandbox.exec", {"command": "echo computer-$((40 + 2))"}, str(conversation["id"])
+    )
+    if "policy_unavailable" not in tc.text_of(body) or time.monotonic() >= deadline:
+        break
+    time.sleep(5)
+print(f"HTTP {status}, result {tc.text_of(body)[:300]}")
+PY
+state
+reached=""
+for name in $(docker ps --filter name=ar-sbx- --filter status=running --format '{{.Names}}'); do
+  if docker logs "$name" 2>&1 | grep -q '"GET /healthz HTTP/1.1" 200'; then
+    reached="$name"
+  fi
+done
+if [ -z "$reached" ]; then
+  echo "No computer started, or the manager could not reach it. See computer-check.log, computers.txt and the computer's log." >&2
   exit 1
 fi
 state

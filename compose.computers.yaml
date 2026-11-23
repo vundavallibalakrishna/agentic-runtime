@@ -10,8 +10,13 @@ x-env: &env
   AR_SANDBOX_IMAGE: ${AR_SANDBOX_IMAGE:-ar-sandbox:dev}
 
 services:
+  # A computer joins the sandbox network and no other. The manager, which waits for it
+  # to start, and the tool gateway, which runs tools on it, are the two services that
+  # reach it there. Nothing else in the install can, and a computer reaches nothing but
+  # these two and the proxy.
   sandbox-manager:
     profiles: [production]
+    networks: [app, sandbox]
     environment:
       <<: *env
   squid:
@@ -20,6 +25,7 @@ services:
     environment:
       <<: *env
   mcp-gateway:
+    networks: [app, sandbox]
     environment:
       <<: *env
   worker:
