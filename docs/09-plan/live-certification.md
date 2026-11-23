@@ -43,7 +43,7 @@ docker compose --profile production up -d --build
 
 ## One command
 
-`scripts/certify_stack.sh` does everything below on a machine that has Docker and 16 GB of memory: it writes `.env` when there is none, builds the computer image, starts the install in the staging environment with every feature file and the file scanner, seeds one tenant with an admin and a reviewer, starts a computer and runs one command on it through the console's tool test, and runs the parts named in `AR_CERT_PARTS`.
+`scripts/certify_stack.sh` does everything below on a machine that has Docker and 16 GB of memory: it writes `.env` when there is none, builds the computer image, starts the install in the staging environment with every feature file, the file scanner and the local mail server, seeds one tenant with an admin and a reviewer, starts a computer and runs one command on it through the console's tool test, and runs the parts named in `AR_CERT_PARTS`.
 
 ```bash
 export AR_LLM_API_KEY=...            # never commit this
@@ -58,11 +58,12 @@ bash scripts/certify_stack.sh
 | `AR_CERT_EVIDENCE` | `var/certification` | Where the scorecards, each part's log and exit code, the container list, memory use, every service's log and each computer's log are written |
 | `AR_CERT_CONTEXT_WINDOW`, `AR_CERT_MAX_OUTPUT_TOKENS` | the product default | The limits the provider serves for the chat model, sent when the run registers it |
 | `AR_CERT_ALLOWED_HOSTS` | `example.com` | Hosts the script puts on the tenant's allowed list before the parts run, so the page and HTTP tools are tested and not refused |
-| `AR_CERT_DATA_DSN`, `AR_CERT_DATA_TABLE` | a database the script makes | The database the data tools read. With none named, the script creates `cert_data` in the install's Postgres with one table, `regions`, and a role that can only read it |
+| `AR_CERT_DATA_DSN`, `AR_CERT_DATA_TABLE` | a database the script makes | The database the data tools read. With none named, the script starts a Postgres server of its own with one table, `regions`, and a role that can only read it. It is a separate server because the product refuses a data connection to its own database server |
+| `AR_CERT_KEEP_INSTALL` | unset | `1` leaves the install running when the script ends. Otherwise the script stops what it started |
 | `AR_CERT_POLICY_WAIT_S` | 20 | Seconds the approval flow waits after activating its policy, so a policy engine that polls has read it |
 | `AR_CERT_DOCUMENT`, `AR_CERT_RESEARCH_QUESTION` | `docs/00-overview/vision.md` and a question it answers | The document the run uploads and the research question |
 
-The admin and reviewer passwords are generated for the run unless `AR_ADMIN_PASSWORD` and `AR_SECOND_PASSWORD` are set. The script stops with a non-zero exit when a part does not pass, and it leaves the install running so a person can look at it; `docker compose down -v` removes it. An `.env` that is already in the checkout is used as it is and is not rewritten.
+The admin and reviewer passwords are generated for the run unless `AR_ADMIN_PASSWORD` and `AR_SECOND_PASSWORD` are set. The script stops with a non-zero exit when a part does not pass. Whatever the result, it writes the evidence and then stops everything it started: the install, under the Compose project `ar-certification`, with its volumes; the certification's own database server; and the computers the run created. `AR_CERT_KEEP_INSTALL=1` leaves it running for a person who asked to look. An `.env` that is already in the checkout is used as it is and is not rewritten.
 
 The `certification` CI job runs the same script on a hosted runner. Start it from the Actions page (**certification**, **Run workflow**) after adding the provider's key as the repository secret `AR_LLM_API_KEY`. The evidence is the run's `certification-<run id>` artifact, kept for 30 days. The repository is public, so the artifact and the job log are public too; the key and the two passwords are masked, and nothing else in the evidence is a secret.
 
