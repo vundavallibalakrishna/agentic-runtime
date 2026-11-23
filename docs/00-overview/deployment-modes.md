@@ -50,7 +50,7 @@ Details: [helm-k8s](../07-ops/compose.md), [scaling](../07-ops/scaling.md), [env
 
 ## 4. Air-gapped installs
 
-Single-tenant mode must work without internet: images from a private registry (`global.imageRegistry`), Python/npm packages for sandboxes from private mirrors (`AR_SANDBOX_PACKAGE_MIRRORS`), `web.fetch` and browser limited to allowlisted internal hosts, no telemetry phoning home (none exists). A web search tool is not part of v1 ([open-questions](../open-questions.md)).
+Single-tenant mode must work without internet: images from a private registry (`global.imageRegistry`), Python/npm packages for sandboxes from private mirrors (`AR_SANDBOX_PACKAGE_MIRRORS`), `general.fetch`, `web.discover` and the browser limited to allowlisted internal hosts, no telemetry phoning home (none exists). A web search tool is not part of v1 ([open-questions](../open-questions.md)).
 
 ## 5. Tests
 

@@ -308,7 +308,7 @@ def _exchange(  # noqa: PLR0917
                         f"{_host(current) or current} is not on the egress allow list",
                     )
                 host = _host(current) or ""
-                headers = {"User-Agent": "AgenticRuntime-Browser"}
+                headers: dict[str, str] = {}
                 cookie = _cookie_header(session, host)
                 if cookie:
                     headers["Cookie"] = cookie

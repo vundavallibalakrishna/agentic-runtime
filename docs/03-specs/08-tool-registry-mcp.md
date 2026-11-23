@@ -147,7 +147,7 @@ Details:
 7. **Credentials**: by `auth_mode` ([mcp-integration §4](../05-contracts/mcp-integration.md#4-authentication-modes-tool_server_versionsauth_mode)); missing user grant → `credential_required` with `connect_url = {AR_PUBLIC_URL}/connections?provider={slug}`.
 8. **Dispatch**: MCP client from the official SDK (`mcp.client.streamable_http`), stateless per call; connection pool per endpoint (`httpx.AsyncClient`, HTTP/2, max 100 connections per host). Progress notifications → relayed to the runtime via the response stream (`text/event-stream` from `tool-calls:execute` when `Accept: text/event-stream`: events `progress`, final `result`). Tasks extension polling as in the contract.
 9. **Drift guard**: for remote MCP servers the gateway compares the upstream `tools/list` hash (cached 10 min per server version) to the approved manifest; mismatch → `failed` code `tool_manifest_drift`.
-10. **Result processing**: [mcp-integration §7](../05-contracts/mcp-integration.md#7-result-handling-gateway--runtime). **Injection classifier** (when `safety.injection_classifier` and tenant feature on): for results from `openWorldHint=true` tools, `web.fetch`, `browser.snapshot`, knowledge results from sources with `trust='external'`, call the `fast` alias with `ar_mcp_gateway/prompts/injection_classifier.md` (purpose `classifier`, 1 s budget, fail-open); if flagged, prefix the wrapped result with a warning line and set `tool_calls.error.injection_suspected=true`; audit `tool_result.injection_suspected`.
+10. **Result processing**: [mcp-integration §7](../05-contracts/mcp-integration.md#7-result-handling-gateway--runtime). **Injection classifier** (when `safety.injection_classifier` and tenant feature on): for results from `openWorldHint=true` tools, `browser.snapshot`, knowledge results from sources with `trust='external'`, call the `fast` alias with `ar_mcp_gateway/prompts/injection_classifier.md` (purpose `classifier`, 1 s budget, fail-open); if flagged, prefix the wrapped result with a warning line and set `tool_calls.error.injection_suspected=true`; audit `tool_result.injection_suspected`.
 11. **Persist**: `tool_calls` status, `result_preview` (≤ 2 KiB redacted), `result_file_id`, latency; audit event for risk ≥ W1 (`tool.called` with args hash, not arguments); `usage_events(metric='tool_calls')`.
 
 ## 6. Policy input (built by the gateway)
@@ -179,13 +179,26 @@ Temporal Schedule `tool-drift-check` hourly (`AR_TOOL_DRIFT_INTERVAL`, default `
 | `files.attach_to_sandbox` | `{file_id, path?: "/workspace/inputs/<name>"}` | Copies into the sandbox |
 | `skills.load` | `{skill: slug}` | Skill instructions + asset list; assets copied to `/workspace/.skills/<slug>/` when a sandbox exists ([spec 14](14-skills.md)) |
 | `conversations.search_history` | `{query, limit?: ≤ 10}` | Snippets from the user's other conversations with this agent (R1) |
-| `web.fetch` | `{url (https), max_chars?: ≤ 50000}` | Readable text via the egress proxy; tenant `egress_allowlist` enforced; requires tenant feature `web_fetch` |
+| `general.fetch` | `{url, max_chars?, if_none_match?, if_modified_since?}` | The page's title and readable text, with what was measured on the response; see "Reading public sites" below (R1) |
+| `web.discover` | `{url, allow_hosts?: [host], limit?: ≤ 200 (default 50)}` | The addresses one URL publishes: a feed's items, a sitemap's entries, or a page's links; see "Reading public sites" below (R1) |
 | `sandbox.*`, `browser.*` | see [spec 12 §7](12-sandbox-manager.md#7-sandbox-agent-tools) | Forwarded to `sandbox-agent` |
 | `agents.delegate`, `plan.update`, `tools.search` | see [spec 07](07-agent-runtime.md) | Executed by `runtime-worker` |
 
 Every built-in reads only the calling tenant's rows, and a call that names no caller returns nothing. `files.list` and `files.read` apply the file API's read rule: the file's owner, or the owner of the conversation it belongs to. A file id that fails the rule is `not_found`. `conversations.search_history` reads the caller's own conversations with the calling agent. `tools.search` ranks platform tools and the calling tenant's tools, on the current version of an approved server.
 
-Demo fixtures are not part of a production catalogue. The `tickets`, `petstore` and `warehouse` servers, the canned `web.fetch`, the `desk` agent, and the approval fixture `session.propose_change` are seeded only when `AR_ENV` is `dev` or `ci` (`ar_common.settings.fake_models_allowed`). The page reader for agents is `general.fetch`.
+Demo fixtures are not part of a production catalogue. The `tickets`, `petstore` and `warehouse` servers, the `desk` agent, and the approval fixture `session.propose_change` are seeded only when `AR_ENV` is `dev` or `ci` (`ar_common.settings.fake_models_allowed`).
+
+**Reading public sites.** `general.fetch`, `web.discover` and `documents.ingest` with a `url` read a public address the same way (`ar_domain.tools.general.polite_get`, `ar_domain.tools.web`), for any site and any purpose:
+
+- **Who is asking.** Every outbound request carries the install's User-Agent, `AR_HTTP_USER_AGENT`. An install that reads public pages puts a contact address in it.
+- **robots.txt.** The site's robots.txt is read first and parsed as RFC 9309 says (`ar_common.robots`): the group for this install's product name wins over `*`; a missing file (4xx) allows everything; a file that cannot be read (5xx, or no answer) means nothing on that site is fetched until it can be. A disallowed address is never requested and the call returns `robots_disallowed`. The rules are kept for an hour in Valkey, so every replica shares them. The knowledge `web` source uses the same parser.
+- **One site at a time.** One host gets at most `AR_FETCH_PER_HOST_PER_MINUTE` requests a minute from the whole install, less when its robots.txt asks for a `Crawl-delay`. Past that the call returns `rate_limited`. The count is the shared minute window in Valkey.
+- **Refusals are final.** A 401, 403, 407 or 451 returns `access_refused` and is not retried. Nothing solves a challenge, signs in, or disguises the request. Another 4xx returns `upstream_error` with the status. 408, 429 and 5xx are retried three times, as before.
+- **Size.** A body over 5 MB is not read to the end and returns `too_large`.
+
+`general.fetch` returns, beside the text, what it measured, so a caller can tell whether a page changed between two calls: `status`, `etag`, `lastModified`, `contentType`, `bytes`, `sha256` (of the body), `textChars`, `textSha256` (of the readable text) and `scriptRatio` (the share of the page that is script and style; a high share with little text is a page that needs the browser tools). Sending back `if_none_match` or `if_modified_since` gets a 304 with `notModified: true` and no text when nothing changed. An address that holds a file rather than a page (a PDF, for example) returns its facts and names `documents.ingest`; it is not shown as text. `max_chars` lowers the amount of text returned, inside the tool's own limit.
+
+`web.discover` reads one address and lists what it publishes, up to `limit`: the items of an RSS or Atom feed (`source: feed`), the entries of a sitemap or sitemap index (`source: sitemap`), or the links on a page (`source: page`) that point at the page's own host or at `allow_hosts`. Each item is `{url, title, date}`. It also returns the `feeds` a page advertises and the `sitemaps` the site's robots.txt names. It follows nothing: the caller decides what to read next.
 
 A tool built to fail is test support, not product ([OQ-148](../open-questions.md)): the tool that fails the first time a run calls it lives in `ar_testing.retry_tool` and a test registers it from its own setup. A built-in catalogue is stored once, so when a release stops shipping a built-in tool, `refresh_builtins` marks the stored tool disabled on every load: it is not offered to a model and a call to it returns `tool_disabled`. Only the servers the release ships are looked at; a pack's server is left alone.
 
@@ -214,7 +227,7 @@ A tool built to fail is test support, not product ([OQ-148](../open-questions.md
 | `AR_MCP_OPENAPI_URL` | `http://mcp-openapi:8011/mcp` | |
 | `AR_SANDBOX_MANAGER_URL` | `http://sandbox-manager:8003` | |
 | `AR_OPA_URL` | `http://opa:8181` | |
-| `AR_EGRESS_PROXY_URL` | `http://squid:3128` | For `web.fetch` and remote MCP outside the cluster |
+| `AR_EGRESS_PROXY_URL` | `http://squid:3128` | For the page tools and remote MCP outside the cluster |
 | `AR_MCP_INTERNAL_HTTP_ALLOWED_CIDRS` | cluster CIDRs | |
 | `AR_TOOL_RESULT_MAX_FILE_BYTES` | `20971520` | 20 MiB |
 | `AR_INJECTION_CLASSIFIER_TIMEOUT_MS` | `1000` | |

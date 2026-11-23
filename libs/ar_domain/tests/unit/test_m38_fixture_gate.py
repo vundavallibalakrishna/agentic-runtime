@@ -5,8 +5,8 @@ from ar_domain.agents.logic import assistant_definition
 from ar_domain.chat.service import ChatService, demo_id
 from ar_testing.demo import demo_store
 
-FIXTURE_SERVERS = {"tickets", "petstore", "warehouse", "web"}
-FIXTURE_TOOLS = {"session.propose_change", "web.fetch"}
+FIXTURE_SERVERS = {"tickets", "petstore", "warehouse"}
+FIXTURE_TOOLS = {"session.propose_change"}
 
 
 def _servers(store: ChatService) -> set[str]:

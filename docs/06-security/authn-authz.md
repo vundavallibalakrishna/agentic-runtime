@@ -151,7 +151,7 @@ Requires a session with `step_up_at` within `AR_STEP_UP_TTL_S` (600 s); API keys
 - Session store in Valkey with encrypted tokens (`AR_SESSION_ENCRYPTION_KEY`), sliding `AR_SESSION_TTL_S`, absolute `AR_SESSION_MAX_AGE_S`; session id rotated at login and step-up; revoked on logout and user suspension.
 - Security headers: CSP (nonce-based scripts, `frame-ancestors 'none'` except widget routes), HSTS 1 year, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` minimal.
 - User-generated HTML is never rendered inline in the app origin ([spec 13](../03-specs/13-files-artifacts.md)).
-- Outbound requests (webhooks, web.fetch, OpenAPI base URLs, model providers, OAuth endpoints) pass the shared SSRF guard (`ar_common.http.ssrf_guard`): resolve and pin IPs, deny private/link-local/metadata ranges unless explicitly allowed by `AR_WEBHOOK_ALLOW_PRIVATE`, `AR_MCP_INTERNAL_HTTP_ALLOWED_CIDRS`, `AR_MODEL_PROVIDER_DENY_CIDRS`.
+- Outbound requests (webhooks, `general.fetch`, `web.discover`, OpenAPI base URLs, model providers, OAuth endpoints) pass the shared SSRF guard (`ar_common.http.ssrf_guard`): resolve and pin IPs, deny private/link-local/metadata ranges unless explicitly allowed by `AR_WEBHOOK_ALLOW_PRIVATE`, `AR_MCP_INTERNAL_HTTP_ALLOWED_CIDRS`, `AR_MODEL_PROVIDER_DENY_CIDRS`.
 
 ## 8. Internal service authorisation
 
