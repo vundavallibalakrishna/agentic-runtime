@@ -88,7 +88,13 @@ state() {
   docker compose ps --all --format 'table {{.Service}}\t{{.Status}}' >"$evidence/compose-ps.txt" 2>&1 || true
   docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}' \
     >"$evidence/docker-stats.txt" 2>&1 || true
-  docker compose logs --no-color --tail 400 >"$evidence/compose-logs.txt" 2>&1 || true
+  # Every line of every service: a fault early in a long run is not in the last lines.
+  docker compose logs --no-color >"$evidence/compose-logs.txt" 2>&1 || true
+  # Computers are started by the product, not by Compose, so their logs are read by name.
+  docker ps --all --filter name=ar-sbx- --format '{{.Names}}\t{{.Status}}' >"$evidence/computers.txt" 2>&1 || true
+  for name in $(docker ps --all --filter name=ar-sbx- --format '{{.Names}}'); do
+    docker logs --tail 200 "$name" >"$evidence/computer-$name.log" 2>&1 || true
+  done
 }
 trap state EXIT
 
@@ -116,6 +122,38 @@ if [ "$(tr -d '\n' <"$evidence/providers-after-seed.txt")" != "00" ]; then
   echo "A fresh tenant already has a model provider or a model. See providers-after-seed.txt." >&2
   exit 1
 fi
+
+echo "certification: starting a computer and running one command on it"
+uv run python - >"$evidence/computer-check.log" 2>&1 <<'PY' || {
+import importlib.util
+import os
+import sys
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location("tc", Path("scripts/tool_certification.py"))
+tc = importlib.util.module_from_spec(spec)
+sys.modules["tc"] = tc
+spec.loader.exec_module(tc)
+stack = tc.Stack(
+    os.environ["AR_API_URL"], os.environ["AR_ADMIN_EMAIL"], os.environ["AR_ADMIN_PASSWORD"]
+)
+agents = stack.get("/api/v1/agents")
+rows = agents.get("items") if isinstance(agents, dict) else agents
+assistant = next(row for row in rows if isinstance(row, dict) and row.get("slug") == "assistant")
+_made, conversation = stack.post("/api/v1/conversations", agentId=assistant["id"])
+status, body = stack.call(
+    "sandbox.exec", {"command": "echo computer-$((40 + 2))"}, str(conversation["id"])
+)
+if status != 200 or "computer-42" not in str(body):
+    error = body.get("error") if isinstance(body, dict) else None
+    code = error.get("code") if isinstance(error, dict) else ""
+    print(f"HTTP {status}, code {code or 'none'}, result {tc.text_of(body)[:300]}")
+    raise SystemExit(1)
+print("a computer started and ran the command")
+PY
+  echo "A computer did not start or did not run a command. See computer-check.log and computers.txt." >&2
+  exit 1
+}
 state
 
 if [ -z "$parts" ]; then

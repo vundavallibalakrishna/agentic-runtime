@@ -22,6 +22,7 @@ on:
     paths:
       - scripts/certify_stack.sh
       - .github/workflows/certification.yml
+      - compose.computers.yaml
 
 permissions:
   contents: read

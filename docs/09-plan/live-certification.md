@@ -43,7 +43,7 @@ docker compose --profile production up -d --build
 
 ## One command
 
-`scripts/certify_stack.sh` does everything below on a machine that has Docker and 16 GB of memory: it writes `.env` when there is none, builds the computer image, starts the install in the staging environment with every feature file and the file scanner, seeds one tenant with an admin and a reviewer, and runs the parts named in `AR_CERT_PARTS`.
+`scripts/certify_stack.sh` does everything below on a machine that has Docker and 16 GB of memory: it writes `.env` when there is none, builds the computer image, starts the install in the staging environment with every feature file and the file scanner, seeds one tenant with an admin and a reviewer, starts a computer and runs one command on it, and runs the parts named in `AR_CERT_PARTS`.
 
 ```bash
 export AR_LLM_API_KEY=...            # never commit this
@@ -55,7 +55,7 @@ bash scripts/certify_stack.sh
 |---|---|---|
 | `AR_CERT_PARTS` | none | `live` runs `scripts/certify_live.sh`, `tools` runs `scripts/tool_certification.py`, `agents` runs `scripts/agent_certification.py`. With none, the install and the seed are the check |
 | `AR_CERT_REPEAT` | 2 | Times each tool flow runs |
-| `AR_CERT_EVIDENCE` | `var/certification` | Where the scorecards, each part's log and exit code, the container list, memory use and the last 400 log lines of each service are written |
+| `AR_CERT_EVIDENCE` | `var/certification` | Where the scorecards, each part's log and exit code, the container list, memory use, every service's log and each computer's log are written |
 | `AR_CERT_CONTEXT_WINDOW`, `AR_CERT_MAX_OUTPUT_TOKENS` | the product default | The limits the provider serves for the chat model, sent when the run registers it |
 | `AR_CERT_DOCUMENT`, `AR_CERT_RESEARCH_QUESTION` | `docs/00-overview/vision.md` and a question it answers | The document the run uploads and the research question |
 
