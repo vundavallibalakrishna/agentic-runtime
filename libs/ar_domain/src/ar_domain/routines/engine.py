@@ -212,9 +212,21 @@ def deliver(
     """Send to each target, or ask the owner first when it is not approved in advance."""
     del event
     outcomes: list[dict[str, object]] = []
+    quiet = nothing_to_report(store, run)
     for index, target in _targets(routine, run):
         from ar_domain.packs.hooks import review_delivery  # noqa: PLC0415
 
+        if quiet and target.get("when") == REPORT_ONLY and target.get("type") != "conversation":
+            # The run said it found nothing to report, and this target wants only reports:
+            # it is not sent and nobody is asked to approve it.
+            outcomes.append(
+                {
+                    "target": str(target.get("type") or ""),
+                    "result": "skipped",
+                    "reason": "The run had nothing to report.",
+                }
+            )
+            continue
         waiting = review_delivery(store, routine, target)
         if waiting is not None:
             outcomes.append(waiting)
@@ -234,6 +246,31 @@ def deliver(
             continue
         outcomes.append(_hold(store, routine, run, call))
     return outcomes
+
+
+REPORT_ONLY = "something_to_report"
+QUIET_TOOL = "routines.nothing_to_report"
+
+
+def nothing_to_report(store: Any, run: dict[str, object] | None) -> bool:
+    """Whether the run said it found nothing to report.
+
+    The run says so by calling ``routines.nothing_to_report``. The call is a saved row, so
+    the worker that delivers reads it wherever the run was carried out; nothing depends on
+    how the answer is worded.
+    """
+    if run is None:
+        return False
+    calls = getattr(store, "tool_calls", None)
+    if not isinstance(calls, dict):
+        return False
+    return any(
+        isinstance(row, dict)
+        and str(row.get("run_id")) == str(run.get("id"))
+        and row.get("qualified_name") == QUIET_TOOL
+        and row.get("status") == "succeeded"
+        for row in calls.values()
+    )
 
 
 def is_delivery_tool(name: object) -> bool:

@@ -21,6 +21,7 @@ export type Type1 = "conversation" | "slack" | "teams" | "email" | "webhook" | "
 export type Integration = string | null;
 export type Channel = string | null;
 export type Preapproved = boolean;
+export type When = "always" | "something_to_report";
 export type Delivery = DeliveryTarget[];
 export type Maxsteps = number;
 export type Maxtokens = number;
@@ -69,6 +70,7 @@ export interface DeliveryTarget {
   integration?: Integration;
   channel?: Channel;
   preApproved?: Preapproved;
+  when?: When;
   config?: Config1;
 }
 export interface Config1 {

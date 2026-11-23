@@ -223,6 +223,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `research.search` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `routines.create` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `routines.list` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `routines.nothing_to_report` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `sandbox.exec` | `unit` | no | Retired. A sandbox binding is rewritten to general and the model is not shown this tool. |
 | tool | `sandbox.export_file` | `unit` | no | Retired. A sandbox binding is rewritten to general and the model is not shown this tool. |
 | tool | `sandbox.list_files` | `unit` | no | Retired. A sandbox binding is rewritten to general and the model is not shown this tool. |

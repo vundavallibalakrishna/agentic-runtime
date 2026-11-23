@@ -592,6 +592,20 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
     return {"text": "\n".join(str(line) for line in lines), "structured": found, "is_error": False}
 
 
+def _nothing_to_report(store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    """Note that this run found nothing to report. The saved call is the note."""
+    run_id = arguments.get("_run_id")
+    run = store.runs.get(run_id) if isinstance(run_id, uuid.UUID) else None
+    by_routine = isinstance(run, dict) and run.get("trigger") == "routine"
+    text = (
+        "Noted. Deliveries set to send only when there is something to report will not be "
+        "sent for this run. Give your short answer now."
+        if by_routine
+        else "Noted. This run was not started by a routine, so nothing is delivered either way."
+    )
+    return {"text": text, "structured": {"nothingToReport": True}, "is_error": False}
+
+
 def _routines(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
     from ar_domain.agents.access import Actor  # noqa: PLC0415
     from ar_domain.routines.book import RoutineBook  # noqa: PLC0415
@@ -610,6 +624,8 @@ def _routines(store: Any, name: str, arguments: dict[str, object]) -> dict[str, 
                 "structured": {"routines": rows},
                 "is_error": False,
             }
+        if name == "nothing_to_report":
+            return _nothing_to_report(store, arguments)
         if name != "create":
             return _error("unknown_tool", f"unknown tool {name}")
         trigger_type = str(arguments.get("trigger_type") or arguments.get("triggerType") or "")

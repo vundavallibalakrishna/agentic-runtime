@@ -37,6 +37,7 @@ class DeliveryBody(ApiModel):
     integration: str | None = None
     channel: str | None = None
     pre_approved: bool = False
+    when: str = "always"
     config: dict[str, str] = Field(default_factory=dict)
 
 

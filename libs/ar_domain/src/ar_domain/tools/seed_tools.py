@@ -924,7 +924,30 @@ def _routines_server(store: Any) -> None:
                 {"type": "object", "properties": {}, "required": []},
                 "R0",
             ),
+            _quiet_tool(),
         ],
+    )
+
+
+def _quiet_tool() -> dict[str, object]:
+    return _tool(
+        "nothing_to_report",
+        "Nothing to report",
+        "Say that this run found nothing worth reporting. Call it once, before your final "
+        "answer, when a routine asked you to check something and nothing needs a person's "
+        "attention. A delivery of the routine that is set to send only when there is "
+        "something to report is then not sent. Do not call it when there is anything to "
+        "report, or when something could not be checked.",
+        {
+            "type": "object",
+            "properties": {
+                "note": {
+                    "type": "string",
+                    "description": "One short line on what was checked, for the record.",
+                }
+            },
+        },
+        "R0",
     )
 
 
@@ -2160,6 +2183,7 @@ def ensure_m34b(store: Any) -> None:
     # earlier canned `web.fetch` gets the real tool, and the refresh below retires the old.
     _web_server(store)
     _append_tools(store, "web", _web_tools())
+    _append_tools(store, "routines", [_quiet_tool()])
     _append_tools(store, "documents", [_diff_tool()])
     refresh_builtins(store)
 

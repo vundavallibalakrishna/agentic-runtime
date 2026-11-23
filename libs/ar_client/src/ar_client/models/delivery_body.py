@@ -26,6 +26,7 @@ class DeliveryBody:
         integration (None | str | Unset):
         channel (None | str | Unset):
         pre_approved (bool | Unset):  Default: False.
+        when (str | Unset):  Default: 'always'.
         config (DeliveryBodyConfig | Unset):
     """
 
@@ -33,6 +34,7 @@ class DeliveryBody:
     integration: None | str | Unset = UNSET
     channel: None | str | Unset = UNSET
     pre_approved: bool | Unset = False
+    when: str | Unset = "always"
     config: DeliveryBodyConfig | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
@@ -54,6 +56,8 @@ class DeliveryBody:
 
         pre_approved = self.pre_approved
 
+        when = self.when
+
         config: dict[str, Any] | Unset = UNSET
         if not isinstance(self.config, Unset):
             config = self.config.to_dict()
@@ -71,6 +75,8 @@ class DeliveryBody:
             field_dict["channel"] = channel
         if pre_approved is not UNSET:
             field_dict["preApproved"] = pre_approved
+        if when is not UNSET:
+            field_dict["when"] = when
         if config is not UNSET:
             field_dict["config"] = config
 
@@ -103,6 +109,8 @@ class DeliveryBody:
 
         pre_approved = d.pop("preApproved", UNSET)
 
+        when = d.pop("when", UNSET)
+
         _config = d.pop("config", UNSET)
         config: DeliveryBodyConfig | Unset
         if isinstance(_config, Unset):
@@ -115,6 +123,7 @@ class DeliveryBody:
             integration=integration,
             channel=channel,
             pre_approved=pre_approved,
+            when=when,
             config=config,
         )
 

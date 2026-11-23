@@ -294,6 +294,8 @@ class DeliveryTarget(_Model):
     integration: str | None = None
     channel: str | None = None
     pre_approved: bool = False
+    # ``something_to_report`` sends only when the run did not say it had nothing to report.
+    when: Literal["always", "something_to_report"] = "always"
     config: dict[str, str] = Field(default_factory=dict)
 
 
