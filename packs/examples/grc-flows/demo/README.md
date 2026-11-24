@@ -87,8 +87,16 @@ Expected: ten answers with the clause each comes from, and "needs owner input" f
 27001 certification and cyber insurance, which no document covers. Follow with "Write that
 as a Word document" to get a file to download.
 
-Also worth showing from **Documents**: open policy 3.2, choose **Compare**, pick 4.0, for the
-side-by-side view.
+> In CloudLedger's draft data processing agreement, rewrite the breach notification, sub-processor and return-and-deletion clauses to match our standard agreement. Give me the result as a Word document with tracked changes, and leave the original as it is.
+
+Expected: a new version of the draft as a Word file with three tracked changes, downloadable
+from the reply, and the original untouched. Open it in Word to accept or reject each change.
+
+The comparison is also on the **Documents** screen, with no question to write: under the
+list, choose the earlier and the later document and press **Compare**. It shows how many
+sections changed, were added or were removed, and each changed section side by side with the
+differing words marked. No model is asked, so it answers at once. Checking and rewriting
+are done in chat.
 
 ### 3. Data and outside systems (4 minutes)
 
