@@ -131,7 +131,7 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
             return _ok(_field_text(body), body)
         if name == "edit":
             changes = arguments.get("changes")
-            body = library.edit(
+            body, data = library.edit_file(
                 actor,
                 _required_id(arguments),
                 [item for item in changes if isinstance(item, dict)]
@@ -139,7 +139,7 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 else [],
                 redline=arguments.get("redline") is True,
             )
-            return _ok(str(body.get("id") or ""), {"kind": "file", **body})
+            return _version_result(store, arguments, body, data)
         if name == "create":
             from ar_domain.documents.create import publish  # noqa: PLC0415
 
@@ -732,6 +732,25 @@ def _table_text(tables: object) -> str:
         if isinstance(table, dict)
     ]
     return "\n\n".join(parts) or "No tables."
+
+
+def _version_result(
+    store: Any, arguments: dict[str, object], body: dict[str, object], data: bytes
+) -> dict[str, object]:
+    """The new version, as a library document and as a file the person can download."""
+    from ar_domain.documents.create.publish import keep_output  # noqa: PLC0415
+    from ar_domain.documents.create.spec import MEDIA  # noqa: PLC0415
+
+    name = str(body.get("filename") or "document.docx")
+    presentation: dict[str, object] = {"kind": "file", **body}
+    text = f"Saved as library document {body.get('id')} ({name})."
+    kept = keep_output(store, arguments, filename=name, data=data, media=MEDIA["docx"])
+    if kept is not None:
+        saved, shown = kept
+        presentation["files"] = [saved]
+        presentation["path"] = shown
+        text += f" The file is {shown}, and the reply carries it for download."
+    return _ok(text, presentation)
 
 
 def _ok(text: str, presentation: dict[str, object]) -> dict[str, object]:

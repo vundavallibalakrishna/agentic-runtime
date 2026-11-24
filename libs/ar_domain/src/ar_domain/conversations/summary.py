@@ -6,6 +6,7 @@ import uuid
 from typing import Any  # noqa: TC003
 
 from ar_common.errors import NotFoundError
+from ar_domain.conversations.logic import thread_order
 from ar_domain.memory.compaction import compact_context, summarise
 
 
@@ -37,7 +38,7 @@ def refresh_summary(
         for item in store.messages.values()
         if isinstance(item, dict) and item.get("conversation_id") == conversation_id
     ]
-    messages.sort(key=lambda item: str(item.get("created_at") or ""))
+    messages.sort(key=thread_order)
     packed = compact_context(messages, context_window=200_000, keep_messages=4)
     summary = str(packed.get("summary") or "") or summarise(messages)
     row["rolling_summary"] = summary

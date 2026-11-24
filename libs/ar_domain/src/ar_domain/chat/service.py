@@ -34,6 +34,7 @@ from ar_domain.conversations.logic import (
     activate_branch,
     run_is_active,
     run_is_working,
+    thread_order,
 )
 from ar_domain.demo_ids import demo_id as demo_id  # noqa: PLC0414
 from ar_domain.files.logic import (
@@ -1662,7 +1663,7 @@ class ChatBehaviour:
             for row in self.messages.values()
             if row["conversation_id"] == conversation_id and row.get("scope") != "run"
         ]
-        rows.sort(key=lambda item: str(item["created_at"]))
+        rows.sort(key=thread_order)
         del nodes
         return rows
 

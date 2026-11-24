@@ -15,6 +15,7 @@ from ar_common.errors import ArError, NotFoundError
 from ar_domain.agents.access import Actor
 from ar_domain.documents.library import DocumentLibrary
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.objects import MemoryObjectStore
 
 
 def test_section_map_errors_filters_and_follow_up_book(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -515,6 +516,8 @@ def test_dispatch_map_extract_edit_and_pack_tool(monkeypatch: pytest.MonkeyPatch
     )
 
     store = _store()
+    # The edit tool keeps its file for download here, not in a real object store.
+    store.objects = MemoryObjectStore()
     actor = _actor()
     saved = DocumentLibrary(store).ingest(actor, data=b"# One\n\nAlpha.\n", filename="note.md")
     run = _run(actor)
@@ -563,6 +566,14 @@ def test_dispatch_map_extract_edit_and_pack_tool(monkeypatch: pytest.MonkeyPatch
     # The certification's check for this tool reads the same result. Runs 11 and 12 failed
     # on the check alone, because it looked in the wrong place.
     assert _certification_check("new_version")(edited, None) is None  # type: ignore[operator]
+    # The new version is also a file the reply carries, so a person can download it.
+    shown = edited["structured"]["presentation"]  # type: ignore[index]
+    [kept] = shown["files"]
+    stored = store.files[uuid.UUID(kept["file_id"])]
+    assert kept["name"].endswith(".docx")
+    assert stored["mime_type"].endswith("wordprocessingml.document")
+    assert shown["media_type"].endswith("wordprocessingml.document")
+    assert "for download" in str(edited["text"])
     register_document_tool("ping", lambda _store, _args: {"text": "pong", "is_error": False})
     assert dispatch_documents(store, "ping", base)["text"] == "pong"
     register_document_tool("drop", lambda _store, _args: "nope")

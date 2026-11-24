@@ -60,8 +60,9 @@ def render_version(
             paragraphs.append(_tracked(old, new, mark))
             mark += 2
         else:
+            look = _heading_look(passage, new)
             paragraphs.append(
-                f'<w:p><w:r><w:t xml:space="preserve">{xml_escape(new)}</w:t></w:r></w:p>'
+                f'<w:p><w:r>{look}<w:t xml:space="preserve">{xml_escape(new)}</w:t></w:r></w:p>'
             )
     document = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -83,6 +84,25 @@ def render_version(
             "word/settings.xml": settings,
         }
     )
+
+
+# Half-points. A document's title, then its sections, then anything deeper.
+_HEADING_SIZES = (32, 26, 24)
+
+
+def _heading_look(passage: dict[str, object], text: str) -> str:
+    """Run properties that keep a heading looking like one. Empty for body text.
+
+    The file has no style sheet, so a heading is marked on the run itself. A passage is a
+    heading when its text is the heading it is filed under.
+    """
+    heading = str(passage.get("heading") or "").strip()
+    if not heading or text.strip() != heading:
+        return ""
+    raw = passage.get("level")
+    level = raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else 1
+    size = _HEADING_SIZES[min(level, len(_HEADING_SIZES)) - 1]
+    return f'<w:rPr><w:b/><w:sz w:val="{size}"/></w:rPr>'
 
 
 def _tracked(old: str, new: str, mark: int) -> str:
