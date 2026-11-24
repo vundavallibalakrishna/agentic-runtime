@@ -86,8 +86,11 @@ describe("comparing two documents", () => {
     // A section only one document has says so on the other side.
     expect(screen.getByText("Not in Policy v2.")).toBeTruthy();
     expect(screen.getByText("Not in Policy v1.")).toBeTruthy();
-    const passage = screen.getByRole("link", { name: "Open passage: Policy v2, p1-s8" });
+    const passage = screen.getByRole("link", { name: "Open passage p1-s8, Policy v2" });
     expect(passage.getAttribute("href")).toBe("/documents/b#p1-s8");
+    // What is spoken begins with what is shown (the accessibility check in the browser
+    // test failed on this on 24 November 2026).
+    expect(passage.getAttribute("aria-label")?.startsWith(passage.textContent ?? "-")).toBe(true);
   });
 
   it("says so when the two documents do not differ", async () => {

@@ -217,7 +217,8 @@ function Quote({
           </p>
           {anchor ? (
             <a
-              aria-label={`${open}: ${label}, ${anchor}`}
+              // The spoken name starts with the words on screen, then says which document.
+              aria-label={`${open} ${anchor}, ${label}`}
               className="mt-2 inline-block text-xs underline"
               href={`/documents/${document}#${anchor}`}
             >
