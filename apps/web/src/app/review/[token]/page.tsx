@@ -1,8 +1,8 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { AuthCard } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
@@ -163,7 +163,10 @@ export default function ReviewPage() {
   );
 }
 
-function fieldsOf(schema: Schema | undefined, values: Record<string, unknown> | undefined): Field[] {
+function fieldsOf(
+  schema: Schema | undefined,
+  values: Record<string, unknown> | undefined,
+): Field[] {
   const properties = schema?.properties ?? {};
   const required = new Set(schema?.required ?? []);
   const names = Object.keys(properties);
@@ -214,7 +217,11 @@ function FieldInput({
         <Input
           id={id}
           onChange={(event) =>
-            onChange(kind === "integer" ? Number.parseInt(event.target.value, 10) : Number(event.target.value))
+            onChange(
+              kind === "integer"
+                ? Number.parseInt(event.target.value, 10)
+                : Number(event.target.value),
+            )
           }
           required={field.required}
           type="number"
@@ -224,7 +231,10 @@ function FieldInput({
     );
   }
   if (kind === "array" || kind === "object") {
-    const text = typeof value === "string" ? value : JSON.stringify(value ?? (kind === "array" ? [] : {}), null, 2);
+    const text =
+      typeof value === "string"
+        ? value
+        : JSON.stringify(value ?? (kind === "array" ? [] : {}), null, 2);
     return (
       <Labeled id={id} label={label} required={field.required}>
         <textarea

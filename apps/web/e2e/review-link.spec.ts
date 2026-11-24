@@ -44,7 +44,9 @@ test("the review page edits any field and approves with a reason", async ({ page
   await page.getByLabel("title").fill("Final");
   await page.getByLabel("Reason").fill("Corrected the title");
   await page.getByRole("button", { name: "Approve" }).click();
-  await expect(page.getByText("Approved. The original values are kept alongside any you changed.")).toBeVisible();
+  await expect(
+    page.getByText("Approved. The original values are kept alongside any you changed."),
+  ).toBeVisible();
   expect(posted.decision).toBe("approve");
   expect(posted.comment).toBe("Corrected the title");
   expect(posted.arguments?.title).toBe("Final");

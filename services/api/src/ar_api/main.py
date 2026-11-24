@@ -55,6 +55,7 @@ from ar_api.routers.platform_usage import router as platform_usage_router
 from ar_api.routers.policies import router as policies_router
 from ar_api.routers.quotas import router as quotas_router
 from ar_api.routers.research import router as research_router
+from ar_api.routers.review_link import router as review_link_router
 from ar_api.routers.reviews import router as reviews_router
 from ar_api.routers.roles import router as roles_router
 from ar_api.routers.routines import router as routines_router
@@ -75,7 +76,6 @@ from ar_api.routers.tool_servers import router as tool_servers_router
 from ar_api.routers.tools import router as tools_router
 from ar_api.routers.usage import router as usage_router
 from ar_api.routers.users import router as users_router
-from ar_api.routers.review_link import router as review_link_router
 from ar_api.routers.webhooks import router as webhooks_router
 from ar_api.routers.widget import router as widget_router
 from ar_api.state import AuditApi, NotificationApi, PlatformApi, WebhookApi
