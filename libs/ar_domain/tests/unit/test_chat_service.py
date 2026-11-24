@@ -252,6 +252,52 @@ async def test_active_run_stream_pings_through_silence() -> None:
 
 
 @pytest.mark.asyncio
+async def test_a_stream_keeps_fetching_events_after_the_first_watcher_gives_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A run that outlasts one watcher still reaches the page.
+
+    The watcher that copies a worker's events out of the database polls a fixed number of
+    times. On 24 November 2026 a run of over two minutes finished after it had stopped, and
+    the open stream sent keep-alives for ever.
+    """
+    tenant, user = _ids()
+    service = demo_store()
+    conversation = service.create_conversation(tenant, user, None)
+    posted = service.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "a long job", schedule=False
+    )
+    run_id = uuid.UUID(str(posted["run"]["id"]))
+    service.durable_engine = object()  # a database-backed store watches for worker events
+
+    async def nothing(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr("ar_domain.durable.hydrate.load_run_events", nothing)
+    watchers = 0
+
+    async def watch(watched: uuid.UUID, **_kwargs: object) -> None:
+        nonlocal watchers
+        watchers += 1
+        if watchers == 1:
+            return  # the first watcher runs out of polls while the run is still working
+        # A later one finds what the worker wrote in the meantime.
+        service.runs[watched]["status"] = "completed"
+        for queue in service.subscribers.get(watched, []):
+            queue.put_nowait({"type": "run.completed", "seq": 99, "data": {}})
+
+    monkeypatch.setattr(service, "_watch", watch)
+    seen = [
+        str(event["type"]) async for event in service.iter_events(tenant, run_id, 0, idle_s=0.01)
+    ]
+    assert watchers == 2
+    assert seen[0] == "run.queued"
+    assert "heartbeat" in seen
+    assert seen[-1] == "run.completed"
+    assert service.subscribers[run_id] == []
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("status", ["waiting_approval", "waiting_input"])
 async def test_paused_run_stream_ends_instead_of_pinging(status: str) -> None:
     tenant, user = _ids()

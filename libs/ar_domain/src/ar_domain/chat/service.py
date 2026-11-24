@@ -3392,6 +3392,11 @@ class ChatBehaviour:
                     current = self.runs.get(run_id)
                     if current is None or not run_is_working(str(current.get("status"))):
                         return
+                    # The watcher polls a fixed number of times and stops. A run that
+                    # outlasts it is still working, and its later events are only in the
+                    # database, so the stream starts another for as long as it is open.
+                    if watcher is not None and watcher.done():
+                        watcher = asyncio.create_task(self._watch(run_id))
                     yield {"type": "heartbeat", "seq": after, "data": {}}
                     continue
                 if _seq(event) <= after:
