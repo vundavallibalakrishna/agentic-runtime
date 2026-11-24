@@ -23,6 +23,13 @@ import {
   TableScroll,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
+import { fileTypeKey } from "@/lib/file-type";
+
+/** A file's type in plain words; a type with no name is shown as the server sent it. */
+function typeLabel(t: (key: string) => string, mediaType: string): string {
+  const key = fileTypeKey(mediaType);
+  return key ? t(`fileType.${key}`) : mediaType;
+}
 
 type Row = Record<string, unknown>;
 
@@ -146,7 +153,7 @@ export function LibraryScreen() {
                         </p>
                       </TableCell>
                       <TableCell className="text-[var(--muted-foreground)]">
-                        {text(item.mediaType ?? item.media_type) || "—"}
+                        {typeLabel(t, text(item.mediaType ?? item.media_type)) || "—"}
                       </TableCell>
                       <TableCell className="tabular-nums text-[var(--muted-foreground)]">
                         {Number(item.pageCount ?? item.page_count ?? 0)}
@@ -315,7 +322,7 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
             <Facts
               className="mb-4 border-b border-[var(--border)] pb-4"
               items={[
-                { label: t("type"), value: text(doc.mediaType) },
+                { label: t("type"), value: typeLabel(t, text(doc.mediaType)) },
                 { label: t("pagesColumn"), value: text(doc.pageCount) },
               ]}
             />
