@@ -1422,6 +1422,19 @@
     "attach": "Attach file"
   },
   "documents": {
+    "fileType": {
+      "word": "Word document",
+      "excel": "Excel workbook",
+      "powerpoint": "PowerPoint deck",
+      "pdf": "PDF",
+      "csv": "CSV table",
+      "markdown": "Markdown",
+      "html": "Web page",
+      "text": "Plain text",
+      "json": "JSON",
+      "image": "Image",
+      "email": "Email"
+    },
     "libraryTitle": "Documents",
     "libraryBody": "Upload a file. The library keeps the extracted text, headings and tables.",
     "upload": "Upload",

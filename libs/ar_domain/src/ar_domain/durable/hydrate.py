@@ -689,8 +689,17 @@ async def _tools(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> 
         text("SELECT * FROM tools WHERE tenant_id = :tenant_id OR tenant_id IS NULL"),
         {"tenant_id": tenant_id},
     )
+    named: dict[object, dict[str, object]] = {}
     for row in tools.mappings():
+        named[row["id"]] = {
+            key: row[key] for key in ("name", "qualified_name") if row.get(key) is not None
+        }
         _merge(store, "tool_defs", row["id"], dict(row))
+    reviewed = {
+        row["id"]
+        for row in getattr(store, "tool_server_versions", {}).values()
+        if isinstance(row, dict) and row.get("review_status") in {"pending", "approved"}
+    }
     tool_versions = await session.execute(
         text("SELECT * FROM tool_versions WHERE tenant_id = :tenant_id OR tenant_id IS NULL"),
         {"tenant_id": tenant_id},
@@ -699,6 +708,13 @@ async def _tools(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> 
         body = dict(row)
         # Tool search keeps its own vectors, made by the tenant's model (tools/search.py).
         body.pop("embedding", None)
+        # A version's name is kept once, on its tool. Without it here the version cannot
+        # be matched to an agent's tool list, and no run may call it.
+        body.update(named.get(body.get("tool_id"), {}))
+        # A version cannot be sent for review until every risk class is confirmed, so one
+        # that was sent is confirmed.
+        if body.get("tool_server_version_id") in reviewed:
+            body["risk_confirmed"] = True
         _merge(store, "tool_versions", body["id"], body)
 
 

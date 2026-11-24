@@ -1,0 +1,17 @@
+control_id,function,statement
+GV.PO-01,Govern,"A security policy is established, approved by senior management and reviewed at least every year."
+GV.RR-02,Govern,Security roles and responsibilities are assigned and communicated.
+GV.SC-07,Govern,Critical suppliers are assessed before engagement and monitored at least every year.
+PR.AA-03,Protect,Multi-factor authentication is required for all access to production systems.
+PR.AA-05,Protect,Access rights are reviewed at least every quarter and follow least privilege.
+PR.DS-01,Protect,Data at rest is encrypted with a strong algorithm.
+PR.DS-02,Protect,Data in transit is encrypted.
+PR.AT-01,Protect,All staff receive security awareness training at least every year.
+PR.PS-04,Protect,Security logs are retained for at least one year.
+ID.RA-01,Identify,Vulnerabilities are identified by scanning at least every month.
+ID.RA-06,Identify,Critical vulnerabilities are remediated within 15 days.
+DE.CM-01,Detect,Networks and systems are monitored and high severity alerts are reviewed within one hour.
+RS.CO-02,Respond,Incidents involving personal data are reported internally within 24 hours.
+RC.RP-03,Recover,Backups are tested by restore at least every six months.
+GV.OC-03,Govern,"Use of artificial intelligence is governed, and AI systems are recorded in a register."
+PR.IR-04,Protect,Capacity is planned so that critical services stay available under twice the peak load.

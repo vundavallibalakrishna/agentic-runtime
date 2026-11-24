@@ -55,7 +55,7 @@ describe("document library", () => {
     expect(title.getAttribute("href")).toBe("/documents/doc-1");
     const row = title.closest("tr");
     expect(row?.textContent).toContain("access.md");
-    expect(row?.textContent).toContain("text/markdown");
+    expect(row?.textContent).toContain("Markdown");
     expect(row?.textContent).toContain("3");
     expect(screen.getByText("Ready").className).toContain("tone-success");
     expect(screen.getByRole("link", { name: "Open: Access" })).toBeTruthy();
