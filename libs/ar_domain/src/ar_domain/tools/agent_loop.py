@@ -1838,10 +1838,21 @@ def _made_before_stop(previews: list[dict[str, object]]) -> list[str]:
     """
     lines: list[str] = []
     for preview in previews:
-        if preview.get("status") != "succeeded":
-            continue
         presentation = preview.get("presentation")
         shown = presentation if isinstance(presentation, dict) else {}
+        if shown.get("kind") == "agents":
+            # A call to other agents is done agent by agent: one that finished did its
+            # work even when another in the same call did not.
+            called = shown.get("agents")
+            lines.extend(
+                f"- {item.get('agent') or 'An agent'} finished the work it was given; its "
+                "answer is kept with this reply."
+                for item in (called if isinstance(called, list) else [])
+                if isinstance(item, dict) and item.get("status") == "completed"
+            )
+            continue
+        if preview.get("status") != "succeeded":
+            continue
         title = shown.get("title")
         label = title.strip() if isinstance(title, str) and title.strip() else ""
         label = label or str(preview.get("qualified_name") or "").strip() or "a tool call"

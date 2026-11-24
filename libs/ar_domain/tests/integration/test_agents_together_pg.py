@@ -288,6 +288,21 @@ async def test_a_called_agent_is_a_run_another_worker_can_carry_out(database_url
         assert rows == {run_id: "completed:1", child_id: "completed:0"}
         assert reply == "The reference is REF-4471."
         assert still_open is None
+
+        # The API is another process again. It serves the reply with the call it made:
+        # who was called, how it ended and its answer. Before the column a reload gave
+        # the text and no calls.
+        reader = await process()
+        shown = reader.get_conversation(tenant, admin, conversation, read_all=True)
+        (answer,) = [row for row in shown["messages"] if row["role"] == "assistant"]
+        (kept,) = answer["tool_calls"]
+        assert (kept["qualified_name"], kept["status"]) == ("agents_call", "succeeded")
+        assert [
+            (row["agent"], row["status"], row["summary"], row["child_run_id"])
+            for row in kept["presentation"]["agents"]
+        ] == [(helper_slug, "completed", "REF-4471", str(child_id))]
+        (called,) = reader.list_children(tenant, run_id)
+        assert called["agent_slug"] == helper_slug
     finally:
         use_store(None)
         async with AsyncSession(engine) as session, session.begin():
