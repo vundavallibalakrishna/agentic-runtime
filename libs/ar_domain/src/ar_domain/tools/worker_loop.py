@@ -156,8 +156,12 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
     deferred: bool,
     openai_tools: list[dict[str, object]],
     offered: set[str],
+    stepped: bool = True,
 ) -> str:
-    """Execute the next saved tool call. Return ``tools``, ``model``, ``paused`` or ``final``."""
+    """Execute the next saved tool call.
+
+    Return ``tools``, ``model``, ``paused``, ``final``, ``sections`` or ``agents``.
+    """
     from ar_common.offload import run_sync  # noqa: PLC0415
     from ar_domain.orchestration.engine import ORCHESTRATION_NAMES, handle_orchestration  # noqa: PLC0415
     from ar_domain.orchestration.spend import charge  # noqa: PLC0415
@@ -208,7 +212,26 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
             "user_text": state.get("user_text") or "",
             "limits": limits,
         }
-        outcome = await handle_orchestration(store, run, assistant, call, loop_state)
+        # A loop that is not going a step at a time has no workflow to start the agents.
+        if name == "agents_ask" or not stepped:
+            outcome = await handle_orchestration(store, run, assistant, call, loop_state)
+        else:
+            # Each called agent is its own workflow. This step starts them; the step
+            # after they end comes back to this same call and answers it.
+            from ar_domain.orchestration import calls as agent_calls  # noqa: PLC0415
+
+            waiting = agent_calls.open_call(run, str(call.get("id") or "call"))
+            starts = [] if waiting else agent_calls.begin(store, run, call, loop_state)
+            if starts:
+                state["used_calls"] = used - 1
+                state["pending_index"] = index
+                state["phase"] = "tools"
+                state["elapsed_s"] = time.monotonic() - started
+                run["agent_children"] = starts
+                run["step_kind"] = "agents"
+                return "agents"
+            waiting = waiting or agent_calls.open_call(run, str(call.get("id") or "call")) or {}
+            outcome = agent_calls.finish(store, run, call, waiting)
         if outcome is None:
             run["step_kind"] = "paused"
             return "paused"

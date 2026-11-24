@@ -11,7 +11,7 @@ Status: **partial**. In-tenant handoff, parallel calls, child runs and an extern
 | In-tenant tools | done | `agents_call`, `agents_parallel`, `agents_handoff`, `agents_ask`. Handoff text: the caller stops after the handoff. `libs/ar_domain/src/ar_domain/orchestration/engine.py:20-55` |
 | Child runs | done | `delegate` emits `subagent.started` and stamps `parent_run_id`. `libs/ar_domain/src/ar_domain/skills/delegate.py:66`, `:120`, `:235` |
 | Children API | done | `GET /api/v1/runs/{run_id}/children`. `services/api/src/ar_api/routers/m2.py:952-958` |
-| Temporal children | done | `DelegationWorkflow` and `ChildRunWorkflow`. `services/runtime/src/ar_runtime/workflows/delegation.py:15-68` |
+| Temporal children | done | Each called agent is a child `AgentRunWorkflow` (`run-{child_run_id}`). `services/runtime/src/ar_runtime/workflows/turn.py` (`_agents`), `libs/ar_domain/src/ar_domain/orchestration/calls.py` |
 | A2A HTTP | done | `POST /v1/a2a` and the agent card. `services/api/src/ar_api/routers/exposure.py:503-573` |
 | Card version | partial | `protocol_version` is `0.3.0`. `libs/ar_domain/src/ar_domain/exposure/a2a.py:54-59` |
 | External task creates a run | done | `message/send` calls `send_message`. `a2a.py:160-222` |

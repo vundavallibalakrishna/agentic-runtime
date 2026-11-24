@@ -68,6 +68,9 @@ def read_budget(
         else:
             limits[key] = value
     override = run.get("budget_override") if isinstance(run, dict) else None
+    if override is None and isinstance(run, dict):
+        # A called agent loaded from the database has its budget on its request.
+        override = asked(run, "budget")
     if isinstance(override, dict):
         for key, value in override.items():
             if key in limits and isinstance(value, int) and not isinstance(value, bool):
@@ -275,6 +278,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 deferred=deferred,
                 openai_tools=openai_tools,
                 offered=offered,
+                stepped=one_step,
             )
             write_worker_loop(run, saved_loop)
             applied = apply_worker_loop(saved_loop)
@@ -299,14 +303,14 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
 
                 run_pending(store, run)
                 continue
-            if one_step or kind in {"paused", "final", "sections"}:
+            if one_step or kind in {"paused", "final", "sections", "agents"}:
                 return True
             if kind == "tools":
                 continue
         steps += 1
         # An agent called by another also stops when the pool it shares with the others
         # in that call is empty.
-        limit = _over(limits, steps, tokens, cost, started, used_calls) or pool_limit(run)
+        limit = _over(limits, steps, tokens, cost, started, used_calls) or pool_limit(run, store)
         if limit is not None:
             # What was spent before the stop still counts.
             _remember_usage(
@@ -1787,7 +1791,8 @@ def _finish(
         }
         run["usage"] = usage
     conversation = store.conversations.get(run.get("conversation_id"))
-    if isinstance(conversation, dict):
+    # A called agent's run ends inside its caller's turn, which still has the conversation.
+    if isinstance(conversation, dict) and run.get("parent_run_id") is None:
         conversation["active_run_id"] = None
     assistant_id = assistant.get("id")
     from ar_domain.loop.planning import end_tool_plan  # noqa: PLC0415
@@ -1901,7 +1906,8 @@ def _stop_budget(
     run["ended_at"] = utcnow()
     run["result_summary"] = text[:8000]
     conversation = store.conversations.get(run.get("conversation_id"))
-    if isinstance(conversation, dict):
+    # A called agent's run ends inside its caller's turn, which still has the conversation.
+    if isinstance(conversation, dict) and run.get("parent_run_id") is None:
         conversation["active_run_id"] = None
     # A reader of the stream gets the text of the reply before the event that ends it.
     store._emit(run, "message.completed", {"message_id": str(assistant.get("id")), "text": text})

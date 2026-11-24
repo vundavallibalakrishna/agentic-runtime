@@ -140,3 +140,170 @@ async def test_two_written_files_with_the_same_bytes_and_a_runs_own_message_are_
                     {"files": files, "conversation": conversation, "agent": agent},
                 )
         await engine.dispose()
+
+
+def _published(store: ChatService, actor: Actor, slug: str, **extra: object) -> uuid.UUID:
+    """A published agent whose definition carries ``extra``."""
+    life = AgentLifecycle(store)
+    agent = uuid.UUID(str(life.create(actor, slug=slug, name=slug, description="")["id"]))
+    draft = uuid.UUID(str(store.agents[agent]["draft_version_id"]))
+    row = store.versions[draft]
+    store.versions[draft] = {**row, "definition": {**dict(row["definition"]), **extra}}
+    life.publish(actor, agent, skip_eval_gate=True)
+    return agent
+
+
+def _scripted(store: ChatService, helper: str, task: str, calls: list[str]) -> None:
+    """Answer as a lead that calls its helper once, and as the helper given ``task``."""
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tools, tenant_id, model_alias
+        used = {"tokens_in": 3, "tokens_out": 5}
+        mine = [str(row.get("content") or "") for row in messages if row.get("role") == "user"]
+        if any(task in said for said in mine):
+            calls.append("helper")
+            return {"text": "REF-4471", "tool_calls": [], "usage": used}
+        calls.append("lead")
+        if any(row.get("role") == "tool" for row in messages):
+            return {"text": "The reference is REF-4471.", "tool_calls": [], "usage": used}
+        call = {"id": "c1", "name": "agents_call", "arguments": {"agent": helper, "task": task}}
+        return {"text": "", "tool_calls": [call], "usage": used}
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+
+
+async def test_a_called_agent_is_a_run_another_worker_can_carry_out(database_url: str) -> None:
+    """One worker starts the call, a second runs the called agent, a third answers the call.
+
+    Nothing passes between them but the database: the called agent's run, its task, its
+    budget, who called whom, and the note of the call on the caller's checkpoint.
+    """
+    from ar_runtime.activities.advance_chat_step import advance_chat_step
+    from ar_runtime.activities.expire_approval import bind_store as use_store
+    from ar_testing.stand_in import shared
+
+    engine = create_async_engine(database_url)
+    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+        await apply(session)
+
+    async def process() -> ChatService:
+        store = ChatService()
+        assert await bind_store(store, database_url, tenant_slug="dev") is not None
+        return store
+
+    api = await process()
+    tenant = api.tenant_binding.tenant_id  # type: ignore[union-attr]
+    admin = next(iter(api.tenant_binding.users.values()))  # type: ignore[union-attr]
+    actor = Actor(tenant, admin, PERMISSION_KEYS, display_name="Admin")
+    # An agent's draft names these aliases, and it is published only when each has a model.
+    await shared().save_chat(
+        api, tenant, script_set="called-agent-workers", aliases=("reasoning", "fast", "vision")
+    )
+    tag = uuid.uuid4().hex[:8]
+    helper_slug = f"helper-{tag}"
+    helper = _published(api, actor, helper_slug)
+    lead = _published(
+        api, actor, f"lead-{tag}", subagents={"allowed": [helper_slug], "max_depth": 2}
+    )
+    conversation = uuid.UUID(str(api.create_conversation(tenant, admin, lead)["id"]))
+    posted = api.post_message(tenant, admin, conversation, "Find the reference.", schedule=False)
+    run_id = uuid.UUID(str(posted["run"]["id"]))
+    await flush_store(api)
+    task = f"LOOK-UP-{tag}"
+    calls: list[str] = []
+    # Three workers, started before the turn. None has seen the run or will see another's
+    # memory. (A process that starts while a run is working marks it interrupted: OQ-193.)
+    first, second, third = await process(), await process(), await process()
+    try:
+        _scripted(first, helper_slug, task, calls)
+        use_store(first)
+        kinds = []
+        for _ in range(4):
+            step = await advance_chat_step({"run_id": str(run_id), "text": "go"})
+            kinds.append(step["kind"])
+            if step["kind"] == "agents":
+                break
+        assert kinds[-1] == "agents", kinds
+        (child,) = step["children"]
+        child_id = uuid.UUID(str(child["run_id"]))
+        async with engine.connect() as connection:
+            saved = (
+                await connection.execute(
+                    text(
+                        "SELECT status, agent_id, parent_run_id, trigger, "
+                        "request ->> 'waits', request -> 'agent_chain' ->> 1 "
+                        "FROM runs WHERE id = :id"
+                    ),
+                    {"id": child_id},
+                )
+            ).one()
+        assert tuple(saved) == ("queued", helper, run_id, "subagent", "true", helper_slug)
+
+        # A second worker has never seen either run. It carries out the called agent.
+        _scripted(second, helper_slug, task, calls)
+        use_store(second)
+        for _ in range(4):
+            step = await advance_chat_step({"run_id": str(child_id), "text": task})
+            if step["kind"] == "final":
+                break
+        assert step == {"status": "completed", "kind": "final", "run_id": str(child_id)}
+
+        # A third answers the call from what the second saved.
+        _scripted(third, helper_slug, task, calls)
+        use_store(third)
+        for _ in range(4):
+            step = await advance_chat_step({"run_id": str(run_id), "text": "go"})
+            if step["kind"] == "final":
+                break
+        assert step["status"] == "completed"
+        # The lead asked, the helper answered once, the lead went on. (What follows a
+        # finished reply, such as deciding what to remember, also asks the lead's model.)
+        assert calls[:3] == ["lead", "helper", "lead"]
+        assert calls.count("helper") == 1
+        async with engine.connect() as connection:
+            rows = dict(
+                (
+                    await connection.execute(
+                        text(
+                            "SELECT id, status || ':' || "
+                            "coalesce(usage -> 'subagents' ->> 'runs', '0') "
+                            "FROM runs WHERE id = ANY(:ids)"
+                        ),
+                        {"ids": [run_id, child_id]},
+                    )
+                ).all()
+            )
+            reply = await connection.scalar(
+                text(
+                    "SELECT content -> 0 ->> 'text' FROM messages "
+                    "WHERE run_id = :id AND role = 'assistant'"
+                ),
+                {"id": run_id},
+            )
+            still_open = await connection.scalar(
+                text("SELECT checkpoint -> 'agent_call' FROM runs WHERE id = :id"), {"id": run_id}
+            )
+        assert rows == {run_id: "completed:1", child_id: "completed:0"}
+        assert reply == "The reference is REF-4471."
+        assert still_open is None
+    finally:
+        use_store(None)
+        async with AsyncSession(engine) as session, session.begin():
+            for statement in (
+                "DELETE FROM run_events WHERE run_id IN (SELECT id FROM runs "
+                "WHERE conversation_id = :conversation)",
+                "DELETE FROM run_steps WHERE run_id IN (SELECT id FROM runs "
+                "WHERE conversation_id = :conversation)",
+                "UPDATE conversations SET active_run_id = NULL WHERE id = :conversation",
+                "DELETE FROM messages WHERE conversation_id = :conversation",
+                "DELETE FROM runs WHERE conversation_id = :conversation",
+                "DELETE FROM conversations WHERE id = :conversation",
+                "UPDATE agents SET draft_version_id = NULL, published_version_id = NULL "
+                "WHERE id = ANY(:agents)",
+                "DELETE FROM agent_versions WHERE agent_id = ANY(:agents)",
+                "DELETE FROM agents WHERE id = ANY(:agents)",
+            ):
+                await session.execute(
+                    text(statement), {"conversation": conversation, "agents": [lead, helper]}
+                )
+        await engine.dispose()

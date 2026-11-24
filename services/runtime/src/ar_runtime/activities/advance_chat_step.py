@@ -139,6 +139,9 @@ def _step_body(
         from ar_domain.research.engine import pending_subtasks, state_of  # noqa: PLC0415
 
         body["subtasks"] = pending_subtasks(state_of(run, text))
+    if kind == "agents":
+        started = run.get("agent_children")
+        body["children"] = started if isinstance(started, list) else []
     if kind == "sections":
         batch = run.get("section_batch")
         body["sections"] = batch if isinstance(batch, list) else []

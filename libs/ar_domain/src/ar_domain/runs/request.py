@@ -11,6 +11,10 @@ OPTIONS = frozenset(
         "response_format",
         "suggest_followups",
         "orchestration_child",
+        "waits",
+        "agent_chain",
+        "budget",
+        "pool",
         "permissions",
         "task_template",
         "items",
@@ -50,3 +54,12 @@ def permissions_of(run: dict[str, object]) -> list[str] | None:
     if isinstance(stored, list | tuple):
         return [str(item) for item in stored]
     return None
+
+
+def cannot_wait(run: dict[str, object]) -> bool:
+    """Whether this run was called by another agent in a way that cannot wait for a person.
+
+    A called agent that is its own workflow waits like any run: its caller's workflow
+    waits for it. One run inside its caller's step has nobody to wait for.
+    """
+    return bool(asked(run, "orchestration_child")) and not asked(run, "waits")

@@ -1,4 +1,4 @@
-"""Poll ``ar-runtime`` for turns, delegation, approvals and tool calls."""
+"""Poll ``ar-runtime`` for turns, approvals and tool calls."""
 
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ from ar_common.logging import get_logger
 from ar_common.settings import fake_models_allowed, get_settings, loopback_allowed
 from ar_common.temporal_worker import temporal_unavailable_fields, temporal_worker_kwargs
 from ar_runtime.activities.advance_chat_step import advance_chat_step
-from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.activities.document_section import document_section
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
 from ar_runtime.activities.expire_approval import bind_store, cancel_approval, expire_approval
@@ -29,7 +28,6 @@ from ar_runtime.activities.research_step import (
 )
 from ar_runtime.activities.start_run import start_run
 from ar_runtime.main import TASK_QUEUE
-from ar_runtime.workflows.delegation import AgentRunWorkflow, ChildRunWorkflow
 from ar_runtime.workflows.research import ResearchSubtaskWorkflow, ResearchWorkflow
 from ar_runtime.workflows.tool_turn import ToolTurnWorkflow
 from ar_runtime.workflows.turn import TurnWorkflow
@@ -41,8 +39,6 @@ def runtime_workflows() -> list[type]:
     """Workflows the runtime worker polls. Tests register this same list."""
     return [
         TurnWorkflow,
-        AgentRunWorkflow,
-        ChildRunWorkflow,
         ToolTurnWorkflow,
         ResearchWorkflow,
         ResearchSubtaskWorkflow,
@@ -61,7 +57,6 @@ def runtime_activities() -> list[Callable[..., Any]]:
         research_cancel,
         research_exhausted,
         start_run,
-        create_child_run,
         expire_approval,
         cancel_approval,
     ]

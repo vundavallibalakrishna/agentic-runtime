@@ -2368,7 +2368,7 @@ class ChatBehaviour:
         if not run_is_active(str(run.get("status"))):
             return "final"
         kind = str(run.get("step_kind") or "")
-        if kind in {"tools", "model", "paused", "fanout"}:
+        if kind in {"tools", "model", "paused", "fanout", "agents"}:
             return kind
         return "model"
 
@@ -2417,6 +2417,12 @@ class ChatBehaviour:
             from ar_domain.research.driver import advance_research  # noqa: PLC0415
 
             run["step_kind"] = await advance_research(self, run, text, one_step=one_step)
+            return
+        if one_step and run.get("parent_run_id") is not None:
+            # A run another agent's call started: that agent, with the task as its message.
+            from ar_domain.orchestration.calls import step as step_called  # noqa: PLC0415
+
+            await step_called(self, run)
             return
         if one_step:
             from ar_domain.tools.worker_loop import worker_loop_open  # noqa: PLC0415

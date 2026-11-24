@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 def plan_child(payload: dict[str, object]) -> dict[str, object]:
-    """Pure child plan used by the ``create_child_run`` activity."""
+    """The plan for one child run: its id, depth and budget, or why it cannot start."""
     parent_depth = _count(payload.get("depth"))
     max_depth = min(_count(payload.get("max_depth")) or 1, platform_max_depth())
     if parent_depth + 1 > max_depth:
