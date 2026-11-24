@@ -41,7 +41,7 @@ modules =
     ar_fake_llm
 
 [importlinter:contract:no-db-in-edge]
-name = Channels, sandbox agent and connectors have no DB access
+name = Channels and the sandbox agent have no DB access
 type = forbidden
 source_modules =
     ar_channels

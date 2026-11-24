@@ -1,7 +1,7 @@
 # One install, development and production. Profile `dev` is the data plane for a
 # host process. Profile `production` is the single-node install: the core, and
 # nothing a basic tenant does not use. A feature a customer switches on is one more file, named
-# compose.<feature>.yaml (computers, channels, connectors, opa, vault, model-gateway),
+# compose.<feature>.yaml (computers, channels, opa, vault, model-gateway),
 # which starts that feature's services and tells the core where they are. List the
 # files in COMPOSE_FILE in .env. See docs/07-ops/compose.md.
 # Order: postgres, reconcile-roles, migrate, temporal-schema, temporal, apps.
