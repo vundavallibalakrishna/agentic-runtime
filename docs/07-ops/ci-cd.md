@@ -10,6 +10,10 @@ CI runs on the repository's hosted CI (workflow files in `.github/workflows/`; a
 
 ## 2. Jobs
 
+A newer push to a pull request cancels the run for the push before it (`concurrency` in `ci.yml` and `images.yml`), so a superseded run does not hold the runners the new one waits for. A push to `main` is always run to the end.
+
+`docs/open-questions.md` and `docs/09-plan/progress.md` are merged with git's union driver (`.gitattributes`): two branches that each append a row merge locally with both rows kept. When two branches changed the same existing row, both versions are kept and one is removed by hand.
+
 A pull request whose every changed file is Markdown under `docs/` runs `pr-title`, `domain-agnostic` and `docs` only. The `changes` job (`scripts/ci_changes.sh`) decides this from the pull request's whole diff, and every other job in `ci` is skipped; `images` is not started. Nothing a test, a build or an image reads has changed in such a pull request. Any other file, including a Markdown file outside `docs/` such as `AGENTS.md`, runs the full suite, and so does every push to `main`. A code pull request runs the full suite on each push, including a push that only merges `main` in.
 
 | Job | Trigger | Required | Runs | Budget |
