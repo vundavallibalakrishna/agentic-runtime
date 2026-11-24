@@ -564,3 +564,49 @@ async def test_a_called_agent_that_never_ended_is_closed_and_the_caller_goes_on(
     assert child["error"]["code"] == "child_not_finished"
     assert str(assistant["text"]).startswith("carried on without it")
     assert len(_children(store, run)) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_step_hands_the_workflow_every_called_agent_and_how_many_run_at_once() -> None:
+    """On a worker the extra agents are not dropped: the workflow starts them in turn."""
+    from ar_domain.runs.request import asked
+    from ar_runtime.activities.advance_chat_step import advance_chat_step
+    from ar_runtime.activities.expire_approval import bind_store
+
+    store = _store()
+    bind_store(store)
+    shape = {
+        "type": "object",
+        "properties": {"colour": {"type": "string"}},
+        "required": ["colour"],
+    }
+    _agent(store, "painter", contract={"description": "Names a colour.", "output_schema": shape})
+    lead, version = _agent(
+        store,
+        "lead",
+        subagents={"allowed": ["painter"], "max_depth": 2, "max_parallel": 2, "max_calls": 3},
+    )
+    run, assistant = _open(store, lead, version)
+
+    def handler(messages: list[dict[str, object]]) -> dict[str, object]:
+        if _for(messages, "TASK painter"):
+            return _reply('{"colour": "teal"}')
+        if not any(row.get("role") == "tool" for row in messages):
+            return _reply("", calls=_together(*["painter"] * 4))
+        return _reply("Teal, three times.")
+
+    _script(store, handler)
+    await advance_chat_step({"run_id": str(run["id"]), "text": "go"})
+    started = await advance_chat_step({"run_id": str(run["id"]), "text": "go"})
+    assert started["kind"] == "agents"
+    assert (len(started["children"]), started["parallel"]) == (3, 2)
+    children = [row for row in store.runs.values() if row.get("parent_run_id") == run["id"]]
+    # What the painter promised to return is on each run, where its worker reads it.
+    assert [asked(row, "response_format") for row in children] == [shape] * 3
+    for child in started["children"]:
+        await _carry_out(child["run_id"])
+    await _carry_out(run["id"])
+    shown = assistant["tool_calls"][0]["presentation"]["agents"]
+    assert [row["status"] for row in shown] == ["completed"] * 3 + ["failed"]
+    assert [row["summary"] for row in shown[:3]] == ['{"colour":"teal"}'] * 3
+    assert "at most 3 agents" in shown[3]["summary"]

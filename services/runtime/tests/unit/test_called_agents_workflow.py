@@ -115,3 +115,48 @@ async def test_stopping_the_caller_stops_the_agents_it_called(
     assert child["status"] == "cancelled"
     # Each run closes itself: the called agent's first, then its caller's.
     assert finished == [("slow", "cancelled"), ("lead", "cancelled")]
+
+
+async def test_called_agents_past_the_limit_start_as_others_end(
+    temporal_env: WorkflowEnvironment,
+) -> None:
+    going = {"now": 0, "most": 0}
+    ran: list[str] = []
+
+    @activity.defn(name="advance_chat_step")
+    async def step(payload: dict[str, Any]) -> dict[str, Any]:
+        run_id = str(payload.get("run_id"))
+        if run_id == "lead":
+            if "lead" in ran:
+                return {"status": "completed", "kind": "final", "run_id": run_id}
+            ran.append("lead")
+            return {
+                "status": "running",
+                "kind": "agents",
+                "run_id": run_id,
+                "parallel": 2,
+                "children": [_child(f"queued-{at}") for at in range(5)],
+            }
+        going["now"] += 1
+        going["most"] = max(going["most"], going["now"])
+        await asyncio.sleep(0.2)
+        going["now"] -= 1
+        ran.append(run_id)
+        return {"status": "completed", "kind": "final", "run_id": run_id}
+
+    async with Worker(
+        temporal_env.client,
+        task_queue=_QUEUE,
+        workflows=[TurnWorkflow],
+        activities=[step, _finish],
+    ):
+        result = await temporal_env.client.execute_workflow(
+            TurnWorkflow.run,
+            {"run_id": "lead", "steps": True, "max_steps": 8},
+            id="run-lead-queued",
+            task_queue=_QUEUE,
+        )
+    assert result["status"] == "completed"
+    # All five ran, and never more than two at once.
+    assert sorted(ran[1:]) == [f"queued-{at}" for at in range(5)]
+    assert going["most"] == 2

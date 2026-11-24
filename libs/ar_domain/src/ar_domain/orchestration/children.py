@@ -10,7 +10,17 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.orchestration import events
-from ar_domain.orchestration.spec import chain, depth_blocked, is_cycle, subagent_spec, whole
+from ar_domain.orchestration.spec import (
+    brief,
+    chain,
+    contract_of,
+    depth_blocked,
+    enforced,
+    input_problem,
+    is_cycle,
+    subagent_spec,
+    whole,
+)
 from ar_domain.orchestration.spend import Spend, meter, release, spend_of
 from ar_domain.runs.request import ask
 from ar_domain.skills.delegate import _insert_child
@@ -46,7 +56,11 @@ def budget_left(limits: dict[str, int], state: dict[str, object]) -> str | None:
 
 
 def refusal(
-    store: Any, parent: dict[str, object], slug: str, state: dict[str, object]
+    store: Any,
+    parent: dict[str, object],
+    slug: str,
+    state: dict[str, object],
+    given: object = None,
 ) -> tuple[str, dict[str, object] | None]:
     """The agent a call names, and why it cannot be called, if it cannot."""
     spec = subagent_spec(definition_of(store, parent))
@@ -58,6 +72,9 @@ def refusal(
     permitted = slug in allowed or (slug == self_name and spec["allow_self_clone"] is True)
     if not permitted:
         return slug, call_error(slug, "not_allowed", f"{slug} is not an agent this one can call.")
+    unfit = input_problem(store, parent.get("tenant_id"), slug, given)
+    if unfit is not None:
+        return slug, call_error(slug, "input_invalid", unfit)
     if is_cycle(parent, slug, allow_self=spec["allow_self_clone"] is True):
         return slug, call_error(
             slug, "cycle", f"Calling {slug} would loop back to an agent already in this run."
@@ -80,11 +97,14 @@ async def run_named(
     slug: str,
     task: str,
     state: dict[str, object],
+    *,
+    given: object = None,
 ) -> dict[str, object]:
     """Run one child. A timeout, cycle, depth or budget failure is a tool error, not a crash."""
-    slug, refused = refusal(store, parent, slug, state)
+    slug, refused = refusal(store, parent, slug, state, given)
     if refused is not None:
         return refused
+    task = brief(task, given)
     spec = subagent_spec(definition_of(store, parent))
     limits = state.get("limits")
     budget = limits if isinstance(limits, dict) else {}
@@ -140,30 +160,38 @@ async def run_parallel(
     calls: list[dict[str, object]],
     state: dict[str, object],
 ) -> dict[str, object]:
+    """Run the agents one call names. ``max_parallel`` run at once; the rest wait their turn."""
     spec = subagent_spec(definition_of(store, parent))
-    cap = spec["max_parallel"]
     pool_for(state)
-    chosen = [item for item in calls if isinstance(item, dict)][:cap]
+    chosen = [item for item in calls if isinstance(item, dict)][: spec["max_calls"]]
     overflow = len(calls) - len(chosen)
-    results = await asyncio.gather(
-        *[
-            run_named(
-                store, parent, str(item.get("agent") or ""), str(item.get("task") or ""), state
+    turn = asyncio.Semaphore(spec["max_parallel"])
+
+    async def one(item: dict[str, object]) -> dict[str, object]:
+        # An agent waiting its turn has not started: its time is counted from when it does.
+        async with turn:
+            return await run_named(
+                store,
+                parent,
+                str(item.get("agent") or ""),
+                str(item.get("task") or ""),
+                state,
+                given=item.get("input"),
             )
-            for item in chosen
-        ]
-    )
+
+    results = list(await asyncio.gather(*[one(item) for item in chosen]))
     if overflow:
-        results = [
-            *results,
-            call_error(
-                "",
-                "fanout",
-                f"{overflow} calls were not started because the fan-out limit is {cap}.",
-            ),
-        ]
+        results.append(too_many(overflow, spec["max_calls"]))
     failed = any(item.get("failed") for item in results)
-    return {"failed": failed, "results": list(results)}
+    return {"failed": failed, "results": results}
+
+
+def too_many(overflow: int, limit: int) -> dict[str, object]:
+    return call_error(
+        "",
+        "fanout",
+        f"{overflow} calls were not started because one call may name at most {limit} agents.",
+    )
 
 
 def open_child(
@@ -206,6 +234,11 @@ def open_child(
     ask(child, "agent_chain", child["agent_chain"])
     ask(child, "budget", left)
     ask(child, "orchestration_child", True)
+    # What the called agent's contract says it returns is checked like any answer schema:
+    # the loop asks once more for an answer that does not fit, then fails the run.
+    promised = enforced(contract_of(store, parent.get("tenant_id"), slug).get("output_schema"))
+    if promised is not None:
+        ask(child, "response_format", promised)
     child["workspace_ref"] = f"workspace:{child['id']}"
     return child
 

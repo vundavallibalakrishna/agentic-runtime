@@ -142,6 +142,8 @@ def _step_body(
     if kind == "agents":
         started = run.get("agent_children")
         body["children"] = started if isinstance(started, list) else []
+        width = run.get("agent_parallel")
+        body["parallel"] = width if isinstance(width, int) and width > 0 else 1
     if kind == "sections":
         batch = run.get("section_batch")
         body["sections"] = batch if isinstance(batch, list) else []

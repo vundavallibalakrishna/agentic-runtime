@@ -101,6 +101,8 @@ class SubagentSpec(_Model):
     allow_self_clone: bool = False
     max_depth: int = Field(default=1, ge=1, le=3)
     max_parallel: int = Field(default=3, ge=1, le=8)
+    # How many agents one call may name. Those past ``max_parallel`` wait their turn.
+    max_calls: int = Field(default=16, ge=1, le=64)
     child_timeout_s: int = Field(default=45, ge=1, le=600)
 
 

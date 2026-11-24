@@ -1091,6 +1091,26 @@ export function AgentEditor() {
                                 value={definition.subagents?.maxParallel ?? 3}
                               />
                             </label>
+                            <label className="text-sm" htmlFor="max-calls">
+                              {t("maxCalls")}
+                              <Input
+                                className="mt-1 w-24"
+                                id="max-calls"
+                                min={1}
+                                max={64}
+                                onChange={(event) =>
+                                  updateDefinition({
+                                    ...definition,
+                                    subagents: {
+                                      ...definition.subagents,
+                                      maxCalls: Number(event.target.value) || 16,
+                                    },
+                                  })
+                                }
+                                type="number"
+                                value={definition.subagents?.maxCalls ?? 16}
+                              />
+                            </label>
                             <label className="text-sm" htmlFor="child-timeout">
                               {t("childTimeout")}
                               <Input
