@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus } from "@/components/common/detail-state";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
-import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,8 +16,6 @@ import { ApiError, api } from "@/lib/api";
 import { M22Panels } from "./m22-panels";
 
 type Row = Record<string, unknown>;
-
-const MODE_KEY = "ar-settings-mode";
 
 function proofLabel(
   t: (key: "proofUnit" | "proofContract" | "proofLive") => string,
@@ -40,21 +37,12 @@ export function ToolsScreen() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [advanced, setAdvanced] = useState(false);
   const [slug, setSlug] = useState("");
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
-  const [kind, setKind] = useState("remote_mcp");
   const [transport, setTransport] = useState("streamable");
   const [connectionName, setConnectionName] = useState("");
   const [notice, setNotice] = useState("");
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    setAdvanced(window.localStorage.getItem(MODE_KEY) === "advanced");
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,13 +79,6 @@ export function ToolsScreen() {
     void load();
   }, [load]);
 
-  function chooseMode(next: boolean) {
-    setAdvanced(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
-    }
-  }
-
   async function saveAccess() {
     setBusy(true);
     setError("");
@@ -129,15 +110,17 @@ export function ToolsScreen() {
     setNotice("");
     setError("");
     try {
-      const config: Record<string, unknown> = kind === "sql" ? { dataConnectionId: address } : {};
-      let endpoint = kind === "remote_mcp" ? address : undefined;
-      if (kind === "remote_mcp" && connectionName.trim()) {
+      // This form registers a remote MCP server. A database is connected as a data
+      // connection, and an OpenAPI document is imported; neither is a kind chosen here.
+      const config: Record<string, unknown> = {};
+      let endpoint = address;
+      if (connectionName.trim()) {
         config.connection = connectionName.trim();
       }
-      if (kind === "remote_mcp" && transport !== "streamable") {
+      if (transport !== "streamable") {
         config.transport = transport;
       }
-      if (kind === "remote_mcp" && transport === "stdio") {
+      if (transport === "stdio") {
         endpoint = "stdio://sandbox";
         config.command = address.split(/\s+/).filter(Boolean);
       }
@@ -146,7 +129,7 @@ export function ToolsScreen() {
         body: JSON.stringify({
           slug,
           name,
-          kind,
+          kind: "remote_mcp",
           version: {
             version: "1.0.0",
             endpointUrl: endpoint,
@@ -194,11 +177,7 @@ export function ToolsScreen() {
     <AppShell>
       <ActionStatus busy={busy} />
       <fieldset disabled={busy} className="min-w-0">
-        <PageHeader
-          title={t("title")}
-          body={t("body")}
-          actions={<SettingsMode advanced={advanced} onChange={chooseMode} />}
-        />
+        <PageHeader title={t("title")} body={t("body")} />
         <div className="mb-6 flex flex-wrap gap-2">
           <Button asChild variant="outline">
             <a href="/connections">{t("connections")}</a>
@@ -263,21 +242,6 @@ export function ToolsScreen() {
                   value={connectionName}
                 />
               </label>
-              {advanced ? (
-                <label className="block text-sm" htmlFor="tool-kind">
-                  {t("kind")}
-                  <select
-                    className="mt-1 w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-2"
-                    id="tool-kind"
-                    onChange={(event) => setKind(event.target.value)}
-                    value={kind}
-                  >
-                    <option value="remote_mcp">{t("remote")}</option>
-                    <option value="openapi">{t("openapi")}</option>
-                    <option value="sql">{t("sql")}</option>
-                  </select>
-                </label>
-              ) : null}
               <Button disabled={!slug.trim() || !name.trim() || !address.trim()} type="submit">
                 {t("save")}
               </Button>

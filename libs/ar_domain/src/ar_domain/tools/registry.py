@@ -9,6 +9,7 @@ from ar_common.ids import new_id
 from ar_common.settings import loopback_allowed
 from ar_common.time import utcnow
 from ar_domain.durable.tracking import keep
+from ar_domain.tools.handlers import endpoint_registered, endpoint_tools
 from ar_domain.tools.logic import (
     as_mapping,
     description_hash,
@@ -23,21 +24,6 @@ from ar_domain.tools.views import server_view, tool_summary, tool_version_view, 
 
 if TYPE_CHECKING:
     from ar_domain.agents.access import Actor
-
-_ECHO = [
-    {
-        "name": "ping",
-        "title": "Ping",
-        "description": "Return the message so a reviewer can see the tool.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"message": {"type": "string"}},
-            "required": ["message"],
-        },
-        "risk_class": "R0",
-        "annotations": {"readOnlyHint": True},
-    }
-]
 
 
 class ToolRegistry:
@@ -457,18 +443,25 @@ class ToolRegistry:
             if url == "stdio://sandbox":
                 self._stdio(config)
                 return url, str(body.get("auth_mode") or "none"), config
-            if url.startswith("memory://") or url.startswith("https://"):
+            # An address served inside this process is one a pack registered. With no
+            # pack serving it there is nothing at the address, so it is not accepted.
+            if url.startswith("https://") or endpoint_registered(url):
                 return url, str(body.get("auth_mode") or "none"), config
             if url.startswith("http://") and _dev_loopback(url):
                 return url, str(body.get("auth_mode") or "none"), config
-            raise ValidationFailedError("a remote MCP server needs an https or memory URL")
+            raise ValidationFailedError("a remote MCP server needs an https URL")
         if kind == "openapi":
             if config.get("source") in {"openapi", "description"} or config.get("base_url"):
                 return "builtin://http_operation", "none", config
-            return "memory://petstore", "internal_jwt", config
+            raise ValidationFailedError(
+                "an OpenAPI tool server needs its OpenAPI document or its base URL"
+            )
         if kind == "sql":
-            return "memory://warehouse", "internal_jwt", config
-        raise ValidationFailedError("kind must be remote_mcp, openapi or sql")
+            raise ValidationFailedError(
+                "a SQL tool server is not available: connect the database as a data "
+                "connection, and the data tools read it"
+            )
+        raise ValidationFailedError("kind must be remote_mcp or openapi")
 
     def _catalogue(  # noqa: PLR0911
         self, server: dict[str, object], version: dict[str, object]
@@ -476,10 +469,8 @@ class ToolRegistry:
         kind = str(server.get("kind"))
         endpoint = str(version.get("endpoint_url") or "")
         config = as_mapping(version.get("config"))
-        if kind == "remote_mcp" and endpoint == "memory://echo":
-            return [dict(item) for item in _ECHO]
-        if kind == "remote_mcp" and endpoint == "memory://tickets":
-            return []
+        if endpoint_registered(endpoint):
+            return endpoint_tools(endpoint)
         if kind == "remote_mcp" and endpoint == "stdio://sandbox":
             from ar_domain.tools.remote_mcp import list_stdio  # noqa: PLC0415
 
@@ -502,43 +493,7 @@ class ToolRegistry:
                 return []
         if kind == "openapi":
             return self._openapi_tools(as_mapping(config))
-        if kind == "sql":
-            str(server.get("slug"))
-            return [
-                {
-                    "name": "list_tables",
-                    "title": "List tables",
-                    "description": "List allowlisted tables.",
-                    "input_schema": {"type": "object", "properties": {}},
-                    "risk_class": "R0",
-                    "annotations": {},
-                },
-                {
-                    "name": "describe_table",
-                    "title": "Describe a table",
-                    "description": "Describe one table.",
-                    "input_schema": {
-                        "type": "object",
-                        "properties": {"table": {"type": "string"}},
-                        "required": ["table"],
-                    },
-                    "risk_class": "R0",
-                    "annotations": {},
-                },
-                {
-                    "name": "run_query",
-                    "title": "Run a query",
-                    "description": "Run one read-only select.",
-                    "input_schema": {
-                        "type": "object",
-                        "properties": {"sql": {"type": "string"}},
-                        "required": ["sql"],
-                    },
-                    "risk_class": "R1",
-                    "annotations": {},
-                },
-            ]
-        if endpoint.startswith("memory://") or endpoint.startswith("builtin://"):
+        if endpoint.startswith("builtin://"):
             return []
         version["discovery_error"] = "discovery waits for the server"
         return []

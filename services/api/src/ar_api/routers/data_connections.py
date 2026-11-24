@@ -15,7 +15,8 @@ router = APIRouter()
 class ConnectionBody(ApiModel):
     name: str
     engine: str = "postgres"
-    dsn: str = "memory://warehouse"
+    # The address of the customer's database. There is no default: one is refused without it.
+    dsn: str = ""
     identity_mode: str = "service"
     allowlist: dict[str, object] | None = None
     row_limit: int = 1000

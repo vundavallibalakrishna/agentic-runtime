@@ -4,7 +4,7 @@ Registry endpoints are served by `api`. Execution is done by `mcp-gateway` (`ser
 
 ## 1. Responsibilities
 
-1. Register tool servers (`remote_mcp`, `openapi`, `sql`) with versions, discovery, manifest hashing, review (four-eyes), approval, deprecation, kill switches.
+1. Register tool servers (`remote_mcp`, `openapi`, `sql`) with versions, discovery, manifest hashing, review (four-eyes), approval, deprecation, kill switches. **As built (2026-11-24):** `remote_mcp` and `openapi` can be registered. `kind=sql` is refused with a message that points to data connections: a customer's database is read through a data connection and the `data.*` tools (§3), and there is no SQL tool server. `openapi` is refused unless the version carries its OpenAPI document or a base URL. An address inside the process (`memory://...`) is accepted only when a pack has registered an endpoint there.
 2. Register data connections (SQL) with allowlists, identity mode and limits. From revision `0025` the DSN is ciphertext in `data_connections` and service connections are a tenant table. `data.query` is the read-only tool. See [m23-database](../06-security/m23-database.md).
 3. Provide the entitlement-filtered tool catalogue to the runtime (`catalog:resolve`), including semantic tool search.
 4. Execute tool calls: validate → policy → approval → credentials → dispatch → result processing → persistence → audit/usage.
@@ -204,6 +204,8 @@ A tool built to fail is test support, not product ([OQ-148](../open-questions.md
 
 ## 10. `mcp-sql` connector runtime (`connectors/mcp_sql`, port 8010)
 
+**Not built as described (2026-11-24).** The `connectors/mcp_sql` service answers from a fixed table and opens no database, and nothing in the product calls it; the working path for a customer's database is a data connection read by the `data.*` tools inside `ar_domain` (Postgres and MySQL). The text below is the intended design, not the behaviour.
+
 - MCP server exposing, per tool server version: `{slug}.list_tables` (R0), `{slug}.describe_table` (R0), `{slug}.run_query` (R1) `{sql: string, params?: object, limit?: int}`.
 - Config fetched from `api` `GET /internal/v1/connectors/{tool_server_version_id}/config`.
 - Query safety (`ar_mcp_sql.guard`, using `sqlglot` with the engine dialect): parse must yield exactly one statement of type SELECT/WITH…SELECT/UNION; reject DDL/DML, `INTO`, `FOR UPDATE`, functions on a deny list (`pg_sleep`, `dblink*`, `lo_*`, `copy`, `xp_*`, `load_file`…); every referenced table must be in the allowlist; `columns_deny` columns rejected (also via `*` expansion using cached schema); inject `LIMIT row_limit+1`; execute in a read-only transaction with `statement_timeout`.
@@ -213,6 +215,8 @@ A tool built to fail is test support, not product ([OQ-148](../open-questions.md
 - Pools: per (tenant, data_connection) `asyncpg`/driver pool, max 5 connections, idle close 5 min.
 
 ## 11. `mcp-openapi` connector runtime (`connectors/mcp_openapi`, port 8011)
+
+**Not built as described (2026-11-24).** The `connectors/mcp_openapi` service serves a health check and nothing else, and nothing in the product calls it; an imported OpenAPI document is turned into tools and called inside `ar_domain` (`tools/openapi_import.py`, `tools/http_tools.py`). The text below is the intended design, not the behaviour.
 
 - Loads the OpenAPI 3.0/3.1 document (file id from config), exposes selected `operationId`s as tools: input schema = merged path/query/header (non-auth) params + JSON body schema; description = summary + description (reviewed).
 - Calls `base_url` with upstream auth (`token_exchange` / `user_oauth` / `static_secret` resolved via config endpoint), timeout = tool `timeout_s`; follows no redirects to other hosts; response JSON → structuredContent; non-2xx → `isError` with status and body excerpt.
