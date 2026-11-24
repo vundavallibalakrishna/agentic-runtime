@@ -156,7 +156,17 @@ async def test_what_a_lead_and_a_specialist_say_stays_out_of_the_conversation() 
     assert {row.get("scope") for row in theirs} == {"run"}
     shown = store._visible_messages(conversation)  # type: ignore[arg-type]
     assert [row["role"] for row in shown] == ["user", "assistant"]
-    assert "WHAT IS THE REFERENCE" not in str(shown)
+    # Neither side's words are a message in the conversation. The lead's reply does keep
+    # the call it made, as it keeps any tool call: who was called, with what, and the answer.
+    assert "WHAT IS THE REFERENCE" not in [row.get("text") for row in shown]
+    saved = [call for row in shown for call in row.get("tool_calls") or []]
+    assert [call["presentation"]["kind"] for call in saved] == ["agents"]
+    called = saved[0]["presentation"]["agents"]
+    assert [(item["agent"], item["status"], item["summary"]) for item in called] == [
+        ("Desk", "completed", "REF-4471")
+    ]
+    assert called[0]["task"] == "WHAT IS THE REFERENCE"
+    assert called[0]["child_run_id"] == str(child["id"])
     # The next turn's prompt is built from the person's messages and the lead's replies.
     assistant["status"] = "completed"
     history = _history(store, conversation, None, {})

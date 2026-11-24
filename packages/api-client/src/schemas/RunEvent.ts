@@ -385,6 +385,7 @@ export type Childrunid = string;
 export type Agentid1 = string;
 export type Agentname = string;
 export type Taskbrief = string;
+export type Callid = string;
 export type Id29 = string;
 export type Seq28 = number;
 export type Runid28 = string;
@@ -395,6 +396,7 @@ export type Type36 = "subagent.completed";
 export type Childrunid1 = string;
 export type Status6 = string;
 export type Resultsummary = string;
+export type Callid1 = string;
 export type Id30 = string;
 export type Seq29 = number;
 export type Runid29 = string;
@@ -988,6 +990,7 @@ export interface SubagentStartedData {
   agentId: Agentid1;
   agentName: Agentname;
   taskBrief: Taskbrief;
+  callId?: Callid;
 }
 export interface SubagentCompleted {
   id: Id29;
@@ -1004,6 +1007,7 @@ export interface SubagentCompletedData {
   status: Status6;
   resultSummary: Resultsummary;
   usage: RunUsage;
+  callId?: Callid1;
 }
 export interface MemoryRecalled {
   id: Id30;

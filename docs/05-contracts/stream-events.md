@@ -99,8 +99,8 @@ data: {"id":"0192f0c4-...:17","seq":17,"type":"tool_call.completed",...}
 
 | type | data | Persisted |
 |---|---|---|
-| `subagent.started` | `{childRunId, agentId, agentName, taskBrief}` | yes |
-| `subagent.completed` | `{childRunId, status, resultSummary (≤ 2 KiB), usage}` | yes |
+| `subagent.started` | `{childRunId, agentId, agentName, taskBrief (≤ 500 characters), callId}`. `callId` is the tool call that started the agent; agents started by one `agents_parallel` share it. It is empty when a skill started the agent | yes |
+| `subagent.completed` | `{childRunId, status, resultSummary (≤ 2 KiB), usage, callId}`. Sent for every agent that started and ended while its caller was running, one that ran out of time included. `status` is the child run's status | yes |
 | `memory.recalled` | `{factIds: uuid[], count}` | yes |
 | `memory.saved` | `{factId, content, scope}` | yes |
 | `context.compacted` | `{tokensBefore, tokensAfter}` | yes |
@@ -139,7 +139,7 @@ User messages may contain `text`, `file`, `image`. Assistant messages may contai
 
 ## 6. Client reducer (normative for the web app)
 
-The web app keeps a `RunViewState` per run (zustand store `useRunStreams`), reduced from events: `messages[messageId].text += delta`; on `message.completed` replace text with `content`; tool calls keyed by `toolCallId`; approvals keyed by `approvalId`; subagent child runs rendered as nested collapsible timelines (the UI opens the child's stream lazily when expanded).
+The web app keeps a `RunViewState` per run (zustand store `useRunStreams`), reduced from events: `messages[messageId].text += delta`; on `message.completed` replace text with `content`; tool calls keyed by `toolCallId`; approvals keyed by `approvalId`; the agents one call started are one row in the reply's list of tool calls, keyed by `callId`, each with its name, task, status and answer and a link to its own run. The row is working while any of its agents is. When the reply is saved its tool call carries the same picture (`presentation: {kind: "agents", agents: [{agent, status, task, summary, childRunId}]}`), so a conversation opened again shows what the live one did. A called agent's own steps are on its run page; nesting its stream inside the chat is not built.
 
 ## 7. Grounding and evidence citations (M7-T11)
 

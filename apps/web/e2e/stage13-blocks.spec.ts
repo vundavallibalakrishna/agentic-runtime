@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import AxeBuilder from "@axe-core/playwright";
 import { expect, openToolCall, type Page, test } from "./support/harness";
 
 import { signInAs } from "./support/sign-in";
@@ -145,6 +146,94 @@ test("each answer block renders on the chat screen", async ({ page }) => {
   await expect(page.getByRole("img", { name: "Counts" })).toHaveCount(0);
   await showWholeTurn(page);
   await page.screenshot({ path: `${shots}/stage13-dark.png`, fullPage: true });
+});
+
+const calledId = "22222222-2222-4222-8222-222222222222";
+
+const called = {
+  id: calledId,
+  plan: [],
+  messages: [
+    {
+      id: "user-2",
+      role: "user",
+      text: "Check the policy and the logs.",
+      isActiveBranch: true,
+      content: [{ type: "text", text: "Check the policy and the logs." }],
+    },
+    {
+      id: "assistant-2",
+      role: "assistant",
+      text: "The policy requires badges. The log check did not finish.",
+      isActiveBranch: true,
+      status: "completed",
+      content: [
+        { type: "text", text: "The policy requires badges. The log check did not finish." },
+      ],
+      toolCalls: [
+        {
+          qualifiedName: "agents_parallel",
+          status: "failed",
+          resultPreview: '{"results":[]}',
+          presentation: {
+            kind: "agents",
+            agents: [
+              {
+                agent: "Policy reader",
+                status: "completed",
+                task: "Read the access policy.",
+                summary: "Badges are required at every door.",
+                childRunId: "33333333-3333-4333-8333-333333333333",
+              },
+              {
+                agent: "Log reader",
+                status: "failed",
+                task: "Read last week's door logs.",
+                summary: "The child timed out and was not retried.",
+                childRunId: "44444444-4444-4444-8444-444444444444",
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
+test("a reply shows the agents it called", async ({ page }) => {
+  await page.route(`**/api/v1/conversations/${calledId}`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(called),
+    }),
+  );
+  await page.route(`**/api/v1/conversations/${calledId}/sandbox`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ sandbox: null }),
+    }),
+  );
+  await signInAs(page, "admin@dev.local");
+  await page.goto(`/chat?conversation=${calledId}`);
+  const card = page.getByTestId("tool-call");
+  await expect(card).toContainText("Called other agents");
+  await expect(card).not.toContainText("agents_parallel");
+  await openToolCall(page, "Badges are required at every door.");
+  const rows = card.getByTestId("called-agents").getByRole("listitem");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText("Policy reader · Done");
+  await expect(rows.nth(1)).toContainText("Log reader · Didn't finish");
+  await expect(card.getByRole("link", { name: "See what Log reader did" })).toHaveAttribute(
+    "href",
+    "/runs/44444444-4444-4444-8444-444444444444",
+  );
+  await expect(card).not.toContainText('{"results":[]}');
+  expect(
+    (await new AxeBuilder({ page }).include('[data-testid="tool-call"]').analyze()).violations,
+  ).toEqual([]);
+  await page.screenshot({ path: `${shots}/called-agents.png`, fullPage: true });
 });
 
 async function showWholeTurn(page: Page) {

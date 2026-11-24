@@ -1086,8 +1086,29 @@ export function AgentEditor() {
                                     },
                                   })
                                 }
+                                max={8}
                                 type="number"
-                                value={definition.subagents?.maxParallel ?? 1}
+                                value={definition.subagents?.maxParallel ?? 3}
+                              />
+                            </label>
+                            <label className="text-sm" htmlFor="child-timeout">
+                              {t("childTimeout")}
+                              <Input
+                                className="mt-1 w-24"
+                                id="child-timeout"
+                                min={1}
+                                max={600}
+                                onChange={(event) =>
+                                  updateDefinition({
+                                    ...definition,
+                                    subagents: {
+                                      ...definition.subagents,
+                                      childTimeoutS: Number(event.target.value) || 45,
+                                    },
+                                  })
+                                }
+                                type="number"
+                                value={definition.subagents?.childTimeoutS ?? 45}
                               />
                             </label>
                           </div>
