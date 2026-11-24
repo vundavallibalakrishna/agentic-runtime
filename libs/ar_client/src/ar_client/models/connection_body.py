@@ -24,7 +24,7 @@ class ConnectionBody:
     Attributes:
         name (str):
         engine (str | Unset):  Default: 'postgres'.
-        dsn (str | Unset):  Default: 'memory://warehouse'.
+        dsn (str | Unset):  Default: ''.
         identity_mode (str | Unset):  Default: 'service'.
         allowlist (ConnectionBodyAllowlistType0 | None | Unset):
         row_limit (int | Unset):  Default: 1000.
@@ -35,7 +35,7 @@ class ConnectionBody:
 
     name: str
     engine: str | Unset = "postgres"
-    dsn: str | Unset = "memory://warehouse"
+    dsn: str | Unset = ""
     identity_mode: str | Unset = "service"
     allowlist: ConnectionBodyAllowlistType0 | None | Unset = UNSET
     row_limit: int | Unset = 1000
