@@ -28,8 +28,9 @@ from ar_domain.orchestration.children import (
     remaining_budget,
     roll,
     told,
+    too_many,
 )
-from ar_domain.orchestration.spec import subagent_spec, whole
+from ar_domain.orchestration.spec import brief, subagent_spec, whole
 from ar_domain.orchestration.spend import spent_so_far
 from ar_domain.runs.request import ask
 
@@ -56,16 +57,23 @@ def _note(run: dict[str, object], saved: dict[str, object] | None) -> None:
     run["checkpoint"] = checkpoint
 
 
-def _asked_for(name: str, payload: dict[str, object], cap: int) -> tuple[list[dict[str, str]], int]:
+def _asked_for(
+    name: str, payload: dict[str, object], limit: int
+) -> tuple[list[dict[str, object]], int]:
     """The agents one call names with their tasks, and how many were over the limit."""
     if name != "agents_parallel":
         task = str(payload.get("task") or payload.get("note") or "")
-        return [{"agent": str(payload.get("agent") or ""), "task": task}], 0
+        single = {"agent": str(payload.get("agent") or ""), "task": task}
+        return [{**single, "input": payload.get("input")}], 0
     calls = payload.get("calls")
     rows = [item for item in calls if isinstance(item, dict)] if isinstance(calls, list) else []
-    chosen = [
-        {"agent": str(item.get("agent") or ""), "task": str(item.get("task") or "")}
-        for item in rows[:cap]
+    chosen: list[dict[str, object]] = [
+        {
+            "agent": str(item.get("agent") or ""),
+            "task": str(item.get("task") or ""),
+            "input": item.get("input"),
+        }
+        for item in rows[:limit]
     ]
     return chosen, len(rows) - len(chosen)
 
@@ -85,7 +93,7 @@ def begin(
     arguments = call.get("arguments")
     spec = subagent_spec(definition_of(store, run))
     rows, overflow = _asked_for(
-        name, arguments if isinstance(arguments, dict) else {}, spec["max_parallel"]
+        name, arguments if isinstance(arguments, dict) else {}, spec["max_calls"]
     )
     limits = state.get("limits")
     left = remaining_budget(limits if isinstance(limits, dict) else {}, state) if limits else {}
@@ -99,9 +107,16 @@ def begin(
     items: list[dict[str, object]] = []
     starts: list[dict[str, object]] = []
     for row in rows:
-        task = row["task"]
-        slug, refused = refusal(store, run, row["agent"], state)
-        child = refused if refused is not None else open_child(store, run, slug, task, state)
+        given = row.get("input")
+        slug, refused = refusal(store, run, str(row["agent"]), state, given)
+        # The task as the caller wrote it is what a person is shown. The called agent's
+        # message carries the input with it.
+        task = str(row["task"])
+        child = (
+            refused
+            if refused is not None
+            else open_child(store, run, slug, brief(task, given), state)
+        )
         if child.get("failed"):
             items.append(
                 {"slug": slug, "task": task, "code": child.get("code"), "text": child.get("text")}
@@ -135,16 +150,11 @@ def begin(
         )
         starts.append(workflow_payload(store, child, uuid.UUID(str(child["id"])), task))
     if overflow:
-        cap = spec["max_parallel"]
-        items.append(
-            {
-                "slug": "",
-                "task": "",
-                "code": "fanout",
-                "text": f"{overflow} calls were not started because the fan-out limit is {cap}.",
-            }
-        )
+        extra = too_many(overflow, spec["max_calls"])
+        items.append({"slug": "", "task": "", "code": extra["code"], "text": extra["text"]})
     _note(run, {"call_id": call_id, "name": name, "items": items})
+    # The workflow runs this many at once and starts the next as each one ends.
+    run["agent_parallel"] = spec["max_parallel"]
     return starts
 
 

@@ -53,9 +53,10 @@ def orchestration_tools(
             tools,
             index,
             "agents_parallel",
-            "Call several agents at once and return every answer so you can combine them. "
+            "Call several agents and return every answer so you can combine them. "
+            f"At most {spec['max_parallel']} run at once and the rest wait their turn. "
             + " ".join(lines),
-            _parallel_schema(names, spec["max_parallel"]),
+            _parallel_schema(names, spec["max_calls"]),
         )
         _add(
             tools,
@@ -129,7 +130,7 @@ async def handle_orchestration(
         return conclude(name, call_id, results, tasks, tokens=pool.tokens, cost=pool.cost)
     slug = str(payload.get("agent") or "")
     task = str(payload.get("task") or payload.get("note") or "")
-    outcome = await run_named(store, run, slug, task, state)
+    outcome = await run_named(store, run, slug, task, state, given=payload.get("input"))
     return conclude(name, call_id, [outcome], [task], tokens=pool.tokens, cost=pool.cost)
 
 
@@ -262,6 +263,12 @@ def _add(
     )
 
 
+_INPUT = {
+    "type": "object",
+    "description": "For an agent whose input schema is a JSON Schema: an object that matches it.",
+}
+
+
 def _call_schema(names: list[str]) -> dict[str, object]:
     return {
         "type": "object",
@@ -269,6 +276,7 @@ def _call_schema(names: list[str]) -> dict[str, object]:
             "agent": {"type": "string", "enum": names},
             "task": {"type": "string"},
             "note": {"type": "string"},
+            "input": _INPUT,
         },
         "required": ["agent"],
     }
@@ -286,6 +294,7 @@ def _parallel_schema(names: list[str], cap: int) -> dict[str, object]:
                     "properties": {
                         "agent": {"type": "string", "enum": names},
                         "task": {"type": "string"},
+                        "input": _INPUT,
                     },
                     "required": ["agent", "task"],
                 },

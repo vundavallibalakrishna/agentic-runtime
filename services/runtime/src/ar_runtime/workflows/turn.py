@@ -142,7 +142,7 @@ class TurnWorkflow:
                 await self._sections(payload, result.get("sections"))
                 continue
             if kind == "agents":
-                await self._agents(result.get("children"))
+                await self._agents(result.get("children"), _count(result.get("parallel"), 1))
                 continue
             if kind == "paused" or status in {"waiting_approval", "waiting_input"}:
                 decision = await self._await_person(payload, result)
@@ -261,32 +261,43 @@ class TurnWorkflow:
             key: value for key, value in zip(ids, results, strict=True) if isinstance(value, dict)
         }
 
-    async def _agents(self, raw: object) -> None:
-        """Run each called agent as a child workflow and wait until all have ended.
+    async def _agents(self, raw: object, width: int) -> None:
+        """Run each called agent as a child workflow, ``width`` at once, until all have ended.
 
-        What a child returns is not used: the caller's next step reads how each run
-        ended from the database, and closes one that did not end. A child that could
-        not be started, or whose workflow failed, is left for that step in the same way.
+        An agent past ``width`` waits its turn and starts as another ends. What a child
+        returns is not used: the caller's next step reads how each run ended from the
+        database, and closes one that did not end. A child that could not be started,
+        that was still waiting when the caller was stopped, or whose workflow failed is
+        left for that step in the same way.
         """
         items = [item for item in raw if isinstance(item, dict)] if isinstance(raw, list) else []
-        for item in items:
-            if self.cancelled:
-                break
-            try:
-                handle = await workflow.start_child_workflow(
-                    "AgentRunWorkflow",
-                    item,
-                    id=f"run-{item.get('run_id')}",
-                    parent_close_policy=workflow.ParentClosePolicy.REQUEST_CANCEL,
-                )
-            except Exception:  # noqa: BLE001, S112 - the next step closes a run that never started
-                continue
-            self.called.append(handle)
-        if self.cancelled:
-            for child in self.called:
-                await child.signal("cancel")
-        await asyncio.gather(*self.called, return_exceptions=True)
-        self.called = []
+        turn = asyncio.Semaphore(max(1, width))
+
+        async def one(item: dict[str, Any]) -> None:
+            async with turn:
+                if self.cancelled:
+                    return
+                try:
+                    handle = await workflow.start_child_workflow(
+                        "AgentRunWorkflow",
+                        item,
+                        id=f"run-{item.get('run_id')}",
+                        parent_close_policy=workflow.ParentClosePolicy.REQUEST_CANCEL,
+                    )
+                except Exception:  # noqa: BLE001 - the next step closes a run that never started
+                    return
+                self.called.append(handle)
+                if self.cancelled:
+                    # Stop arrived while this one was starting, after the others were told.
+                    await handle.signal("cancel")
+                try:
+                    await handle
+                except Exception:  # noqa: BLE001, S110 - how it ended is read from its run
+                    pass
+                finally:
+                    self.called.remove(handle)
+
+        await asyncio.gather(*(one(item) for item in items))
 
     async def _sections(self, payload: dict[str, Any], raw: object) -> None:
         """Read document sections a few at a time. Cancelling stops the next batch."""
