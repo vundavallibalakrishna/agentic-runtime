@@ -305,6 +305,34 @@ async def test_what_a_called_agent_spends_counts_when_the_run_goes_a_step_at_a_t
     # The caller had 100. The agent it called used 151 of it, so the caller stops there.
     assert run["status"] == "budget_exceeded"
     assert run["usage"]["subagents"]["tokens_out"] == 150
+    # The reply says what was done before the stop, and keeps the call with its answer.
+    reply = store.messages[run["assistant_message_id"]]
+    assert "Nothing was finished" not in reply["text"]
+    assert "reader finished the work it was given" in reply["text"]
+    (kept,) = reply["tool_calls"]
+    assert kept["status"] == "succeeded"
+    assert [(row["agent"], row["summary"]) for row in kept["presentation"]["agents"]] == [
+        ("reader", "read")
+    ]
+
+
+def test_a_run_loaded_from_the_database_is_named_after_its_agent() -> None:
+    """A run row keeps the agent's id. What the screen shows is read from the agent."""
+    store = _store()
+    agent, version = _agent(store, "namer")
+    run, _ = _open(store, agent, version)
+    child_id = uuid.uuid4()
+    store.runs[child_id] = {
+        "id": child_id,
+        "tenant_id": run["tenant_id"],
+        "agent_id": agent,
+        "parent_run_id": run["id"],
+        "status": "completed",
+    }
+    tenant = uuid.UUID(str(run["tenant_id"]))
+    assert store.get_run(tenant, uuid.UUID(str(run["id"])))["agent_slug"] == "namer"
+    (child,) = store.list_children(tenant, uuid.UUID(str(run["id"])))
+    assert (child["agent_name"], child["agent_slug"]) == ("namer", "namer")
 
 
 async def test_an_agent_with_no_tools_is_asked_through_the_same_loop() -> None:

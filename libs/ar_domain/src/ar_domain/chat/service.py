@@ -3566,6 +3566,13 @@ class ChatBehaviour:
         label = self._answered_model(run)
         if label:
             body["answered_model"] = label
+        # The run row keeps the agent's id. Its name and slug are read from the agent,
+        # so a run loaded from the database is named like one this process started.
+        agent_id = run.get("agent_id")
+        agent = self.agents.get(agent_id) if isinstance(agent_id, uuid.UUID) else None
+        if isinstance(agent, dict):
+            body["agent_name"] = body.get("agent_name") or agent.get("name")
+            body["agent_slug"] = body.get("agent_slug") or agent.get("slug")
         return body
 
     def _answered_model(self, run: dict[str, object]) -> str:
@@ -3617,7 +3624,7 @@ class ChatBehaviour:
         """Child runs started by this run. A missing parent is 404."""
         self.get_run(tenant_id, run_id)
         listed = [
-            self._public(row)
+            self._with_answered_model(row)
             for row in self.runs.values()
             if row.get("tenant_id") == tenant_id and row.get("parent_run_id") == run_id
         ]

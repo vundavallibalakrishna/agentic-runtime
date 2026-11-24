@@ -147,6 +147,13 @@ export function ChatScreen() {
   const lateRunRef = useRef("");
   const streamRequest = useRef<AbortController | null>(null);
   const conversationRequest = useRef<AbortController | null>(null);
+  // The conversation "New chat" is creating, until it is open. A message sent meanwhile
+  // waits for it and goes there.
+  const opening = useRef<Promise<string> | null>(null);
+  const activeRef = useRef("");
+  useEffect(() => {
+    activeRef.current = activeId;
+  }, [activeId]);
   const stickRef = useRef(true);
   const openedFromQuery = useRef(false);
 
@@ -338,20 +345,32 @@ export function ChatScreen() {
     setRunId("");
     lateRunRef.current = "";
     setStream(emptyStream);
-    try {
-      const created = await api<Item>("/api/v1/conversations", {
-        method: "POST",
-        body: conversationBody(agentId, modelAlias),
-        signal: request.signal,
-      });
-      if (request.signal.aborted) return;
-      const id = String(created.id);
-      setConversations((current) => [created, ...current]);
-      await openConversation(id);
-    } catch (error) {
-      if (request.signal.aborted) return;
-      setBanner(error instanceof Error ? error.message : t("error"));
-    }
+    const opened = (async () => {
+      try {
+        const created = await api<Item>("/api/v1/conversations", {
+          method: "POST",
+          body: conversationBody(agentId, modelAlias),
+          signal: request.signal,
+        });
+        if (request.signal.aborted) return "";
+        const id = String(created.id);
+        setConversations((current) => [created, ...current]);
+        const shown = openConversation(id);
+        // Opening takes over as the current request. If another conversation is opened
+        // before this one is shown, that one is current and this is not where to send.
+        const mine = conversationRequest.current;
+        await shown;
+        return conversationRequest.current === mine && !mine?.signal.aborted ? id : "";
+      } catch (error) {
+        if (!request.signal.aborted) {
+          setBanner(error instanceof Error ? error.message : t("error"));
+        }
+        return "";
+      }
+    })();
+    opening.current = opened;
+    await opened;
+    if (opening.current === opened) opening.current = null;
   }
 
   async function readStream(id: string, signal: AbortSignal): Promise<StreamState> {
@@ -460,6 +479,10 @@ export function ChatScreen() {
 
   async function send(text: string) {
     if (stream.status === "streaming" || !text.trim()) return;
+    // A message typed straight after "New chat" was sent to a conversation of its own
+    // while the new one was still being created. That one then opened, empty, over the
+    // message. The message waits until it is open and is sent there.
+    const opened = opening.current ? await opening.current : "";
     const request = new AbortController();
     streamRequest.current?.abort();
     streamRequest.current = request;
@@ -470,9 +493,11 @@ export function ChatScreen() {
     setPlan((current) =>
       current.every((step) => step.status === "done" || step.status === "cancelled") ? [] : current,
     );
-    let conversationReady = Boolean(activeId);
+    // The conversation on the screen now, which is the new one when there is one.
+    const shownId = opened || activeRef.current;
+    let conversationReady = Boolean(shownId);
     try {
-      let conversationId = activeId;
+      let conversationId = shownId;
       if (!conversationId) {
         const created = await api<Item>("/api/v1/conversations", {
           method: "POST",

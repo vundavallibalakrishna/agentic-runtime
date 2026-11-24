@@ -342,7 +342,7 @@ def conclude(
             "answer": text,
             "tokens": tokens,
             "cost": cost,
-            "preview": _preview(name, "completed", text, agents),
+            "preview": _preview(name, "succeeded", text, agents),
             "wrapped": wrapped(name, call_id, text),
         }
     return _done(name, call_id, text, failed=failed, tokens=tokens, cost=cost, agents=agents)
@@ -363,7 +363,7 @@ def _done(
         "stop": False,
         "tokens": tokens,
         "cost": cost,
-        "preview": _preview(name, "failed" if failed else "completed", text, agents or []),
+        "preview": _preview(name, "failed" if failed else "succeeded", text, agents or []),
         "wrapped": wrapped(name, call_id, text),
     }
 

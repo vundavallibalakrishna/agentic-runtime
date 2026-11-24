@@ -115,20 +115,31 @@ async def test_the_time_limit_covers_every_wait_together() -> None:
 
 
 async def test_cancelling_the_task_reaches_the_code() -> None:
+    # The code says when it has begun to wait, and waits until it is released. The task is
+    # cancelled only once it is waiting, so a loop that is slow to come back cannot let
+    # the wait finish first, which a fixed sleep on each side did on a loaded machine.
     steps: list[str] = []
+    began, released = threading.Event(), threading.Event()
+
+    def wait() -> None:
+        began.set()
+        released.wait(5.0)
 
     def handler() -> None:
         try:
-            blocking(time.sleep, 0.5)
+            blocking(wait)
         finally:
             steps.append("cleaned up")
 
     task = asyncio.create_task(run_sync(handler))
-    await asyncio.sleep(0.05)
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
-    assert steps == ["cleaned up"]
+    try:
+        assert await asyncio.to_thread(began.wait, 5.0), "the code never began to wait"
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert steps == ["cleaned up"]
+    finally:
+        released.set()
 
 
 async def test_two_pieces_of_code_wait_at_the_same_time() -> None:
