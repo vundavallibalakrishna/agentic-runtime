@@ -245,6 +245,45 @@ async def test_a_handoff_ends_the_leads_turn_when_the_run_is_carried_out_a_step_
 
 
 @pytest.mark.asyncio
+async def test_what_a_called_agent_spends_counts_when_the_run_goes_a_step_at_a_time() -> None:
+    """The way a worker carries out a run also charges the caller for the agents it called."""
+    from ar_runtime.activities.advance_chat_step import advance_chat_step
+    from ar_runtime.activities.expire_approval import bind_store
+
+    store = _store()
+    bind_store(store)
+    _agent(store, "reader")
+    lead, version = _agent(
+        store,
+        "lead",
+        budget={**_BUDGET, "max_tokens": 100},
+        subagents={"allowed": ["reader"], "max_depth": 2},
+    )
+    run, _assistant = _open(store, lead, version)
+
+    def handler(messages: list[dict[str, object]]) -> dict[str, object]:
+        if any("READ" in str(row.get("content") or "") for row in messages):
+            # The called agent uses more than the caller's whole budget.
+            return {"text": "read", "tool_calls": [], "usage": {"tokens_in": 1, "tokens_out": 150}}
+        if not any(row.get("role") == "tool" for row in messages):
+            call = {
+                "id": "c",
+                "name": "agents_call",
+                "arguments": {"agent": "reader", "task": "READ"},
+            }
+            return {"text": "", "tool_calls": [call], "usage": {"tokens_in": 1, "tokens_out": 1}}
+        return {"text": "done", "tool_calls": [], "usage": {"tokens_in": 1, "tokens_out": 1}}
+
+    _script(store, handler)
+    for _ in range(6):
+        step = await advance_chat_step({"run_id": str(run["id"]), "text": "go"})
+        if step["kind"] == "final":
+            break
+    # The caller had 100. The agent it called used 151 of it, so the caller stops there.
+    assert run["status"] == "budget_exceeded"
+    assert run["usage"]["subagents"]["tokens_out"] == 150
+
+
 async def test_an_agent_with_no_tools_is_asked_through_the_same_loop() -> None:
     """One way to ask the model: a plain agent's answer is written, counted and kept alike."""
     store = _store()

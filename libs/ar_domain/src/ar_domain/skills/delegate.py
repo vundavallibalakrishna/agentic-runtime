@@ -11,7 +11,7 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_untrusted
 from ar_domain.durable.tracking import keep
-from ar_domain.runs.request import ask
+from ar_domain.runs.request import ask, permissions_of
 from ar_domain.skills.logic import budget_exhausted, child_budget, platform_max_depth
 from ar_domain.skills.metrics import SUBAGENTS
 
@@ -246,6 +246,11 @@ def _insert_child(
         "steps": [],
         "loaded_skills": [],
     }
+    # A called agent acts with what its caller may do, no more. A run started with a
+    # narrowed key keeps that narrowing all the way down.
+    inherited = permissions_of(parent)
+    if inherited is not None:
+        ask(run, "permissions", inherited)
     stored = keep(store.runs, child_id, run)
     store.events[child_id] = []
     planned["stored_id"] = str(child_id)
