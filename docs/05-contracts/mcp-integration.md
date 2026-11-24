@@ -5,7 +5,7 @@ How the platform consumes MCP servers and what a server must do to be registered
 ## 1. Roles
 
 - **Host / client**: `mcp-gateway` is the only MCP client in the platform (the runtime never talks MCP directly). It also serves built-in tools in-process.
-- **Servers**: (a) tenant-registered remote servers (`tool_servers.kind='remote_mcp'`), (b) platform connector runtimes `mcp-sql` and `mcp-openapi` (multi-tenant, configured per call via signed context), (c) `sandbox-agent` inside each sandbox (`kind='sandbox'`).
+- **Servers**: (a) tenant-registered remote servers (`tool_servers.kind='remote_mcp'`), (b) imported OpenAPI operations and data connections, which the tool gateway runs itself (there is no separate connector runtime; the `mcp-sql` and `mcp-openapi` services were removed on 2026-11-25), (c) `sandbox-agent` inside each sandbox (`kind='sandbox'`).
 
 ## 2. Transport requirements for registered servers
 

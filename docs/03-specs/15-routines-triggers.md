@@ -17,7 +17,7 @@ A routine = **trigger** (schedule or event) + **agent** + **instructions** + **d
 | `channel_event` | `channels` → `api` `POST /internal/v1/channels/events` → matching routines | `{integration_id}:{external_event_id}` |
 | `email` | email integration inbound (IMAP poll in `channels`) → same internal endpoint with `event: email` | `Message-ID` |
 | `file_arrival` | `knowledge_source` variant: outbox subscriber on `knowledge.document_changed`; `s3` variant: `RoutinePollWorkflow` every 60 s listing the prefix with a watermark | `{bucket}/{key}@{etag}` or `{document_id}@{version_hash}` |
-| `db_change` | `RoutinePollWorkflow` every `poll_interval_s` running `poll_query` through `mcp-sql` guard rules with watermark on `updated_at` | `{id}@{updated_at}` |
+| `db_change` | `RoutinePollWorkflow` every `poll_interval_s` running `poll_query` through the SQL guard rules (`ar_domain.tools.sql_guard`) with watermark on `updated_at` | `{id}@{updated_at}` |
 | `manual` | `POST /api/v1/routines/{routine_id}:run` | request `Idempotency-Key` or random |
 
 Event envelope `EventEnvelope {event_id, source, type, occurred_at, subject?, data (≤ 64 KiB, larger payloads stored as `files(kind='event_payload')`), headers?: {..} (allow-listed)}`. `event_filter` (JMESPath, evaluated with `jmespath` on the envelope) must be truthy to run (else `routine_events.status='filtered'`).

@@ -1,6 +1,6 @@
 # Spec 08: Tool registry, data connections and MCP host (`ar_domain.tools`, `mcp-gateway`)
 
-Registry endpoints are served by `api`. Execution is done by `mcp-gateway` (`services/mcp_gateway`, package `ar_mcp_gateway`, port 8002), the **only** component that talks to tool servers. The platform connector runtimes `mcp-sql` and `mcp-openapi` are specified in §10–§11. Owns `data_connections`, `tool_servers`, `tool_server_versions`, `tools`, `tool_versions`, `tool_calls` ([schema §6](../04-data/schema.md#6-tools-ar_domaintools)). Contract: [mcp-integration.md](../05-contracts/mcp-integration.md), [internal-apis §3](../05-contracts/internal-apis.md#3-mcp-gateway-base-httpmcp-gateway8002). Decision: [ADR-0006](../02-architecture/adr/ADR-0006-mcp-tool-protocol.md). PRD: [02-tool-registry](../01-prd/02-tool-registry.md).
+Registry endpoints are served by `api`. Execution is done by `mcp-gateway` (`services/mcp_gateway`, package `ar_mcp_gateway`, port 8002), the **only** component that talks to tool servers. The connector runtimes `mcp-sql` and `mcp-openapi` were removed (§10–§11). Owns `data_connections`, `tool_servers`, `tool_server_versions`, `tools`, `tool_versions`, `tool_calls` ([schema §6](../04-data/schema.md#6-tools-ar_domaintools)). Contract: [mcp-integration.md](../05-contracts/mcp-integration.md), [internal-apis §3](../05-contracts/internal-apis.md#3-mcp-gateway-base-httpmcp-gateway8002). Decision: [ADR-0006](../02-architecture/adr/ADR-0006-mcp-tool-protocol.md). PRD: [02-tool-registry](../01-prd/02-tool-registry.md).
 
 ## 1. Responsibilities
 
@@ -101,7 +101,7 @@ Body `{name, engine, dsn: string (stored as secret) | dsn_secret_id, identity_mo
 409 if used by a tool server version.
 
 #### POST /api/v1/data-connections/{connection_id}:test
-Connects via `mcp-sql` (`POST /internal/v1/connections:test` on mcp-sql, see §10) and checks: connectivity, read-only enforcement (`BEGIN READ ONLY` / attempting `CREATE TEMP TABLE` must fail on engines that support it), allowlisted objects exist. Response `{ok, checks: [{name, ok, detail}]}`.
+Runs in `api` (`ar_domain.tools.database.probe`). As specified it checks: connectivity, read-only enforcement (`BEGIN READ ONLY` / attempting `CREATE TEMP TABLE` must fail on engines that support it), allowlisted objects exist. Response `{ok, checks: [{name, ok, detail}]}`.
 
 #### GET /api/v1/data-connections/{connection_id}/schema
 Introspected tables/columns within the allowlist (cached 10 min), merged with `schema_notes`.
@@ -156,7 +156,7 @@ Details:
 
 ## 7. Discovery (`POST /internal/v1/discover`)
 
-Input `{tool_server_version_id, requested_by_user_id, compare_only?: bool}`. Calls `server/discover` + `tools/list` (remote MCP), or asks the connector runtime (`mcp-openapi`/`mcp-sql`) which derives tools from config. Normalises names, validates schemas, proposes risk classes (annotations; `openapi`: GET/HEAD → `R0`, POST/PUT/PATCH → `W2`, DELETE → `W3`; `sql`: `R1`; remote MCP: `readOnlyHint` → `R0`, otherwise `W2` so the call waits for approval), stores manifest/hash, upserts `tools` + `tool_versions`. `compare_only` returns `{manifest_hash, changed: bool, diff}` without writing (used by drift checks).
+Input `{tool_server_version_id, requested_by_user_id, compare_only?: bool}`. Calls `server/discover` + `tools/list` (remote MCP), or, for `openapi`, derives tools from the imported document. Normalises names, validates schemas, proposes risk classes (annotations; `openapi`: GET/HEAD → `R0`, POST/PUT/PATCH → `W2`, DELETE → `W3`; `sql`: `R1`; remote MCP: `readOnlyHint` → `R0`, otherwise `W2` so the call waits for approval), stores manifest/hash, upserts `tools` + `tool_versions`. `compare_only` returns `{manifest_hash, changed: bool, diff}` without writing (used by drift checks).
 
 M22 adds owner-scoped service connections, OpenAPI import (`POST /api/v1/openapi-imports`), a described HTTP tool (`POST /api/v1/described-tools`) and `POST /api/v1/tool-servers/{id}:refresh`. A remote server may use streamable HTTP, SSE, or stdio inside the general-tool sandbox with network off. Tool results from those servers are untrusted data. See [m22-connections](../06-security/m22-connections.md).
 
@@ -202,33 +202,19 @@ Demo fixtures are not part of a production catalogue. The `tickets`, `petstore` 
 
 A tool built to fail is test support, not product ([OQ-148](../open-questions.md)): the tool that fails the first time a run calls it lives in `ar_testing.retry_tool` and a test registers it from its own setup. A built-in catalogue is stored once, so when a release stops shipping a built-in tool, `refresh_builtins` marks the stored tool disabled on every load: it is not offered to a model and a call to it returns `tool_disabled`. Only the servers the release ships are looked at; a pack's server is left alone.
 
-## 10. `mcp-sql` connector runtime (`connectors/mcp_sql`, port 8010)
+## 10. `mcp-sql` connector runtime
 
-**Not built as described (2026-11-24).** The `connectors/mcp_sql` service answers from a fixed table and opens no database, and nothing in the product calls it; the working path for a customer's database is a data connection read by the `data.*` tools inside `ar_domain` (Postgres and MySQL). The text below is the intended design, not the behaviour.
+Removed on 2026-11-25. The service answered from a fixed table, opened no database, and was called by nothing (OQ-196). A customer's database is a data connection (§3), read by the `data.*` tools in `ar_domain.tools.database` for Postgres and MySQL, with the read-only SQL guard in `ar_domain.tools.sql_guard`. Identity modes other than the connection's own address, connection pools and engines beyond those two are not built.
 
-- MCP server exposing, per tool server version: `{slug}.list_tables` (R0), `{slug}.describe_table` (R0), `{slug}.run_query` (R1) `{sql: string, params?: object, limit?: int}`.
-- Config fetched from `api` `GET /internal/v1/connectors/{tool_server_version_id}/config`.
-- Query safety (`ar_mcp_sql.guard`, using `sqlglot` with the engine dialect): parse must yield exactly one statement of type SELECT/WITH…SELECT/UNION; reject DDL/DML, `INTO`, `FOR UPDATE`, functions on a deny list (`pg_sleep`, `dblink*`, `lo_*`, `copy`, `xp_*`, `load_file`…); every referenced table must be in the allowlist; `columns_deny` columns rejected (also via `*` expansion using cached schema); inject `LIMIT row_limit+1`; execute in a read-only transaction with `statement_timeout`.
-- Identity modes: `service` (connection DSN), `per_user_mapped` (DSN template with role mapped from `users.attributes.db_role`; `SET ROLE` on Postgres), `passthrough` (token exchange credential as DB password for engines supporting OAuth, e.g. Snowflake/Trino).
-- Result: header + rows as compact CSV (≤ `max_result_bytes`) + `structuredContent {columns, rows, truncated}`; truncated flag when > row_limit.
-- Internal endpoint `POST /internal/v1/connections:test` (caller `api`).
-- Pools: per (tenant, data_connection) `asyncpg`/driver pool, max 5 connections, idle close 5 min.
+## 11. `mcp-openapi` connector runtime
 
-## 11. `mcp-openapi` connector runtime (`connectors/mcp_openapi`, port 8011)
-
-**Not built as described (2026-11-24).** The `connectors/mcp_openapi` service serves a health check and nothing else, and nothing in the product calls it; an imported OpenAPI document is turned into tools and called inside `ar_domain` (`tools/openapi_import.py`, `tools/http_tools.py`). The text below is the intended design, not the behaviour.
-
-- Loads the OpenAPI 3.0/3.1 document (file id from config), exposes selected `operationId`s as tools: input schema = merged path/query/header (non-auth) params + JSON body schema; description = summary + description (reviewed).
-- Calls `base_url` with upstream auth (`token_exchange` / `user_oauth` / `static_secret` resolved via config endpoint), timeout = tool `timeout_s`; follows no redirects to other hosts; response JSON → structuredContent; non-2xx → `isError` with status and body excerpt.
-- Egress via the platform egress proxy with the host allowlist = `base_url` host.
+Removed on 2026-11-25. The service served a health check and nothing else (OQ-196). An imported OpenAPI 3.x document is turned into tools by `ar_domain.tools.openapi_import`, and the tool gateway calls each operation with the named connection's credentials (`ar_domain.tools.http_tools`).
 
 ## 12. Configuration (`mcp-gateway`)
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `AR_MCPG_PORT` | `8002` | |
-| `AR_MCP_SQL_URL` | `http://mcp-sql:8010/mcp` | |
-| `AR_MCP_OPENAPI_URL` | `http://mcp-openapi:8011/mcp` | |
 | `AR_SANDBOX_MANAGER_URL` | `http://sandbox-manager:8003` | |
 | `AR_OPA_URL` | `http://opa:8181` | |
 | `AR_EGRESS_PROXY_URL` | `http://squid:3128` | For the page tools and remote MCP outside the cluster |
@@ -257,7 +243,7 @@ A tool built to fail is test support, not product ([OQ-148](../open-questions.md
 
 - Unit: name normalisation, schema validation, risk proposal mapping, args hash (JCS vectors from RFC 8785), SQL guard (table of ≥ 60 allowed/denied queries per dialect incl. comment tricks, CTE writes, `SELECT ... INTO`), result neutralisation (zero-width/bidi/ANSI), truncation/offload.
 - Integration: discovery against `ar_testing.mcp_echo` (Streamable HTTP, 2026-07-28) and a legacy 2025-11-25 server; drift (change description → calls fail with `tool_manifest_drift` until re-approved); approval single-use and args mismatch rejection; credential_required path; OPA down fail-closed; `mcp-sql` against Postgres testcontainer with read-only role; `mcp-openapi` against a respx-mocked API.
-- Contract: conformance suite from `ar_connector_sdk.testing` run against `mcp-sql`, `mcp-openapi`, `mcp_echo`.
+- Contract: conformance suite from `ar_connector_sdk.testing` run against `mcp_echo`.
 
 ## 16. Records server (added by M14-T08)
 

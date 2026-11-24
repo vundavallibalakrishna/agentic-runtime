@@ -33,12 +33,12 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["libs/*", "services/*", "connectors/*", "packs/records", "packs/locale", "packs/grc"]
+members = ["libs/*", "services/*", "packs/records", "packs/locale", "packs/grc"]
 
 [tool.ruff]
 target-version = "py314"
 line-length = 100
-src = ["libs/*/src", "services/*/src", "connectors/*/src", "packs/*/src"]
+src = ["libs/*/src", "services/*/src", "packs/*/src"]
 extend-exclude = ["docs", "libs/ar_client", "packs/examples", "**/a2a_gen/**"]
 
 [tool.ruff.lint]
@@ -66,7 +66,7 @@ ignore = ["PLR0913", "TRY003", "PLR2004", "FBT003"]
 "logging.getLogger".msg = "use ar_common.logging.get_logger (structlog)"
 
 [tool.ruff.lint.isort]
-known-first-party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm", "records_pack", "locale_pack", "grc_pack"]
+known-first-party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_fake_llm", "records_pack", "locale_pack", "grc_pack"]
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-base-classes = [
@@ -87,8 +87,8 @@ exempt-modules = ["fastapi", "starlette", "pydantic"]
 strict = true
 plugins = ["pydantic.mypy"]
 python_version = "3.14"
-mypy_path = ["libs/ar_common/src", "libs/ar_contracts/src", "libs/ar_domain/src", "libs/ar_connector_sdk/src", "libs/ar_testing/src", "libs/ar_client/src", "services/api/src", "services/runtime/src", "services/system/src", "services/ingest/src", "services/model_gateway/src", "services/mcp_gateway/src", "services/sandbox_manager/src", "services/sandbox_agent/src", "services/channels/src", "services/fake_llm/src", "connectors/mcp_sql/src", "connectors/mcp_openapi/src", "packs/records/src", "packs/locale/src", "packs/grc/src"]
-packages = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm", "ar_testing", "records_pack", "locale_pack", "grc_pack"]
+mypy_path = ["libs/ar_common/src", "libs/ar_contracts/src", "libs/ar_domain/src", "libs/ar_connector_sdk/src", "libs/ar_testing/src", "libs/ar_client/src", "services/api/src", "services/runtime/src", "services/system/src", "services/ingest/src", "services/model_gateway/src", "services/mcp_gateway/src", "services/sandbox_manager/src", "services/sandbox_agent/src", "services/channels/src", "services/fake_llm/src", "packs/records/src", "packs/locale/src", "packs/grc/src"]
+packages = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_fake_llm", "ar_testing", "records_pack", "locale_pack", "grc_pack"]
 exclude = ["(?x)(^|/)(tests|migrations/versions)/"]
 warn_unused_ignores = true
 
@@ -148,7 +148,6 @@ markers = [
 testpaths = [
     "libs",
     "services",
-    "connectors",
     "packs",
     "tests",
 ]
@@ -171,8 +170,6 @@ source = [
     "ar_sandbox_manager",
     "ar_sandbox_agent",
     "ar_channels",
-    "ar_mcp_sql",
-    "ar_mcp_openapi",
     "ar_fake_llm",
     "ar_testing",
 ]
@@ -184,5 +181,5 @@ show_missing = true
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
 
 [tool.deptry]
-known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
+known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_fake_llm"]
 extend_exclude = ["tests", "libs/ar_client"]

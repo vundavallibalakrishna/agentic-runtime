@@ -95,7 +95,7 @@ Details and the observed output of the final pass: [docs/testing/m31-certificati
 
 ## Repository layout
 
-See [service-decomposition §4](docs/02-architecture/service-decomposition.md#4-repository-layout): `apps/web`, `packages/*`, `libs/ar_*`, `services/*`, `connectors/*`, `policies/`, `images/`, `deploy/`, `evals/`, `scripts/`.
+See [service-decomposition §4](docs/02-architecture/service-decomposition.md#4-repository-layout): `apps/web`, `packages/*`, `libs/ar_*`, `services/*`, `policies/`, `images/`, `deploy/`, `evals/`, `scripts/`.
 
 ## Licence and naming
 

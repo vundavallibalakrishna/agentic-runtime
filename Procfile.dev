@@ -7,6 +7,4 @@ model-gateway: uv run ar-model-gateway
 mcp-gateway: uv run ar-mcp-gateway
 sandbox-manager: uv run ar-sandbox-manager
 channels: uv run ar-channels
-mcp-sql: uv run ar-mcp-sql
-mcp-openapi: uv run ar-mcp-openapi
 web: pnpm --filter @ar/web dev

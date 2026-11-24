@@ -120,7 +120,7 @@ Signature `ReindexCollectionWorkflow(collection_id, new_settings, target_backend
 | `sharepoint` | Microsoft Graph delta queries per drive | Graph permissions (users by email/UPN, groups by Entra group id) |
 | `confluence` | CQL `lastmodified > cursor` | space permissions + page restrictions (users by email, groups by name) |
 | `google_drive` | Drive changes API (`startPageToken`) | Drive permissions (users/groups by email; `domain` → `tenant:*`; `anyone` → `tenant:*`) |
-| `database` | `updated_at > watermark` via `mcp-sql`-equivalent guarded query (same read-only DSN rules) | optional `acl` column (array of emails/group names) |
+| `database` | `updated_at > watermark` via a query checked by the SQL guard (same read-only DSN rules) | optional `acl` column (array of emails/group names) |
 | `mcp_resource` | `resources/list` + resource version/etag via `mcp-gateway` | collection |
 
 ### 5.2.1 Fetched bytes and versions

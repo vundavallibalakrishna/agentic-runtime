@@ -28,7 +28,7 @@ Rules:
 | pydantic-settings | 2.16.0 | Typed configuration loaded from `AR_*` environment variables. |
 | sqlalchemy[asyncio] | 2.1.5 | Async ORM with typed `Mapped[]` models. |
 | asyncpg | 0.32.0 | Fastest async Postgres driver; used by SQLAlchemy. |
-| psycopg[binary] | 3.3.6 | Used only by Alembic offline scripts and by `mcp-sql` for Postgres targets (server-side cursors, read-only transactions). |
+| psycopg[binary] | 3.3.6 | Used only by Alembic offline scripts and by the data tools (`ar_domain.tools.database`) for Postgres targets (read-only transactions). |
 | alembic | 1.20.0 | Schema migrations, autogenerate support. |
 | pgvector (python) | 0.5.1 | SQLAlchemy `Vector`/`HalfVector` types: knowledge chunk embeddings (default `pgvector` retrieval adapter), memory and tool-search embeddings. |
 | temporalio | 1.34.0 | Durable workflows for runs, routines, ingestion and maintenance jobs. |

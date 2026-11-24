@@ -41,8 +41,6 @@ x-app-env: &app-env
   # so a value in a laptop .env cannot point a container at a service that is not there.
   # The feature's own compose file sets each one.
   AR_MODEL_GATEWAY_URL: ""
-  AR_MCP_OPENAPI_URL: ""
-  AR_MCP_SQL_URL: ""
   AR_OPA_URL: ""
   AR_OPA_BUNDLE_TOKEN: ${AR_OPA_BUNDLE_TOKEN:-}
   AR_TEMPORAL_ADDRESS: temporal:7233
@@ -426,32 +424,6 @@ services:
       AR_PORT: ${AR_CHANNELS_PORT:-8004}
     ports: ["127.0.0.1:${AR_CHANNELS_PORT:-8004}:${AR_CHANNELS_PORT:-8004}"]
 
-  mcp-sql:
-    <<: *run
-    profiles: [feature]
-    depends_on: *app-depends
-    healthcheck: *py-health
-    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_sql } }
-    environment:
-      <<: *app-env
-      AR_APP_MODULE: ar_mcp_sql.main
-      AR_PORT: ${AR_MCP_SQL_HOST_PORT:-8010}
-    ports: ["127.0.0.1:${AR_MCP_SQL_HOST_PORT:-8010}:${AR_MCP_SQL_HOST_PORT:-8010}"]
-
-  mcp-openapi:
-    <<: *run
-    profiles: [feature]
-    depends_on: *app-depends
-    healthcheck: *py-health
-    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_openapi } }
-    environment:
-      <<: *app-env
-      AR_APP_MODULE: ar_mcp_openapi.main
-      AR_PORT: ${AR_MCP_OPENAPI_HOST_PORT:-8011}
-    ports: ["127.0.0.1:${AR_MCP_OPENAPI_HOST_PORT:-8011}:${AR_MCP_OPENAPI_HOST_PORT:-8011}"]
-
-  # The runtime and system workers in one process: each keeps its own store and its own
-  # task queues. compose.split-workers.yaml runs them as two services instead.
   worker:
     <<: *run
     profiles: [production]

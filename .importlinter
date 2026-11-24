@@ -14,8 +14,6 @@ root_packages =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_mcp_sql
-    ar_mcp_openapi
     ar_fake_llm
 
 [importlinter:contract:layers]
@@ -40,8 +38,6 @@ modules =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_mcp_sql
-    ar_mcp_openapi
     ar_fake_llm
 
 [importlinter:contract:no-db-in-edge]
@@ -50,8 +46,6 @@ type = forbidden
 source_modules =
     ar_channels
     ar_sandbox_agent
-    ar_mcp_sql
-    ar_mcp_openapi
 forbidden_modules =
     ar_domain
     sqlalchemy
@@ -82,8 +76,6 @@ source_modules =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_mcp_sql
-    ar_mcp_openapi
     ar_fake_llm
 forbidden_modules =
     ar_pack_fixture
@@ -123,8 +115,6 @@ source_modules =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_mcp_sql
-    ar_mcp_openapi
     ar_fake_llm
 forbidden_modules =
     kubernetes
@@ -145,8 +135,6 @@ source_modules =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_mcp_sql
-    ar_mcp_openapi
     ar_fake_llm
 forbidden_modules =
     requests

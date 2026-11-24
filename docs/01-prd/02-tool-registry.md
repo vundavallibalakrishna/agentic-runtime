@@ -33,7 +33,7 @@ As a **member**, I want to connect my own account (OAuth) so that agents act wit
 
 ### US-TOOL-06 · Turn an OpenAPI description into tools (P0)
 As a **tool owner**, I want to import an OpenAPI 3.x document of an internal API and expose selected operations as tools.
-- Import creates a tool server served by `mcp-openapi`, one tool per selected operation (name from `operationId`), with request validation and response size limits.
+- Import creates a tool server whose operations the tool gateway calls, one tool per selected operation (name from `operationId`), with request validation and response size limits.
 - Spec: spec 08 §11. Plan: M4-T06.
 
 ### US-TOOL-07 · Query a database safely (P0)
