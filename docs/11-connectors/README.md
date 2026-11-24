@@ -2,6 +2,8 @@
 
 A connector is a ready-made set of tools. The customer connects their own account. The platform does not hold a provider account for them.
 
+How the connectors move from built to proven, and what each needs from the owner: [proof plan](proof-plan.md).
+
 Every row below is **built**: the tools, setup steps and error messages ship in the product. Verification is separate:
 
 - **Live-tested.** A real call was made. The checklist says what was called.
