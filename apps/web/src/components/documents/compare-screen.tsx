@@ -11,6 +11,7 @@ import { Badge, type Tone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { type DiffPart, wordDiff } from "@/lib/word-diff";
 
 type Side = { id?: string; title?: string; filename?: string };
 type Section = {
@@ -109,41 +110,59 @@ export function CompareScreen({ left, right }: { left: string; right: string }) 
             ))}
           </ul>
           {sections.length === 0 ? <EmptyState title={t("compareSame")} /> : null}
+          {sections.some((section) => section.status === "changed") ? (
+            <p className="text-sm text-[var(--muted-foreground)]">{t("compareLegend")}</p>
+          ) : null}
           {total > sections.length ? (
             <p className="text-sm text-[var(--muted-foreground)]">
               {t("compareShown", { shown: sections.length, total })}
             </p>
           ) : null}
           <ul className="space-y-4">
-            {sections.map((section) => (
-              <li
-                className="detail-panel p-5"
-                key={`${section.status}-${section.leftAnchor}-${section.rightAnchor}`}
-              >
-                <div className="mb-3 flex flex-wrap items-center gap-3">
-                  <h2 className="panel-title">{section.heading || t("compareNoHeading")}</h2>
-                  <Badge tone={TONES[section.status]}>{t(`compareStatus.${section.status}`)}</Badge>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Quote
-                    anchor={section.leftAnchor}
-                    document={left}
-                    empty={t("compareNotIn", { name: before })}
-                    label={before}
-                    open={t("compareOpen")}
-                    text={section.leftQuote}
-                  />
-                  <Quote
-                    anchor={section.rightAnchor}
-                    document={right}
-                    empty={t("compareNotIn", { name: after })}
-                    label={after}
-                    open={t("compareOpen")}
-                    text={section.rightQuote}
-                  />
-                </div>
-              </li>
-            ))}
+            {sections.map((section) => {
+              // In a changed section, the words one wording has and the other lacks are marked.
+              const marked =
+                section.status === "changed"
+                  ? wordDiff(section.leftQuote ?? "", section.rightQuote ?? "")
+                  : null;
+              return (
+                <li
+                  className="detail-panel p-5"
+                  key={`${section.status}-${section.leftAnchor}-${section.rightAnchor}`}
+                >
+                  <div className="mb-3 flex flex-wrap items-center gap-3">
+                    <h2 className="panel-title">{section.heading || t("compareNoHeading")}</h2>
+                    <Badge tone={TONES[section.status]}>
+                      {t(`compareStatus.${section.status}`)}
+                    </Badge>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Quote
+                      anchor={section.leftAnchor}
+                      document={left}
+                      empty={t("compareNotIn", { name: before })}
+                      label={before}
+                      marked={marked?.before}
+                      markedAs="removed"
+                      markedLabel={t("compareOnlyHere", { name: before })}
+                      open={t("compareOpen")}
+                      text={section.leftQuote}
+                    />
+                    <Quote
+                      anchor={section.rightAnchor}
+                      document={right}
+                      empty={t("compareNotIn", { name: after })}
+                      label={after}
+                      marked={marked?.after}
+                      markedAs="added"
+                      markedLabel={t("compareOnlyHere", { name: after })}
+                      open={t("compareOpen")}
+                      text={section.rightQuote}
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
@@ -158,6 +177,9 @@ function Quote({
   document,
   empty,
   open,
+  marked,
+  markedAs,
+  markedLabel,
 }: {
   label: string;
   text?: string;
@@ -165,16 +187,38 @@ function Quote({
   document: string;
   empty: string;
   open: string;
+  marked?: DiffPart[];
+  markedAs: "removed" | "added";
+  markedLabel: string;
 }) {
   return (
     <div className="min-w-0">
       <p className="mb-1 text-xs font-medium text-[var(--muted-foreground)]">{label}</p>
       {text ? (
         <>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">{text}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">
+            {marked
+              ? marked.map((part, index) =>
+                  part.changed ? (
+                    <mark
+                      className={markedAs === "removed" ? "diff-removed" : "diff-added"}
+                      // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one passage never reorder
+                      key={index}
+                      title={markedLabel}
+                    >
+                      {part.text}
+                    </mark>
+                  ) : (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one passage never reorder
+                    <span key={index}>{part.text}</span>
+                  ),
+                )
+              : text}
+          </p>
           {anchor ? (
             <a
-              aria-label={`${open}: ${label}, ${anchor}`}
+              // The spoken name starts with the words on screen, then says which document.
+              aria-label={`${open} ${anchor}, ${label}`}
               className="mt-2 inline-block text-xs underline"
               href={`/documents/${document}#${anchor}`}
             >
