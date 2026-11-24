@@ -10,15 +10,6 @@ from ar_domain.tools.logic import as_int
 Handler = Any
 _ENDPOINTS: dict[str, Handler] = {}
 _DISCOVERED: dict[str, list[dict[str, object]]] = {}
-_ORDERS = (
-    {"id": 1, "sku": "paper", "quantity": 4},
-    {"id": 2, "sku": "ink", "quantity": 2},
-    {"id": 3, "sku": "stapler", "quantity": 1},
-)
-
-
-def orders() -> list[dict[str, object]]:
-    return [dict(row) for row in _ORDERS]
 
 
 def register_endpoint(

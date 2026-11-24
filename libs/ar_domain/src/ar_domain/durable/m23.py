@@ -107,6 +107,7 @@ async def save_data_connections(
 ) -> None:
     """Persist a data connection. The DSN is ciphertext, not a column of plaintext."""
     from ar_domain.secrets.crypto import seal  # noqa: PLC0415
+    from ar_domain.tools.database import in_process  # noqa: PLC0415
     from ar_domain.tools.service_connections import connection_key  # noqa: PLC0415
 
     ref_sql = """
@@ -165,7 +166,8 @@ async def save_data_connections(
         ciphertext = _bytea(row.get("dsn_ciphertext"))
         if not ciphertext and isinstance(secrets, dict):
             raw = secrets.get(secret_id)
-            if isinstance(raw, bytes) and raw and not raw.startswith(b"memory:"):
+            # An address a pack serves in its own process is not a secret to keep.
+            if isinstance(raw, bytes) and raw and in_process(raw.decode(errors="replace")) is None:
                 ciphertext = seal(connection_key(), raw)
         await _one(
             session,

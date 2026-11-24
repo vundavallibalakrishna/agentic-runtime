@@ -46,3 +46,16 @@ def test_missing_rules_fail_instead_of_serving_an_empty_policy(
     monkeypatch.setattr(bundle, "_CHECKOUT", tmp_path / "none")
     with pytest.raises(FileNotFoundError, match=r"policy\.rego is missing"):
         bundle.build_bundle(_Store())
+
+
+def test_the_same_rules_are_the_same_bundle_whenever_it_is_built(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The ETag changed with the clock, so an unchanged bundle was never a 304."""
+    import time
+
+    monkeypatch.setattr(time, "time", lambda: 1_800_000_000.0)
+    first = bundle.build_bundle(_Store())
+    monkeypatch.setattr(time, "time", lambda: 1_800_000_007.0)
+    second = bundle.build_bundle(_Store())
+    assert first == second

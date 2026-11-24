@@ -215,6 +215,22 @@ def apply_read_only(execute: Callable[[str], object], timeout_ms: int, *, mysql:
     execute("SET TRANSACTION READ ONLY")
 
 
+# A pack may serve a database inside its own process, at an address it names. Core
+# registers none, so on an install every address is a server to dial.
+_SOURCES: dict[str, Any] = {}
+
+
+def register_source(dsn: str, source: Any) -> None:
+    """Serve ``dsn`` in this process. ``source(sql, params, limit)`` returns
+    ``{"columns", "rows", "truncated"}``, as a driver's answer is returned."""
+    _SOURCES[dsn] = source
+
+
+def in_process(dsn: str) -> Any | None:
+    """The registered source for this address, or none."""
+    return _SOURCES.get(dsn)
+
+
 def clean_dsn(dsn: str) -> str:
     """The DSN the driver may see, with the connection target left unchanged.
 
@@ -222,15 +238,13 @@ def clean_dsn(dsn: str) -> str:
     startup command is rejected. It is not removed quietly. User, password and
     database are decoded once and encoded once.
     """
-    if dsn.startswith("memory:"):
+    if in_process(dsn) is not None:
         return dsn
     return _rebuild(_parsed(dsn), None)
 
 
 def _list_schemas(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     row, dsn, limits = _bound(store, arguments)
-    if dsn.startswith("memory:"):
-        return _ok("public", {"schemas": ["public"]}, "list_schemas", "")
     sql = (
         "SELECT schema_name FROM information_schema.schemata "
         "WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast') "
@@ -253,10 +267,7 @@ def _list_schemas(store: Any, arguments: dict[str, object]) -> dict[str, object]
 
 
 def _list_tables(store: Any, arguments: dict[str, object]) -> dict[str, object]:
-    row, dsn, limits = _bound(store, arguments)
-    if dsn.startswith("memory:"):
-        names = sorted(limits["tables"] or {"public.orders"})
-        return _ok("\n".join(names), {"tables": names}, "list_tables", "")
+    row, _dsn, limits = _bound(store, arguments)
     body = catalog(store, row)
     tables = body.get("tables")
     names = (
@@ -271,13 +282,6 @@ def _list_tables(store: Any, arguments: dict[str, object]) -> dict[str, object]:
 def _describe(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     row, dsn, limits = _bound(store, arguments)
     schema, table = _split_table(str(arguments.get("table") or ""))
-    if dsn.startswith("memory:"):
-        qualified = f"{schema}.{table}"
-        allow = limits["tables"] or {"public.orders"}
-        if qualified not in allow and table not in allow:
-            return _error("not_allowlisted", f"table {qualified} is not allowlisted")
-        columns = ["id", "sku", "quantity"]
-        return _ok(", ".join(columns), {"columns": columns, "table": qualified}, "describe", "")
     if not _allowed_name(schema, table, limits):
         return _error("not_allowlisted", f"table {schema}.{table} is not allowlisted")
     sql = (
@@ -318,8 +322,6 @@ def _query(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         )
     except SqlRejected as exc:
         return _error("sql_rejected", exc.reason)
-    if dsn.startswith("memory:"):
-        return _memory_query(store, arguments, checked, limits["row_limit"])
     found = _execute(
         dsn,
         _engine(row),
@@ -342,13 +344,12 @@ def _bound(
     dsn = connection_dsn(store, row)
     if not dsn:
         raise SqlRejected("this connection has no database")
-    if not dsn.startswith("memory:"):
-        _refuse_unsafe(
-            dsn,
-            as_mapping(row.get("allowlist")),
-            _tenant_hosts(store, row),
-            tenant_id=_tenant_key(row.get("tenant_id")),
-        )
+    _refuse_unsafe(
+        dsn,
+        as_mapping(row.get("allowlist")),
+        _tenant_hosts(store, row),
+        tenant_id=_tenant_key(row.get("tenant_id")),
+    )
     return row, dsn, _limits(store, arguments, row)
 
 
@@ -374,7 +375,8 @@ def _no_connection(store: Any, arguments: dict[str, object]) -> str:
 
 def _find(store: Any, arguments: dict[str, object]) -> dict[str, object] | None:
     tenant = arguments.get("_tenant_id")
-    wanted = str(arguments.get("connection") or arguments.get("name") or "").strip().lower()
+    asked = str(arguments.get("connection") or arguments.get("name") or "").strip()
+    wanted = asked.lower()
     matches: list[dict[str, object]] = []
     book = getattr(store, "data_connections", {})
     if not isinstance(book, dict):
@@ -386,11 +388,11 @@ def _find(store: Any, arguments: dict[str, object]) -> dict[str, object] | None:
         if wanted and named != wanted and str(row.get("id") or "") != wanted:
             continue
         matches.append(row)
-    if not wanted and len(matches) == 1:
-        return matches[0]
-    real = [row for row in matches if not connection_dsn(store, row).startswith("memory:")]
-    if real:
-        return real[0]
+    # Two connections may differ only in the case of their names. The one spelled as
+    # it was asked for is the one meant.
+    for row in matches:
+        if asked and str(row.get("name") or "") == asked:
+            return row
     return matches[0] if matches else None
 
 
@@ -453,6 +455,10 @@ def _execute(
     hosts: list[str] | None = None,
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
+    source = in_process(dsn)
+    if source is not None:
+        found: dict[str, Any] = source(sql, params, limit)
+        return found
     dial = _dial(dsn, allow or {}, list(hosts or []), tenant_id=tenant_id)
     if engine == "mysql":
         return _mysql(dial, sql, timeout_s=timeout_s, limit=limit, params=params)
@@ -702,23 +708,6 @@ def _render(sql: str, found: dict[str, Any]) -> dict[str, object]:
     )
 
 
-def _memory_query(
-    store: Any, arguments: dict[str, object], sql: str, limit: int
-) -> dict[str, object]:
-    from ar_domain.tools.handlers import orders  # noqa: PLC0415
-
-    rows = orders()[:limit]
-    if "count" in sql.lower():
-        found = {"columns": ["count"], "rows": [[len(orders())]], "truncated": False}
-    else:
-        found = {
-            "columns": ["id", "sku", "quantity"],
-            "rows": [[row["id"], row["sku"], row["quantity"]] for row in rows],
-            "truncated": False,
-        }
-    return _with_progress(store, arguments, sql, found, limit)
-
-
 def _with_progress(
     store: Any, arguments: dict[str, object], sql: str, found: dict[str, Any], limit: int
 ) -> dict[str, object]:
@@ -763,7 +752,7 @@ def _refuse_unsafe(
     tenant_id: str | None = None,
 ) -> None:
     """Reject a DSN that would dial a host other than the one it names."""
-    if dsn.startswith("memory:"):
+    if in_process(dsn) is not None:
         return
     _dial(dsn, allow, list(hosts or []), tenant_id=tenant_id)
 

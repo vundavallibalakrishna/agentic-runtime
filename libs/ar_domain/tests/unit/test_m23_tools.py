@@ -78,7 +78,7 @@ def test_read_only_session_and_dsn_hygiene(monkeypatch: pytest.MonkeyPatch) -> N
         _refuse_unsafe("postgresql://reader:pw@metadata.example:5432/analysis", {})
 
 
-def test_connection_secrets_stay_sealed_and_real_names_win() -> None:
+def test_connection_secrets_stay_sealed_and_the_name_as_spelled_wins() -> None:
     store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")

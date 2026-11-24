@@ -12,7 +12,8 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from ar_domain.tools.handlers import orders, register_endpoint
+from ar_domain.tools.database import register_source
+from ar_domain.tools.handlers import register_endpoint
 from ar_domain.tools.logic import as_int
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
 
@@ -23,6 +24,18 @@ TICKETS = "memory://tickets"
 ECHO = "memory://echo"
 PETSTORE = "memory://petstore"
 WAREHOUSE = "memory://warehouse"
+
+_ORDERS = (
+    {"id": 1, "sku": "paper", "quantity": 4},
+    {"id": 2, "sku": "ink", "quantity": 2},
+    {"id": 3, "sku": "stapler", "quantity": 1},
+)
+
+
+def orders() -> list[dict[str, object]]:
+    """The warehouse's one table, ``public.orders``."""
+    return [dict(row) for row in _ORDERS]
+
 
 ECHO_TOOLS: list[dict[str, object]] = [
     {
@@ -50,6 +63,42 @@ def register_stand_ins() -> None:
     register_endpoint(
         WAREHOUSE, lambda store, name, arguments, _token: _sql(store, name, arguments)
     )
+    # The same warehouse as a database a data connection can name.
+    register_source(WAREHOUSE, warehouse_source)
+
+
+def warehouse_source(sql: str, params: tuple[object, ...], limit: int) -> dict[str, object]:
+    """Answer one statement as a database with the single table ``public.orders`` would.
+
+    The data tools ask a database three things besides a person's query: its schemas,
+    its tables and a table's columns. Each is answered from the one table. Any other
+    statement is a query on it: a count, or its rows.
+    """
+    text = " ".join(sql.lower().split())
+    if "information_schema.schemata" in text:
+        return {"columns": ["schema_name"], "rows": [["public"]], "truncated": False}
+    if "information_schema.tables" in text:
+        return {
+            "columns": ["table_schema", "table_name"],
+            "rows": [["public", "orders"]],
+            "truncated": False,
+        }
+    if "information_schema.columns" in text:
+        known = list(params[:2]) == ["public", "orders"]
+        described = [["id", "integer"], ["sku", "text"], ["quantity", "integer"]]
+        return {
+            "columns": ["column_name", "data_type"],
+            "rows": described if known else [],
+            "truncated": False,
+        }
+    if "count(" in text:
+        return {"columns": ["count"], "rows": [[len(_ORDERS)]], "truncated": False}
+    rows = [[row["id"], row["sku"], row["quantity"]] for row in orders()]
+    return {
+        "columns": ["id", "sku", "quantity"],
+        "rows": rows[:limit],
+        "truncated": len(rows) > limit,
+    }
 
 
 def _echo(_store: Any, _name: str, arguments: dict[str, object], _token: str) -> dict[str, object]:
