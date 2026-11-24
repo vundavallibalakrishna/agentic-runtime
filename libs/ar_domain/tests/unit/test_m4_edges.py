@@ -587,7 +587,7 @@ async def test_credentials_http_and_data_connections() -> None:
     probed = connections.test(actor, connection_id)
     assert probed["ok"] is True
     schema = connections.schema(actor, connection_id)
-    assert schema["tables"][0]["columns"]
+    assert schema["tables"][0]["name"] == "public.orders"
     version = next(iter(store.tool_server_versions.values()))
     version["config"] = {"sql": {"data_connection_id": str(connection_id)}}
     with pytest.raises(ConflictError):

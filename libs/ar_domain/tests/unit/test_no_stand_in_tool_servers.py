@@ -9,14 +9,12 @@ handlers now live in ``ar_testing`` and are served only where a test registers t
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+
+import pytest
 
 from ar_domain.tools import handlers
 from ar_domain.tools.handlers import dispatch
 from ar_testing.demo import demo_store
-
-if TYPE_CHECKING:
-    import pytest
 
 _TOOLS = Path(handlers.__file__).parent
 _STAND_INS = ("memory://tickets", "memory://echo", "memory://petstore", "memory://warehouse")
@@ -40,3 +38,29 @@ def test_the_dispatcher_and_the_registry_name_no_stand_in_address() -> None:
     for name in ("handlers.py", "registry.py"):
         source = (_TOOLS / name).read_text(encoding="utf-8")
         assert "memory://" not in source, f"{name} still names an in-memory tool server"
+
+
+def test_an_install_has_no_database_at_an_in_memory_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A data connection at ``memory://warehouse`` used to answer with three orders."""
+    from ar_common.errors import ValidationFailedError
+    from ar_domain.agents.access import Actor
+    from ar_domain.demo_ids import demo_id
+    from ar_domain.tools import database
+    from ar_domain.tools.data_connections import DataConnections
+
+    store = demo_store()
+    # An install: no pack serves a database in this process.
+    monkeypatch.setattr(database, "_SOURCES", {})
+    actor = Actor(demo_id("tenant"), demo_id("admin"), frozenset({"tools:create"}))
+    with pytest.raises(ValidationFailedError, match="postgresql:// or mysql://"):
+        DataConnections(store).create(
+            actor, {"name": "ledger", "engine": "postgres", "dsn": "memory://warehouse"}
+        )
+
+
+def test_the_data_tools_name_no_in_memory_address() -> None:
+    for name in ("database.py", "data_connections.py"):
+        source = (_TOOLS / name).read_text(encoding="utf-8")
+        assert "memory:" not in source, f"{name} still treats an in-memory address specially"
