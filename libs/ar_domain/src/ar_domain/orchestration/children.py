@@ -9,6 +9,7 @@ from typing import Any  # noqa: TC003
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
+from ar_domain.orchestration import events
 from ar_domain.orchestration.spec import chain, depth_blocked, is_cycle, subagent_spec, whole
 from ar_domain.orchestration.spend import Spend, meter, release, spend_of
 from ar_domain.runs.request import ask
@@ -84,12 +85,23 @@ async def run_named(
         )
     except TimeoutError:
         child = holder.get("child")
+        cut_short: dict[str, object] = {}
         # Giving up on the child cancels it. What ended it was its time, and it says so.
         if isinstance(child, dict) and str(child.get("status")) in {*_LIVE, "cancelled"}:
             _finish_failed(store, child, "child_timeout", _TIMEOUT_MESSAGE)
             _roll(parent, _spent(child, "failed"))
+            _told(
+                store,
+                parent,
+                child,
+                status="failed",
+                summary=_TIMEOUT_MESSAGE,
+                call_id=str(state.get("call_id") or ""),
+            )
             await _flush_run(store)
-        return _error(slug, "child_timeout", _TIMEOUT_MESSAGE)
+            # The answer names the run that was cut short, so a person can open it.
+            cut_short = _named(child)
+        return {**_error(slug, "child_timeout", _TIMEOUT_MESSAGE), **cut_short}
     finally:
         started = holder.get("child")
         if isinstance(started, dict):
@@ -185,7 +197,8 @@ async def _drive(
     # processes then see it: the screen that draws the run, a stop from the person, and
     # the tool gateway, which records an approval request against the child's run.
     await _flush_run(store)
-    _emit(store, parent, "subagent.started", {"child_run_id": str(child["id"]), "agent": slug})
+    call_id = str(state.get("call_id") or "")
+    _emit(store, parent, "subagent.started", events.started(child, task, call_id))
     _step(
         store,
         parent,
@@ -201,11 +214,13 @@ async def _drive(
         await asyncio.shield(_flush_run(store))
         raise
     await _flush_run(store)
-    _emit(
+    _told(
         store,
         parent,
-        "subagent.completed",
-        {"child_run_id": str(child["id"]), "agent": slug, "status": outcome["status"]},
+        child,
+        status=str(outcome["status"]),
+        summary=str(outcome.get("text") or ""),
+        call_id=call_id,
     )
     _roll(parent, outcome)
     return outcome
@@ -242,6 +257,33 @@ async def _complete(store: Any, child: dict[str, object], task: str) -> dict[str
     return {**_spent(child, status), "failed": failed, "text": text}
 
 
+def _named(child: dict[str, object]) -> dict[str, object]:
+    return {"name": child.get("agent_name") or "", "child_id": str(child.get("id"))}
+
+
+def _told(
+    store: Any,
+    parent: dict[str, object],
+    child: dict[str, object],
+    *,
+    status: str,
+    summary: str,
+    call_id: str,
+) -> None:
+    spent = _spent(child, status)
+    usage = {
+        "tokens_in": spent["tokens_in"],
+        "tokens_out": spent["tokens_out"],
+        "cost_micros": spent["cost"],
+    }
+    _emit(
+        store,
+        parent,
+        "subagent.completed",
+        events.completed(child, status, summary, usage, call_id),
+    )
+
+
 def _spent(child: dict[str, object], status: str) -> dict[str, object]:
     """What one called agent used, for the caller's totals. Works for one cut short."""
     raw_usage = child.get("usage")
@@ -250,7 +292,7 @@ def _spent(child: dict[str, object], status: str) -> dict[str, object]:
     return {
         "status": status,
         "agent": child.get("agent_slug") or "",
-        "child_id": str(child.get("id")),
+        **_named(child),
         # A run cut short has not written its usage: its own count stands in.
         "tokens_in": whole(usage.get("tokens_in"), 0) or (0 if own is None else own.tokens_in),
         "tokens_out": whole(usage.get("tokens_out"), 0) or (0 if own is None else own.tokens_out),

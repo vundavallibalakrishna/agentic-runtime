@@ -160,6 +160,7 @@ Rules:
 9. **A called agent cannot ask a person.** It is not offered `agents_ask`, and a call it makes anyway is refused in words it can act on. A called agent that ends waiting for a person is closed as failed with `child_needs_a_person`; its question is never passed to the caller as an answer. The caller asks the person and calls again ([OQ-192](../open-questions.md)).
 10. **Permissions.** A called agent's run carries the caller's effective permissions (`request.permissions`), so a run started with a narrowed key stays narrowed in every agent it calls.
 11. **Time.** Each call notes the agent it started. When that agent passes `subagents.child_timeout_s` it is the one marked failed with `child_timeout`; an agent started beside it is not touched.
+12. **What a person sees.** The caller's stream carries `subagent.started` and `subagent.completed` for each called agent, in the shape of [stream-events](../05-contracts/stream-events.md), built in one place (`ar_domain.orchestration.events`) for both callers: the orchestration tools and a skill that delegates. The call saved on the reply names each agent, its task, how it ended, its answer and its run. The chat draws both the same way.
 
 ## 8. Tool search
 

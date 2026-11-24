@@ -12,7 +12,32 @@ type StreamTool = {
   presentation?: Record<string, unknown>;
   timeline: TimelineEntry[];
   attempt?: number;
+  callId?: string;
 };
+
+type CalledAgent = {
+  agent: string;
+  status: string;
+  task: string;
+  summary: string;
+  childRunId: string;
+};
+
+function calledAgents(tool: StreamTool): CalledAgent[] | null {
+  if (tool.presentation?.kind !== "agents") return null;
+  const rows = tool.presentation.agents;
+  return Array.isArray(rows) ? (rows as CalledAgent[]) : [];
+}
+
+// A call is working while any agent it started is, and done only when all of them are.
+function callStatus(agents: CalledAgent[]): string {
+  if (agents.some((item) => item.status === "running")) return "running";
+  return agents.every((item) => item.status === "completed") ? "completed" : "failed";
+}
+
+function withAgents(tool: StreamTool, agents: CalledAgent[]): StreamTool {
+  return { ...tool, status: callStatus(agents), presentation: { kind: "agents", agents } };
+}
 
 export type StreamEvent = {
   type: string;
@@ -39,6 +64,11 @@ export type StreamEvent = {
     plan?: { id?: string; title?: string; status?: string }[] | string[];
     answeredModel?: string;
     attempt?: number;
+    childRunId?: string;
+    agentName?: string;
+    taskBrief?: string;
+    resultSummary?: string;
+    callId?: string;
   };
 };
 
@@ -221,6 +251,54 @@ export function reduceStream(state: StreamState, event: StreamEvent): StreamStat
                 }
               : item,
           );
+    return { ...next, status: "streaming", tools };
+  }
+  if (event.type === "subagent.started") {
+    const callId = event.data?.callId ?? "";
+    const agent: CalledAgent = {
+      agent: event.data?.agentName ?? "",
+      status: "running",
+      task: event.data?.taskBrief ?? "",
+      summary: "",
+      childRunId: event.data?.childRunId ?? "",
+    };
+    // Agents started by one call are one row. Without a call id, a row still working
+    // is the call they belong to.
+    const at = state.tools.findIndex((item) => {
+      if (calledAgents(item) === null) return false;
+      return callId ? item.callId === callId : item.status === "running";
+    });
+    const tools =
+      at === -1
+        ? [
+            ...state.tools,
+            withAgents({ name: "agents", status: "running", preview: "", timeline: [], callId }, [
+              agent,
+            ]),
+          ]
+        : state.tools.map((item, index) =>
+            index === at ? withAgents(item, [...(calledAgents(item) ?? []), agent]) : item,
+          );
+    return { ...next, status: "streaming", tools };
+  }
+  if (event.type === "subagent.completed") {
+    const childRunId = event.data?.childRunId ?? "";
+    const tools = state.tools.map((item) => {
+      const agents = calledAgents(item);
+      if (!agents?.some((row) => row.childRunId === childRunId)) return item;
+      return withAgents(
+        item,
+        agents.map((row) =>
+          row.childRunId === childRunId
+            ? {
+                ...row,
+                status: event.data?.status ?? "completed",
+                summary: event.data?.resultSummary ?? "",
+              }
+            : row,
+        ),
+      );
+    });
     return { ...next, status: "streaming", tools };
   }
   if (event.type === "message.delta") {

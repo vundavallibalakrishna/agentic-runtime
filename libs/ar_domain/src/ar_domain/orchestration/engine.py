@@ -7,6 +7,7 @@ from typing import Any, TypedDict
 
 import orjson
 
+from ar_domain.orchestration import events
 from ar_domain.orchestration.ask import ask_person
 from ar_domain.orchestration.children import (
     definition_of,
@@ -98,6 +99,7 @@ async def handle_orchestration(
     payload = arguments if isinstance(arguments, dict) else {}
     call_id = str(call.get("id") or "call")
     state["elapsed_s"] = _elapsed(state)
+    state["call_id"] = call_id
     if name == "agents_ask":
         if asked(run, "orchestration_child"):
             return _done(
@@ -120,7 +122,9 @@ async def handle_orchestration(
         outcome = await run_parallel(store, run, rows, state)
         raw_results = outcome.get("results")
         items = raw_results if isinstance(raw_results, list) else []
-        body = {"results": [_public(item) for item in items if isinstance(item, dict)]}
+        results = [item for item in items if isinstance(item, dict)]
+        body = {"results": [_public(item) for item in results]}
+        tasks = [str(row.get("task") or "") for row in rows]
         return _done(
             name,
             call_id,
@@ -128,6 +132,10 @@ async def handle_orchestration(
             failed=bool(outcome.get("failed")),
             tokens=pool.tokens,
             cost=pool.cost,
+            agents=[
+                events.called(item, tasks[at] if at < len(tasks) else "")
+                for at, item in enumerate(results)
+            ],
         )
     slug = str(payload.get("agent") or "")
     task = str(payload.get("task") or payload.get("note") or "")
@@ -141,7 +149,7 @@ async def handle_orchestration(
             "answer": text,
             "tokens": pool.tokens,
             "cost": pool.cost,
-            "preview": _preview(name, "completed", text),
+            "preview": _preview(name, "completed", text, [events.called(outcome, task)]),
             "wrapped": wrapped(name, call_id, text),
         }
     return _done(
@@ -151,6 +159,7 @@ async def handle_orchestration(
         failed=bool(outcome.get("failed")),
         tokens=pool.tokens,
         cost=pool.cost,
+        agents=[events.called(outcome, task)],
     )
 
 
@@ -324,19 +333,30 @@ def _done(
     failed: bool,
     tokens: int = 0,
     cost: int = 0,
+    agents: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
         "failed": failed,
         "stop": False,
         "tokens": tokens,
         "cost": cost,
-        "preview": _preview(name, "failed" if failed else "completed", text),
+        "preview": _preview(name, "failed" if failed else "completed", text, agents or []),
         "wrapped": wrapped(name, call_id, text),
     }
 
 
-def _preview(name: str, status: str, text: str) -> dict[str, object]:
-    return {"qualified_name": name, "status": status, "result_preview": text[:500]}
+def _preview(
+    name: str, status: str, text: str, agents: list[dict[str, object]]
+) -> dict[str, object]:
+    """The saved call. With agents, the chat draws each one in place of the raw text."""
+    preview: dict[str, object] = {
+        "qualified_name": name,
+        "status": status,
+        "result_preview": text[:500],
+    }
+    if agents:
+        preview["presentation"] = {"kind": "agents", "agents": agents}
+    return preview
 
 
 def _public(item: dict[str, object]) -> dict[str, object]:

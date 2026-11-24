@@ -1086,3 +1086,76 @@ def test_inbox_lists_the_assignee_and_rejects_a_bad_answer() -> None:
     except ValidationFailedError as exc:
         blank_answer = exc
     assert blank_answer is not None
+
+
+async def test_the_stream_says_which_agents_were_called_and_how_each_ended() -> None:
+    """The chat draws called agents from these events, so they follow the contract."""
+    from ar_contracts.stream import SubagentCompletedData, SubagentStartedData
+
+    store = _store()
+    _agent(store, "slow", _definition())
+    _agent(store, "quick", _definition())
+    parent, version = _agent(
+        store,
+        "desk",
+        _definition(
+            subagents={
+                "allowed": ["slow", "quick"],
+                "max_depth": 2,
+                "max_parallel": 2,
+                "child_timeout_s": 1,
+            }
+        ),
+    )
+    run, assistant = _open(store, parent, version)
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tools, tenant_id, model_alias
+        if _given(messages, "TASK slow"):
+            await asyncio.sleep(2)
+            return _reply("late")
+        if _given(messages, "TASK quick"):
+            return _reply("quick done")
+        if not any(row.get("role") == "tool" for row in messages):
+            return _reply("", calls=_both("slow", "quick"))
+        return _reply("carried on")
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    sent = store.events[uuid.UUID(str(run["id"]))]
+    started = [
+        SubagentStartedData(**row["data"]) for row in sent if row["type"] == "subagent.started"
+    ]
+    ended = [
+        SubagentCompletedData(**row["data"]) for row in sent if row["type"] == "subagent.completed"
+    ]
+    children = {
+        row["agent_slug"]: row
+        for row in store.runs.values()
+        if row.get("parent_run_id") == run["id"]
+    }
+    assert {(item.agent_name, item.task_brief, item.call_id) for item in started} == {
+        ("slow", "TASK slow", "p"),
+        ("quick", "TASK quick", "p"),
+    }
+    assert {item.agent_id for item in started} == {row["agent_id"] for row in children.values()}
+    # Every agent that started is said to have ended, the one that ran out of time too.
+    by_child = {str(item.child_run_id): item for item in ended}
+    assert set(by_child) == {str(row["id"]) for row in children.values()}
+    quick, slow = by_child[str(children["quick"]["id"])], by_child[str(children["slow"]["id"])]
+    assert (quick.status, quick.result_summary, quick.call_id) == ("completed", "quick done", "p")
+    assert quick.usage.tokens_out == 1
+    assert slow.status == "failed"
+    assert "timed out" in slow.result_summary
+    # The reply keeps the same picture for when the conversation is opened again.
+    saved = store.messages[assistant["id"]]["tool_calls"]
+    shown = [call["presentation"] for call in saved if call.get("presentation")]
+    assert [item["kind"] for item in shown] == ["agents"]
+    assert [(row["agent"], row["status"], row["task"]) for row in shown[0]["agents"]] == [
+        ("slow", "failed", "TASK slow"),
+        ("quick", "completed", "TASK quick"),
+    ]
+    assert [row["child_run_id"] for row in shown[0]["agents"]] == [
+        str(children["slow"]["id"]),
+        str(children["quick"]["id"]),
+    ]

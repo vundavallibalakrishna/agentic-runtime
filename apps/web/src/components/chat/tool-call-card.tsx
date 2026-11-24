@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -170,6 +171,45 @@ function Crosscheck({ presentation }: { presentation: Record<string, unknown> })
 
 /** Tool text that may be wider than the card. It scrolls, so the keyboard must reach it. */
 /** How a sample was drawn, so the person can repeat it: the tool's own summary, not its raw text. */
+function CalledAgents({ presentation }: { presentation: Record<string, unknown> }) {
+  const t = useTranslations("chat");
+  const agents = (Array.isArray(presentation.agents) ? presentation.agents : []).filter(
+    (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object",
+  );
+  return (
+    <ul className="mt-2 space-y-3" data-testid="called-agents">
+      {agents.map((row, position) => {
+        const runId = text(row.childRunId ?? row.child_run_id);
+        const agent = text(row.agent) || t("calledAgentUnnamed");
+        return (
+          // An agent can be called twice in one call, so the position names the row.
+          // biome-ignore lint/suspicious/noArrayIndexKey: see above
+          <li key={`${runId}-${position}`}>
+            <p>
+              <span className="font-medium">{agent}</span>
+              <span className="text-[var(--muted-foreground)]">
+                {" · "}
+                {friendlyStatus(text(row.status), t)}
+              </span>
+            </p>
+            {text(row.task) ? (
+              <p className="whitespace-pre-wrap text-[var(--muted-foreground)]">{text(row.task)}</p>
+            ) : null}
+            {text(row.summary) ? (
+              <p className="mt-1 whitespace-pre-wrap">{text(row.summary)}</p>
+            ) : null}
+            {runId ? (
+              <Link className="mt-1 inline-block underline" href={`/runs/${runId}`}>
+                {t("calledAgentSteps", { agent })}
+              </Link>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function SampleFacts({ facts }: { facts: unknown }) {
   const t = useTranslations("chat");
   if (!facts || typeof facts !== "object") return null;
@@ -247,12 +287,14 @@ const TOOL_LABELS: Record<string, "toolChart"> = {
 
 const STATUS_LABELS: Record<
   string,
-  "statusDone" | "statusWorking" | "statusFailed" | "statusWaiting"
+  "statusDone" | "statusWorking" | "statusFailed" | "statusWaiting" | "statusStopped"
 > = {
   succeeded: "statusDone",
   completed: "statusDone",
   running: "statusWorking",
   failed: "statusFailed",
+  budget_exceeded: "statusFailed",
+  cancelled: "statusStopped",
   awaiting_approval: "statusWaiting",
 };
 
@@ -265,7 +307,9 @@ function friendlyName(qualified: string, t: (key: "toolChart") => string): strin
 
 function friendlyStatus(
   status: string,
-  t: (key: "statusDone" | "statusWorking" | "statusFailed" | "statusWaiting") => string,
+  t: (
+    key: "statusDone" | "statusWorking" | "statusFailed" | "statusWaiting" | "statusStopped",
+  ) => string,
 ): string {
   const known = STATUS_LABELS[status];
   return known ? t(known) : status.replaceAll("_", " ");
@@ -274,7 +318,8 @@ function friendlyStatus(
 export function ToolCallCard({ call, label }: { call: Record<string, unknown>; label: string }) {
   const t = useTranslations("chat");
   const qualified = text(call.qualifiedName ?? call.qualified_name ?? "tool");
-  const name = friendlyName(qualified, t);
+  const called = presentationOf(call).kind === "agents";
+  const name = called ? t("calledAgents") : friendlyName(qualified, t);
   const status = friendlyStatus(text(call.status ?? ""), t);
   const preview = text(call.resultPreview ?? call.result_preview ?? "");
   const approvalId = text(call.approvalId ?? call.approval_id ?? "");
@@ -480,6 +525,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
         </ul>
       ) : null}
       {kind === "crosscheck" ? <Crosscheck presentation={presentation} /> : null}
+      {kind === "agents" ? <CalledAgents presentation={presentation} /> : null}
       {kind === "rewrite" ? (
         <div className="mt-2">
           <p>{text(presentation.instruction)}</p>
@@ -575,6 +621,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       kind !== "missing" &&
       kind !== "compare" &&
       kind !== "crosscheck" &&
+      kind !== "agents" &&
       kind !== "rewrite" &&
       kind !== "redact" &&
       kind !== "extract" &&
