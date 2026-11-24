@@ -109,6 +109,9 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
     tables: list[Table] = []
     title = Path(filename or "upload").stem or "Document"
     sheet = ""
+    # The heading the text being read sits under: the last title or section heading seen.
+    section = ""
+    section_level = 1
     last_text = ""
     page_max = 0
     ordinal = 0
@@ -118,9 +121,12 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
     for item, level in items(with_groups=True):
         kind = type(item).__name__
         if kind == "GroupItem":
-            label = _label(item)
-            if label and label != "_root_" and not label.startswith("slide-"):
-                sheet = label
+            # Only a spreadsheet's sheet names its content. The parser's other groups
+            # ("header-1", lists, slides) are its own structure, not words in the document.
+            if str(getattr(item, "label", "")).rsplit(".", 1)[-1].lower() == "sheet":
+                sheet = _label(item)
+                section = ""
+                section_level = 1
                 last_text = ""
             continue
         page = _page(item)
@@ -129,6 +135,8 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
             text = _label(item)
             if text:
                 title = text
+                section = text
+                section_level = 1
             ordinal += 1
             passages.append(
                 Passage(
@@ -145,6 +153,9 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
             text = _label(item)
             heading_level = getattr(item, "level", None)
             resolved = heading_level if isinstance(heading_level, int) else int(level or 1)
+            if text:
+                section = text
+                section_level = max(1, resolved)
             ordinal += 1
             passages.append(
                 Passage(
@@ -179,13 +190,15 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
         if not text:
             continue
         ordinal += 1
-        heading = sheet or title
+        heading = section or sheet or title
         passages.append(
             Passage(
                 anchor=f"p{page}-s{ordinal}",
                 page=page,
                 heading=heading,
-                level=max(1, int(level or 1)),
+                # Text under a heading carries that heading's level, so a section reads
+                # as one level however deep the parser nested its paragraphs.
+                level=section_level if section else max(1, int(level or 1)),
                 text=text,
             )
         )
