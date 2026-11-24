@@ -55,6 +55,8 @@ ignore = ["PLR0913", "TRY003", "PLR2004", "FBT003"]
 "**/audit/actions.py" = ["S105"]
 "scripts/**" = ["T20"]
 "packs/**/scripts/**" = ["T201"]
+# Invented demo documents, written as data: one clause or one register row to a line.
+"packs/examples/grc-flows/demo/scripts/build_data.py" = ["E501"]
 "**/migrations/env.py" = ["T20"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
