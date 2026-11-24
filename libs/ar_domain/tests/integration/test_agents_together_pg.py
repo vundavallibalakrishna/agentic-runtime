@@ -211,9 +211,7 @@ async def test_a_called_agent_is_a_run_another_worker_can_carry_out(database_url
     await flush_store(api)
     task = f"LOOK-UP-{tag}"
     calls: list[str] = []
-    # Three workers, started before the turn. None has seen the run or will see another's
-    # memory. (A process that starts while a run is working marks it interrupted: OQ-193.)
-    first, second, third = await process(), await process(), await process()
+    first = await process()
     try:
         _scripted(first, helper_slug, task, calls)
         use_store(first)
@@ -239,7 +237,10 @@ async def test_a_called_agent_is_a_run_another_worker_can_carry_out(database_url
             ).one()
         assert tuple(saved) == ("queued", helper, run_id, "subagent", "true", helper_slug)
 
-        # A second worker has never seen either run. It carries out the called agent.
+        # A second worker starts while the caller's run is working. Starting does not
+        # end that run (OQ-193), and it carries out the called agent it has never seen.
+        second = await process()
+        assert second.runs[run_id]["status"] == "running"
         _scripted(second, helper_slug, task, calls)
         use_store(second)
         for _ in range(4):
@@ -248,7 +249,8 @@ async def test_a_called_agent_is_a_run_another_worker_can_carry_out(database_url
                 break
         assert step == {"status": "completed", "kind": "final", "run_id": str(child_id)}
 
-        # A third answers the call from what the second saved.
+        # A third starts, and answers the call from what the second saved.
+        third = await process()
         _scripted(third, helper_slug, task, calls)
         use_store(third)
         for _ in range(4):

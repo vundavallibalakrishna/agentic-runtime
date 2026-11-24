@@ -99,7 +99,20 @@ def test_a_failed_reply_is_not_part_of_the_next_turns_history() -> None:
     assert not any("did not answer" in item for item in history)
 
 
-def test_every_way_a_run_fails_ends_the_same_way() -> None:
+class _NoWorkflows:
+    """A Temporal that has no workflow by any id."""
+
+    def get_workflow_handle(self, workflow_id: str) -> _NoWorkflows:
+        del workflow_id
+        return self
+
+    async def describe(self) -> object:
+        from temporalio.service import RPCError, RPCStatusCode
+
+        raise RPCError("workflow not found", RPCStatusCode.NOT_FOUND, b"")
+
+
+async def test_every_way_a_run_fails_ends_the_same_way() -> None:
     store = demo_store()
 
     run, reply = _turn(store)
@@ -127,7 +140,9 @@ def test_every_way_a_run_fails_ends_the_same_way() -> None:
     )
 
     run, reply = _turn(store)
-    reconcile_interrupted(store)
+    # A process that starts finds the run working and Temporal with no workflow for it.
+    store.temporal_client = _NoWorkflows()  # type: ignore[assignment]
+    await reconcile_interrupted(store)
     assert (run["status"], reply["status"], run["error"]["code"]) == (
         "failed",
         "failed",

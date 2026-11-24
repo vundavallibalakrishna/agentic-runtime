@@ -97,10 +97,20 @@ async def _bind_once(scope: Scope) -> bool:
         _log.warning("durable_database_unavailable")
         return False
     await _attach_temporal(chat, settings)
+    await _end_lost_runs(chat)
     from ar_api.plugins import attach_packs  # noqa: PLC0415
 
     attach_packs(scope["app"])
     return True
+
+
+async def _end_lost_runs(chat: object) -> None:
+    """End the working runs whose workflow is gone, now that Temporal can be asked."""
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.orchestration.reconcile import reconcile_interrupted  # noqa: PLC0415
+
+    if await reconcile_interrupted(chat):
+        await flush_store(chat)
 
 
 async def _attach_temporal(chat: object, settings: object) -> None:

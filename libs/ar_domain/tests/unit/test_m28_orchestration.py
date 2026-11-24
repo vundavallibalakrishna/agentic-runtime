@@ -736,18 +736,75 @@ def test_webhook_duplicate_does_not_start_a_second_run() -> None:
     assert len(runs) == 1
 
 
-def test_reconcile_fails_running_and_keeps_a_question() -> None:
+class _Temporal:
+    """Temporal as a process asks it at start: which workflows are still going."""
+
+    def __init__(self, states: dict[str, str]) -> None:
+        self.states = states
+        self.asked: list[str] = []
+
+    def get_workflow_handle(self, workflow_id: str) -> _Temporal._Handle:
+        return _Temporal._Handle(self, workflow_id)
+
+    class _Handle:
+        def __init__(self, temporal: _Temporal, workflow_id: str) -> None:
+            self.temporal, self.workflow_id = temporal, workflow_id
+
+        async def describe(self) -> object:
+            from types import SimpleNamespace
+
+            from temporalio.service import RPCError, RPCStatusCode
+
+            self.temporal.asked.append(self.workflow_id)
+            state = self.temporal.states.get(self.workflow_id)
+            if state is None:
+                raise RPCError("workflow not found", RPCStatusCode.NOT_FOUND, b"")
+            if state == "UNREACHABLE":
+                raise RPCError("unavailable", RPCStatusCode.UNAVAILABLE, b"")
+            return SimpleNamespace(status=SimpleNamespace(name=state))
+
+
+async def test_a_process_that_starts_ends_only_the_runs_whose_workflow_is_gone() -> None:
+    """One process restarting must not end the runs another process is carrying out."""
     store = _store()
     agent, version = _agent(store, "pause", _definition(human={"enabled": True}))
-    running, _assistant = _open(store, agent, version)
+    held, _ = _open(store, agent, version)
+    lost, _ = _open(store, agent, version)
+    ended, _ = _open(store, agent, version)
+    unknown, _ = _open(store, agent, version)
+    finished, _ = _open(store, agent, version)
     waiting, assistant = _open(store, agent, version)
     waiting["status"] = "waiting_input"
     ask_person(store, waiting, assistant, {"question": "Ready?", "options": ["yes"]}, "q")
-    changed = reconcile_interrupted(store)
-    assert str(running["id"]) in changed
-    assert running["status"] == "failed"
-    assert running["error"]["code"] == "interrupted"
+    temporal = _Temporal(
+        {
+            f"run-{held['id']}": "RUNNING",
+            f"run-{ended['id']}": "TERMINATED",
+            f"run-{unknown['id']}": "UNREACHABLE",
+            # The workflow finished the turn; the row this process holds is behind.
+            f"run-{finished['id']}": "COMPLETED",
+        }
+    )
+    store.temporal_client = temporal  # type: ignore[assignment]
+    changed = await reconcile_interrupted(store)
+    assert set(changed) == {str(lost["id"]), str(ended["id"])}
+    for run in (lost, ended):
+        assert run["status"] == "failed"
+        assert run["error"]["code"] == "interrupted"
+    # Another worker has it, Temporal could not say, or the turn is already done.
+    assert [run["status"] for run in (held, unknown, finished)] == ["running"] * 3
+    # A run paused for a person is not asked about.
     assert waiting["status"] == "waiting_input"
+    assert f"run-{waiting['id']}" not in temporal.asked
+
+
+async def test_a_process_that_cannot_ask_temporal_ends_no_run() -> None:
+    store = _store()
+    agent, version = _agent(store, "pause", _definition())
+    running, _ = _open(store, agent, version)
+    store.temporal_client = None
+    assert await reconcile_interrupted(store) == []
+    assert running["status"] == "running"
     assert subagent_spec({"subagents": {}})["child_timeout_s"] == 45
     assert is_cycle({"agent_chain": ["a", "b"]}, "a", allow_self=True) is True
     assert is_cycle({"agent_chain": ["a"]}, "a", allow_self=True) is False
