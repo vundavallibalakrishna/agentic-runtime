@@ -24,7 +24,7 @@ Errors:
 
 ## 2. Tools
 
-Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `diff`, `map`, `extract`, `edit`, `create`, `ocr`. The task tools (summarise, compare, judge, missing, crosscheck, rewrite, redact) were removed ([OQ-154](../open-questions.md)): the model plans those with the tools here.
+Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `diff`, `map`, `extract`, `edit`, `create`, `ocr`. The task tools (summarise, compare, judge, missing, crosscheck, rewrite, redact) were removed ([OQ-154](../open-questions.md)): the model plans those with the tools here. `edit` writes the new version twice from the same bytes: as a library document (`metadata.versionOf` names the original) and as a file under `/workspace/outputs` that the reply carries, so a person can download it from the conversation. The file is a Word document; a passage that is a heading keeps bold type and a larger size, and with `redline` each replaced passage is a tracked deletion and insertion.
 
 `ocr` takes `fileId`, a workspace `path`, a `url`, or `documentId`. `engine` defaults to `tesseract`, which is proof `unit` (a local binary, not a model). `engine` `vision` uses the configured vision alias. That result is proof `live` only when the model answers, and the result names the model id and the date. Otherwise the result is `text_not_extracted` and the proof stays `unit`. `google_document_ai`, `aws_textract` and `azure_document_intelligence` return `not_live` and are not called. A PDF is Unicode text, or the tool returns `not_unicode` or `text_not_extracted`.
 

@@ -483,9 +483,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       {kind === "rewrite" ? (
         <div className="mt-2">
           <p>{text(presentation.instruction)}</p>
-          <a className="underline" href={`/documents/rewrites/${text(presentation.id)}`}>
-            {text(presentation.status)}
-          </a>
+          <p className="text-[var(--muted-foreground)]">{text(presentation.status)}</p>
         </div>
       ) : null}
       {kind === "redact" ? (

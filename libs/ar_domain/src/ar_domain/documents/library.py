@@ -722,15 +722,27 @@ class DocumentLibrary:
         redline: bool = False,
     ) -> dict[str, object]:
         """Write a new file version. The stored passages of the original are not changed."""
+        return self.edit_file(actor, document_id, changes, redline=redline)[0]
+
+    def edit_file(
+        self,
+        actor: Actor,
+        document_id: uuid.UUID,
+        changes: list[dict[str, object]],
+        *,
+        redline: bool = False,
+    ) -> tuple[dict[str, object], bytes]:
+        """The new version as a library document, and the bytes of its file."""
         row = self._own(actor, document_id)
         if not changes:
             raise ValidationFailedError("edit needs at least one change.")
         from ar_domain.documents.create.redline import render_version  # noqa: PLC0415
+        from ar_domain.documents.create.spec import MEDIA  # noqa: PLC0415
 
         data = render_version(_rows(row.get("passages")), changes, redline=redline)
         stem = str(row.get("filename") or "document")
         name = f"{stem.rsplit('.', 1)[0]}-v{stem.count('-v') + 2}.docx"
-        created = self.ingest(actor, data=data, filename=name)
+        created = self.ingest(actor, data=data, filename=name, media_type=MEDIA["docx"])
         stored = self.store.library_documents.get(_as_uuid(created.get("id")))
         if isinstance(stored, dict):
             meta = stored.get("metadata")
@@ -739,7 +751,7 @@ class DocumentLibrary:
             stored["metadata"] = body
             created = self._view(stored, detail=True)
         self._audit(actor, "library_document.versioned", document_id, {"redline": redline})
-        return created
+        return created, data
 
     def diff(
         self,

@@ -60,3 +60,17 @@ def run_is_active(status: str) -> bool:
 def run_is_working(status: str) -> bool:
     """A run paused for a person is active, but no event will come until they answer."""
     return status in {"queued", "running"}
+
+
+def thread_order(row: dict[str, object]) -> tuple[str, int, str]:
+    """The sort key that puts a conversation's messages in the order they were said.
+
+    A turn writes the person's message and the reply's row at the same instant, so time
+    alone leaves the two in whatever order the store hands them out, which after a load
+    from the database can be the reply first. The person's message leads its own turn.
+    """
+    return (
+        str(row.get("created_at") or ""),
+        0 if row.get("role") == "user" else 1,
+        str(row.get("id") or ""),
+    )

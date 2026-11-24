@@ -46,6 +46,33 @@ def test_an_edit_writes_a_new_file_and_leaves_the_original() -> None:
     )
 
 
+def test_a_new_version_keeps_headings_looking_like_headings() -> None:
+    import io
+    import zipfile
+
+    passages = [
+        {"anchor": "p1-s0", "text": "Agreement", "heading": "Agreement", "level": 1},
+        {"anchor": "p1-s1", "text": "5. Breach notice", "heading": "5. Breach notice", "level": 2},
+        {
+            "anchor": "p1-s2",
+            "text": "Notice within 7 days.",
+            "heading": "5. Breach notice",
+            "level": 2,
+        },
+    ]
+    data = render_version(
+        passages, [{"anchor": "p1-s2", "text": "Notice within 48 hours."}], redline=True
+    )
+    body = zipfile.ZipFile(io.BytesIO(data)).read("word/document.xml").decode()
+    title, section, clause = body.split("<w:p>")[1:4]
+    assert '<w:b/><w:sz w:val="32"/>' in title
+    assert '<w:b/><w:sz w:val="26"/>' in section
+    # The clause is body text, and its change is tracked, not styled.
+    assert "<w:b/>" not in clause
+    assert "<w:del " in clause
+    assert "<w:ins " in clause
+
+
 def test_read_returns_a_cursor_when_the_text_is_longer_than_the_limit() -> None:
     store = _store()
     library = DocumentLibrary(store)
