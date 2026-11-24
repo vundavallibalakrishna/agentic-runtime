@@ -1,0 +1,6 @@
+# Two tables every change appends a row to. Two branches that each add a row conflict on
+# the same line for no reason: both rows are wanted. With the union merge, git keeps both
+# when it merges locally. Check the result when two branches edited the same existing row:
+# both versions are kept, and one has to be removed by hand.
+docs/open-questions.md merge=union
+docs/09-plan/progress.md merge=union
