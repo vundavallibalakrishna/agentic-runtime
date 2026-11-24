@@ -160,6 +160,7 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
     """Execute the next saved tool call. Return ``tools``, ``model``, ``paused`` or ``final``."""
     from ar_common.offload import run_sync  # noqa: PLC0415
     from ar_domain.orchestration.engine import ORCHESTRATION_NAMES, handle_orchestration  # noqa: PLC0415
+    from ar_domain.orchestration.spend import charge  # noqa: PLC0415
     from ar_domain.tools.agent_loop import (  # noqa: PLC0415
         _act,
         _stop_budget,
@@ -211,6 +212,12 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
         if outcome is None:
             run["step_kind"] = "paused"
             return "paused"
+        # What the called agents spent counts against this run's budget, and against the
+        # pool of whoever called this run. This path used to drop it.
+        spent_tokens, spent_cost = _int(outcome.get("tokens")), _int(outcome.get("cost"))
+        state["tokens"] = _int(state.get("tokens")) + spent_tokens
+        state["cost"] = _int(state.get("cost")) + spent_cost
+        charge(run, spent_tokens, spent_cost)
         if outcome.get("stop"):
             # A handoff ends this agent's turn with the other agent's answer. Without this
             # the turn was left unfinished, and the next step handed over again.

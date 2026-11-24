@@ -10,6 +10,7 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.orchestration.spec import chain, depth_blocked, is_cycle, subagent_spec, whole
+from ar_domain.orchestration.spend import Spend, meter, release, spend_of
 from ar_domain.runs.request import ask
 from ar_domain.skills.delegate import _insert_child
 from ar_domain.tools.agent_loop import _flush_run, model_alias_for
@@ -74,17 +75,37 @@ async def run_named(
         return _error(slug, "budget_exceeded", f"Stopped because the {label} limit was reached.")
     left = remaining_budget(budget, state)["max_wall_clock_s"]
     timeout = min(spec["child_timeout_s"], max(1, left))
-    state["holder"] = {}
+    # Which child this call started. Each call keeps its own note: several run at once,
+    # and a shared one let a timeout be pinned on a sibling that was still working.
+    holder: dict[str, object] = {}
     try:
-        return await asyncio.wait_for(_drive(store, parent, slug, task, state), timeout=timeout)
+        return await asyncio.wait_for(
+            _drive(store, parent, slug, task, state, holder=holder), timeout=timeout
+        )
     except TimeoutError:
-        holder = state.get("holder")
-        child = holder.get("child") if isinstance(holder, dict) else None
+        child = holder.get("child")
         # Giving up on the child cancels it. What ended it was its time, and it says so.
         if isinstance(child, dict) and str(child.get("status")) in {*_LIVE, "cancelled"}:
             _finish_failed(store, child, "child_timeout", _TIMEOUT_MESSAGE)
+            _roll(parent, _spent(child, "failed"))
             await _flush_run(store)
         return _error(slug, "child_timeout", _TIMEOUT_MESSAGE)
+    finally:
+        started = holder.get("child")
+        if isinstance(started, dict):
+            release(started)
+
+
+def pool_for(state: dict[str, object]) -> Spend:
+    """The pool the agents in one call draw on: what the caller has left when it calls."""
+    found = state.get("pool")
+    if isinstance(found, Spend):
+        return found
+    limits = state.get("limits")
+    left = remaining_budget(limits if isinstance(limits, dict) else {}, state) if limits else {}
+    pool = Spend(left.get("max_tokens", 0), left.get("max_cost_micros", 0))
+    state["pool"] = pool
+    return pool
 
 
 async def run_parallel(
@@ -95,6 +116,7 @@ async def run_parallel(
 ) -> dict[str, object]:
     spec = subagent_spec(definition_of(store, parent))
     cap = spec["max_parallel"]
+    pool_for(state)
     chosen = [item for item in calls if isinstance(item, dict)][:cap]
     overflow = len(calls) - len(chosen)
     results = await asyncio.gather(
@@ -115,16 +137,7 @@ async def run_parallel(
             ),
         ]
     failed = any(item.get("failed") for item in results)
-    return {
-        "failed": failed,
-        "results": list(results),
-        "tokens": _sum(results, "tokens"),
-        "cost": _sum(results, "cost"),
-    }
-
-
-def _sum(rows: list[dict[str, object]], key: str) -> int:
-    return sum(whole(row.get(key), 0) for row in rows)
+    return {"failed": failed, "results": list(results)}
 
 
 async def _drive(
@@ -133,6 +146,8 @@ async def _drive(
     slug: str,
     task: str,
     state: dict[str, object],
+    *,
+    holder: dict[str, object],
 ) -> dict[str, object]:
     from ar_domain.skills.delegate import plan_child  # noqa: PLC0415
 
@@ -163,9 +178,8 @@ async def _drive(
     child["agent_chain"] = [*chain(parent), slug]
     child["budget_override"] = remaining_budget(budget, state)
     ask(child, "orchestration_child", True)
-    holder = state.get("holder")
-    if isinstance(holder, dict):
-        holder["child"] = child
+    meter(child, pool_for(state))
+    holder["child"] = child
     child["workspace_ref"] = f"workspace:{child['id']}"
     # The child is saved as soon as it exists, not when the parent's step ends. Other
     # processes then see it: the screen that draws the run, a stop from the person, and
@@ -210,21 +224,37 @@ async def _complete(store: Any, child: dict[str, object], task: str) -> dict[str
     if not ran:
         return _finish_failed(store, child, "model_unavailable", "This agent has no model to run.")
     status = str(child.get("status") or "completed")
+    if status in {"waiting_input", "waiting_approval"}:
+        # A called agent has nobody to wait for: the person is talking to the agent that
+        # called it. Its question used to come back as if it were the answer.
+        return _finish_failed(
+            store,
+            child,
+            "child_needs_a_person",
+            "This agent stopped to ask a person, which an agent called by another cannot "
+            "do. Ask the person yourself, then call it again with what it needs.",
+        )
     failed = status in {"failed", "budget_exceeded", "cancelled"}
-    raw_usage = child.get("usage")
-    usage = raw_usage if isinstance(raw_usage, dict) else {}
     text = str(child.get("result_summary") or assistant.get("text") or "")
     error = child.get("error")
     if failed and isinstance(error, dict):
         text = str(error.get("message") or text)
+    return {**_spent(child, status), "failed": failed, "text": text}
+
+
+def _spent(child: dict[str, object], status: str) -> dict[str, object]:
+    """What one called agent used, for the caller's totals. Works for one cut short."""
+    raw_usage = child.get("usage")
+    usage = raw_usage if isinstance(raw_usage, dict) else {}
+    own = spend_of(child)
     return {
-        "failed": failed,
         "status": status,
         "agent": child.get("agent_slug") or "",
-        "text": text,
         "child_id": str(child.get("id")),
-        "tokens": whole(usage.get("tokens_in"), 0) + whole(usage.get("tokens_out"), 0),
-        "cost": whole(usage.get("cost_micros"), 0) or whole(usage.get("tokens_out"), 0),
+        # A run cut short has not written its usage: its own count stands in.
+        "tokens_in": whole(usage.get("tokens_in"), 0) or (0 if own is None else own.tokens_in),
+        "tokens_out": whole(usage.get("tokens_out"), 0) or (0 if own is None else own.tokens_out),
+        "cost": whole(usage.get("cost_micros"), 0) or (0 if own is None else own.cost),
     }
 
 
@@ -257,15 +287,7 @@ def _finish_failed(
     child["result_summary"] = message
     _end(store, child, "failed")
     _emit(store, child, "run.failed", {"error": child["error"]})
-    return {
-        "failed": True,
-        "status": "failed",
-        "agent": str(child.get("agent_slug") or ""),
-        "text": message,
-        "child_id": str(child.get("id")),
-        "tokens": 0,
-        "cost": 0,
-    }
+    return {**_spent(child, "failed"), "failed": True, "text": message}
 
 
 def _end(store: Any, child: dict[str, object], status: str) -> None:
@@ -285,19 +307,32 @@ def _error(slug: str, code: str, message: str) -> dict[str, object]:
         "code": code,
         "text": message,
         "child_id": "",
-        "tokens": 0,
-        "cost": 0,
     }
 
 
+SUBAGENT_USAGE = "subagents"
+
+
 def _roll(parent: dict[str, object], outcome: dict[str, object]) -> None:
+    """Add one called agent's use to the caller's record, under its own heading.
+
+    The caller's own tokens stay its own. What the agents it called used is kept beside
+    them, so the two can be told apart and neither is counted twice.
+    """
     usage = parent.get("usage")
     if not isinstance(usage, dict):
         usage = {}
         parent["usage"] = usage
-    usage["tokens_in"] = whole(usage.get("tokens_in"), 0) + whole(outcome.get("tokens"), 0)
-    usage["cost_micros"] = whole(usage.get("cost_micros"), 0) + whole(outcome.get("cost"), 0)
-    usage["tokens_out"] = whole(usage.get("tokens_out"), 0) + whole(outcome.get("cost"), 0)
+    found = usage.get(SUBAGENT_USAGE)
+    called = dict(found) if isinstance(found, dict) else {}
+    called["runs"] = whole(called.get("runs"), 0) + 1
+    for key, source in (
+        ("tokens_in", "tokens_in"),
+        ("tokens_out", "tokens_out"),
+        ("cost_micros", "cost"),
+    ):
+        called[key] = whole(called.get(key), 0) + whole(outcome.get(source), 0)
+    usage[SUBAGENT_USAGE] = called
 
 
 def _emit(store: Any, run: dict[str, object], event_type: str, data: dict[str, object]) -> None:

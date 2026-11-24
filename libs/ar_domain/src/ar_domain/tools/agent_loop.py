@@ -16,6 +16,7 @@ from ar_common.offload import run_sync
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.models.streaming import Coalescer, listening
+from ar_domain.orchestration.spend import charge, pool_limit
 from ar_domain.runs.failure import fail_run
 from ar_domain.runs.logic import DEFAULT_RUN_BUDGET, budget_exceeded
 from ar_domain.runs.request import asked, permissions_of
@@ -303,7 +304,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             if kind == "tools":
                 continue
         steps += 1
-        limit = _over(limits, steps, tokens, cost, started, used_calls)
+        # An agent called by another also stops when the pool it shares with the others
+        # in that call is empty.
+        limit = _over(limits, steps, tokens, cost, started, used_calls) or pool_limit(run)
         if limit is not None:
             # What was spent before the stop still counts.
             _remember_usage(
@@ -462,7 +465,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         # The provider reports the whole prompt every call. Usage and cost keep
         # that full count. The budget adds only the growth since the previous
         # prompt, plus this step's output.
+        before = tokens
         tokens, prompt_seen = _charge_budget(tokens, prompt_seen, step_in, step_out)
+        step_budget_tokens = tokens - before
         tokens_in_total += step_in
         tokens_out_total += step_out
         served = turn.get("model_id")
@@ -472,6 +477,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             step_cost, priced = 0, None
         model_id = str(served) if served else priced
         cost += step_cost
+        charge(run, step_budget_tokens, step_cost, tokens_in=step_in, tokens_out=step_out)
         usage_source = _merge_source(usage_source, step_source)
         if step_source == "provider":
             note_model_usage(
@@ -608,6 +614,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     tokens += added_tokens
                 if isinstance(added_cost, int) and not isinstance(added_cost, bool):
                     cost += added_cost
+                # What the agents this one called spent is this one's spend too, for
+                # whoever called it.
+                charge(run, _whole(added_tokens), _whole(added_cost))
                 if outcome.get("stop"):
                     _remember_usage(
                         run,
@@ -732,6 +741,11 @@ def _remember_usage(
     }
     if usage_source:
         recorded["usage_source"] = usage_source
+    # What the agents this run called used is kept as it was recorded while they ran.
+    earlier = run.get("usage")
+    called = earlier.get("subagents") if isinstance(earlier, dict) else None
+    if isinstance(called, dict):
+        recorded["subagents"] = called
     run["usage"] = recorded
 
 

@@ -8,7 +8,13 @@ from typing import Any, TypedDict
 import orjson
 
 from ar_domain.orchestration.ask import ask_person
-from ar_domain.orchestration.children import definition_of, run_named, run_parallel, wrapped
+from ar_domain.orchestration.children import (
+    definition_of,
+    pool_for,
+    run_named,
+    run_parallel,
+    wrapped,
+)
 from ar_domain.orchestration.spec import (
     agent_slug,
     contract_line,
@@ -16,6 +22,7 @@ from ar_domain.orchestration.spec import (
     subagent_spec,
     whole,
 )
+from ar_domain.runs.request import asked
 
 ORCHESTRATION_NAMES = frozenset({"agents_call", "agents_parallel", "agents_handoff", "agents_ask"})
 
@@ -56,7 +63,8 @@ def orchestration_tools(
             + " ".join(lines),
             _call_schema(names),
         )
-    if human_enabled(definition):
+    # An agent called by another has nobody to ask: the person is talking to its caller.
+    if human_enabled(definition) and not asked(run, "orchestration_child"):
         _add(
             tools,
             index,
@@ -91,6 +99,14 @@ async def handle_orchestration(
     call_id = str(call.get("id") or "call")
     state["elapsed_s"] = _elapsed(state)
     if name == "agents_ask":
+        if asked(run, "orchestration_child"):
+            return _done(
+                name,
+                call_id,
+                "An agent called by another cannot ask a person. Say what you need in your "
+                "answer, and the agent that called you can ask.",
+                failed=True,
+            )
         problem = ask_person(store, run, assistant, payload, call_id)
         if problem is None:
             return None
@@ -98,6 +114,9 @@ async def handle_orchestration(
     if name == "agents_parallel":
         calls = payload.get("calls")
         rows = [item for item in calls if isinstance(item, dict)] if isinstance(calls, list) else []
+        # The agents in this call draw on one pool. What the pool recorded is what this
+        # agent is charged, whether each of them finished, failed or ran out of time.
+        pool = pool_for(state)
         outcome = await run_parallel(store, run, rows, state)
         raw_results = outcome.get("results")
         items = raw_results if isinstance(raw_results, list) else []
@@ -107,11 +126,12 @@ async def handle_orchestration(
             call_id,
             orjson.dumps(body).decode(),
             failed=bool(outcome.get("failed")),
-            tokens=whole(outcome.get("tokens"), 0),
-            cost=whole(outcome.get("cost"), 0),
+            tokens=pool.tokens,
+            cost=pool.cost,
         )
     slug = str(payload.get("agent") or "")
     task = str(payload.get("task") or payload.get("note") or "")
+    pool = pool_for(state)
     outcome = await run_named(store, run, slug, task, state)
     text = str(outcome.get("text") or "")
     if name == "agents_handoff" and not outcome.get("failed"):
@@ -119,8 +139,8 @@ async def handle_orchestration(
             "failed": False,
             "stop": True,
             "answer": text,
-            "tokens": whole(outcome.get("tokens"), 0),
-            "cost": whole(outcome.get("cost"), 0),
+            "tokens": pool.tokens,
+            "cost": pool.cost,
             "preview": _preview(name, "completed", text),
             "wrapped": wrapped(name, call_id, text),
         }
@@ -129,8 +149,8 @@ async def handle_orchestration(
         call_id,
         text,
         failed=bool(outcome.get("failed")),
-        tokens=whole(outcome.get("tokens"), 0),
-        cost=whole(outcome.get("cost"), 0),
+        tokens=pool.tokens,
+        cost=pool.cost,
     )
 
 

@@ -200,7 +200,14 @@ async def test_parallel_children_return_both_answers() -> None:
     assert len(children) == 2
     assert {row["agent_slug"] for row in children} == {"alpha", "beta"}
     assert {row["status"] for row in children} == {"completed"}
-    assert run["usage"]["cost_micros"] >= 1
+    # What the two called agents used is recorded beside the caller's own use, once each.
+    assert run["usage"]["subagents"] == {
+        "runs": 2,
+        "tokens_in": 2,
+        "tokens_out": 4,
+        "cost_micros": 0,
+    }
+    assert (run["usage"]["tokens_in"], run["usage"]["tokens_out"]) == (2, 4)
 
 
 async def test_failed_child_lets_the_parent_recover() -> None:
@@ -316,6 +323,228 @@ async def test_child_timeout_is_not_retried() -> None:
     assert "RECOVERED" in str(assistant["text"])
     child = next(row for row in store.runs.values() if row.get("parent_run_id") == run["id"])
     assert child["error"]["code"] == "child_timeout"
+
+
+def _reply(text: str, *, used: int = 1, calls: list[dict[str, object]] | None = None):  # type: ignore[no-untyped-def]
+    return {"text": text, "tool_calls": calls or [], "usage": {"tokens_in": 1, "tokens_out": used}}
+
+
+def _given(messages: list[dict[str, object]], task: str) -> bool:
+    """Whether this call belongs to the agent that was given ``task``, on any of its calls."""
+    return any(
+        task in str(row.get("content") or "") for row in messages if row.get("role") == "user"
+    )
+
+
+def _both(*agents: str) -> list[dict[str, object]]:
+    calls = [{"agent": name, "task": f"TASK {name}"} for name in agents]
+    return [{"id": "p", "name": "agents_parallel", "arguments": {"calls": calls}}]
+
+
+async def test_agents_called_together_share_one_budget() -> None:
+    """Two agents called at once draw on what the caller has left, not on that much each."""
+    store = _store()
+    _agent(store, "alpha", _definition())
+    _agent(store, "beta", _definition())
+    parent, version = _agent(
+        store,
+        "lead",
+        _definition(
+            budget={**_BUDGET, "max_tokens": 100},
+            subagents={"allowed": ["alpha", "beta"], "max_depth": 2, "max_parallel": 2},
+        ),
+    )
+    run, assistant = _open(store, parent, version)
+    asked_again: list[str] = []
+
+    def handler(messages: list[dict[str, object]]) -> dict[str, object]:
+        for name in ("alpha", "beta"):
+            if _given(messages, f"TASK {name}"):
+                # The first reply is empty, so each is asked once more. By then the two
+                # together have used more than the caller had left.
+                if len(messages) <= 2:
+                    return _reply("", used=60)
+                asked_again.append(name)
+                return _reply(f"{name} done", used=1)
+        if not any(row.get("role") == "tool" for row in messages):
+            return _reply("", used=5, calls=_both("alpha", "beta"))
+        return _reply("combined", used=1)
+
+    _script(store, handler)
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    children = {
+        row["agent_slug"]: row
+        for row in store.runs.values()
+        if row.get("parent_run_id") == run["id"]
+    }
+    # Each used 61 of the 94 the caller had left on its first call. One pool means only the
+    # first to go on has room for a second call. With that much each, both would go on.
+    assert len(asked_again) == 1
+    assert sorted(row["status"] for row in children.values()) == ["budget_exceeded", "completed"]
+    stopped = next(row for row in children.values() if row["status"] == "budget_exceeded")
+    assert stopped["agent_slug"] not in asked_again
+    # The caller is charged what they used, so it is over its own limit too.
+    assert run["status"] == "budget_exceeded"
+    assert run["usage"]["subagents"]["runs"] == 2
+    # The counts are working state of the call: none is left, and none is on a run row,
+    # which is saved and returned by the API as it is.
+    from ar_domain.orchestration import spend
+
+    assert spend._RUNNING == {}
+    assert all(isinstance(key, str) for row in store.runs.values() for key in row)
+    assert not [key for row in children.values() for key in row if key.startswith("_")]
+
+
+async def test_the_agent_that_ran_out_of_time_is_the_one_marked() -> None:
+    """Of two called together, the slow one times out and the quick one is left alone."""
+    store = _store()
+    _agent(store, "slow", _definition())
+    _agent(store, "quick", _definition())
+    parent, version = _agent(
+        store,
+        "timer",
+        _definition(
+            subagents={
+                "allowed": ["slow", "quick"],
+                "max_depth": 2,
+                "max_parallel": 2,
+                "child_timeout_s": 1,
+            }
+        ),
+    )
+    run, assistant = _open(store, parent, version)
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tools, tenant_id, model_alias
+        if _given(messages, "TASK slow"):
+            await asyncio.sleep(2)
+            return _reply("late")
+        if _given(messages, "TASK quick"):
+            return _reply("quick done")
+        if not any(row.get("role") == "tool" for row in messages):
+            # The slow one is named first, so the quick one is the last to start.
+            return _reply("", calls=_both("slow", "quick"))
+        return _reply("carried on")
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    children = {
+        row["agent_slug"]: row
+        for row in store.runs.values()
+        if row.get("parent_run_id") == run["id"]
+    }
+    assert children["quick"]["status"] == "completed"
+    assert children["quick"].get("error") is None
+    assert children["slow"]["status"] == "failed"
+    assert children["slow"]["error"]["code"] == "child_timeout"
+    assert "carried on" in str(assistant["text"])
+
+
+async def test_an_agent_stopped_for_time_is_still_counted() -> None:
+    """What a called agent used before it ran out of time is on the caller's record."""
+    store = _store()
+    _agent(store, "slow", _definition())
+    parent, version = _agent(
+        store,
+        "timer",
+        _definition(subagents={"allowed": ["slow"], "max_depth": 2, "child_timeout_s": 1}),
+    )
+    run, assistant = _open(store, parent, version)
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tools, tenant_id, model_alias
+        if _given(messages, "TASK slow"):
+            if len(messages) <= 2:
+                return _reply("", used=40)  # a first call that is paid for
+            await asyncio.sleep(2)
+            return _reply("late")
+        if not any(row.get("role") == "tool" for row in messages):
+            call = {
+                "id": "t",
+                "name": "agents_call",
+                "arguments": {"agent": "slow", "task": "TASK slow"},
+            }
+            return _reply("", calls=[call])
+        return _reply("carried on")
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    assert run["usage"]["subagents"] == {
+        "runs": 1,
+        "tokens_in": 1,
+        "tokens_out": 40,
+        "cost_micros": 0,
+    }
+
+
+async def test_a_called_agent_cannot_stop_to_ask_a_person() -> None:
+    """It is not offered the question tool, and a question it tries anyway is refused."""
+    store = _store()
+    _agent(store, "helper", _definition(human={"enabled": True}))
+    parent, version = _agent(
+        store, "lead", _definition(subagents={"allowed": ["helper"], "max_depth": 2})
+    )
+    run, assistant = _open(store, parent, version)
+    offered: list[set[str]] = []
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tenant_id, model_alias
+        if _given(messages, "TASK helper"):
+            names = {
+                str((item.get("function") or {}).get("name") or item.get("name"))
+                for item in tools or []
+            }
+            offered.append(names)
+            if not any(row.get("role") == "tool" for row in messages):
+                call = {"id": "q", "name": "agents_ask", "arguments": {"question": "Which year?"}}
+                return _reply("", calls=[call])
+            return _reply("I need the year to answer.")
+        if not any(row.get("role") == "tool" for row in messages):
+            call = {
+                "id": "t",
+                "name": "agents_call",
+                "arguments": {"agent": "helper", "task": "TASK helper"},
+            }
+            return _reply("", calls=[call])
+        return _reply("The helper needs the year.")
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    child = next(row for row in store.runs.values() if row.get("parent_run_id") == run["id"])
+    assert all("agents_ask" not in names for names in offered)
+    assert child["status"] == "completed"
+    assert run["status"] == "completed"
+    assert not [row for row in store.runs.values() if row.get("status") == "waiting_input"]
+
+
+async def test_a_called_agent_acts_with_its_callers_permissions() -> None:
+    """A run started with a narrowed key keeps that narrowing in the agents it calls."""
+    from ar_domain.runs.request import ask, permissions_of
+
+    store = _store()
+    _agent(store, "helper", _definition())
+    parent, version = _agent(
+        store, "lead", _definition(subagents={"allowed": ["helper"], "max_depth": 2})
+    )
+    run, assistant = _open(store, parent, version)
+    ask(run, "permissions", ["chat:use"])
+
+    def handler(messages: list[dict[str, object]]) -> dict[str, object]:
+        if _given(messages, "TASK helper"):
+            return _reply("done")
+        if not any(row.get("role") == "tool" for row in messages):
+            call = {
+                "id": "t",
+                "name": "agents_call",
+                "arguments": {"agent": "helper", "task": "TASK helper"},
+            }
+            return _reply("", calls=[call])
+        return _reply("finished")
+
+    _script(store, handler)
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    child = next(row for row in store.runs.values() if row.get("parent_run_id") == run["id"])
+    assert permissions_of(child) == ["chat:use"]
 
 
 async def test_human_question_resumes_and_blocks_self_approval() -> None:
