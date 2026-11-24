@@ -1477,6 +1477,8 @@
     "compareNoHeading": "No heading",
     "compareNotIn": "Not in {name}.",
     "compareOpen": "Open passage",
+    "compareOnlyHere": "Only in {name}",
+    "compareLegend": "Marked words are the ones the other document does not have.",
     "compareCount": {
       "changed": "{count} changed",
       "added": "{count} added",
