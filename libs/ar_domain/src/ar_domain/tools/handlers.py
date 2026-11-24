@@ -1,4 +1,4 @@
-"""In-process tool handlers for built-ins, the demo ticket server and the warehouse."""
+"""In-process tool handlers for the built-in tool servers, and for endpoints a pack registers."""
 
 import uuid
 from typing import Any
@@ -6,10 +6,10 @@ from typing import Any
 from ar_common.errors import ArError
 from ar_domain.files.logic import FileView, can_read_file
 from ar_domain.tools.logic import as_int
-from ar_domain.tools.sql_guard import SqlRejected, check_sql
 
 Handler = Any
 _ENDPOINTS: dict[str, Handler] = {}
+_DISCOVERED: dict[str, list[dict[str, object]]] = {}
 _ORDERS = (
     {"id": 1, "sku": "paper", "quantity": 4},
     {"id": 2, "sku": "ink", "quantity": 2},
@@ -21,9 +21,25 @@ def orders() -> list[dict[str, object]]:
     return [dict(row) for row in _ORDERS]
 
 
-def register_endpoint(endpoint: str, handler: Handler) -> None:
-    """Let a pack serve an in-process endpoint. Core does not import the pack."""
+def register_endpoint(
+    endpoint: str, handler: Handler, *, tools: list[dict[str, object]] | None = None
+) -> None:
+    """Let a pack serve an in-process endpoint. Core does not import the pack.
+
+    ``tools`` is what discovery lists for a tool server registered at this address.
+    """
     _ENDPOINTS[endpoint] = handler
+    _DISCOVERED[endpoint] = [dict(item) for item in tools or []]
+
+
+def endpoint_registered(endpoint: str) -> bool:
+    """Whether something in this process serves the address."""
+    return endpoint in _ENDPOINTS
+
+
+def endpoint_tools(endpoint: str) -> list[dict[str, object]]:
+    """The tools a registered in-process endpoint offers to discovery."""
+    return [dict(item) for item in _DISCOVERED.get(endpoint, [])]
 
 
 def dispatch(  # noqa: PLR0911, PLR0912
@@ -41,18 +57,6 @@ def dispatch(  # noqa: PLR0911, PLR0912
             "is_error": True,
             "code": "upstream_error",
         }
-    if endpoint == "memory://tickets":
-        return _tickets(store, name, arguments, token)
-    if endpoint == "memory://echo":
-        return {
-            "text": f"pong {arguments.get('message', '')}".strip(),
-            "structured": {},
-            "is_error": False,
-        }
-    if endpoint == "memory://petstore":
-        return _pets(store, name, arguments)
-    if endpoint == "memory://warehouse":
-        return _sql(store, name, arguments)
     if endpoint == "builtin://files":
         if name == "attach_to_sandbox":
             from ar_domain.sandboxes.runtime import run_tool  # noqa: PLC0415
@@ -117,105 +121,6 @@ def dispatch(  # noqa: PLR0911, PLR0912
         "is_error": True,
         "code": "upstream_error",
     }
-
-
-def _tickets(store: Any, name: str, arguments: dict[str, object], token: str) -> dict[str, object]:
-    if not token:
-        return _error("credential_required", "Connect the tickets account to continue.")
-    book = store.tickets
-    if name == "list_tickets":
-        lines = [f"{row['id']}: {row['title']}" for row in book]
-        return {
-            "text": "\n".join(lines) or "No tickets yet.",
-            "structured": {"tickets": list(book)},
-            "is_error": False,
-        }
-    if name != "create_ticket":
-        return _error("unknown_tool", f"unknown tool {name}")
-    title = str(arguments.get("title") or "").strip()
-    if not title:
-        return _error("validation_failed", "title is required")
-    number = 1000 + len(book) + 1
-    row = {"id": f"TCK-{number}", "title": title, "body": str(arguments.get("body") or "")}
-    book.append(row)
-    return {"text": f"Filed ticket {row['id']}.", "structured": row, "is_error": False}
-
-
-def _pets(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911
-    pets: list[dict[str, object]] = store.pets
-    if name == "list_pets":
-        return {
-            "text": ", ".join(str(pet["name"]) for pet in pets),
-            "structured": {"pets": list(pets)},
-            "is_error": False,
-        }
-    if name == "show_pet":
-        pet_id = arguments.get("petId")
-        for pet in pets:
-            if pet["id"] == pet_id or str(pet["id"]) == str(pet_id):
-                return {"text": str(pet["name"]), "structured": pet, "is_error": False}
-        return _error("not_found", "pet was not found")
-    if name == "create_pet":
-        body = arguments.get("body")
-        name_value = body.get("name") if isinstance(body, dict) else arguments.get("name")
-        pet = {"id": len(pets) + 1, "name": str(name_value or "pet")}
-        pets.append(pet)
-        return {"text": f"Created pet {pet['id']}.", "structured": pet, "is_error": False}
-    if name == "delete_pet":
-        pet_id = arguments.get("petId")
-        for index, pet in enumerate(list(pets)):
-            if pet["id"] == pet_id or str(pet["id"]) == str(pet_id):
-                pets.pop(index)
-                return {
-                    "text": f"Deleted pet {pet_id}.",
-                    "structured": {"id": pet_id},
-                    "is_error": False,
-                }
-        return _error("not_found", "pet was not found")
-    return _error("unknown_tool", f"unknown tool {name}")
-
-
-def _sql(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
-    connection = _connection(store, arguments)
-    allow = {item.lower() for item in _strings(connection.get("tables"))} or {"public.orders"}
-    deny = {item.lower() for item in _strings(connection.get("columns_deny"))}
-    limit = as_int(connection.get("row_limit"), 1000)
-    if name.endswith("list_tables"):
-        return {
-            "text": "\n".join(sorted(allow)),
-            "structured": {"tables": sorted(allow)},
-            "is_error": False,
-        }
-    if name.endswith("describe_table"):
-        table = str(arguments.get("table") or "public.orders")
-        if table.lower() not in allow:
-            return _error("not_allowlisted", f"table {table} is not allowlisted")
-        columns = ["id", "sku", "quantity"]
-        return {"text": ", ".join(columns), "structured": {"columns": columns}, "is_error": False}
-    sql = str(arguments.get("sql") or "")
-    try:
-        checked = check_sql(sql, allow_tables=allow, deny_columns=deny, row_limit=limit)
-    except SqlRejected as exc:
-        return _error("sql_rejected", exc.reason)
-    rows = orders()
-    if "count" in sql.lower():
-        text = str(len(rows))
-        structured: dict[str, object] = {
-            "columns": ["count"],
-            "rows": [[len(rows)]],
-            "truncated": False,
-        }
-    else:
-        header = "id,sku,quantity"
-        body = "\n".join(f"{row['id']},{row['sku']},{row['quantity']}" for row in rows)
-        text = f"{header}\n{body}"
-        structured = {
-            "columns": ["id", "sku", "quantity"],
-            "rows": [[row["id"], row["sku"], row["quantity"]] for row in rows],
-            "truncated": False,
-            "sql": checked,
-        }
-    return {"text": text, "structured": structured, "is_error": False}
 
 
 def _caller(arguments: dict[str, object]) -> tuple[str, str]:
@@ -439,21 +344,6 @@ def _search(
         for score, row in ranked
     ]
     return found, how
-
-
-def _connection(store: Any, arguments: dict[str, object]) -> dict[str, object]:
-    connection_id = arguments.get("data_connection_id")
-    if isinstance(connection_id, uuid.UUID):
-        row = store.data_connections.get(connection_id)
-        if isinstance(row, dict):
-            allow = row.get("allowlist")
-            if isinstance(allow, dict):
-                return {
-                    "tables": allow.get("tables") or [],
-                    "columns_deny": allow.get("columns_deny") or [],
-                    "row_limit": row.get("row_limit") or 1000,
-                }
-    return {"tables": ["public.orders"], "columns_deny": [], "row_limit": 1000}
 
 
 def _resolve_collection_ids(raw: object, collections: list[dict[str, object]]) -> list[str]:

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.demo_ids import demo_id
+from ar_testing.tool_stand_ins import register_stand_ins
 
 if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService
@@ -49,6 +50,8 @@ def seed_demo_tenant(store: ChatService) -> None:
     eval gym). A product process never does: its tenant, people and agents are rows
     in its database.
     """
+    # The demo tenant's tool servers are stand-ins served in this process.
+    register_stand_ins()
     if store.demo_tenant_seeded:
         return
     store.demo_tenant_seeded = True
