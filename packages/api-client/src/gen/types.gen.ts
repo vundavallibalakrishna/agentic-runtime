@@ -12334,6 +12334,45 @@ export type ListPassagesApiV1LibraryDocumentsDocumentIdPassagesGetResponses = {
 
 export type ListPassagesApiV1LibraryDocumentsDocumentIdPassagesGetResponse = ListPassagesApiV1LibraryDocumentsDocumentIdPassagesGetResponses[keyof ListPassagesApiV1LibraryDocumentsDocumentIdPassagesGetResponses];
 
+export type DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query: {
+        /**
+         * Otherdocumentid
+         */
+        otherDocumentId: string;
+    };
+    url: '/api/v1/library-documents/{document_id}/diff';
+};
+
+export type DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetError = DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetErrors[keyof DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetErrors];
+
+export type DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetResponses = {
+    /**
+     * Response Diff Documents Api V1 Library Documents  Document Id  Diff Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetResponse = DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetResponses[keyof DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetResponses];
+
 export type DocumentOutlineApiV1LibraryDocumentsDocumentIdOutlineGetData = {
     body?: never;
     path: {

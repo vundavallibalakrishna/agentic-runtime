@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -60,6 +60,40 @@ describe("document library", () => {
     expect(screen.getByText("Ready").className).toContain("tone-success");
     expect(screen.getByRole("link", { name: "Open: Access" })).toBeTruthy();
     expect((screen.getByLabelText("File") as HTMLInputElement).type).toBe("file");
+  });
+
+  it("offers Compare once two different documents are chosen", async () => {
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({
+          permissions: ["documents:read"],
+          user: { displayName: "Ada Lovelace", email: "ada@acme.example" },
+        }),
+      ),
+      http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/library-documents", () =>
+        HttpResponse.json({
+          items: [
+            { id: "doc-1", title: "Policy v1", filename: "v1.md", mediaType: "text/markdown" },
+            { id: "doc-2", title: "Policy v2", filename: "v2.md", mediaType: "text/markdown" },
+          ],
+        }),
+      ),
+    );
+    render(wrap(<LibraryScreen />));
+    const earlier = (await screen.findByLabelText("Earlier document")) as HTMLSelectElement;
+    const later = screen.getByLabelText("Later document") as HTMLSelectElement;
+    expect((screen.getByRole("button", { name: "Compare" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    fireEvent.change(earlier, { target: { value: "doc-1" } });
+    fireEvent.change(later, { target: { value: "doc-1" } });
+    // The same document twice is nothing to compare.
+    expect(screen.queryByRole("link", { name: "Compare" })).toBeNull();
+    fireEvent.change(later, { target: { value: "doc-2" } });
+    expect(screen.getByRole("link", { name: "Compare" }).getAttribute("href")).toBe(
+      "/documents/compare?left=doc-1&right=doc-2",
+    );
   });
 
   it("shows an empty library", async () => {

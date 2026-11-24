@@ -186,9 +186,62 @@ export function LibraryScreen() {
               </TableBody>
             </Table>
           </TableScroll>
+          {items.length > 1 ? <ComparePicker items={items} /> : null}
         </div>
       ) : null}
     </AppShell>
+  );
+}
+
+/** Choose two documents and open what differs between them. */
+function ComparePicker({ items }: { items: Row[] }) {
+  const t = useTranslations("documents");
+  const [left, setLeft] = useState("");
+  const [right, setRight] = useState("");
+  const ready = left !== "" && right !== "" && left !== right;
+  const sides = [
+    { id: "compare-left", label: t("left"), value: left, set: setLeft },
+    { id: "compare-right", label: t("right"), value: right, set: setRight },
+  ];
+  return (
+    <section
+      aria-labelledby="compare-heading"
+      className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+    >
+      <h2 className="panel-title" id="compare-heading">
+        {t("compareHeading")}
+      </h2>
+      <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("compareHint")}</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+        {sides.map((side) => (
+          <label className="text-sm" htmlFor={side.id} key={side.id}>
+            {side.label}
+            <select
+              className="mt-1 h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-2"
+              id={side.id}
+              onChange={(event) => side.set(event.target.value)}
+              value={side.value}
+            >
+              <option value="">{t("choose")}</option>
+              {items.map((item) => (
+                <option key={text(item.id)} value={text(item.id)}>
+                  {text(item.title)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+        {ready ? (
+          <Button asChild className="self-end">
+            <a href={`/documents/compare?left=${left}&right=${right}`}>{t("compare")}</a>
+          </Button>
+        ) : (
+          <Button className="self-end" disabled type="button">
+            {t("compare")}
+          </Button>
+        )}
+      </div>
+    </section>
   );
 }
 

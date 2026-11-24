@@ -72,6 +72,21 @@ test("document library and a stored file", async ({ page }) => {
   });
   expect(removed.status()).toBeGreaterThanOrEqual(400);
 
+  // Compare the two uploads: the screen shows what differs, in the documents' own words.
+  await page.goto("/documents");
+  await page.getByLabel("Earlier document").selectOption({ label: "Access" });
+  await page.getByLabel("Later document").selectOption({ label: "Travel" });
+  await page.getByRole("link", { name: "Compare" }).click();
+  await expect(page.getByRole("heading", { name: "Comparison" })).toBeVisible();
+  await expect(page.getByText(/^Access compared with Travel\./)).toBeVisible();
+  await expect(page.getByText("Staff use badges at every door.")).toBeVisible();
+  await expect(page.getByText("Trips need approval from a manager.")).toBeVisible();
+  await capture(page, "compare");
+  const compared = await new AxeBuilder({ page }).analyze();
+  expect(
+    compared.violations.filter((item) => item.impact === "serious" || item.impact === "critical"),
+  ).toEqual([]);
+
   const axe = await new AxeBuilder({ page }).analyze();
   expect(
     axe.violations.filter((item) => item.impact === "serious" || item.impact === "critical"),

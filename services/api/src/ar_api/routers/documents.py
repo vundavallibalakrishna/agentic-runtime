@@ -117,6 +117,20 @@ async def list_passages(
 
 
 @router.get(
+    "/api/v1/library-documents/{document_id}/diff",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def diff_documents(
+    document_id: uuid.UUID,
+    request: Request,
+    other: Annotated[uuid.UUID, Query(alias="otherDocumentId")],
+) -> dict[str, object]:
+    """The sections that differ between this document and another. No model is asked."""
+    return _library(request).diff(actor(request), document_id, other)
+
+
+@router.get(
     "/api/v1/library-documents/{document_id}/outline",
     dependencies=[Depends(require_permission("chat:use"))],
 )

@@ -103,6 +103,57 @@ def test_library_upload_and_cross_tenant_404() -> None:
     ).status_code in {404, 405}
 
 
+def _upload(client: TestClient, name: str, body: bytes) -> str:
+    made = client.post("/api/v1/library-documents", files={"upload": (name, body, "text/markdown")})
+    assert made.status_code == 200, made.text
+    return str(made.json()["id"])
+
+
+def test_two_documents_are_compared_without_a_model_and_another_tenant_gets_404() -> None:
+    client, holder = _client()
+    same = "## Access\n\nStaff use badges at every door.\n\n"
+    old = _upload(
+        client,
+        "policy-v1.md",
+        (
+            f"# Policy\n\n{same}## Logs\n\nLogs are kept for 90 days.\n\n"
+            "## Media\n\nUSB sticks need approval.\n"
+        ).encode(),
+    )
+    new = _upload(
+        client,
+        "policy-v2.md",
+        (
+            f"# Policy\n\n{same}## Logs\n\nLogs are kept for 365 days.\n\n"
+            "## AI\n\nAI systems are registered.\n"
+        ).encode(),
+    )
+    found = client.get(f"/api/v1/library-documents/{old}/diff", params={"otherDocumentId": new})
+    assert found.status_code == 200, found.text
+    body = found.json()
+    assert body["left"]["id"] == old
+    assert body["right"]["id"] == new
+    by_status: dict[str, list[dict[str, str]]] = {}
+    for section in body["sections"]:
+        by_status.setdefault(section["status"], []).append(section)
+    [changed] = [row for row in by_status["changed"] if "90 days" in row["leftQuote"]]
+    assert "365 days" in changed["rightQuote"]
+    assert any("USB sticks" in row["leftQuote"] for row in by_status["removed"])
+    assert any("AI systems" in row["rightQuote"] for row in by_status["added"])
+    # The section that is the same in both is counted and not listed.
+    assert body["counts"] == {"changed": 1, "added": 1, "removed": 1, "unchanged": 1}
+    assert not any("badges" in str(row) for row in body["sections"])
+    # The other document is required, and must be one the caller can see.
+    assert client.get(f"/api/v1/library-documents/{old}/diff").status_code == 422
+    missing = client.get(
+        f"/api/v1/library-documents/{old}/diff", params={"otherDocumentId": str(uuid.uuid4())}
+    )
+    assert missing.status_code == 404
+    holder["tenant"] = uuid.uuid4()
+    hidden = client.get(f"/api/v1/library-documents/{old}/diff", params={"otherDocumentId": new})
+    assert hidden.status_code == 404
+
+
 def test_rule_set_import_is_hidden_from_another_tenant() -> None:
     client, holder = _client()
     created = client.post(

@@ -429,6 +429,9 @@ from .deprecate_api_v1_tool_servers_server_id_deprecate_post_response_deprecate_
 )
 from .describe_body import DescribeBody
 from .description_body import DescriptionBody
+from .diff_documents_api_v1_library_documents_document_id_diff_get_response_diff_documents_api_v1_library_documents_document_id_diff_get import (
+    DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetResponseDiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGet,
+)
 from .disable_agent_api_v1_agents_agent_id_disable_post_response_disable_agent_api_v1_agents_agent_id_disable_post import (
     DisableAgentApiV1AgentsAgentIdDisablePostResponseDisableAgentApiV1AgentsAgentIdDisablePost,
 )
@@ -1735,6 +1738,7 @@ __all__ = (
     "DeprecateApiV1ToolServersServerIdDeprecatePostResponseDeprecateApiV1ToolServersServerIdDeprecatePost",
     "DescribeBody",
     "DescriptionBody",
+    "DiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGetResponseDiffDocumentsApiV1LibraryDocumentsDocumentIdDiffGet",
     "DisableAgentApiV1AgentsAgentIdDisablePostResponseDisableAgentApiV1AgentsAgentIdDisablePost",
     "DisableApiV1ToolServersServerIdDisablePostResponseDisableApiV1ToolServersServerIdDisablePost",
     "DisableBody",
