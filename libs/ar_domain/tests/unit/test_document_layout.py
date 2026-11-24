@@ -71,6 +71,12 @@ def test_a_docx_keeps_heading_levels() -> None:
     text = "\n".join(passage.text for passage in extracted.passages)
     assert "The door stays locked." in text
     assert "Visitors sign the book." in text
+    # Text is filed under the heading it sits beneath, never under a name the parser
+    # gives its own groups (a Word file's first section group is called "header-1").
+    filed = {passage.text: passage.heading for passage in extracted.passages}
+    assert filed["The door stays locked."] == "Access"
+    assert filed["Visitors sign the book."] == "Visitors"
+    assert not any(passage.heading.startswith("header-") for passage in extracted.passages)
 
 
 def test_a_workbook_keeps_the_sheet_name() -> None:
