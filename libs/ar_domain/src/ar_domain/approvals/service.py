@@ -266,6 +266,9 @@ class ApprovalBook:
             detail={"risk_class": risk_class, "args_hash": args_hash},
         )
         self._notify(row)
+        from ar_domain.approvals.announce import announce  # noqa: PLC0415
+
+        announce(self.store, row, self._approver_ids(row)[:_MAX_NOTIFY])
         return row
 
     def list_standing(self, actor: Actor) -> list[dict[str, object]]:
@@ -498,17 +501,21 @@ class ApprovalBook:
             detail={"status": status, "channel": channel, "args_hash": row.get("args_hash")},
         )
         _observe(row, status, channel)
+        decided = {
+            "approval_id": str(row["id"]),
+            "run_id": None if row.get("run_id") is None else str(row.get("run_id")),
+            "status": status,
+        }
         self.store.domain_events.append(
             {
                 "topic": "approval.decided",
-                "payload": {
-                    "approval_id": str(row["id"]),
-                    "run_id": None if row.get("run_id") is None else str(row.get("run_id")),
-                    "status": status,
-                },
+                "payload": decided,
                 "at": (as_datetime(row.get("decided_at")) or utcnow()).isoformat(),
             }
         )
+        from ar_domain.webhooks.delivery import dispatch_public_event  # noqa: PLC0415
+
+        dispatch_public_event(self.store, row.get("tenant_id"), "approval.decided", decided)
 
     def _received(self, row: dict[str, object]) -> int:
         return sum(

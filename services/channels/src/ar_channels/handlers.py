@@ -178,10 +178,12 @@ def approval_from_invoke(
     }
 
 
-def slack_approval_message(approval_id: str, args_hash: str, *, step_up: bool) -> dict[str, object]:
+def slack_approval_message(
+    approval_id: str, args_hash: str, *, step_up: bool, web_url: str = ""
+) -> dict[str, object]:
     return {
         "text": "Approval requested",
-        "blocks": approval_blocks(approval_id, args_hash, step_up=step_up, web_url="/approvals"),
+        "blocks": approval_blocks(approval_id, args_hash, step_up=step_up, web_url=web_url),
     }
 
 

@@ -15,7 +15,9 @@ from ar_channels.handlers import (
     handle_slack_events,
     handle_slack_interaction,
     handle_teams,
+    slack_approval_message,
 )
+from ar_channels.render import adaptive_card
 from ar_channels.state import Dedupe, LeaderLock
 from ar_common.host_ports import listen_port
 from ar_common.settings import BaseServiceSettings
@@ -25,6 +27,71 @@ if TYPE_CHECKING:
     from typing import Any
 
 LISTEN_PORT = 8004
+
+
+def _approval_card(body: dict[str, Any]) -> dict[str, object]:
+    """Render the interactive card. ``slack_approval_message`` is the Slack form."""
+    approval_id = str(body.get("approval_id") or "")
+    if not approval_id:
+        return {}
+    args_hash = str(body.get("args_hash") or "")
+    step_up = bool(body.get("step_up"))
+    review_url = str(body.get("review_url") or "")
+    text = str(body.get("text") or "Approval requested")
+    kind = str(body.get("kind") or "slack")
+    if kind == "teams":
+        return adaptive_card(
+            text, approval_id=approval_id, args_hash=args_hash, step_up=step_up, web_url=review_url
+        )
+    return slack_approval_message(approval_id, args_hash, step_up=step_up, web_url=review_url)
+
+
+def _deliver_card(body: dict[str, Any], card: dict[str, object]) -> str:
+    """POST the card when the binding stored a webhook or a bot token. Otherwise recorded."""
+    if not card:
+        return "recorded"
+    credentials = body.get("credentials")
+    secret = credentials if isinstance(credentials, dict) else {}
+    webhook = str(secret.get("webhook_url") or "")
+    if webhook:
+        return _post_json(webhook, card)
+    token = str(secret.get("bot_token") or "")
+    if token and str(body.get("kind") or "") == "slack":
+        return _slack_api(token, str(body.get("external_user_id") or ""), card)
+    return "recorded"
+
+
+def _post_json(url: str, payload: dict[str, object]) -> str:
+    import httpx  # noqa: PLC0415
+
+    try:
+        response = httpx.post(url, json=payload, timeout=5.0)
+    except httpx.HTTPError:
+        return "failed"
+    return "sent" if response.status_code < 300 else "failed"
+
+
+def _slack_api(token: str, user: str, card: dict[str, object]) -> str:
+    """Post with the Slack SDK the channels service already depends on. Not live-tested."""
+    try:
+        from slack_sdk import WebClient  # noqa: PLC0415
+        from slack_sdk.errors import SlackApiError  # noqa: PLC0415
+    except ImportError:
+        return "recorded"
+    client = WebClient(token=token)
+    channel = user
+    try:
+        if user:
+            opened = client.conversations_open(users=user)
+            channel = str(opened.get("channel", {}).get("id") or user)
+        client.chat_postMessage(
+            channel=channel,
+            text=str(card.get("text") or "Approval requested"),
+            blocks=card.get("blocks") if isinstance(card.get("blocks"), list) else None,
+        )
+    except SlackApiError:
+        return "failed"
+    return "sent"
 
 
 class Settings(BaseServiceSettings):
@@ -99,11 +166,20 @@ def create_application() -> FastAPI:
     @app.post("/internal/v1/outbound")
     async def outbound(request: Request) -> dict[str, Any]:
         body = await request.json()
+        rendered = _approval_card(body) if isinstance(body, dict) else {}
         external = f"out-{len(request.app.state.outbox) + 1}"
-        request.app.state.outbox.append(
-            {"kind": "outbound", "body": body, "external_message_id": external}
+        safe = (
+            {key: value for key, value in body.items() if key != "credentials"}
+            if isinstance(body, dict)
+            else {}
         )
-        return {"external_message_id": external}
+        if rendered:
+            safe["card"] = rendered
+        request.app.state.outbox.append(
+            {"kind": "outbound", "body": safe, "external_message_id": external}
+        )
+        delivered = _deliver_card(body, rendered) if isinstance(body, dict) else "recorded"
+        return {"external_message_id": external, "delivered": delivered}
 
     @app.post("/internal/v1/notify")
     async def notify(request: Request) -> dict[str, Any]:

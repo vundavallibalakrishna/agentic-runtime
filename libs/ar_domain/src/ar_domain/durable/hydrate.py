@@ -154,6 +154,7 @@ async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUI
     await _sources(session, store, tenant_id)
     await _ingestion_jobs(session, store, tenant_id)
     await _documents(session, store, tenant_id)
+    await _webhooks(session, store, tenant_id)
     await _chunks(session, store, tenant_id)
     await _facts(session, store, tenant_id)
     await _tools(session, store, tenant_id)
@@ -558,6 +559,23 @@ async def _documents(session: AsyncSession, store: object, tenant_id: uuid.UUID)
         session, "SELECT * FROM document_revisions WHERE tenant_id = :tenant_id", tenant_id
     ):
         _merge(store, "document_revisions", row["id"], row)
+
+
+async def _webhooks(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    for row in await _rows(
+        session, "SELECT * FROM outbound_webhooks WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        loaded = dict(row)
+        loaded["secret_name"] = f"webhook:{row['id']}"
+        _merge(store, "outbound_webhooks", row["id"], loaded)
+    for row in await _rows(
+        session, "SELECT * FROM webhook_deliveries WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        _merge(store, "webhook_deliveries", row["id"], dict(row))
+    for row in await _rows(
+        session, "SELECT * FROM outbox_events WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        _merge(store, "outbox_events", row["id"], dict(row))
 
 
 async def _chunks(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:

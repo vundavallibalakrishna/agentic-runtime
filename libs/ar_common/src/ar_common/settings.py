@@ -16,6 +16,7 @@ from ar_common.host_ports import apply_host_ports
 CATALOGUE_ENV: frozenset[str] = frozenset(
     {
         "AR_API_INTERNAL_URL",
+        "AR_APPROVAL_NOTIFY_EMAIL",
         "AR_APPROVAL_WAIT_S",
         "AR_ASGI_SERVER",
         "AR_AUTH_MODE",
@@ -183,6 +184,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_PACKS_DIR",
         "AR_PGVECTOR_DIMENSIONS",
         "AR_PUBLIC_URL",
+        "AR_REVIEW_LINK_TTL_S",
         "AR_QDRANT_API_KEY",
         "AR_QDRANT_URL",
         "AR_RETENTION_SWEEP_CRON",

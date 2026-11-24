@@ -436,6 +436,18 @@ class DocumentLibrary:
         row["error_code"] = None
         row["error_message"] = None
         row["updated_at"] = utcnow()
+        from ar_domain.webhooks.delivery import dispatch_public_event  # noqa: PLC0415
+
+        dispatch_public_event(
+            self.store,
+            row.get("tenant_id"),
+            "document.ingested",
+            {
+                "document_id": str(document_id),
+                "content_hash": str(row.get("content_hash") or ""),
+                "status": "ready",
+            },
+        )
         return self._view(row)
 
     def list_items(

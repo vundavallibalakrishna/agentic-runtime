@@ -69,6 +69,10 @@ async def run_worker() -> None:
         ConversationSummaryWorkflow,
         refresh_conversation_summary,
     )
+    from ar_system.workflows.webhook_run import (  # noqa: PLC0415
+        WebhookDeliveryWorkflow,
+        deliver_webhook_activity,
+    )
 
     while True:
         try:
@@ -93,6 +97,7 @@ async def run_worker() -> None:
                     RoutinePollWorkflow,
                     RoutineReconcileWorkflow,
                     ConversationSummaryWorkflow,
+                    WebhookDeliveryWorkflow,
                 ],
                 activities=[
                     reap_sandboxes,
@@ -103,6 +108,7 @@ async def run_worker() -> None:
                     poll_activity,
                     reconcile_activity,
                     refresh_conversation_summary,
+                    deliver_webhook_activity,
                 ],
                 **temporal_worker_kwargs(),
             )

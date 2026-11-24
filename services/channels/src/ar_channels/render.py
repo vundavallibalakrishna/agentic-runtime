@@ -40,50 +40,29 @@ def throttled_snapshots(events: list[dict[str, object]], interval_ms: int) -> li
 def approval_blocks(
     approval_id: str, args_hash: str, *, step_up: bool, web_url: str
 ) -> list[dict[str, object]]:
-    if step_up:
-        return [{"type": "button", "text": "Open in web", "url": web_url}]
-    return [
-        {
-            "type": "button",
-            "action_id": "approve",
-            "text": "Approve",
-            "value": f"{approval_id}|{args_hash}|approve",
-        },
-        {
-            "type": "button",
-            "action_id": "reject",
-            "text": "Reject",
-            "value": f"{approval_id}|{args_hash}|reject",
-        },
-    ]
+    from ar_common.approval_cards import slack_blocks  # noqa: PLC0415
+
+    return slack_blocks(approval_id, args_hash, step_up=step_up, web_url=web_url)
 
 
 def adaptive_card(
-    text: str, *, approval_id: str = "", args_hash: str = "", step_up: bool = False
+    text: str,
+    *,
+    approval_id: str = "",
+    args_hash: str = "",
+    step_up: bool = False,
+    web_url: str = "",
 ) -> dict[str, object]:
-    body: list[dict[str, object]] = [{"type": "TextBlock", "text": text, "wrap": True}]
-    actions: list[dict[str, object]] = []
-    if approval_id and not step_up:
-        actions = [
-            {
-                "type": "Action.Submit",
-                "title": "Approve",
-                "data": {"approval_id": approval_id, "args_hash": args_hash, "decision": "approve"},
-            },
-            {
-                "type": "Action.Submit",
-                "title": "Reject",
-                "data": {"approval_id": approval_id, "args_hash": args_hash, "decision": "reject"},
-            },
-        ]
-    elif step_up:
-        actions = [
-            {"type": "Action.OpenUrl", "title": "Open in web", "url": "https://localhost/approvals"}
-        ]
-    card: dict[str, object] = {"type": "AdaptiveCard", "version": "1.5", "body": body}
-    if actions:
-        card["actions"] = actions
-    return card
+    from ar_common.approval_cards import teams_card  # noqa: PLC0415
+
+    link = web_url
+    if step_up and not link:
+        import os  # noqa: PLC0415
+
+        link = os.environ.get("AR_PUBLIC_URL", "http://localhost:3000").rstrip("/") + "/approvals"
+    return teams_card(
+        text, approval_id=approval_id, args_hash=args_hash, step_up=step_up, web_url=link
+    )
 
 
 def render_email_html(markdown: str) -> str:

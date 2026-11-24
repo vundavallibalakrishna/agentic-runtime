@@ -75,6 +75,7 @@ from ar_api.routers.tool_servers import router as tool_servers_router
 from ar_api.routers.tools import router as tools_router
 from ar_api.routers.usage import router as usage_router
 from ar_api.routers.users import router as users_router
+from ar_api.routers.review_link import router as review_link_router
 from ar_api.routers.webhooks import router as webhooks_router
 from ar_api.routers.widget import router as widget_router
 from ar_api.state import AuditApi, NotificationApi, PlatformApi, WebhookApi
@@ -321,6 +322,7 @@ def create_application() -> FastAPI:
             plans_router,
             notifications_router,
             webhooks_router,
+            review_link_router,
             agents_router,
             bundles_router,
             packs_router,

@@ -108,6 +108,12 @@ Eligible approver. Header `Idempotency-Key`. Body `{decision: "approve"|"reject"
 
 As built ([OQ-133](../open-questions.md)): no signal is sent to a workflow. The request that takes the terminal decision continues the run itself. What the run waits on (approval, tool version, arguments, hash) is kept on the run's stored checkpoint (`ar_domain.approvals.pending`), so any API replica can do this. On approve, the approved call is sent to `mcp-gateway` after the decision is committed (`ar_domain.durable.after`), because the gateway reads the approval from the database and consumes it; the run then ends `completed` with the tool's result as the answer, or with the reason the call did not run. On reject, expiry or cancel the run ends with that reason. The model does not write a further reply after an approved call.
 
+#### GET /api/v1/review/{token}
+Public. The token is the credential: it names one approval, one tenant and one approver, and it expires. Response is that approval only: `{approvalId, qualifiedName, status, arguments, schema, preview, argsHash, stepUpRequired}`. `schema` is the tool's input JSON Schema when the catalogue has one, otherwise a schema read from the shape of the arguments. When `AR_AUTH_MODE` is `oidc`, the caller must also have a session for that approver.
+
+#### POST /api/v1/review/{token}:decide
+Public, with the same session rule. Body `{decision: "approve"|"reject", argsHash, comment?, arguments?}`. A body that includes `arguments` uses the edit-then-approve path: the original approval is kept as rejected and a new pending approval holds the edited arguments. The decision is attributed to the approver named in the token, with channel `review_link`.
+
 #### POST /api/v1/approvals/{approval_id}:cancel
 Requester (or run cancel). Pending only. Status `cancelled`, signal workflow.
 

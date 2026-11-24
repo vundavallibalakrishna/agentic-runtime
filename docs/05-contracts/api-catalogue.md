@@ -675,3 +675,5 @@ Routes present in `openapi.json` and absent from the spec tables above.
 | POST | `/api/v1/guest/agents/{agent_id}/turns` | guest session | stage 11 |
 | POST | `/api/v1/notifications/push-subscriptions` | session | stage 11 |
 | POST | `/api/v1/runs/{run_id}:resume` | `chat:use` | stage 11 |
+| GET | `/api/v1/review/{token}` | public | review link |
+| POST | `/api/v1/review/{token}:decide` | public | review link |
