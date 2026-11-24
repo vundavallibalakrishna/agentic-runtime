@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any, TypedDict
 
+from ar_domain.runs.request import asked
 from ar_domain.skills.logic import platform_max_depth
 
 _TIMEOUT_DEFAULT = 45
@@ -91,6 +92,9 @@ def contract_line(store: Any, tenant: object, slug: str) -> str:
 
 def chain(run: dict[str, object]) -> list[str]:
     raw = run.get("agent_chain")
+    if not isinstance(raw, list):
+        # The copy on the request is what another process reads back from the database.
+        raw = asked(run, "agent_chain")
     if not isinstance(raw, list):
         return []
     return [str(item) for item in raw if str(item)]

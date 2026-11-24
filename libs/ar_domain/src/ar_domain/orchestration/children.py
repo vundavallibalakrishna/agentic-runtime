@@ -45,14 +45,10 @@ def budget_left(limits: dict[str, int], state: dict[str, object]) -> str | None:
     return None
 
 
-async def run_named(
-    store: Any,
-    parent: dict[str, object],
-    slug: str,
-    task: str,
-    state: dict[str, object],
-) -> dict[str, object]:
-    """Run one child. A timeout, cycle, depth or budget failure is a tool error, not a crash."""
+def refusal(
+    store: Any, parent: dict[str, object], slug: str, state: dict[str, object]
+) -> tuple[str, dict[str, object] | None]:
+    """The agent a call names, and why it cannot be called, if it cannot."""
     spec = subagent_spec(definition_of(store, parent))
     allowed = set(spec["allowed"])
     current = chain(parent)
@@ -61,19 +57,37 @@ async def run_named(
         slug = self_name
     permitted = slug in allowed or (slug == self_name and spec["allow_self_clone"] is True)
     if not permitted:
-        return _error(slug, "not_allowed", f"{slug} is not an agent this one can call.")
+        return slug, call_error(slug, "not_allowed", f"{slug} is not an agent this one can call.")
     if is_cycle(parent, slug, allow_self=spec["allow_self_clone"] is True):
-        return _error(
+        return slug, call_error(
             slug, "cycle", f"Calling {slug} would loop back to an agent already in this run."
         )
     if depth_blocked(parent, spec["max_depth"]):
-        return _error(slug, "depth_exceeded", "This run is already at the depth limit.")
+        return slug, call_error(slug, "depth_exceeded", "This run is already at the depth limit.")
     limits = state.get("limits")
-    budget = limits if isinstance(limits, dict) else {}
-    blocked = budget_left(budget, state)
+    blocked = budget_left(limits if isinstance(limits, dict) else {}, state)
     if blocked:
         label = blocked.replace("_", " ")
-        return _error(slug, "budget_exceeded", f"Stopped because the {label} limit was reached.")
+        return slug, call_error(
+            slug, "budget_exceeded", f"Stopped because the {label} limit was reached."
+        )
+    return slug, None
+
+
+async def run_named(
+    store: Any,
+    parent: dict[str, object],
+    slug: str,
+    task: str,
+    state: dict[str, object],
+) -> dict[str, object]:
+    """Run one child. A timeout, cycle, depth or budget failure is a tool error, not a crash."""
+    slug, refused = refusal(store, parent, slug, state)
+    if refused is not None:
+        return refused
+    spec = subagent_spec(definition_of(store, parent))
+    limits = state.get("limits")
+    budget = limits if isinstance(limits, dict) else {}
     left = remaining_budget(budget, state)["max_wall_clock_s"]
     timeout = min(spec["child_timeout_s"], max(1, left))
     # Which child this call started. Each call keeps its own note: several run at once,
@@ -88,9 +102,9 @@ async def run_named(
         cut_short: dict[str, object] = {}
         # Giving up on the child cancels it. What ended it was its time, and it says so.
         if isinstance(child, dict) and str(child.get("status")) in {*_LIVE, "cancelled"}:
-            _finish_failed(store, child, "child_timeout", _TIMEOUT_MESSAGE)
-            _roll(parent, _spent(child, "failed"))
-            _told(
+            finish_failed(store, child, "child_timeout", _TIMEOUT_MESSAGE)
+            roll(parent, _spent(child, "failed"))
+            told(
                 store,
                 parent,
                 child,
@@ -101,7 +115,7 @@ async def run_named(
             await _flush_run(store)
             # The answer names the run that was cut short, so a person can open it.
             cut_short = _named(child)
-        return {**_error(slug, "child_timeout", _TIMEOUT_MESSAGE), **cut_short}
+        return {**call_error(slug, "child_timeout", _TIMEOUT_MESSAGE), **cut_short}
     finally:
         started = holder.get("child")
         if isinstance(started, dict):
@@ -142,7 +156,7 @@ async def run_parallel(
     if overflow:
         results = [
             *results,
-            _error(
+            call_error(
                 "",
                 "fanout",
                 f"{overflow} calls were not started because the fan-out limit is {cap}.",
@@ -150,6 +164,50 @@ async def run_parallel(
         ]
     failed = any(item.get("failed") for item in results)
     return {"failed": failed, "results": list(results)}
+
+
+def open_child(
+    store: Any, parent: dict[str, object], slug: str, task: str, state: dict[str, object]
+) -> dict[str, object]:
+    """Create the run of one called agent. An agent that cannot be planned is an error row.
+
+    What the child needs is kept on its request, so a worker that loads it from the
+    database finds it: who called whom, and the budget it may use.
+    """
+    from ar_domain.skills.delegate import plan_child  # noqa: PLC0415
+
+    spec = subagent_spec(definition_of(store, parent))
+    limits = state.get("limits")
+    budget = limits if isinstance(limits, dict) else {}
+    allowed = [str(item) for item in spec["allowed"]]
+    if spec["allow_self_clone"] is True and slug not in allowed:
+        allowed.append(slug)
+    left = remaining_budget(budget, state)
+    planned = plan_child(
+        {
+            "run_id": str(parent.get("id")),
+            "depth": whole(parent.get("depth"), 0),
+            "max_depth": spec["max_depth"],
+            "remaining_budget": left,
+            "allowed": allowed,
+            "allow_self_clone": spec["allow_self_clone"],
+            "agent": slug,
+            "task": task,
+            "index": whole(state.get("used_calls"), 0),
+        }
+    )
+    if planned.get("error"):
+        return call_error(slug, str(planned["error"]), str(planned["error"]))
+    inserted = _insert_child(store, parent, planned, {"agent": slug, "task": task})
+    stored = store.runs.get(inserted.get("id"))
+    child = stored if isinstance(stored, dict) else inserted
+    child["agent_chain"] = [*chain(parent), slug]
+    child["budget_override"] = left
+    ask(child, "agent_chain", child["agent_chain"])
+    ask(child, "budget", left)
+    ask(child, "orchestration_child", True)
+    child["workspace_ref"] = f"workspace:{child['id']}"
+    return child
 
 
 async def _drive(
@@ -161,35 +219,9 @@ async def _drive(
     *,
     holder: dict[str, object],
 ) -> dict[str, object]:
-    from ar_domain.skills.delegate import plan_child  # noqa: PLC0415
-
-    spec = subagent_spec(definition_of(store, parent))
-    limits = state.get("limits")
-    budget = limits if isinstance(limits, dict) else {}
-    allowed = [str(item) for item in spec["allowed"]]
-    if spec["allow_self_clone"] is True and slug not in allowed:
-        allowed.append(slug)
-    planned = plan_child(
-        {
-            "run_id": str(parent.get("id")),
-            "depth": whole(parent.get("depth"), 0),
-            "max_depth": spec["max_depth"],
-            "remaining_budget": remaining_budget(budget, state),
-            "allowed": allowed,
-            "allow_self_clone": spec["allow_self_clone"],
-            "agent": slug,
-            "task": task,
-            "index": whole(state.get("used_calls"), 0),
-        }
-    )
-    if planned.get("error"):
-        return _error(slug, str(planned["error"]), str(planned["error"]))
-    inserted = _insert_child(store, parent, planned, {"agent": slug, "task": task})
-    stored = store.runs.get(inserted.get("id"))
-    child = stored if isinstance(stored, dict) else inserted
-    child["agent_chain"] = [*chain(parent), slug]
-    child["budget_override"] = remaining_budget(budget, state)
-    ask(child, "orchestration_child", True)
+    child = open_child(store, parent, slug, task, state)
+    if child.get("failed"):
+        return child
     meter(child, pool_for(state))
     holder["child"] = child
     child["workspace_ref"] = f"workspace:{child['id']}"
@@ -199,7 +231,7 @@ async def _drive(
     await _flush_run(store)
     call_id = str(state.get("call_id") or "")
     _emit(store, parent, "subagent.started", events.started(child, task, call_id))
-    _step(
+    note_step(
         store,
         parent,
         "subagent",
@@ -210,11 +242,11 @@ async def _drive(
     except asyncio.CancelledError:
         # The parent was stopped, or gave up waiting. The child ends with it.
         if str(child.get("status")) in _LIVE:
-            _end(store, child, "cancelled")
+            end_child(store, child, "cancelled")
         await asyncio.shield(_flush_run(store))
         raise
     await _flush_run(store)
-    _told(
+    told(
         store,
         parent,
         child,
@@ -222,7 +254,7 @@ async def _drive(
         summary=str(outcome.get("text") or ""),
         call_id=call_id,
     )
-    _roll(parent, outcome)
+    roll(parent, outcome)
     return outcome
 
 
@@ -231,18 +263,18 @@ async def _complete(store: Any, child: dict[str, object], task: str) -> dict[str
         uuid.UUID(str(child["tenant_id"])), model_alias_for(store, child)
     )
     if not alias_target[3]:
-        return _finish_failed(store, child, "model_unavailable", "This agent has no model to run.")
-    assistant = _assistant(store, child)
+        return finish_failed(store, child, "model_unavailable", "This agent has no model to run.")
+    assistant = open_reply(store, child)
     from ar_domain.tools.agent_loop import run_agent_loop  # noqa: PLC0415
 
     ran = await run_agent_loop(store, child, assistant, task)
     if not ran:
-        return _finish_failed(store, child, "model_unavailable", "This agent has no model to run.")
+        return finish_failed(store, child, "model_unavailable", "This agent has no model to run.")
     status = str(child.get("status") or "completed")
     if status in {"waiting_input", "waiting_approval"}:
         # A called agent has nobody to wait for: the person is talking to the agent that
         # called it. Its question used to come back as if it were the answer.
-        return _finish_failed(
+        return finish_failed(
             store,
             child,
             "child_needs_a_person",
@@ -261,7 +293,7 @@ def _named(child: dict[str, object]) -> dict[str, object]:
     return {"name": child.get("agent_name") or "", "child_id": str(child.get("id"))}
 
 
-def _told(
+def told(
     store: Any,
     parent: dict[str, object],
     child: dict[str, object],
@@ -300,7 +332,7 @@ def _spent(child: dict[str, object], status: str) -> dict[str, object]:
     }
 
 
-def _assistant(store: Any, child: dict[str, object]) -> dict[str, object]:
+def open_reply(store: Any, child: dict[str, object]) -> dict[str, object]:
     assistant_id = new_id()
     row = {
         "id": assistant_id,
@@ -322,17 +354,17 @@ def _assistant(store: Any, child: dict[str, object]) -> dict[str, object]:
     return stored if isinstance(stored, dict) else row
 
 
-def _finish_failed(
+def finish_failed(
     store: Any, child: dict[str, object], code: str, message: str
 ) -> dict[str, object]:
     child["error"] = {"code": code, "message": message}
     child["result_summary"] = message
-    _end(store, child, "failed")
+    end_child(store, child, "failed")
     _emit(store, child, "run.failed", {"error": child["error"]})
     return {**_spent(child, "failed"), "failed": True, "text": message}
 
 
-def _end(store: Any, child: dict[str, object], status: str) -> None:
+def end_child(store: Any, child: dict[str, object], status: str) -> None:
     """Close a child that will not finish on its own, and the reply it had started."""
     child["status"] = status
     child["ended_at"] = utcnow()
@@ -341,7 +373,7 @@ def _end(store: Any, child: dict[str, object], status: str) -> None:
         reply["status"] = status
 
 
-def _error(slug: str, code: str, message: str) -> dict[str, object]:
+def call_error(slug: str, code: str, message: str) -> dict[str, object]:
     return {
         "failed": True,
         "status": "failed",
@@ -355,7 +387,7 @@ def _error(slug: str, code: str, message: str) -> dict[str, object]:
 SUBAGENT_USAGE = "subagents"
 
 
-def _roll(parent: dict[str, object], outcome: dict[str, object]) -> None:
+def roll(parent: dict[str, object], outcome: dict[str, object]) -> None:
     """Add one called agent's use to the caller's record, under its own heading.
 
     The caller's own tokens stay its own. What the agents it called used is kept beside
@@ -383,7 +415,7 @@ def _emit(store: Any, run: dict[str, object], event_type: str, data: dict[str, o
         emit(run, event_type, data)
 
 
-def _step(store: Any, run: dict[str, object], kind: str, detail: dict[str, object]) -> None:
+def note_step(store: Any, run: dict[str, object], kind: str, detail: dict[str, object]) -> None:
     steps = getattr(store, "steps", None)
     if not isinstance(steps, dict):
         return

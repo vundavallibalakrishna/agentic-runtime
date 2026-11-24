@@ -339,7 +339,8 @@ def _finish(
     release(run)
     run["result_summary"] = text[:8000]
     conversation = store.conversations.get(run.get("conversation_id"))
-    if isinstance(conversation, dict):
+    # A called agent's run ends inside its caller's turn, which still has the conversation.
+    if isinstance(conversation, dict) and run.get("parent_run_id") is None:
         conversation["active_run_id"] = None
     if isinstance(assistant, dict):
         store._emit(

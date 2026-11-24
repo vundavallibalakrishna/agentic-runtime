@@ -5,15 +5,22 @@ left when it starts, and several started together would each be given all of it.
 caller keeps one pool for a call, every agent in that call draws from it as it runs, and
 the pool says when it is empty. The caller is then charged what the pool recorded, which
 includes the spend of an agent that was stopped for running out of time.
+
+That count is for agents run inside the caller's step, in one process. On a worker each
+called agent is its own workflow, perhaps on another worker: the pool is then on each
+run's request, and ``pool_limit`` adds up what the runs of the call have saved as spent.
 """
 
 from __future__ import annotations
+
+from ar_domain.runs.request import asked
 
 # The counts of the called agents that are running now, by run id. A count lives for one
 # call and is dropped when the call ends. It is working state of the step that made the
 # call, like the step's own counters, and is never stored on the run: a run row is saved
 # and returned by the API as it is.
 _RUNNING: dict[str, Spend] = {}
+_ENDED = frozenset({"completed", "failed", "cancelled", "budget_exceeded"})
 
 
 class Spend:
@@ -76,7 +83,55 @@ def charge(
         own.tokens_out += max(0, tokens_out)
 
 
-def pool_limit(run: dict[str, object]) -> str | None:
-    """The limit the caller's pool has passed, for a run that draws on one."""
+def pool_limit(run: dict[str, object], store: object = None) -> str | None:
+    """The limit the caller's pool has passed, for a run that draws on one.
+
+    A called agent run inside its caller's step counts in this process. One that is its
+    own workflow has the pool on its request, and reads what every run of the same call
+    has saved as spent: any worker gets the same answer from the same rows.
+    """
     own = spend_of(run)
-    return None if own is None else own.over()
+    if own is not None:
+        return own.over()
+    shared = asked(run, "pool")
+    runs = getattr(store, "runs", None)
+    if not isinstance(shared, dict) or not isinstance(runs, dict):
+        return None
+    tokens = cost = 0
+    for row in runs.values():
+        if not isinstance(row, dict) or row.get("parent_run_id") != run.get("parent_run_id"):
+            continue
+        theirs = asked(row, "pool")
+        if isinstance(theirs, dict) and theirs.get("call") == shared.get("call"):
+            spent = spent_so_far(row)
+            tokens += spent[0]
+            cost += spent[1]
+    if tokens > _whole(shared.get("tokens")):
+        return "max_tokens"
+    if cost > _whole(shared.get("cost")):
+        return "max_cost_micros"
+    return None
+
+
+def spent_so_far(run: dict[str, object]) -> tuple[int, int]:
+    """Budget tokens and cost a run has used, from what it last saved.
+
+    While a run goes a step at a time its counts are on its checkpoint. Once it has
+    ended they are on its usage. Both include what the agents it called used.
+    """
+    checkpoint = run.get("checkpoint")
+    loop = checkpoint.get("worker_loop") if isinstance(checkpoint, dict) else None
+    if isinstance(loop, dict) and str(run.get("status")) not in _ENDED:
+        return _whole(loop.get("tokens")), _whole(loop.get("cost"))
+    usage = run.get("usage")
+    used = usage if isinstance(usage, dict) else {}
+    called = used.get("subagents")
+    theirs = called if isinstance(called, dict) else {}
+    tokens = sum(
+        _whole(source.get(key)) for source in (used, theirs) for key in ("tokens_in", "tokens_out")
+    )
+    return tokens, _whole(used.get("cost_micros"))
+
+
+def _whole(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 0
