@@ -11399,6 +11399,59 @@
         }
       }
     },
+    "/api/v1/library-documents/{document_id}/diff": {
+      "get": {
+        "summary": "Diff Documents",
+        "description": "The sections that differ between this document and another. No model is asked.",
+        "operationId": "diff_documents_api_v1_library_documents__document_id__diff_get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "otherDocumentId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Otherdocumentid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Diff Documents Api V1 Library Documents  Document Id  Diff Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/library-documents/{document_id}/outline": {
       "get": {
         "summary": "Document Outline",

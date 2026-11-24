@@ -1458,7 +1458,36 @@
     "tables": "Tables",
     "noPassages": "No passages in this range.",
     "noTables": "No tables were extracted.",
-    "back": "Back to documents"
+    "back": "Back to documents",
+    "retry": "Try again",
+    "compare": "Compare",
+    "compareHeading": "Compare two documents",
+    "compareHint": "Shows what differs, section by section, in the documents' own words. No model is asked.",
+    "left": "Earlier document",
+    "right": "Later document",
+    "choose": "Choose a document",
+    "compareTitle": "Comparison",
+    "compareNamed": "{before} compared with {after}. What differs, section by section, in each document's own words.",
+    "compareBody": "What differs between two documents, section by section, in each document's own words.",
+    "compareError": "The two documents could not be compared.",
+    "comparePick": "Choose two documents on the Documents screen to compare them.",
+    "compareSame": "The two documents say the same thing in every section.",
+    "compareSummary": "How many sections differ",
+    "compareShown": "Showing the first {shown} of {total} sections that differ.",
+    "compareNoHeading": "No heading",
+    "compareNotIn": "Not in {name}.",
+    "compareOpen": "Open passage",
+    "compareCount": {
+      "changed": "{count} changed",
+      "added": "{count} added",
+      "removed": "{count} removed",
+      "unchanged": "{count} the same"
+    },
+    "compareStatus": {
+      "changed": "Changed",
+      "added": "Added",
+      "removed": "Removed"
+    }
   },
   "masking": {
     "title": "Personal data in tool results",
