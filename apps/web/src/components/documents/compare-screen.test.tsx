@@ -69,18 +69,28 @@ describe("comparing two documents", () => {
       }),
     );
     render(wrap(<CompareScreen left="a" right="b" />));
-    expect(await screen.findByText("Logs are kept for 365 days.")).toBeTruthy();
+    // In the changed section only the figure is marked, on each side.
+    const added = await screen.findByText("365");
+    expect(added.tagName).toBe("MARK");
+    expect(added.className).toBe("diff-added");
+    expect(added.closest("p")?.textContent).toBe("Logs are kept for 365 days.");
+    const removed = screen.getByText("90");
+    expect(removed.className).toBe("diff-removed");
+    expect(removed.getAttribute("title")).toBe("Only in Policy v1");
+    expect(document.querySelectorAll("mark")).toHaveLength(2);
     expect(asked).toBe("b");
     expect(screen.getByRole("heading", { name: "Comparison" })).toBeTruthy();
     expect(screen.getByText(/^Policy v1 compared with Policy v2\./)).toBeTruthy();
-    expect(screen.getByText("Logs are kept for 90 days.")).toBeTruthy();
     expect(screen.getByText("9 the same")).toBeTruthy();
     expect(screen.getByText("Changed")).toBeTruthy();
     // A section only one document has says so on the other side.
     expect(screen.getByText("Not in Policy v2.")).toBeTruthy();
     expect(screen.getByText("Not in Policy v1.")).toBeTruthy();
-    const passage = screen.getByRole("link", { name: "Open passage: Policy v2, p1-s8" });
+    const passage = screen.getByRole("link", { name: "Open passage p1-s8, Policy v2" });
     expect(passage.getAttribute("href")).toBe("/documents/b#p1-s8");
+    // What is spoken begins with what is shown (the accessibility check in the browser
+    // test failed on this on 24 November 2026).
+    expect(passage.getAttribute("aria-label")?.startsWith(passage.textContent ?? "-")).toBe(true);
   });
 
   it("says so when the two documents do not differ", async () => {
