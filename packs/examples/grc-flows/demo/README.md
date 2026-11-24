@@ -166,6 +166,10 @@ to the vendor. Open **Run details** to show the two child runs.
 - The chat labels every agent's reply "Assistant".
 - A specialist called by another agent gets 45 seconds unless the lead's definition gives
   more. The demo's lead gives its specialists 300 (`subagents.child_timeout_s`).
+- What the agents a lead calls use counts against the lead's own budget. With the default
+  budget (80,000 tokens) the vendor review stops before the lead writes its assessment, so
+  the demo's lead has a budget of 400,000 tokens. A lead you build yourself needs one sized
+  for the agents it calls.
 - The model sometimes adds a remark of its own that is not from the documents (in one
   rehearsal it misnamed a CVE). The figures and clauses came from the tools each time.
 - Slack, Teams and the other account-based connectors need real accounts and are not part of
