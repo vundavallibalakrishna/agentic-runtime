@@ -22,7 +22,7 @@ A model provider error is retried twice, with 0.2s and then 0.4s of backoff, and
 
 ## Restart
 
-Before a model call, a durable API writes the run as `running`. If that process stops, the next process marks the run failed with `interrupted`. It does not replay the provider call. A run in `waiting_input` or `waiting_approval` stays paused. The checkpoint and the human question are Postgres rows (revision 0029), so an answer after restart resumes the run.
+A working run (`running`) belongs to its workflow `run-{id}`, which a worker carries out one step at a time. A step that is lost with its worker is not replayed: the workflow ends the run as failed (`step_failed`). A process that starts does not end the runs it finds working. The API asks Temporal about each one once its client is attached, and marks failed with `interrupted` only a run whose workflow is gone (not found, failed, cancelled, terminated or timed out). A run whose workflow is still going is left alone, and so is every run when Temporal cannot be asked (`orchestration/reconcile.py`, OQ-193). The provider call is never replayed. A run in `waiting_input` or `waiting_approval` stays paused. The checkpoint and the human question are Postgres rows (revision 0029), so an answer after restart resumes the run.
 
 ## What was tested
 

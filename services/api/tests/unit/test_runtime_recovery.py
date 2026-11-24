@@ -104,3 +104,53 @@ async def test_tenant_writer_uses_only_authenticated_tenant(
         assert service.store.ctx.tenant_id == demo_id("tenant")
         assert service.store.ctx.user_id == demo_id("admin")
     assert opened == [f"tenant settings update: {demo_id('tenant')}"]
+
+
+class _Workflows:
+    """Temporal as the API asks it at start: the ids of the workflows still going."""
+
+    def __init__(self, going: set[str]) -> None:
+        self.going = going
+
+    def get_workflow_handle(self, workflow_id: str) -> _Workflows._Handle:
+        return _Workflows._Handle(workflow_id in self.going)
+
+    class _Handle:
+        def __init__(self, going: bool) -> None:
+            self.going = going
+
+        async def describe(self) -> object:
+            from types import SimpleNamespace
+
+            from temporalio.service import RPCError, RPCStatusCode
+
+            if not self.going:
+                raise RPCError("workflow not found", RPCStatusCode.NOT_FOUND, b"")
+            return SimpleNamespace(status=SimpleNamespace(name="RUNNING"))
+
+
+async def test_an_api_that_starts_ends_a_lost_run_and_leaves_one_a_worker_holds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ar_api.middleware.durable import _end_lost_runs
+    from ar_domain.chat.service import ChatService
+
+    saved: list[object] = []
+
+    async def flush(store: object) -> None:
+        saved.append(store)
+
+    monkeypatch.setattr("ar_domain.durable.flush.flush_store", flush)
+    store = ChatService()
+    held, lost = uuid.uuid4(), uuid.uuid4()
+    for run_id in (held, lost):
+        store.runs[run_id] = {"id": run_id, "tenant_id": uuid.uuid4(), "status": "running"}
+    store.temporal_client = _Workflows({f"run-{held}"})  # type: ignore[assignment]
+    await _end_lost_runs(store)
+    assert store.runs[held]["status"] == "running"
+    assert store.runs[lost]["status"] == "failed"
+    assert store.runs[lost]["error"]["code"] == "interrupted"
+    # What it ended is saved at once, and a start that ends nothing writes nothing.
+    assert saved == [store]
+    await _end_lost_runs(store)
+    assert saved == [store]

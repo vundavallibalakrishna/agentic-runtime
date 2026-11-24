@@ -85,12 +85,14 @@ async def bind_store(
     finally:
         store._initial_loaded = None  # type: ignore[attr-defined]
     from ar_domain.durable.hydrate import load_running_jobs  # noqa: PLC0415
-    from ar_domain.orchestration.reconcile import reconcile_interrupted  # noqa: PLC0415
+    from ar_domain.jobs.progress import mark_jobs_interrupted  # noqa: PLC0415
 
-    # Job progress is no longer loaded eagerly; the reconcile needs the still-running jobs
-    # to mark them interrupted after this process took over.
+    # Job progress is no longer loaded eagerly; the still-running jobs are loaded to be
+    # marked interrupted after this process took over. Runs are not ended here: a working
+    # run belongs to its workflow, and only Temporal knows whether that is still going
+    # (``reconcile_interrupted``, called once the Temporal client is attached).
     await load_running_jobs(store, binding.tenant_id)
-    reconcile_interrupted(store)
+    mark_jobs_interrupted(store)
     # Platform rows built in this process (the built-in tool catalogue) that the database
     # does not hold yet are written once.
     for name, keys in seeded.items():
