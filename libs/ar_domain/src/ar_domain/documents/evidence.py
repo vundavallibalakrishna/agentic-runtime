@@ -169,9 +169,7 @@ def _reports(parsed: dict[str, object], schema: dict[str, object]) -> list[dict[
 
 def _mark_type_errors(schema: dict[str, object], reports: list[dict[str, object]]) -> None:
     """A leaf whose JSON type disagrees with the schema is invalid, on that leaf."""
-    result = _nest(
-        {str(item["path"]): item.get("value") for item in reports if "value" in item}
-    )
+    result = _nest({str(item["path"]): item.get("value") for item in reports if "value" in item})
     bad: set[str] = set()
     for error in Draft202012Validator(schema).iter_errors(result):
         if error.path:
