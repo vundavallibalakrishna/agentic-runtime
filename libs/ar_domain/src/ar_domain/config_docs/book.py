@@ -117,8 +117,7 @@ def agent_settings_block(store: Any, run: dict[str, object]) -> str:
             continue
         return (
             f"Agent settings, version {found.get('version')}. "
-            "These values are configuration for this agent.\n"
-            + orjson.dumps(document).decode()
+            "These values are configuration for this agent.\n" + orjson.dumps(document).decode()
         )
     return ""
 

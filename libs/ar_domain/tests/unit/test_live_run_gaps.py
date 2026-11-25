@@ -9,12 +9,14 @@ import uuid
 
 import pytest
 
-from ar_common.errors import ArError
+from ar_common.errors import ArError, ForbiddenError
 from ar_domain.agents.access import Actor
 from ar_domain.agents.packs import PackService, _apply_policies
 from ar_domain.approvals.errors import StepUpRequiredError
+from ar_domain.approvals.service import ApprovalBook
 from ar_domain.bundles.import_ import import_bundle
 from ar_domain.chat.service import demo_id
+from ar_domain.durable.hydrate import index_groups
 from ar_domain.config_docs.book import SettingsBook, agent_settings_block
 from ar_domain.memory.session import prepare_prompt
 from ar_domain.workspace.turn import opening_messages
@@ -161,3 +163,71 @@ def test_versioned_agent_settings_are_injected_into_the_run_prompt() -> None:
     }
     opened = opening_messages(child, definition, "Scan")
     assert "https://example.test/feed" in opened[0]["content"]
+
+
+def test_a_member_of_the_named_group_can_decide_the_approval() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    member = uuid.uuid4()
+    outsider = uuid.uuid4()
+    store.user_groups = index_groups([{"user_id": member, "name": "reviewers"}])
+    created = ApprovalBook(store).create_pending(
+        tenant_id=tenant,
+        user_id=demo_id("admin"),
+        run_id=None,
+        agent_id=None,
+        tool_call_id=None,
+        qualified_name="documents.extract",
+        risk_class="W2",
+        args_hash="hash-1",
+        arguments={"total": 1},
+        requirement={"approvers": {"mode": "group", "groups": ["reviewers"]}, "ttl_s": 3600},
+        reasons=["needs a person"],
+        preview={"title": "Review"},
+    )
+    notified = created  # the row is stored; the event lists the members who can decide
+    assert str(member) in {
+        str(item)
+        for item in next(
+            event["payload"]["approver_user_ids"]
+            for event in store.domain_events
+            if event.get("topic") == "approval.requested"
+        )
+    }
+    book = ApprovalBook(store)
+    body = {"decision": "approve", "args_hash": "hash-1"}
+    with pytest.raises(ForbiddenError):
+        book.decide(
+            Actor(tenant, outsider, frozenset({"approvals:decide"})),
+            uuid.UUID(str(notified["id"])),
+            body,
+            stepped_up=True,
+        )
+    decided = book.decide(
+        Actor(tenant, member, frozenset({"approvals:decide"})),
+        uuid.UUID(str(notified["id"])),
+        {"decision": "reject", "args_hash": "hash-1"},
+        stepped_up=True,
+    )
+    assert decided["status"] == "rejected"
+    second = book.create_pending(
+        tenant_id=tenant,
+        user_id=demo_id("admin"),
+        run_id=None,
+        agent_id=None,
+        tool_call_id=None,
+        qualified_name="documents.extract",
+        risk_class="W2",
+        args_hash="hash-2",
+        arguments={"total": 2},
+        requirement={"approvers": {"mode": "group", "groups": ["reviewers"]}, "ttl_s": 3600},
+        reasons=["needs a person"],
+        preview={"title": "Review"},
+    )
+    approved = book.decide(
+        Actor(tenant, member, frozenset({"approvals:decide"})),
+        uuid.UUID(str(second["id"])),
+        {"decision": "approve", "args_hash": "hash-2"},
+        stepped_up=True,
+    )
+    assert approved["status"] == "approved"
