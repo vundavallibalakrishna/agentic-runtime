@@ -23,7 +23,7 @@ SCRIPT = Path(__file__).with_name("tool_certification.py")
 
 def built_in_tools() -> set[str]:
     store = ChatService()
-    seed_tools.seed(store, tenant=False)  # the built-in catalogue, no tenant and no fixtures
+    seed_tools.seed(store)  # the built-in catalogue
     names = {str(row.get("qualified_name") or "") for row in store.tool_versions.values()}
     return {name for name in names if name and not name.startswith("connectors.")}
 

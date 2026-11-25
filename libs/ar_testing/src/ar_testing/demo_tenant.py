@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING
 
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.demo_ids import demo_id
-from ar_testing.tool_stand_ins import register_stand_ins
+from ar_testing.demo_tools import seed_demo_tools
+from ar_testing.tool_stand_ins import register_stand_ins, token_endpoint
 
 if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService
@@ -52,6 +53,8 @@ def seed_demo_tenant(store: ChatService) -> None:
     """
     # The demo tenant's tool servers are stand-ins served in this process.
     register_stand_ins()
+    if getattr(store, "oauth_transport", None) is None:
+        store.oauth_transport = token_endpoint()  # type: ignore[attr-defined]
     if store.demo_tenant_seeded:
         return
     store.demo_tenant_seeded = True
@@ -62,6 +65,7 @@ def seed_demo_tenant(store: ChatService) -> None:
     from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
 
     ToolRegistry(store).ensure_seed()
+    seed_demo_tools(store)
     from ar_domain.agents.access import Actor  # noqa: PLC0415
     from ar_domain.evals.book import EvalBook  # noqa: PLC0415
     from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415

@@ -64,3 +64,30 @@ def test_the_data_tools_name_no_in_memory_address() -> None:
     for name in ("database.py", "data_connections.py"):
         source = (_TOOLS / name).read_text(encoding="utf-8")
         assert "memory:" not in source, f"{name} still treats an in-memory address specially"
+
+
+def test_no_token_is_made_up_in_the_product() -> None:
+    """A token address beginning ``memory://`` used to get a token without a call.
+
+    So did the code ``invalid``, which was refused without one. Both answers were in
+    ``credentials.py`` and ``service_connections.py``. A token now comes only from the
+    endpoint the provider names.
+    """
+    for name in ("credentials.py", "service_connections.py"):
+        source = (_TOOLS / name).read_text(encoding="utf-8")
+        assert "memory://" not in source, f"{name} still answers an in-memory token address"
+        assert '"invalid"' not in source, f"{name} still refuses a code by its spelling"
+
+
+def test_the_product_seed_builds_no_tenant_rows() -> None:
+    """``seed_tools.py`` built the demo tenant's servers, agents and settings until 25 Nov 2026."""
+    from ar_domain.chat.service import ChatService
+
+    source = (_TOOLS / "seed_tools.py").read_text(encoding="utf-8")
+    assert "memory://" not in source
+    store = ChatService()
+    assert all(row.get("tenant_id") is None for row in store.tool_servers.values())
+    assert not store.agents
+    assert not store.credential_providers
+    assert not store.data_connections
+    assert not store.tenant_settings

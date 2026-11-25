@@ -418,8 +418,6 @@ def _refresh_if_needed(store: Any, row: dict[str, object]) -> None:
 
 def _client_credentials(store: Any, row: dict[str, object]) -> dict[str, str]:
     token_url = str(row.get("token_url") or "")
-    if token_url.startswith("memory://"):
-        return {"access_token": f"access-{row.get('name')}", "expires_in": "3600"}
     from ar_domain.egress import dial_allow  # noqa: PLC0415
 
     problem = guard_public(token_url, allow=dial_allow(store, row.get("tenant_id")), loopback=False)
@@ -436,14 +434,12 @@ def _client_credentials(store: Any, row: dict[str, object]) -> dict[str, str]:
     from ar_domain.egress import dial_allow  # noqa: PLC0415
 
     return _token_response(
-        token_url, form, row.get("_token_transport"), dial_allow(store, row.get("tenant_id"))
+        token_url, form, _transport(store, row), dial_allow(store, row.get("tenant_id"))
     )
 
 
 def _refresh_token(store: Any, row: dict[str, object]) -> dict[str, str]:
     token_url = str(row.get("token_url") or "")
-    if token_url.startswith("memory://"):
-        return {"access_token": f"refreshed-{row.get('name')}", "expires_in": "3600"}
     # A recorded fixture may point the token URL at a loopback server. Production
     # rows do not set this flag, so a loopback token URL stays denied.
     from ar_domain.egress import dial_allow  # noqa: PLC0415
@@ -464,8 +460,13 @@ def _refresh_token(store: Any, row: dict[str, object]) -> dict[str, str]:
     from ar_domain.egress import dial_allow  # noqa: PLC0415
 
     return _token_response(
-        token_url, form, row.get("_token_transport"), dial_allow(store, row.get("tenant_id"))
+        token_url, form, _transport(store, row), dial_allow(store, row.get("tenant_id"))
     )
+
+
+def _transport(store: Any, row: dict[str, object]) -> Any:
+    """The transport a token call is sent on: the default, unless a test set its own."""
+    return row.get("_token_transport") or getattr(store, "oauth_transport", None)
 
 
 def _token_response(
@@ -491,14 +492,6 @@ def _token_response(
 
 async def _exchange(store: Any, row: dict[str, object], code: str, verifier: str) -> dict[str, str]:
     token_url = str(row.get("token_url") or "")
-    if code == "invalid":
-        raise ArError(ErrorCode.BAD_REQUEST, "invalid_grant")
-    if token_url.startswith("memory://"):
-        return {
-            "access_token": f"access-{code}",
-            "refresh_token": f"refresh-{code}",
-            "expires_in": "3600",
-        }
     from ar_domain.egress import dial_allow  # noqa: PLC0415
 
     allow = dial_allow(store, row.get("tenant_id"))
@@ -513,7 +506,9 @@ async def _exchange(store: Any, row: dict[str, object], code: str, verifier: str
         "client_secret": _open(row.get("secret")),
     }
     try:
-        async with async_client(timeout=20.0, allow=allow) as client:
+        async with async_client(
+            timeout=20.0, allow=allow, transport=_transport(store, row)
+        ) as client:
             response = await client.post(token_url, data=form)
             response.raise_for_status()
             loaded = response.json()

@@ -32,11 +32,11 @@ class ToolRegistry:
     def __init__(self, store: Any) -> None:
         self.store = store
 
-    def ensure_seed(self, *, tenant: bool = True) -> None:
-        """Built-in tool catalogue, and the demo tenant's fixtures when ``tenant`` is set."""
+    def ensure_seed(self) -> None:
+        """Load the built-in tool catalogue."""
         from ar_domain.tools.seed_tools import seed  # noqa: PLC0415
 
-        seed(self.store, tenant=tenant)
+        seed(self.store)
 
     def list_servers(
         self,

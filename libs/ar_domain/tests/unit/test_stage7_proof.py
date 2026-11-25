@@ -100,7 +100,7 @@ def test_an_installed_connector_is_offered_and_proof_stays_a_badge() -> None:
 @pytest.mark.unit
 def test_not_live_connector_tools_are_hidden_from_the_model() -> None:
     store = ChatService()
-    seed(store, tenant=False)
+    seed(store)
     rows = ToolPipeline(store)._bound("connectors", ["*"], uuid.uuid4())
     names = {str(row["qualified_name"]) for row in rows}
     assert names == set()

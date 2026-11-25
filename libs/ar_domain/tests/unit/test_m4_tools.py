@@ -148,7 +148,7 @@ def test_oauth_cache_is_ciphertext_and_refresh_rotates() -> None:
             "slug": "demo",
             "name": "Demo",
             "authorize_url": "https://tickets.example/authorize",
-            "token_url": "memory://oauth",
+            "token_url": "https://example.com/oauth/token",
         },
     )
     started = book.start(admin, uuid.UUID(provider["id"]))

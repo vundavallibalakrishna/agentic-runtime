@@ -120,7 +120,7 @@ def test_oauth_invalid_grant() -> None:
             "slug": "local",
             "name": "Local",
             "authorizeUrl": "https://tickets.example/authorize",
-            "tokenUrl": "memory://oauth",
+            "tokenUrl": "https://example.com/oauth/token",
         },
     )
     assert created.status_code == 200, created.text
