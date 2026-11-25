@@ -98,7 +98,8 @@ async def _advance(
         else payload.get("names")
     )
     names = [str(item) for item in raw_names] if isinstance(raw_names, list) else []
-    kind = await store.advance_turn(run_id, text, names)
+    advance = getattr(store, "advance_turn")
+    kind = await advance(run_id, text, names)
     await flush_store(store)
     run = runs.get(run_id, {}) if isinstance(runs, dict) else {}
     status = str(run.get("status") or "completed") if isinstance(run, dict) else "completed"
