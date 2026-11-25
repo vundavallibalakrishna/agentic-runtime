@@ -5,7 +5,7 @@ export function CodeSample({ title, value }: { title: string; value: string }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-medium">{title}</h3>
+        <p className="text-sm font-medium">{title}</p>
         <CopyButton label={title} value={value} />
       </div>
       <pre className="mt-2 whitespace-pre-wrap break-all rounded-lg bg-[var(--muted)] p-3 text-xs">

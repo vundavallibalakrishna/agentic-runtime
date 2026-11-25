@@ -14,8 +14,13 @@ function highlighter(): Promise<Highlighter> {
 
 export type Token = { content: string; color?: string };
 
+// The light theme's colours that are too faint on the code block's background to meet
+// 4.5:1, each with the nearest shade that does.
 const readableLight: Record<string, string> = {
   "#D73A49": "#B42334",
+  "#E36209": "#A04100",
+  "#22863A": "#1A6B2E",
+  "#6A737D": "#57606A",
 };
 
 function readableColor(color: string | undefined, dark: boolean): string | undefined {
