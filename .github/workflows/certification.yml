@@ -55,6 +55,9 @@ jobs:
           AR_CERT_PARTS: ${{ inputs.parts }}
           AR_CERT_REPEAT: ${{ inputs.repeat || '2' }}
           AR_CERT_CONTEXT_WINDOW: ${{ inputs.context_window }}
+          # The product gives a new model no request options. The model this run registers
+          # reasons out loud unless told not to, so the run says so here.
+          AR_CERT_REQUEST_OPTIONS: ${{ vars.AR_CERT_REQUEST_OPTIONS || '{"chat_template_kwargs":{"enable_thinking":false}}' }}
         run: bash scripts/certify_stack.sh
       - name: Evidence
         if: always()

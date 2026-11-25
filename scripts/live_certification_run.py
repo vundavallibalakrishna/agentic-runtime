@@ -833,6 +833,9 @@ def _register_models(api: str, auth: dict[str, str]) -> None:
                 body["embeddingDimensions"] = dimensions
             if kind == "chat":
                 body.update(_served_limits())
+                options = _request_options()
+                if options:
+                    body["requestOptions"] = options
             _made, _headers, created = _json("POST", f"{api}/api/v1/models", body, auth)
             if isinstance(created, dict) and created.get("id"):
                 rows.append(created)
@@ -862,6 +865,24 @@ def _register_models(api: str, auth: dict[str, str]) -> None:
             {"alias": "embed", "kind": "embedding", "primaryModelId": embed_id},
             auth,
         )
+
+
+def _request_options() -> dict[str, object]:
+    """Extra request fields for the chat model, from ``AR_CERT_REQUEST_OPTIONS`` (a JSON object).
+
+    The product gives a new model none, whatever its name. A model that reasons out loud
+    unless told not to is told here, by whoever runs the certification.
+    """
+    raw = os.environ.get("AR_CERT_REQUEST_OPTIONS", "").strip()
+    if not raw:
+        return {}
+    try:
+        loaded = orjson.loads(raw)
+    except ValueError as exc:
+        raise SystemExit(f"AR_CERT_REQUEST_OPTIONS is not JSON: {exc}") from exc
+    if not isinstance(loaded, dict):
+        raise SystemExit("AR_CERT_REQUEST_OPTIONS must be a JSON object")
+    return loaded
 
 
 def _served_limits() -> dict[str, int]:
