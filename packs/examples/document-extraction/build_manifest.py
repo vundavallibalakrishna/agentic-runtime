@@ -114,6 +114,13 @@ def manifest() -> dict[str, object]:
                             {"server": "documents", "include": ["read", "extract", "ingest"]},
                         ],
                         "skills": ["document-extraction-schemas"],
+                        "settingsSchema": {
+                            "type": "object",
+                            "required": ["approvalGroup"],
+                            "additionalProperties": False,
+                            "properties": {"approvalGroup": {"type": "string"}},
+                        },
+                        "settings": {"approvalGroup": "extraction-reviewers"},
                         "budget": {
                             "maxSteps": 24,
                             "maxTokens": 120000,

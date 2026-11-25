@@ -59,7 +59,9 @@ def post_cards(
         user_id = ""
         if isinstance(identity, dict):
             user_id = str(identity.get("user_id") or "")
-        link = links.get(user_id) if user_id else ""
+        link = ""
+        if user_id and _direct_to_approver(store, integration):
+            link = links.get(user_id) or ""
         if not link:
             link = approvals_url()
         text = f"Approval requested for {row.get('qualified_name') or 'a tool'}"
@@ -109,6 +111,14 @@ def _card(row: dict[str, object], kind: str, link: str, text: str) -> dict[str, 
         "text": text,
         "blocks": slack_blocks(approval_id, args_hash, step_up=step_up, web_url=link),
     }
+
+
+def _direct_to_approver(store: Any, integration: dict[str, object]) -> bool:
+    """A personal link is only for a direct message. An incoming webhook is shared."""
+    secret = load_credentials(store, integration)
+    if secret.get("webhook_url"):
+        return False
+    return bool(secret.get("bot_token") or secret.get("app_id"))
 
 
 def _bindings(  # noqa: PLR0912

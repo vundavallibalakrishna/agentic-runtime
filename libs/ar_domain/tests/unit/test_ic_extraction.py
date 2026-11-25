@@ -190,6 +190,45 @@ def test_a_wrong_type_or_a_value_absent_from_its_quote_is_invalid() -> None:
     assert "limit" in unsupported["exceptions"]
 
 
+def test_normalised_numbers_dates_and_booleans_count_as_supported() -> None:
+    passages = [
+        {
+            "text": "Amount 1,500 is due on 15 January 2026. Approved: Yes. Flag: No.",
+            "page": 1,
+            "anchor": "p1",
+        }
+    ]
+    schema = {
+        "type": "object",
+        "properties": {
+            "amount": {"type": "number"},
+            "when": {"type": "string"},
+            "approved": {"type": "boolean"},
+            "flag": {"type": "boolean"},
+            "wrong": {"type": "number"},
+            "other_day": {"type": "string"},
+        },
+    }
+    raw = (
+        '{"fields": {'
+        '"amount": {"value": 1500.0, "quote": "1,500", "confidence": 0.95}, '
+        '"when": {"value": "2026-01-15", "quote": "15 January 2026", "confidence": 0.95}, '
+        '"approved": {"value": true, "quote": "Yes", "confidence": 0.95}, '
+        '"flag": {"value": false, "quote": "No", "confidence": 0.95}, '
+        '"wrong": {"value": 1501, "quote": "1,500", "confidence": 0.95}, '
+        '"other_day": {"value": "2026-01-16", "quote": "15 January 2026", "confidence": 0.95}'
+        "}}"
+    )
+    body = interpret(raw, schema, passages, threshold=0.8)
+    by_path = {item["path"]: item for item in body["fields"]}
+    assert by_path["amount"]["status"] == "extracted"
+    assert by_path["when"]["status"] == "extracted"
+    assert by_path["approved"]["status"] == "extracted"
+    assert by_path["flag"]["status"] == "extracted"
+    assert by_path["wrong"]["status"] == "invalid"
+    assert by_path["other_day"]["status"] == "invalid"
+
+
 def test_a_low_confidence_quote_is_not_extracted() -> None:
     passages = [{"text": "Limit 1000", "page": 2, "anchor": "p2"}]
     raw = '{"fields": {"limit": {"value": "1000", "quote": "1000", "confidence": 0.2}}}'

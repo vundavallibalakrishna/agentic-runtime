@@ -37,6 +37,38 @@ def test_putting_again_raises_the_version_and_is_audited() -> None:
     assert store.audit_log[-1]["detail"]["reason"] == "corrected"
 
 
+def test_put_and_list_stay_inside_the_tenant_and_the_pack() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    other = demo_id("other")
+    first = dispatch_extensions(
+        store,
+        "put",
+        {"_tenant_id": tenant, "packId": "scenario_runs", "bucket": "runs", "payload": {"n": 1}},
+    )
+    row_id = first["structured"]["id"]
+    stolen = dispatch_extensions(
+        store,
+        "put",
+        {
+            "_tenant_id": other,
+            "packId": "other_pack",
+            "bucket": "runs",
+            "payload": {"n": 9},
+            "id": row_id,
+        },
+    )
+    assert stolen["is_error"] is True
+    hidden = dispatch_extensions(store, "get", {"_tenant_id": other, "id": row_id})
+    assert hidden["is_error"] is True
+    listed = dispatch_extensions(
+        store, "list", {"_tenant_id": tenant, "packId": "scenario_runs", "bucket": "runs"}
+    )
+    assert len(listed["structured"]["rows"]) == 1
+    empty = dispatch_extensions(store, "list", {"_tenant_id": other, "packId": "scenario_runs"})
+    assert empty["structured"]["rows"] == []
+
+
 def test_a_preparer_cannot_approve_their_own_four_eyes_result() -> None:
     store = demo_store()
     user = demo_id("admin")
@@ -52,38 +84,60 @@ def test_a_preparer_cannot_approve_their_own_four_eyes_result() -> None:
 
 
 def test_pack_policies_take_the_approver_group_from_settings() -> None:
+    from ar_domain.policy.logic import rule_matches
+
     store = demo_store()
     tenant = demo_id("tenant")
-    store.tenant_settings[tenant] = {"documents": {"extractionReviewGroup": "reviewers"}}
     actor = Actor(tenant, demo_id("admin"), frozenset())
-    _apply_policies(
-        store,
-        actor,
-        {
-            "spec": {
-                "resources": [
-                    {
-                        "kind": "Policy",
-                        "metadata": {"name": "Results"},
-                        "spec": {
-                            "document": {
-                                "rules": [
-                                    {
-                                        "approval": {
-                                            "approvers": {
-                                                "mode": "group",
-                                                "groups": ["{{approvalGroup}}"],
-                                            }
+    manifest = {
+        "metadata": {"id": "document_extraction"},
+        "spec": {
+            "resources": [
+                {
+                    "kind": "Agent",
+                    "metadata": {"slug": "document-extraction"},
+                    "spec": {"settings": {"approvalGroup": "reviewers"}},
+                },
+                {
+                    "kind": "Policy",
+                    "metadata": {"name": "Results"},
+                    "spec": {
+                        "document": {
+                            "rules": [
+                                {
+                                    "id": "extract",
+                                    "effect": "require_approval",
+                                    "match": {"tools": ["documents.extract"]},
+                                    "approval": {
+                                        "approvers": {
+                                            "mode": "group",
+                                            "groups": ["{{approvalGroup}}"],
                                         }
-                                    }
-                                ]
-                            }
-                        },
-                    }
-                ]
-            }
+                                    },
+                                }
+                            ]
+                        }
+                    },
+                },
+            ]
         },
+    }
+    _apply_policies(store, actor, manifest)
+    _apply_policies(store, actor, manifest)
+    named = [row for row in store.policies.values() if row.get("name") == "Results"]
+    assert len(named) == 1
+    version = store.policy_versions[named[0]["active_version_id"]]
+    rule = version["document"]["rules"][0]
+    assert rule["approval"]["approvers"]["groups"] == ["reviewers"]
+    assert rule["match"]["agents"] == ["document-extraction"]
+    own = {
+        "tool": {"qualified_name": "documents.extract"},
+        "agent": {"slug": "document-extraction"},
+    }
+    other = {"tool": {"qualified_name": "documents.extract"}, "agent": {"slug": "assistant"}}
+    assert rule_matches(rule, own) is True
+    assert rule_matches(rule, other) is False
+    assert any(
+        row["action"] == "policy.created" and row.get("detail", {}).get("name") == "Results"
+        for row in store.audit_log
     )
-    version = next(iter(store.policy_versions.values()))
-    groups = version["document"]["rules"][0]["approval"]["approvers"]["groups"]
-    assert groups == ["reviewers"]

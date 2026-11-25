@@ -158,6 +158,8 @@ class PackService:
             apply_extension(self.store, actor, parsed)
         existing = self._by_version(actor.tenant_id, parsed.metadata.id, parsed.metadata.version)
         if existing is not None and existing.get("status") == "installed":
+            _seed_settings(self.store, actor, manifest)
+            _apply_policies(self.store, actor, manifest)
             body = self._out(existing)
             body["import_results"] = []
             return body
@@ -334,17 +336,11 @@ class PackService:
 
 
 def _seed_settings(store: Any, actor: Actor, manifest: dict[str, object]) -> None:
-    """Version 1 of an agent's settings, taken from the pack manifest when it names them."""
-    spec = manifest.get("spec") if isinstance(manifest.get("spec"), dict) else None
-    resources = spec.get("resources") if isinstance(spec, dict) else None
-    if not isinstance(resources, list):
-        return
+    """Version 1 when a resource has no settings. A changed schema merges, it does not replace."""
     from ar_domain.config_docs.book import SettingsBook  # noqa: PLC0415
 
     book = SettingsBook(store)
-    for item in resources:
-        if not isinstance(item, dict):
-            continue
+    for item in _resources(manifest):
         body = item.get("spec") if isinstance(item.get("spec"), dict) else None
         if not isinstance(body, dict):
             continue
@@ -352,73 +348,160 @@ def _seed_settings(store: Any, actor: Actor, manifest: dict[str, object]) -> Non
         document = body.get("settings")
         if not isinstance(schema, dict) or not isinstance(document, dict):
             continue
-        raw_meta = item.get("metadata")
-        meta = raw_meta if isinstance(raw_meta, dict) else {}
-        resource_id = str(meta.get("slug") or meta.get("id") or "")
+        resource_id = _resource_id(item)
         if not resource_id:
+            continue
+        kind = str(item.get("kind") or "agent").lower()
+        try:
+            current = book.latest(actor.tenant_id, kind, resource_id)
+        except NotFoundError:
+            book.save(actor.tenant_id, actor.user_id, kind, resource_id, schema, document)
+            continue
+        if current.get("schema") == schema:
             continue
         book.save(
             actor.tenant_id,
             actor.user_id,
-            str(item.get("kind") or "agent").lower(),
+            kind,
             resource_id,
             schema,
-            document,
+            _merge_settings(schema, document, current.get("document")),
         )
 
 
 def _apply_policies(store: Any, actor: Actor, manifest: dict[str, object]) -> None:
-    """Install Policy resources from the manifest. The group name comes from settings."""
-    spec = manifest.get("spec") if isinstance(manifest.get("spec"), dict) else None
-    resources = spec.get("resources") if isinstance(spec, dict) else None
-    if not isinstance(resources, list):
-        return
-    group = _extraction_group(store, actor.tenant_id)
-    from ar_common.ids import new_id  # noqa: PLC0415
-    from ar_common.time import utcnow  # noqa: PLC0415
+    """Install each Policy through PolicyBook. A second install updates that policy."""
+    from ar_domain.policy.service import PolicyBook  # noqa: PLC0415
 
-    now = utcnow()
-    for item in resources:
-        if not isinstance(item, dict) or item.get("kind") != "Policy":
+    group = _approval_group(store, actor, manifest)
+    slugs = _agent_slugs(manifest)
+    book = PolicyBook(store)
+    for item in _resources(manifest):
+        if item.get("kind") != "Policy":
             continue
         body = item.get("spec") if isinstance(item.get("spec"), dict) else None
         document = body.get("document") if isinstance(body, dict) else None
         if not isinstance(document, dict):
             continue
-        rewritten = _with_group(document, group)
-        raw_meta = item.get("metadata")
-        meta = raw_meta if isinstance(raw_meta, dict) else {}
-        policy_id = new_id()
-        version_id = new_id()
-        store.policies[policy_id] = {
-            "id": policy_id,
-            "tenant_id": actor.tenant_id,
-            "name": str(meta.get("name") or "Pack policy"),
-            "kind": "rules",
-            "status": "active",
-            "priority": 100,
-            "active_version_id": version_id,
-            "created_at": now,
-            "updated_at": now,
-        }
-        store.policy_versions[version_id] = {
-            "id": version_id,
-            "tenant_id": actor.tenant_id,
-            "policy_id": policy_id,
-            "version": 1,
-            "document": rewritten,
-            "created_at": now,
-        }
+        rewritten = _scope_rules(_with_group(document, group), slugs)
+        name = str(_meta(item).get("name") or "Pack policy")
+        existing = book._named(actor.tenant_id, name)
+        if existing is None:
+            created = book.create(
+                actor, {"name": name, "kind": "rules", "document": rewritten, "priority": 100}
+            )
+            policy_id = uuid.UUID(str(created["id"]))
+            number = 1
+        else:
+            policy_id = existing["id"]
+            if not isinstance(policy_id, uuid.UUID):
+                policy_id = uuid.UUID(str(policy_id))
+            latest = book._latest(existing)
+            same = isinstance(latest, dict) and latest.get("document") == rewritten
+            if same and existing.get("status") == "active":
+                continue
+            if same and isinstance(latest, dict):
+                number = int(latest["version"])
+            else:
+                added = book.add_version(actor, policy_id, {"document": rewritten})
+                number = int(added["version"])
+        book.activate(actor, policy_id, number, stepped_up=False)
 
 
-def _extraction_group(store: Any, tenant_id: object) -> str:
-    settings = getattr(store, "tenant_settings", {})
-    row = settings.get(tenant_id) if isinstance(settings, dict) else None
-    documents = row.get("documents") if isinstance(row, dict) else None
-    group = documents.get("extractionReviewGroup") if isinstance(documents, dict) else None
-    if isinstance(group, str) and group.strip():
-        return group.strip()
-    return "approvers"
+def _approval_group(store: Any, actor: Actor, manifest: dict[str, object]) -> str:
+    """The approver group named in this pack's own settings. No shared default."""
+    from ar_common.errors import NotFoundError  # noqa: PLC0415
+    from ar_domain.config_docs.book import SettingsBook  # noqa: PLC0415
+
+    book = SettingsBook(store)
+    for item in _resources(manifest):
+        if str(item.get("kind") or "").lower() != "agent":
+            continue
+        resource_id = _resource_id(item)
+        document: object = None
+        if resource_id:
+            try:
+                document = book.latest(actor.tenant_id, "agent", resource_id).get("document")
+            except NotFoundError:
+                document = None
+        if not isinstance(document, dict):
+            spec = item.get("spec") if isinstance(item.get("spec"), dict) else None
+            document = spec.get("settings") if isinstance(spec, dict) else None
+        group = document.get("approvalGroup") if isinstance(document, dict) else None
+        if isinstance(group, str) and group.strip():
+            return group.strip()
+    return ""
+
+
+def _agent_slugs(manifest: dict[str, object]) -> list[str]:
+    slugs = [
+        _resource_id(item)
+        for item in _resources(manifest)
+        if str(item.get("kind") or "") == "Agent" and _resource_id(item)
+    ]
+    if slugs:
+        return slugs
+    pack_id = str(_meta(manifest).get("id") or "pack")
+    return [pack_id]
+
+
+def _scope_rules(document: dict[str, object], slugs: list[str]) -> dict[str, object]:
+    """Every rule applies only to this pack's agents."""
+    rules = document.get("rules")
+    if not isinstance(rules, list):
+        return document
+    scoped: list[object] = []
+    for rule in rules:
+        if not isinstance(rule, dict):
+            scoped.append(rule)
+            continue
+        copy = dict(rule)
+        match = dict(copy.get("match")) if isinstance(copy.get("match"), dict) else {}
+        listed = match.get("agents")
+        if isinstance(listed, list) and listed:
+            kept = [str(item) for item in listed if str(item) in slugs]
+            match["agents"] = kept or list(slugs)
+        else:
+            match["agents"] = list(slugs)
+        copy["match"] = match
+        scoped.append(copy)
+    rewritten = dict(document)
+    rewritten["rules"] = scoped
+    return rewritten
+
+
+def _resources(manifest: dict[str, object]) -> list[dict[str, object]]:
+    spec = manifest.get("spec") if isinstance(manifest.get("spec"), dict) else None
+    resources = spec.get("resources") if isinstance(spec, dict) else None
+    if not isinstance(resources, list):
+        return []
+    return [item for item in resources if isinstance(item, dict)]
+
+
+def _meta(item: dict[str, object]) -> dict[str, object]:
+    raw = item.get("metadata")
+    return raw if isinstance(raw, dict) else {}
+
+
+def _resource_id(item: dict[str, object]) -> str:
+    meta = _meta(item)
+    return str(meta.get("slug") or meta.get("id") or "")
+
+
+def _merge_settings(
+    schema: dict[str, object], defaults: dict[str, object], current: object
+) -> dict[str, object]:
+    """Pack defaults fill gaps. A value the tenant already set stays."""
+    merged = dict(defaults)
+    if isinstance(current, dict):
+        merged.update(current)
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        merged = {key: value for key, value in merged.items() if key in properties}
+        for key, value in defaults.items():
+            if key in properties and key not in merged:
+                merged[key] = value
+    return merged
 
 
 def _with_group(document: dict[str, object], group: str) -> dict[str, object]:

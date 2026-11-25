@@ -5,16 +5,20 @@ Label: unit
 
 from __future__ import annotations
 
+from pydantic import SecretStr
+
 from ar_api.auth.mode import AuthMode, resolve_auth_mode
 from ar_api.main import Settings
 from ar_api.middleware.stack import _review_decide
 from ar_common.settings import EnvName
 
+_SECRET = SecretStr("staging-cursor-secret-value")
+
 
 def test_production_defaults_to_oidc_so_a_review_token_is_not_enough() -> None:
-    settings = Settings(_env_file=None, env=EnvName.PROD, auth_mode="")
+    settings = Settings(_env_file=None, env=EnvName.PROD, auth_mode="", cursor_secret=_SECRET)
     assert resolve_auth_mode(settings) is AuthMode.OIDC
-    dev = Settings(_env_file=None, env=EnvName.DEV, auth_mode="")
+    dev = Settings(_env_file=None, env=EnvName.DEV, auth_mode="", cursor_secret=_SECRET)
     assert resolve_auth_mode(dev) is AuthMode.PASSWORD
 
 

@@ -42,6 +42,17 @@ async def _prepare_store() -> object:
     return store
 
 
+async def _sweep_while_connected(store: object, sweep: object) -> None:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    while True:
+        try:
+            await sweep(store)  # type: ignore[operator]
+        except Exception as exc:  # noqa: BLE001 — one failed sweep must not stop the worker
+            _log.warning("webhook_sweep_failed", error=type(exc).__name__)
+        await asyncio.sleep(max(5, int(get_settings().webhook_sweep_grace_s)))
+
+
 async def run_worker() -> None:
     """Connect and poll ``ar-system``. Failures are logged and retried."""
     from temporalio.worker import Worker  # noqa: PLC0415
@@ -123,10 +134,16 @@ async def run_worker() -> None:
             )
             _log.info("temporal_connected", queue=TASK_QUEUE)
             from ar_domain.sandboxes.lifecycle import keeping  # noqa: PLC0415
+            from ar_domain.webhooks.delivery import sweep_due_deliveries  # noqa: PLC0415
 
             # A worker that starts computers itself ends them as it stops.
+            # The sweep also runs while Temporal is up, for deliveries the workflow did not finish.
             async with keeping(store):
-                await asyncio.gather(worker.run(), eval_worker.run())
+                sweep = asyncio.create_task(_sweep_while_connected(store, sweep_due_deliveries))
+                try:
+                    await asyncio.gather(worker.run(), eval_worker.run())
+                finally:
+                    sweep.cancel()
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - keep the health server up

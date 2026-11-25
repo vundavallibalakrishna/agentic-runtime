@@ -380,8 +380,64 @@ def test_a_named_hook_is_tested_whatever_its_topics_and_redelivery_is_a_new_row(
     assert isinstance(original, uuid.UUID)
     created = book.redeliver(demo_id("tenant"), hook_id, original)
     assert created["id"] != original
+    assert created["outbox_event_id"] == made[0]["outbox_event_id"]
     with pytest.raises(NotFoundError):
         book.redeliver(demo_id("tenant"), hook_id, uuid.uuid4())
+
+
+def test_a_shared_webhook_does_not_carry_a_personal_review_link() -> None:
+    from ar_domain.channels.posts import save_credentials
+
+    store = demo_store()
+    tenant = demo_id("tenant")
+    integration_id = uuid.uuid4()
+    user = str(demo_id("admin"))
+    store.channel_integrations[integration_id] = {
+        "id": integration_id,
+        "tenant_id": tenant,
+        "kind": "slack",
+        "status": "active",
+    }
+    store.channel_identities[uuid.uuid4()] = {
+        "tenant_id": tenant,
+        "user_id": user,
+        "integration_id": integration_id,
+        "external_user_id": "U1",
+    }
+    approval = {
+        "id": uuid.uuid4(),
+        "tenant_id": tenant,
+        "qualified_name": "documents.extract",
+        "args_hash": "h",
+        "expires_at": utcnow() + timedelta(hours=1),
+        "step_up_required": False,
+    }
+    personal = "https://app.example/review/token"
+    save_credentials(store, integration_id, {"webhook_url": "https://hooks.example/slack"})
+    shared = post_cards(store, approval, [user], {user: personal})
+    assert shared and "/review/" not in str(shared[0]["review_url"])
+    save_credentials(store, integration_id, {"bot_token": "xoxb-test"})
+    direct = post_cards(store, approval, [user], {user: personal})
+    assert direct[0]["review_url"] == personal
+
+
+def test_the_sweep_waits_for_the_grace_period_while_temporal_is_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = demo_store()
+    store.temporal_client = object()
+    delivery_id = uuid.uuid4()
+    store.webhook_deliveries[delivery_id] = {
+        "id": delivery_id,
+        "status": "pending",
+        "next_attempt_at": utcnow(),
+        "tenant_id": demo_id("tenant"),
+        "webhook_id": uuid.uuid4(),
+    }
+    monkeypatch.setattr("ar_domain.webhooks.delivery._grace_s", lambda: 60)
+    assert sweep_due(store) == 0
+    store.webhook_deliveries[delivery_id]["next_attempt_at"] = utcnow() - timedelta(seconds=120)
+    assert sweep_due(store) == 1
 
 
 def test_post_cards_helper_is_a_no_op_without_bindings() -> None:

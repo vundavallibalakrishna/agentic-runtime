@@ -71,6 +71,12 @@ def manifest() -> dict[str, object]:
                             "maxToolCalls": 60,
                             "maxParallelToolCalls": 1,
                         },
+                        "settingsSchema": json.loads(
+                            (HERE / "settings.schema.json").read_text(encoding="utf-8")
+                        ),
+                        "settings": json.loads(
+                            (HERE / "settings.example.json").read_text(encoding="utf-8")
+                        ),
                     },
                 },
                 {

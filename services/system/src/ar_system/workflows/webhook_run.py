@@ -6,6 +6,7 @@ from typing import Any  # noqa: TC003 — Temporal reads annotations at runtime
 from temporalio import activity, workflow
 
 with workflow.unsafe.imports_passed_through():
+    import asyncio
     import uuid
 
     from ar_domain.readmodel.activity import repository_activity
@@ -17,7 +18,8 @@ with workflow.unsafe.imports_passed_through():
 @repository_activity(process_store)
 async def deliver_webhook_activity(payload: dict[str, Any]) -> dict[str, Any]:
     delivery_id = uuid.UUID(str(payload.get("delivery_id") or ""))
-    return attempt(current_store(), delivery_id)
+    # The HTTP client is synchronous. Run it off the activity loop.
+    return await asyncio.to_thread(attempt, current_store(), delivery_id)
 
 
 @workflow.defn(name="WebhookDeliveryWorkflow")

@@ -765,6 +765,7 @@ class DocumentLibrary:
         alias: str = "",
         review: bool = False,
         run_id: uuid.UUID | None = None,
+        agent_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         """Fill ``schema`` from the document. A missing model is an error."""
         if not schema:
@@ -809,7 +810,7 @@ class DocumentLibrary:
         body["content_hash"] = str(row.get("content_hash") or "")
         self._store_extraction(actor, row, body, alias, run_id=run_id)
         if review or _extraction_review_enabled(self.store, actor.tenant_id):
-            self._review_extraction(actor, row, schema, body, run_id=run_id)
+            self._review_extraction(actor, row, schema, body, run_id=run_id, agent_id=agent_id)
         return body
 
     def _store_extraction(
@@ -874,6 +875,7 @@ class DocumentLibrary:
         body: dict[str, object],
         *,
         run_id: uuid.UUID | None = None,
+        agent_id: uuid.UUID | None = None,
     ) -> None:
         exceptions = body.get("exceptions")
         meta = row.get("metadata")
@@ -897,12 +899,13 @@ class DocumentLibrary:
             "parser_note": meta.get("parserNote") if isinstance(meta, dict) else "",
         }
         digest = call_args_hash("documents.review_extraction", arguments)
+        call_id = _review_call(self.store, actor.tenant_id, run_id, digest)
         created = ApprovalBook(self.store).create_pending(
             tenant_id=actor.tenant_id,
             user_id=actor.user_id,
             run_id=run_id,
-            agent_id=None,
-            tool_call_id=new_id(),
+            agent_id=agent_id,
+            tool_call_id=call_id,
             qualified_name="documents.review_extraction",
             risk_class="W2",
             args_hash=digest,
@@ -1542,6 +1545,33 @@ def _document_settings(store: Any, tenant_id: object) -> dict[str, object]:
     row = settings.get(tenant_id) if isinstance(settings, dict) else None
     documents = row.get("documents") if isinstance(row, dict) else None
     return documents if isinstance(documents, dict) else {}
+
+
+def _review_call(
+    store: Any, tenant_id: uuid.UUID, run_id: uuid.UUID | None, digest: str
+) -> uuid.UUID | None:
+    """A tool call the approval can point at. Without a run the approval is still stored."""
+    if not isinstance(run_id, uuid.UUID):
+        return None
+    from ar_common.ids import new_id  # noqa: PLC0415
+    from ar_common.time import utcnow  # noqa: PLC0415
+
+    call_id = new_id()
+    calls = getattr(store, "tool_calls", None)
+    if not isinstance(calls, dict):
+        calls = {}
+        store.tool_calls = calls
+    calls[call_id] = {
+        "id": call_id,
+        "tenant_id": tenant_id,
+        "run_id": run_id,
+        "qualified_name": "documents.review_extraction",
+        "args_hash": digest,
+        "status": "awaiting_approval",
+        "idempotency_key": f"{run_id}:{call_id}",
+        "created_at": utcnow(),
+    }
+    return call_id
 
 
 def _extraction_review_enabled(store: Any, tenant_id: object) -> bool:

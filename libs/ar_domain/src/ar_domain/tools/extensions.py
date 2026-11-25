@@ -30,16 +30,21 @@ def _put(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     payload = arguments.get("payload")
     if not pack_id or not bucket or not isinstance(payload, dict):
         return _error("validation_failed", "put needs packId, bucket and a payload object.")
+    tenant_id = _uuid(arguments.get("_tenant_id"))
+    if tenant_id is None:
+        return _error("validation_failed", "put needs a tenant.")
     book = _book(store)
     row_id = _uuid(arguments.get("id")) or new_id()
     existing = book.get(row_id)
     version = 1
     if isinstance(existing, dict):
+        if existing.get("tenant_id") != tenant_id or existing.get("pack_id") != pack_id:
+            return _error("not_found", "No row with that id.")
         current = existing.get("version")
         version = (current if isinstance(current, int) else 1) + 1
     row: dict[str, object] = {
         "id": row_id,
-        "tenant_id": _uuid(arguments.get("_tenant_id")),
+        "tenant_id": tenant_id,
         "pack_id": pack_id,
         "bucket": bucket,
         "payload": payload,
@@ -67,7 +72,8 @@ def _put(store: Any, arguments: dict[str, object]) -> dict[str, object]:
 def _get(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     row_id = _uuid(arguments.get("id"))
     row = _book(store).get(row_id) if row_id else None
-    if not isinstance(row, dict):
+    tenant_id = _uuid(arguments.get("_tenant_id"))
+    if not isinstance(row, dict) or row.get("tenant_id") != tenant_id:
         return _error("not_found", "No row with that id.")
     shown = _ok(_public(row))
     shown["text"] = str(row.get("payload"))
@@ -77,10 +83,12 @@ def _get(store: Any, arguments: dict[str, object]) -> dict[str, object]:
 def _list(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     pack_id = str(arguments.get("packId") or arguments.get("pack_id") or "")
     bucket = str(arguments.get("bucket") or "")
+    tenant_id = _uuid(arguments.get("_tenant_id"))
     rows = [
         _public(row)
         for row in _book(store).values()
-        if (not pack_id or row.get("pack_id") == pack_id)
+        if row.get("tenant_id") == tenant_id
+        and (not pack_id or row.get("pack_id") == pack_id)
         and (not bucket or row.get("bucket") == bucket)
     ]
     return _ok({"rows": rows})
