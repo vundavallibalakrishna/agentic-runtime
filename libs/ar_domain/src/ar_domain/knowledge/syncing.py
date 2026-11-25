@@ -29,6 +29,10 @@ if TYPE_CHECKING:
     import uuid
 
 
+# The longest one item of a source may take to be read.
+_ITEM_READ_S = 90.0
+
+
 def open_job(
     store: Any,
     *,
@@ -88,7 +92,7 @@ def open_sync(store: Any, source: dict[str, object], mode: str) -> dict[str, obj
     )
 
 
-async def sync_source_async(
+async def sync_source_async(  # noqa: PLR0912 - one pass over a source, start to end
     store: Any,
     source: dict[str, object],
     *,
@@ -109,6 +113,11 @@ async def sync_source_async(
         if running is not None:
             return running
         job = open_sync(store, source, mode)
+    elif job.get("status") != "running":
+        # The job of a sync that was stopped part way and is being tried again.
+        job["status"] = "running"
+        job["error"] = None
+        job["finished_at"] = None
     page = await asyncio.to_thread(
         list_changes, {**source, "store": store, "tenant_id": source.get("tenant_id")}, mode=mode
     )
@@ -334,7 +343,12 @@ async def _upsert_item(
     # A source may ask its site only whether a document it already holds has changed.
     item["known"] = existing is not None and existing.get("status") == "indexed"
     try:
-        raw, mime = await asyncio.to_thread(fetch_bytes, item)
+        # One item gets a bounded time. A site that accepts a request and then sends its
+        # answer a byte at a time never trips a read timeout, and held a whole sync for
+        # most of an hour. The item fails, and the sync goes on to the next.
+        raw, mime = await asyncio.wait_for(
+            asyncio.to_thread(fetch_bytes, item), timeout=_ITEM_READ_S
+        )
     except NotModified:
         _stats(job)["unchanged"] = int(_stats(job)["unchanged"]) + 1  # type: ignore[call-overload]
         return

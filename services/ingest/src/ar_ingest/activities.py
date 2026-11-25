@@ -195,6 +195,15 @@ async def sync_source_activity(payload: dict[str, Any]) -> dict[str, Any]:
             job=opened if isinstance(opened, dict) else None,
             beat=activity.heartbeat,
         )
+    except BaseException:
+        # A sync that is stopped part way does not leave its job open: an open job is
+        # taken for a sync still going, and no other could start. A retry reopens it.
+        if isinstance(opened, dict) and opened.get("status") == "running":
+            from ar_domain.knowledge.syncing import finish_job  # noqa: PLC0415
+
+            finish_job(opened, status="failed", error="the sync was interrupted")
+            source["last_sync_status"] = "failed"
+        raise
     finally:
         # What was read so far is kept, whether or not the sync got to its end.
         await flush_store(store)
