@@ -17,7 +17,7 @@ from ar_domain.agents.access import Actor
 from ar_domain.agents.packs import PackService
 from ar_domain.config_docs.book import SettingsBook
 from ar_domain.connectors.catalog import connector_by_slug
-from ar_domain.connectors.token_exchange import headers_for_token, request_body
+from ar_domain.connectors.token_exchange import exchange, headers_for_token, request_body
 from ar_domain.demo_ids import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.runs.logic import configured_run_budget
@@ -108,6 +108,41 @@ def test_vendor_feed_row_is_not_live_and_posts_the_secret() -> None:
     assert headers["token"] == "minted"  # noqa: S105
     assert headers["customerId"] == "cust"
     assert "Bearer" not in headers["token"]
+
+
+def test_exchange_reads_the_token_and_reuses_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Response:
+        status_code = 200
+
+        @staticmethod
+        def json() -> dict[str, object]:
+            return {"token": "minted-token", "expires_in": 120}
+
+    class _Client:
+        def __enter__(self) -> _Client:
+            return self
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
+        @staticmethod
+        def post(url: str, json: dict[str, str]) -> _Response:
+            assert url.startswith("https://")
+            assert json["password"] == "s3cret"  # noqa: S105
+            return _Response()
+
+    monkeypatch.setattr(
+        "ar_domain.connectors.token_exchange.sync_client", lambda **_kwargs: _Client()
+    )
+    store = demo_store()
+    row = {
+        "id": "feed-1",
+        "token_url": "https://example.test/token",
+        "authorize_url": "email:password",
+        "username": "ada@example.com",
+    }
+    assert exchange(store, row, "s3cret") == "minted-token"
+    assert exchange(store, row, "s3cret") == "minted-token"
 
 
 def test_the_routine_default_comes_from_settings() -> None:

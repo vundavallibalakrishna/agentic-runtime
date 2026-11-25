@@ -64,9 +64,12 @@ def _deliver_card(body: dict[str, Any], card: dict[str, object]) -> str:
 def _post_json(url: str, payload: dict[str, object]) -> str:
     import httpx  # noqa: PLC0415
 
+    from ar_common.egress_http import EgressDenied, sync_client  # noqa: PLC0415
+
     try:
-        response = httpx.post(url, json=payload, timeout=5.0)
-    except httpx.HTTPError:
+        with sync_client(timeout=5.0) as client:
+            response = client.post(url, json=payload)
+    except (httpx.HTTPError, EgressDenied):
         return "failed"
     return "sent" if response.status_code < 300 else "failed"
 

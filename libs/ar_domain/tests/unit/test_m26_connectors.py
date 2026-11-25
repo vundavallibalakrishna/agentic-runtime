@@ -60,6 +60,7 @@ def test_catalogue_labels_reads_and_writes() -> None:
         "gmail",
         "outlook",
         "rest",
+        "lexisnexis-regulatory",
     }
     for connector in CONNECTORS:
         assert connector.verification in {"live", "public", "not_live"}

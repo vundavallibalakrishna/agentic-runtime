@@ -352,6 +352,14 @@ CANARIES: tuple[Canary, ...] = (
         write_env=(("to", "AR_M36_OUTLOOK_TO"),),
     ),
     _canary(
+        "lexisnexis-regulatory",
+        "lexisnexisregulatory_subscriptions",
+        "token_exchange",
+        secret_env="AR_M36_LEXIS_PASSWORD",
+        username_env="AR_M36_LEXIS_EMAIL",
+        client_id_env="AR_M36_LEXIS_CUSTOMER_ID",
+    ),
+    _canary(
         "rest",
         "rest_get",
         "bearer",

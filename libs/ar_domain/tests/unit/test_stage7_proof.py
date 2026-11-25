@@ -46,6 +46,7 @@ _NOT_LIVE = frozenset(
         "gmail",
         "outlook",
         "rest",
+        "lexisnexis-regulatory",
     }
 )
 
@@ -55,7 +56,7 @@ def test_not_live_connectors_are_unit_and_not_offered() -> None:
     by_slug = {item.slug: item for item in CONNECTORS}
     assert _NOT_LIVE <= set(by_slug)
     not_live = [item for item in CONNECTORS if item.verification == "not_live"]
-    assert len(not_live) == 21
+    assert len(not_live) == 22
     assert {item.slug for item in not_live} == _NOT_LIVE
     for connector in not_live:
         expected = CONTRACT if connector.slug in RECORDED_FIXTURES else UNIT

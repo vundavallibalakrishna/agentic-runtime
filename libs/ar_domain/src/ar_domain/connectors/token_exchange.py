@@ -12,6 +12,7 @@ import httpx
 
 from ar_common.egress_http import EgressDenied, sync_client
 from ar_common.errors import ArError, ErrorCode
+from ar_common.offload import blocking
 from ar_common.time import utcnow
 
 if TYPE_CHECKING:
@@ -89,7 +90,7 @@ def exchange(store: Any, row: dict[str, object], secret: str) -> str:
             if transport is not None:
                 kwargs["transport"] = transport
             with sync_client(**kwargs) as client:  # type: ignore[arg-type]
-                response = client.post(url, json=body)
+                response = blocking(client.post, url, json=body)
         except (httpx.HTTPError, EgressDenied) as exc:
             raise ArError(
                 ErrorCode.UNAVAILABLE, f"token exchange failed ({type(exc).__name__})"
