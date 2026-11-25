@@ -12,8 +12,10 @@ on:
 # stopped, so its jobs do not hold the runners the new run is waiting for. Every push to
 # main is run to the end.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # An `edited` event only checks the title. It must not share a group with a
+  # push or synchronize run, or renaming the pull request cancels that run.
+  group: ci-${{ github.event_name }}-${{ github.event.action || 'push' }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'edited' }}
 
 jobs:
   # What the change touches. A pull request that changes only Markdown under docs/ runs
