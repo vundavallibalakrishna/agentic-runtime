@@ -206,7 +206,7 @@ def _settings_error(body: dict[str, object]) -> str:
     except SchemaError:
         return "settingsSchema is not a JSON Schema"
     if errors:
-        return errors[0].message
+        return str(errors[0].message)
     return ""
 
 
