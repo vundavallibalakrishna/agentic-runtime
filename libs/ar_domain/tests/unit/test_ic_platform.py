@@ -235,11 +235,13 @@ def test_a_channel_binding_records_an_interactive_card() -> None:
     assert cards
     detail = cards[0]["detail"]
     blocks = detail["card"]["blocks"]
-    actions = {block["action_id"] for block in blocks}
+    elements = next(block["elements"] for block in blocks if block.get("type") == "actions")
+    actions = {element["action_id"] for element in elements}
     assert {"approve", "reject", "review"} <= actions
+    assert elements[0]["text"]["type"] == "plain_text"
     assert str(detail["review_url"]).endswith("/approvals")
     assert "/review/" not in str(detail["review_url"])
-    assert str(row["id"]) in blocks[0]["value"]
+    assert str(row["id"]) in elements[0]["value"]
 
 
 def test_cards_are_not_posted_without_a_binding() -> None:

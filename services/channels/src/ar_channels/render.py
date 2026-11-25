@@ -52,6 +52,7 @@ def adaptive_card(
     args_hash: str = "",
     step_up: bool = False,
     web_url: str = "",
+    interactive: bool = False,
 ) -> dict[str, object]:
     from ar_common.approval_cards import teams_card  # noqa: PLC0415
 
@@ -61,7 +62,12 @@ def adaptive_card(
 
         link = os.environ.get("AR_PUBLIC_URL", "http://localhost:3000").rstrip("/") + "/approvals"
     return teams_card(
-        text, approval_id=approval_id, args_hash=args_hash, step_up=step_up, web_url=link
+        text,
+        approval_id=approval_id,
+        args_hash=args_hash,
+        step_up=step_up,
+        web_url=link,
+        interactive=interactive,
     )
 
 
