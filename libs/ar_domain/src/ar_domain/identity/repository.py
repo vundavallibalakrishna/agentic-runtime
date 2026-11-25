@@ -135,7 +135,9 @@ class IdentityRepository(BaseRepository):
 
     async def get_user_by_email(self, email: str) -> User | None:
         return await self.session.scalar(
-            select(User).where(User.tenant_id == self.ctx.tenant_id, User.email == email)
+            select(User).where(
+                User.tenant_id == self.ctx.tenant_id, User.email == email, User.kind == "person"
+            )
         )
 
     async def get_user_by_subject(self, subject: str) -> User | None:
@@ -144,7 +146,8 @@ class IdentityRepository(BaseRepository):
         )
 
     async def list_users(self, *, status: str | None, query: str | None) -> list[User]:
-        stmt = select(User).where(User.tenant_id == self.ctx.tenant_id)
+        # People only. A service account's user is listed with service accounts.
+        stmt = select(User).where(User.tenant_id == self.ctx.tenant_id, User.kind == "person")
         if status:
             stmt = stmt.where(User.status == status)
         if query:

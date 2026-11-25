@@ -86,7 +86,7 @@ export function KeysScreen() {
       setCapabilities(capabilityPage.items ?? []);
       setRoles(rolePage.items ?? []);
       const lists = await Promise.all(
-        found.map((account) => api<Page<Key>>(`/api/v1/api-keys?service_account_id=${account.id}`)),
+        found.map((account) => api<Page<Key>>(`/api/v1/api-keys?serviceAccountId=${account.id}`)),
       );
       setKeys(Object.fromEntries(found.map((account, at) => [account.id, lists[at]?.items ?? []])));
     } catch (caught) {

@@ -20,6 +20,7 @@ from uuid import UUID
 def _get_kwargs(
     *,
     service_account_id: None | Unset | UUID = UNSET,
+    serviceAccountId: None | Unset | UUID = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -32,6 +33,15 @@ def _get_kwargs(
     else:
         json_service_account_id = service_account_id
     params["service_account_id"] = json_service_account_id
+
+    json_serviceAccountId: None | str | Unset
+    if isinstance(serviceAccountId, Unset):
+        json_serviceAccountId = UNSET
+    elif isinstance(serviceAccountId, UUID):
+        json_serviceAccountId = str(serviceAccountId)
+    else:
+        json_serviceAccountId = serviceAccountId
+    params["serviceAccountId"] = json_serviceAccountId
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -80,11 +90,13 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     service_account_id: None | Unset | UUID = UNSET,
+    serviceAccountId: None | Unset | UUID = UNSET,
 ) -> Response[HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet]:
     """List Api Keys
 
     Args:
         service_account_id (None | Unset | UUID):
+        serviceAccountId (None | Unset | UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -96,6 +108,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         service_account_id=service_account_id,
+        serviceAccountId=serviceAccountId,
     )
 
     response = client.get_httpx_client().request(
@@ -109,11 +122,13 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     service_account_id: None | Unset | UUID = UNSET,
+    serviceAccountId: None | Unset | UUID = UNSET,
 ) -> HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet | None:
     """List Api Keys
 
     Args:
         service_account_id (None | Unset | UUID):
+        serviceAccountId (None | Unset | UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -126,6 +141,7 @@ def sync(
     return sync_detailed(
         client=client,
         service_account_id=service_account_id,
+        serviceAccountId=serviceAccountId,
     ).parsed
 
 
@@ -133,11 +149,13 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     service_account_id: None | Unset | UUID = UNSET,
+    serviceAccountId: None | Unset | UUID = UNSET,
 ) -> Response[HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet]:
     """List Api Keys
 
     Args:
         service_account_id (None | Unset | UUID):
+        serviceAccountId (None | Unset | UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -149,6 +167,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         service_account_id=service_account_id,
+        serviceAccountId=serviceAccountId,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -160,11 +179,13 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     service_account_id: None | Unset | UUID = UNSET,
+    serviceAccountId: None | Unset | UUID = UNSET,
 ) -> HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet | None:
     """List Api Keys
 
     Args:
         service_account_id (None | Unset | UUID):
+        serviceAccountId (None | Unset | UUID):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -178,5 +199,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             service_account_id=service_account_id,
+            serviceAccountId=serviceAccountId,
         )
     ).parsed

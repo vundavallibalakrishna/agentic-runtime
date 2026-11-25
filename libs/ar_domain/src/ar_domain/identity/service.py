@@ -507,6 +507,8 @@ class IdentityService:
             created_by=self.ctx.user_id,
         )
         self.store.add(row)
+        # What the account creates is owned by a user of its own, with the account's id.
+        self.store.add(service_user(row))
         if allow_on_behalf_of:
             await self.store.audit(
                 AuditAction.SERVICE_ACCOUNT_ON_BEHALF_OF_ENABLED,
@@ -758,3 +760,16 @@ def assert_step_up(
         raise ForbiddenError("step-up authentication is required")
     if (now - principal_step_up_at).total_seconds() > ttl_s:
         raise ForbiddenError("step-up authentication expired")
+
+
+def service_user(account: ServiceAccount) -> User:
+    """The user a service account owns things through. It cannot sign in."""
+    return User(
+        id=account.id,
+        tenant_id=account.tenant_id,
+        idp_subject=f"service:{account.id}",
+        email=f"{account.id}@service.invalid",
+        display_name=account.name,
+        status="active" if account.status == "active" else "suspended",
+        kind="service",
+    )

@@ -1,8 +1,9 @@
 """API keys. Spec: docs/03-specs/02-identity-tenancy.md §3.8."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import Field
 
 from ar_api.deps import IdentityDep, expose, require_permission
@@ -41,8 +42,12 @@ def _row(item: object, secret: str | None = None) -> dict[str, object]:
 @router.get("/api/v1/api-keys", dependencies=[Depends(require_permission("api_keys:manage_own"))])
 @expose(public=False, permission="api_keys:manage_own")
 async def list_api_keys(
-    identity: IdentityDep, service_account_id: uuid.UUID | None = None
+    identity: IdentityDep,
+    service_account_id: uuid.UUID | None = None,
+    account: Annotated[uuid.UUID | None, Query(alias="serviceAccountId")] = None,
 ) -> dict[str, object]:
+    # The public name is camelCase. The older spelling is still read.
+    service_account_id = account or service_account_id
     user_id = None if service_account_id else identity.ctx.user_id
     rows = await identity.store.list_api_keys(
         user_id=user_id, service_account_id=service_account_id

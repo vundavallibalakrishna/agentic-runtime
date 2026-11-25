@@ -84,6 +84,10 @@ async def patch_service_account(
         row.description = body.description
     if body.status is not None:
         row.status = body.status
+        # The account's user follows it: a disabled account owns and does nothing new.
+        owner = await identity.store.get_user(service_account_id)
+        if owner is not None:
+            owner.status = "active" if body.status == "active" else "suspended"
     if body.allow_on_behalf_of is not None:
         row.allow_on_behalf_of = body.allow_on_behalf_of
     return _row(row)
@@ -103,4 +107,8 @@ async def delete_service_account(
 
         raise NotFoundError("service account not found")
     await identity.store.delete(row)
+    # Its user stays, closed, so what the account created keeps an owner.
+    owner = await identity.store.get_user(service_account_id)
+    if owner is not None:
+        owner.status = "deprovisioned"
     return {"deleted": True}

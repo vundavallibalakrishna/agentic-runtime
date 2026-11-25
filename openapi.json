@@ -1917,6 +1917,27 @@
         }
       }
     },
+    "/api/v1/service-accounts:capabilities": {
+      "get": {
+        "summary": "List Capabilities",
+        "description": "What a service account can be made for: the role and the permissions for each.",
+        "operationId": "list_capabilities_api_v1_service_accounts_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Capabilities Api V1 Service Accounts Capabilities Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/service-accounts/{service_account_id}": {
       "patch": {
         "summary": "Patch Service Account",
@@ -2031,6 +2052,23 @@
                 }
               ],
               "title": "Service Account Id"
+            }
+          },
+          {
+            "name": "serviceAccountId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Serviceaccountid"
             }
           }
         ],

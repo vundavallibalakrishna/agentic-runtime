@@ -150,7 +150,8 @@ class MemoryIdentityStore:
             if row.id is None:
                 row.id = new_id()
             self.invitations[row.token_hash] = row
-        elif isinstance(row, User):
+        elif isinstance(row, User) and row.kind != "service":
+            # The memory store keeps no service accounts, so it keeps no user for one.
             self.users[row.id] = row
         elif isinstance(row, RoleAssignment):
             self.assignments.append(row)

@@ -5325,6 +5325,26 @@ export type CreateServiceAccountApiV1ServiceAccountsPostResponses = {
 
 export type CreateServiceAccountApiV1ServiceAccountsPostResponse = CreateServiceAccountApiV1ServiceAccountsPostResponses[keyof CreateServiceAccountApiV1ServiceAccountsPostResponses];
 
+export type ListCapabilitiesApiV1ServiceAccountsCapabilitiesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/service-accounts:capabilities';
+};
+
+export type ListCapabilitiesApiV1ServiceAccountsCapabilitiesGetResponses = {
+    /**
+     * Response List Capabilities Api V1 Service Accounts Capabilities Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListCapabilitiesApiV1ServiceAccountsCapabilitiesGetResponse = ListCapabilitiesApiV1ServiceAccountsCapabilitiesGetResponses[keyof ListCapabilitiesApiV1ServiceAccountsCapabilitiesGetResponses];
+
 export type DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteData = {
     body?: never;
     path: {
@@ -5401,6 +5421,10 @@ export type ListApiKeysApiV1ApiKeysGetData = {
          * Service Account Id
          */
         service_account_id?: string | null;
+        /**
+         * Serviceaccountid
+         */
+        serviceAccountId?: string | null;
     };
     url: '/api/v1/api-keys';
 };
