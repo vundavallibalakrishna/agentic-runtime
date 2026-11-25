@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Schema-checked settings for a pack or an agent. Each save is a new version."""
 
 from __future__ import annotations

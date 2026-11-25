@@ -69,6 +69,7 @@ def dispatch_general(store: Any, name: str, arguments: dict[str, object]) -> dic
         return chart
     handler = {
         "code": _code,
+        "run_entry": _run_entry,
         "shell": _shell,
         "read_file": _read,
         "write_file": _write,
@@ -85,6 +86,12 @@ def dispatch_general(store: Any, name: str, arguments: dict[str, object]) -> dic
     if handler is None:
         return _error("unknown_tool", f"unknown tool {name}")
     return handler(store, arguments)
+
+
+def _run_entry(store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    from ar_domain.tools.registered import run_entry  # noqa: PLC0415
+
+    return run_entry(store, arguments)
 
 
 def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:

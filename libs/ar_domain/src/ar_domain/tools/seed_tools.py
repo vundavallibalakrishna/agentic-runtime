@@ -40,6 +40,7 @@ def _platform_servers(store: Any) -> None:
     _general_server(store)
     _data_server(store)
     _documents_server(store)
+    _extensions_server(store)
     _image_server(store)
     _knowledge_server(store)
     _memory_server(store)
@@ -705,10 +706,37 @@ def _code_tool() -> dict[str, object]:
     )
 
 
+def _run_entry_tool() -> dict[str, object]:
+    return tool_row(
+        "run_entry",
+        "Run a registered script",
+        "Copy a registered script and a parameter object into a working folder and run the "
+        "install's fixed entry point (AR_REGISTERED_SCRIPT_ENTRY). The command is not chosen "
+        "by the model. Returns the exit code and the SHA-256 of the script, the parameters "
+        "and each output file. It does not interpret the script's output.",
+        {
+            "type": "object",
+            "properties": {
+                "fileId": {
+                    "type": "string",
+                    "description": "The file id of the registered script.",
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Parameters written to params.json before the entry point runs.",
+                },
+            },
+            "required": ["fileId"],
+        },
+        "W2",
+    )
+
+
 def _general_tools() -> list[dict[str, object]]:
     """Platform tools an agent can use without a dedicated connector."""
     return [
         _code_tool(),
+        _run_entry_tool(),
         tool_row(
             "shell",
             "Run a shell command",
@@ -1211,6 +1239,84 @@ def _data_server(store: Any) -> None:
                         },
                     },
                     "required": ["connection", "sql"],
+                },
+                "R0",
+            ),
+        ],
+    )
+
+
+def _extensions_server(store: Any) -> None:
+    _builtin(
+        store,
+        "extensions",
+        "Extensions",
+        "builtin://extensions",
+        [
+            tool_row(
+                "put",
+                "Store a pack row",
+                "Store one JSON payload for a pack. Saving again raises the version.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "packId": {"type": "string", "description": "The pack that owns the row."},
+                        "bucket": {
+                            "type": "string",
+                            "description": "The group of rows, chosen by the pack.",
+                        },
+                        "payload": {"type": "object", "description": "The JSON document to store."},
+                        "id": {
+                            "type": "string",
+                            "description": "An existing row id, to store a new version.",
+                        },
+                        "reason": {"type": "string", "description": "Why this version changed."},
+                    },
+                    "required": ["packId", "bucket", "payload"],
+                },
+                "W1",
+            ),
+            tool_row(
+                "get",
+                "Read a pack row",
+                "Read one stored pack row by id.",
+                {
+                    "type": "object",
+                    "properties": {"id": {"type": "string", "description": "The row id."}},
+                    "required": ["id"],
+                },
+                "R0",
+            ),
+            tool_row(
+                "list",
+                "List pack rows",
+                "List stored rows for a pack and a bucket.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "packId": {
+                            "type": "string",
+                            "description": "The pack id. Empty lists every pack.",
+                        },
+                        "bucket": {
+                            "type": "string",
+                            "description": "The bucket. Empty lists every bucket.",
+                        },
+                    },
+                },
+                "R0",
+            ),
+            tool_row(
+                "compare",
+                "Compare two JSON objects",
+                "List fields whose values differ. The comparison is computed in code.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "left": {"type": "object", "description": "The first object."},
+                        "right": {"type": "object", "description": "The second object."},
+                    },
+                    "required": ["left", "right"],
                 },
                 "R0",
             ),
