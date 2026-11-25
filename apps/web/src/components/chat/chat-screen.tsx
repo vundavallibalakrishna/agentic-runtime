@@ -32,6 +32,7 @@ import {
   readingOf,
   reviewsOf,
 } from "@/components/chat/citations";
+import { DocumentPicker, mentionStarted } from "@/components/chat/document-picker";
 import { FailedReply } from "@/components/chat/failed-reply";
 import { FeedbackButtons } from "@/components/chat/feedback-buttons";
 import { MarkdownView } from "@/components/chat/markdown-view";
@@ -128,6 +129,7 @@ export function ChatScreen() {
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [banner, setBanner] = useState("");
   const [attachments, setAttachments] = useState<Attached[]>([]);
+  const [picking, setPicking] = useState(false);
   const [accept, setAccept] = useState("");
   const [offline, setOffline] = useState(false);
   const [live, setLive] = useState("");
@@ -666,25 +668,17 @@ export function ChatScreen() {
     await readStream(posted.id || id, request.signal);
   }
 
-  async function pickStored() {
-    try {
-      const page = await api<{ items?: Record<string, unknown>[] }>("/api/v1/library-documents");
-      const items = page.items ?? [];
-      const chosen = items
-        .map((item) => ({
-          id: String(item.fileId || item.file_id || ""),
-          name: String(item.title || item.filename || "document"),
-          mimeType: String(item.mediaType || item.media_type || "text/plain"),
-          stored: true,
-        }))
-        .filter((item) => item.id);
-      setAttachments((current) => {
-        const ids = new Set(current.map((item) => item.id));
-        return [...current, ...chosen.filter((item) => !ids.has(item.id))];
-      });
-    } catch (caught) {
-      setBanner(caught instanceof Error ? caught.message : t("error"));
-    }
+  function toggleDocument(document: Attached) {
+    setAttachments((current) =>
+      current.some((item) => item.id === document.id)
+        ? current.filter((item) => item.id !== document.id)
+        : [...current, document],
+    );
+  }
+
+  function closePicker() {
+    setPicking(false);
+    composerRef.current?.focus();
   }
 
   async function onUpload(files: FileList) {
@@ -1372,6 +1366,13 @@ export function ChatScreen() {
                   </ol>
                 </section>
               ) : null}
+              {picking ? (
+                <DocumentPicker
+                  chosen={attachments.map((item) => item.id)}
+                  onClose={closePicker}
+                  onToggle={toggleDocument}
+                />
+              ) : null}
               <div className="mx-auto flex max-w-3xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-[var(--shadow-composer)] focus-within:border-[var(--muted-foreground)] md:p-4">
                 <AttachmentList
                   busy={stream.status === "streaming"}
@@ -1388,7 +1389,13 @@ export function ChatScreen() {
                   disabled={loading}
                   id="composer"
                   onChange={(event) => {
-                    setDraft(event.target.value);
+                    const typed = event.target.value;
+                    const caret = event.target.selectionStart ?? typed.length;
+                    if (mentionStarted(draft, typed, caret)) {
+                      // "@" opens the document picker. It is not part of the message.
+                      setDraft(typed.slice(0, caret - 1) + typed.slice(caret));
+                      setPicking(true);
+                    } else setDraft(typed);
                     grow(event.currentTarget);
                   }}
                   onKeyDown={(event) => {
@@ -1435,7 +1442,8 @@ export function ChatScreen() {
                       aria-label={t("pickDocuments")}
                       className="h-9 text-xs"
                       disabled={loading}
-                      onClick={() => void pickStored()}
+                      aria-expanded={picking}
+                      onClick={() => setPicking((open) => !open)}
                       type="button"
                       variant="outline"
                     >
