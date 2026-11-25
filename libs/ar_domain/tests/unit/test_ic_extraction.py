@@ -280,6 +280,15 @@ def test_fixture_pdfs_are_real_files() -> None:
     reading = extract_bytes(text, filename="synthetic-report.pdf")
     joined = "\n".join(item.text for item in reading.passages)
     assert "SYNTHETIC-REPORT-REF" in joined
+    # A scanned page is read by the text-recognition program. Where it is not installed
+    # the product says so, and does not return a page with no words.
+    from ar_domain.documents.extract import ExtractError
+    from ar_domain.documents.ocr import tesseract_installed
+
+    if not tesseract_installed():
+        with pytest.raises(ExtractError, match="OCR"):
+            extract_bytes(scanned, filename="synthetic-scan.pdf")
+        return
     scanned_reading = extract_bytes(scanned, filename="synthetic-scan.pdf")
     scanned_text = "\n".join(item.text for item in scanned_reading.passages)
     assert "SCANNED" in scanned_text.upper()
