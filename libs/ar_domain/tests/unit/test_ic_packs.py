@@ -88,6 +88,10 @@ def test_a_registered_script_rerun_has_the_same_hashes() -> None:
     assert body["params_sha256"] == again["params_sha256"]
     assert body["output_hashes"] == again["output_hashes"]
     assert orjson.loads(str(body["stdout"]))["units"] == 2
+    assert body["run_id"]
+    assert str(body["script_sha256"]) in str(first["text"])
+    assert str(body["run_id"]) in str(first["text"])
+    assert str(body["params_sha256"]) in str(first["text"])
 
 
 def test_a_registered_script_refuses_when_no_computer_can_run_it(

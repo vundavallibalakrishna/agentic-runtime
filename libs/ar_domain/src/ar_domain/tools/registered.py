@@ -56,16 +56,26 @@ def run_entry(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     if isinstance(finished, dict):
         return finished
     outputs = _output_hashes(workspace)
+    run_id = str(arguments.get("_run_id") or "")
+    cited = {
+        "run_id": run_id,
+        "script_sha256": _sha(script),
+        "params_sha256": _sha(params_bytes),
+        "output_hashes": outputs,
+    }
+    text = finished.stdout.rstrip("\n")
+    text = f"{text}\n{orjson.dumps(cited).decode()}" if text else orjson.dumps(cited).decode()
     return {
-        "text": finished.stdout,
+        "text": text,
         "structured": {
             "ok": finished.exit_code == 0,
             "exit_code": finished.exit_code,
             "stdout": finished.stdout,
             "stderr": finished.stderr,
             "command": entry,
-            "script_sha256": _sha(script),
-            "params_sha256": _sha(params_bytes),
+            "run_id": run_id,
+            "script_sha256": cited["script_sha256"],
+            "params_sha256": cited["params_sha256"],
             "output_hashes": outputs,
         },
         "is_error": finished.exit_code != 0,
