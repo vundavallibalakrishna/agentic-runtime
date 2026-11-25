@@ -16,7 +16,7 @@ Status: **partial**. Per-user, per-agent and per-team facts, a reviewable API, e
 | Embeddings | done | Through the model gateway. Dimensions from `AR_PGVECTOR_DIMENSIONS`, default 1024. `libs/ar_domain/src/ar_domain/memory/logic.py:46-48` |
 | Limits in code | partial | User 2000 facts, shared 5000, content 500 characters. `logic.py:28-30`. Skill stopwords are a literal set and the overlap bar is `0.34`. `libs/ar_domain/src/ar_domain/skills/match.py:21-50` and `:70` |
 | Skills | done | `SkillBook` publish and `skills.load` copy instructions and assets onto the computer. `libs/ar_domain/src/ar_domain/skills/load.py:1-23`. The model chooses `skills.load`. A hint is lexical only. `libs/ar_domain/src/ar_domain/skills/match.py:1-5` |
-| Keyword composer | partial, and it should go | `maybe_compose` runs a fixed path when the slug is `research-lead` or `writer` and the text matches a brand-guidelines pattern. `libs/ar_domain/src/ar_domain/skills/turn.py:18-34` |
+| Keyword composer | removed on 2026-11-25 (M38a-T04a) | `maybe_compose` ran a fixed path when the slug was `research-lead` or `writer` and the text matched a brand-guidelines pattern. The file `skills/turn.py` is deleted; the agent loop decides every turn. |
 | Feedback into memory | missing | Thumbs up and down are stored for evals. `chat/service.py:2785-2807`. They do not create a fact. |
 | Tenant switch | done | `MemorySettings` on the tenant. `libs/ar_contracts/src/ar_contracts/tenants.py:69-74` |
 
@@ -57,7 +57,7 @@ Child runs still cannot write memory. A correction is written on the parent user
 2. Fact caps and the skill-match threshold are literals.
 3. Corrections from chat are not proposed into the review queue.
 4. No path from a repeated run to a draft skill.
-5. `maybe_compose` is a hard-coded second path (`skills/turn.py:22-34`).
+5. `maybe_compose` was a hard-coded second path. Removed on 2026-11-25 (M38a-T04a).
 
 ## Research
 

@@ -44,6 +44,12 @@ _ORDERS = "warehouse__run_query"
 _CREATE_PET = "petstore__create_pet"
 _DELETE_PET = "petstore__delete_pet"
 _CHART = "general__shell"
+_LOAD_SKILL = "skills__load"
+_CREATE_DOCUMENT = "documents__create"
+# What the research lead and the writer are asked in the browser specs.
+_RESEARCH = "launch notes and the rollout plan"
+_BRIEF = "one-page brand brief"
+_BRIEF_BODY = "One-page brief. The name stays in sentence case."
 
 
 def _answer(trigger: str, tool: str, text: str) -> dict[str, object]:
@@ -101,8 +107,65 @@ DEMO_CHAT: list[dict[str, object]] = [
         "match": {"contains": "visitor desk"},
         "respond": {"text": "The visitor desk opens at 08:30 [1]."},
     },
-    # The research lead delegates two researchers; each child runs the agent loop and answers
-    # from the stand-in (M38a-T02c: a delegated child is no longer a canned string).
+    # The research lead's own turn (M38a-T04a): it asks for two researchers at once, then
+    # merges what they found. The phrase is in the lead's message and in neither task, so a
+    # child never matches these two rules.
+    {
+        "match": {"contains": _RESEARCH, "last_tool_result": {"tool": "agents_parallel"}},
+        "respond": {
+            "text": "Merged findings.\n\nThe release is on track and the checklist is "
+            "complete. We start with the pilot team, then the rest of the workspace."
+        },
+    },
+    {
+        "match": {"contains": _RESEARCH},
+        "respond": {
+            "tool_calls": [
+                {
+                    "name": "agents_parallel",
+                    "arguments": {
+                        "calls": [
+                            {
+                                "agent": "researcher",
+                                "task": "Research the launch notes and report whether the "
+                                "release is on track.",
+                            },
+                            {
+                                "agent": "researcher",
+                                "task": "Research the rollout plan and say which team goes first.",
+                            },
+                        ]
+                    },
+                }
+            ]
+        },
+    },
+    # The writer's turn (M38a-T04a): load the skill, write the document, say what was written.
+    _answer(
+        _BRIEF,
+        _CREATE_DOCUMENT,
+        "Wrote brand-brief.docx using the brand-guidelines skill.\n\n" + _BRIEF_BODY,
+    ),
+    {
+        "match": {"contains": _BRIEF, "last_tool_result": {"tool": _LOAD_SKILL}},
+        "respond": {
+            "tool_calls": [
+                {
+                    "name": _CREATE_DOCUMENT,
+                    "arguments": {
+                        "format": "docx",
+                        "template": "brief",
+                        "title": "Brand brief",
+                        "fileName": "brand-brief.docx",
+                        "sections": [{"heading": "Brief", "paragraphs": [_BRIEF_BODY]}],
+                    },
+                }
+            ]
+        },
+    },
+    _call(_BRIEF, _LOAD_SKILL, {"skill": "brand-guidelines"}),
+    # Each researcher runs the agent loop and answers from the stand-in (M38a-T02c: a
+    # delegated child is no longer a canned string).
     {
         "match": {"contains": "launch notes"},
         "respond": {"text": "The release is on track and the checklist is complete."},

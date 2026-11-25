@@ -106,6 +106,8 @@ triggers), which is already bypassed when a real model is connected, so it only 
 approval pause (`chat_loop._pause`) stays because the agent loop calls it. T04a deletes `maybe_compose` and
 moves the research-lead and writer onto the agent loop's orchestration and skill tools, driven by the stand-in.
 
+**Done (T04 and T04a).** The test for T04a is `services/api/tests/unit/test_m9_api.py` `test_research_and_writer_runs_are_visible`, which reads the tool calls and the written file, and the guard in `test_m38a_no_scripted_answer.py`.
+
 ## M38a-T05 Fixtures live in the test library
 
 **Do:**
@@ -117,6 +119,8 @@ moves the research-lead and writer onto the agent loop's orchestration and skill
   connection needs a real DSN, and no credential is minted for a `memory://` token URL.
 
 **Done when:** `ar_domain` names no demo server, and a store built without the test library has none.
+
+**Done** (pull requests 288, 289, 293 and 294; OQ-196). The guard is `test_no_stand_in_tool_servers.py`.
 
 **Tests:** `test_m38a_no_fixtures.py`.
 
