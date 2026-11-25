@@ -16,7 +16,7 @@ _INFRA_PATHS = [
 ]
 INFRA = "\n".join(path.read_text(encoding="utf-8") for path in _INFRA_PATHS if path.is_file())
 
-VERSION = re.compile(r"\d+\.\d+(?:\.\d+)?(?:[a-zA-Z]\d+)?")
+VERSION = re.compile(r"\d+\.\d+(?:\.\d+)?(?:\.post\d+)?(?:[a-zA-Z]\d+)?")
 PACKAGE = re.compile(r"\[\[package\]\]\nname = \"([^\"]+)\"\nversion = \"([^\"]+)\"")
 SKIP_NAMES = {
     "docker engine + compose v2",
