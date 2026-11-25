@@ -235,3 +235,28 @@ def test_checking_a_source_does_not_walk_the_site(site: Any) -> None:
     assert answer["ok"] is True
     assert len(answer["sample"]) == 3
     assert not [path for path in site.asked if path.endswith("/") and "sitemap" not in path]
+
+
+def test_a_page_can_be_found_by_whoever_may_read_its_collection(site: Any) -> None:
+    """A web page carries no list of readers. It is not left readable by nobody."""
+    from ar_domain.knowledge.searching import search
+
+    store, source = _source(site, start_urls=[f"{site.base}/sitemap_index.xml"], max_pages=50)
+    collection = store.knowledge_collections[source["collection_id"]]
+    # The collection takes its readers from its sources, which is the default.
+    assert collection["acl_mode"] != "collection"
+    rows = [
+        row
+        for row in store.knowledge_documents.values()
+        if row["source_id"] == source["id"] and row.get("status") != "deleted"
+    ]
+    assert all(row["acl_principals"] == ["tenant:*"] for row in rows)
+    found = search(
+        store,
+        _actor(),
+        query="workflows and dashboards",
+        collection_ids=[uuid.UUID(str(collection["id"]))],
+        top_k=3,
+        debug=False,
+    )
+    assert any(str(hit["uri"]).endswith("/platform/") for hit in found["hits"])

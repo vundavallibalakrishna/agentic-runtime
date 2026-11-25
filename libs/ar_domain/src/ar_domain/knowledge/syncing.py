@@ -419,7 +419,10 @@ def _collection_default(store: Any, source: dict[str, object]) -> list[str]:
     collection = store.knowledge_collections.get(source.get("collection_id"))
     if not isinstance(collection, dict):
         return []
-    if collection.get("acl_mode") != "collection":
+    # A page on the web names nobody who may read it, in any mode. Left with no reader it
+    # was indexed and found by no search, without a word. It is read by whoever may read
+    # the collection, which is never more people than the collection itself allows.
+    if collection.get("acl_mode") != "collection" and source.get("kind") != "web":
         return []
     from ar_domain.knowledge.acl import collection_acl  # noqa: PLC0415
 
