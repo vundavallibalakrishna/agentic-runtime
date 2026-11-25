@@ -7,6 +7,7 @@ import orjson
 from sqlalchemy import bindparam, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from ar_domain.db.engine import engine_here
 from ar_domain.durable.codec import as_uuid, vector_values
 from ar_domain.durable.tracking import TrackedDict
 
@@ -698,14 +699,27 @@ async def refresh_knowledge(store: object, tenant_id: uuid.UUID) -> None:
     a search this asks the database, in three small queries, what each source holds now,
     and reloads only the sources whose answer has changed.
     """
-    engine = getattr(store, "durable_engine", None)
-    if not isinstance(engine, AsyncEngine):
-        return
     seen = getattr(store, "_knowledge_seen", None)
     if not isinstance(seen, dict):
         seen = {}
         store._knowledge_seen = seen  # type: ignore[attr-defined]
     changed: list[uuid.UUID] = []
+    async with engine_here(store) as engine:
+        if engine is None:
+            return
+        await _knowledge_marks(store, engine, tenant_id, seen, changed)
+        for source_id in changed:
+            await _reload_source(store, engine, source_id)
+
+
+async def _knowledge_marks(
+    store: object,
+    engine: AsyncEngine,
+    tenant_id: uuid.UUID,
+    seen: dict[object, object],
+    changed: list[uuid.UUID],
+) -> None:
+    """Note which sources hold something other than what this process last saw."""
     async with AsyncSession(engine, expire_on_commit=False) as session:
         from ar_domain.durable.flush import _set_tenant_context  # noqa: PLC0415
 
@@ -728,8 +742,6 @@ async def refresh_knowledge(store: object, tenant_id: uuid.UUID) -> None:
             if seen.get(mark["id"]) != now:
                 seen[mark["id"]] = now
                 changed.append(mark["id"])
-    for source_id in changed:
-        await reload_source(store, source_id)
 
 
 async def reload_source(store: object, source_id: uuid.UUID) -> None:
@@ -739,9 +751,12 @@ async def reload_source(store: object, source_id: uuid.UUID) -> None:
     the source, its collection, the documents it holds and their passages, and the jobs
     that say how its syncs went.
     """
-    engine = getattr(store, "durable_engine", None)
-    if not isinstance(engine, AsyncEngine):
-        return
+    async with engine_here(store) as engine:
+        if engine is not None:
+            await _reload_source(store, engine, source_id)
+
+
+async def _reload_source(store: object, engine: AsyncEngine, source_id: uuid.UUID) -> None:
     async with AsyncSession(engine, expire_on_commit=False) as session:
         from ar_domain.durable.flush import _set_tenant_context  # noqa: PLC0415
 

@@ -2019,14 +2019,16 @@ class ChatBehaviour:
         Another process may have added, changed or deleted a provider, a model or an alias.
         A down database keeps what the store holds.
         """
-        engine = self.durable_engine
         tenant_id = getattr(self.tenant_binding, "tenant_id", None)
-        if engine is None or not isinstance(tenant_id, uuid.UUID):
+        if not isinstance(tenant_id, uuid.UUID):
             return
+        from ar_domain.db.engine import engine_here  # noqa: PLC0415
         from ar_domain.models.registry import load_registry  # noqa: PLC0415
 
         try:
-            await load_registry(engine, self, tenant_id)
+            async with engine_here(self) as engine:
+                if engine is not None:
+                    await load_registry(engine, self, tenant_id)
         except Exception:  # noqa: BLE001 — chat still runs on what the store holds
             return
 

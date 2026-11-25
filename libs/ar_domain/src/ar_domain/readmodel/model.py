@@ -300,6 +300,9 @@ class RepositoryReadModel:
         unit.context_request_id = request_id
         engine = await self.engine_for()
         unit.durable_engine = engine
+        # The pool belongs to this loop; a reader on another loop opens its own connection
+        # (``ar_domain.db.engine.engine_here``).
+        unit.durable_loop = asyncio.get_running_loop()
         unit.durable = True
         # Steps that make another process act on this request's rows wait here until the
         # rows are committed (``ar_domain.durable.after``).
