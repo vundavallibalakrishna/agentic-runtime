@@ -169,7 +169,7 @@ Permission: `roles:manage`.
 
 ### 3.8 Service accounts and API keys
 
-**What a service account owns.** Files, documents, conversations and runs are owned by a row of `users`. A service account has a user of its own for this: the same id, `kind = 'service'` (revision 0071), no password, never listed with the people of the workspace and never found by email. It is created with the account, suspended when the account is disabled, and left closed (`deprovisioned`) when the account is deleted, so what the account created keeps its owner.
+**What a service account owns.** Files, documents, conversations and runs are owned by a row of `users`. A service account has a user of its own for this: the same id, `kind = 'service'` (revision 0072), no password, never listed with the people of the workspace and never found by email. It is created with the account, suspended when the account is disabled, and left closed (`deprovisioned`) when the account is deleted, so what the account created keeps its owner.
 
 **A reply names the row.** Creating an account, a key or a role assignment answers with its id: a row has its id from the moment it is made (`db/base.py`).
 

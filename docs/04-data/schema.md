@@ -99,7 +99,7 @@ CREATE TABLE users (
   UNIQUE (tenant_id, email)
 );
 CREATE INDEX ix_users_tenant_status ON users(tenant_id, status);
--- users.kind text NOT NULL DEFAULT 'person' CHECK (kind IN ('person','service')) (revision 0071):
+-- users.kind text NOT NULL DEFAULT 'person' CHECK (kind IN ('person','service')) (revision 0072):
 -- 'service' is the user a service account owns files, conversations and runs through. It has
 -- the account's id, no password, and is not listed or looked up as a person.
 

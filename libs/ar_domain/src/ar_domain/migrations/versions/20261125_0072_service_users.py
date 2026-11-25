@@ -1,7 +1,7 @@
 """A service account owns what it creates through a user of its own.
 
-Revision ID: 0071
-Revises: 0070
+Revision ID: 0072
+Revises: 0071
 Create Date: 2026-11-25
 
 Files, documents, conversations and runs are owned by a row of ``users``. A service
@@ -23,8 +23,8 @@ from alembic import op
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-revision: str = "0071"
-down_revision: str | None = "0070"
+revision: str = "0072"
+down_revision: str | None = "0071"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
