@@ -31,6 +31,7 @@ _KINDS = {
     "basic",
     "oauth_authorization_code",
     "oauth_client_credentials",
+    "token_exchange",
 }
 _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,40}$")
 
@@ -60,7 +61,7 @@ def headers_for(
         row["status"] = "expired"
         _audit_row(store, row, "connection.expired")
         raise ArError(ErrorCode.FORBIDDEN, f"Connection {name} has expired. Rotate it.")
-    return _headers(row)
+    return _headers(store, row)
 
 
 def account_for(
@@ -98,8 +99,8 @@ class ConnectionBook:
             raise ValidationFailedError("name must start with a letter and stay short")
         if kind not in _KINDS:
             raise ValidationFailedError(
-                "kind must be api_key, bearer, basic, oauth_authorization_code "
-                "or oauth_client_credentials"
+                "kind must be api_key, bearer, basic, oauth_authorization_code, "
+                "oauth_client_credentials or token_exchange"
             )
         if any(
             row.get("tenant_id") == actor.tenant_id and str(row.get("name")).lower() == name.lower()
@@ -113,6 +114,8 @@ class ConnectionBook:
             raise ValidationFailedError("username is required for basic auth")
         if kind.startswith("oauth_") and not str(body.get("token_url") or "").strip():
             raise ValidationFailedError("tokenUrl is required for OAuth")
+        if kind == "token_exchange" and not str(body.get("token_url") or "").strip():
+            raise ValidationFailedError("tokenUrl is required to exchange a secret for a token")
         if kind == "oauth_authorization_code" and not str(body.get("authorize_url") or "").strip():
             raise ValidationFailedError("authorizeUrl is required")
         row = self._row(actor, name, kind, body, secret)
@@ -174,7 +177,7 @@ class ConnectionBook:
         target = url.strip() or str(row.get("probe_url") or "")
         try:
             _refresh_if_needed(self.store, row)
-            headers, secret = _headers(row)
+            headers, secret = _headers(self.store, row)
         except ArError as exc:
             row["last_error"] = str(exc)
             row["last_tested_at"] = utcnow()
@@ -378,8 +381,16 @@ def _view(row: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _headers(row: dict[str, object]) -> tuple[dict[str, str], str]:
+def _headers(store: Any, row: dict[str, object]) -> tuple[dict[str, str], str]:
     kind = str(row.get("kind"))
+    if kind == "token_exchange":
+        from ar_domain.connectors.token_exchange import exchange, headers_for_token  # noqa: PLC0415
+
+        secret = _open(row.get("secret"))
+        if not secret:
+            raise ArError(ErrorCode.FORBIDDEN, "this connection has no secret")
+        token = exchange(store, row, secret)
+        return headers_for_token(row, token), secret
     if kind in {"oauth_authorization_code", "oauth_client_credentials"}:
         token = _open(row.get("access_token"))
         if not token:

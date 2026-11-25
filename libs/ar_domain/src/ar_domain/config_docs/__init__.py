@@ -1,0 +1,1 @@
+"""Schema-checked settings documents."""

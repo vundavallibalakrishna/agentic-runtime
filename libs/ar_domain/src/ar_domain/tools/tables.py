@@ -209,7 +209,7 @@ class ServiceConnection(Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('api_key','bearer','basic','oauth_authorization_code',"
-            "'oauth_client_credentials')",
+            "'oauth_client_credentials','token_exchange')",
             name="kind",
         ),
         CheckConstraint("status IN ('active','revoked','expired')", name="status"),

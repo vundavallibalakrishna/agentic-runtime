@@ -113,6 +113,13 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             await save_outbox(session, pending.get("outbox_events", []))
             await save_webhooks(session, pending.get("outbound_webhooks", []))
             await save_deliveries(session, pending.get("webhook_deliveries", []))
+            from ar_domain.durable.extractions_save import (  # noqa: PLC0415
+                save_extractions,
+                save_settings,
+            )
+
+            await save_extractions(session, pending.get("document_extractions", []))
+            await save_settings(session, pending.get("resource_settings", []))
             await _chunks(session, pending["document_chunks"])
             await _facts(session, pending["memory_facts"])
             await _tool_servers(session, pending["tool_servers"])

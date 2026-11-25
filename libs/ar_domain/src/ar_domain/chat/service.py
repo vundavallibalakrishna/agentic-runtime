@@ -476,6 +476,8 @@ class ChatBehaviour:
     document_chunks: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     ingestion_jobs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     document_revisions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    document_extractions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    resource_settings: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     outbound_webhooks: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     webhook_deliveries: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     outbox_events: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)

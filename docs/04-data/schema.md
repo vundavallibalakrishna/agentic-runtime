@@ -2020,3 +2020,40 @@ CREATE TABLE document_revisions (
 CREATE INDEX ix_document_revisions_document ON document_revisions(tenant_id, document_id, captured_at DESC);
 ```
 
+## 34. Extraction history and resource settings
+
+Revision `0065` adds `document_extractions`. A library document id is not a foreign key: library ids are not knowledge documents. Revision `0067` adds `resource_settings`. Both are tenant owned, with the RLS policy from [rls §3](rls.md).
+
+```sql
+CREATE TABLE document_extractions (
+  id            uuid PRIMARY KEY,
+  tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  document_id   uuid NOT NULL,
+  content_hash  text NOT NULL DEFAULT '',
+  schema_hash   text NOT NULL DEFAULT '',
+  model_alias   text NOT NULL DEFAULT '',
+  strategy      text NOT NULL DEFAULT '',
+  fields        jsonb NOT NULL DEFAULT '[]',
+  result        jsonb NOT NULL DEFAULT '{}',
+  corrections   jsonb NOT NULL DEFAULT '[]',
+  approval_id   uuid,
+  run_id        uuid,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_document_extractions_document
+  ON document_extractions(tenant_id, document_id, created_at DESC);
+
+CREATE TABLE resource_settings (
+  id            uuid PRIMARY KEY,
+  tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  resource_type text NOT NULL,
+  resource_id   text NOT NULL,
+  version       integer NOT NULL,
+  schema        jsonb NOT NULL,
+  document      jsonb NOT NULL,
+  created_by    uuid,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, resource_type, resource_id, version)
+);
+```
+

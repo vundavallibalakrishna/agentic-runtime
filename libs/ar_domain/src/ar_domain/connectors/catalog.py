@@ -1004,11 +1004,13 @@ def _build() -> tuple[ConnectorDef, ...]:
         ),
     )
     from ar_domain.connectors.catalog_batch import batch_definitions  # noqa: PLC0415
+    from ar_domain.connectors.catalog_feeds import feed_definitions  # noqa: PLC0415
     from ar_domain.connectors.catalog_stage11 import stage11_definitions  # noqa: PLC0415
 
     rows: list[tuple[ConnectorDef, tuple[ToolDef, ...]]] = list(raw)
     rows.extend(batch_definitions())
     rows.extend(stage11_definitions())
+    rows.extend(feed_definitions())
     built: list[ConnectorDef] = []
     for connector, tools in rows:
         built.append(

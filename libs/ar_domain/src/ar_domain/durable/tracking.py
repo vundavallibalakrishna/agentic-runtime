@@ -234,6 +234,8 @@ BUCKETS = (
     "ingestion_jobs",
     "knowledge_documents",
     "document_revisions",
+    "document_extractions",
+    "resource_settings",
     "outbound_webhooks",
     "webhook_deliveries",
     "outbox_events",
