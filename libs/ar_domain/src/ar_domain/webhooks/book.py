@@ -207,7 +207,7 @@ class WebhookBook:
             raise NotFoundError("delivery not found")
         now = utcnow()
         delivery_id = new_id()
-        delivery = {
+        delivery: dict[str, object] = {
             "id": delivery_id,
             "tenant_id": tenant_id,
             "webhook_id": webhook_id,

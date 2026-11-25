@@ -12,7 +12,7 @@ import hashlib
 import re
 
 import orjson
-from dateutil import parser as date_parser
+from dateutil import parser as date_parser  # type: ignore[import-untyped]
 from jsonschema import Draft202012Validator
 
 from ar_common.settings import get_settings

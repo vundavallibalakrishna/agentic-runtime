@@ -46,8 +46,10 @@ def _owns(
 ) -> bool:
     """An agent may read its own settings and the settings of a pack that contains it."""
     agent_id = _uuid(agent_raw)
+    if agent_id is None:
+        return False
     agents = getattr(store, "agents", {})
-    agent = agents.get(agent_id) if isinstance(agents, dict) and agent_id is not None else None
+    agent = agents.get(agent_id) if isinstance(agents, dict) else None
     if not isinstance(agent, dict) or agent.get("tenant_id") != tenant:
         return False
     slug = str(agent.get("slug") or "")

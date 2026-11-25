@@ -393,18 +393,19 @@ def _apply_policies(store: Any, actor: Actor, manifest: dict[str, object]) -> No
             policy_id = uuid.UUID(str(created["id"]))
             number = 1
         else:
-            policy_id = existing["id"]
-            if not isinstance(policy_id, uuid.UUID):
-                policy_id = uuid.UUID(str(policy_id))
+            raw_id = existing["id"]
+            policy_id = raw_id if isinstance(raw_id, uuid.UUID) else uuid.UUID(str(raw_id))
             latest = book._latest(existing)
             same = isinstance(latest, dict) and latest.get("document") == rewritten
             if same and existing.get("status") == "active":
                 continue
-            if same and isinstance(latest, dict):
-                number = int(latest["version"])
+            raw_version = latest.get("version") if isinstance(latest, dict) else None
+            if same and isinstance(raw_version, int):
+                number = raw_version
             else:
                 added = book.add_version(actor, policy_id, {"document": rewritten})
-                number = int(added["version"])
+                added_version = added.get("version")
+                number = added_version if isinstance(added_version, int) else 1
         book.activate(actor, policy_id, number, stepped_up=False)
 
 
@@ -456,7 +457,8 @@ def _scope_rules(document: dict[str, object], slugs: list[str]) -> dict[str, obj
             scoped.append(rule)
             continue
         copy = dict(rule)
-        match = dict(copy.get("match")) if isinstance(copy.get("match"), dict) else {}
+        raw_match = copy.get("match")
+        match: dict[str, object] = dict(raw_match) if isinstance(raw_match, dict) else {}
         listed = match.get("agents")
         if isinstance(listed, list) and listed:
             kept = [str(item) for item in listed if str(item) in slugs]
