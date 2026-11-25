@@ -73,7 +73,10 @@ def seed_composition(store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> No
             "Load the brand-guidelines skill and write a one-page DOCX.",
             "Tell me which brief to write.",
             skills=["brand-guidelines"],
-            tools=[{"server": "general", "version": "*", "include": ["*"]}],
+            tools=[
+                {"server": "general", "version": "*", "include": ["*"]},
+                {"server": "documents", "version": "*", "include": ["create"]},
+            ],
             sandbox={"enabled": True, "template": "default", "scope": "conversation"},
         ),
     )

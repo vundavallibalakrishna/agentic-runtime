@@ -105,3 +105,17 @@ def test_research_and_writer_runs_are_visible() -> None:
     body = admin.get(f"/api/v1/runs/{written.json()['run']['id']}").json()
     assert "brand-brief.docx" in body["resultSummary"]
     assert "sentence case" in body["resultSummary"]
+    # Both turns went through the agent loop: the model asked for the delegation, the
+    # skill and the document, and the document is a file of the run (M38a-T04a).
+    store = admin.app.state.chat  # type: ignore[attr-defined]
+    writer_run = uuid.UUID(written.json()["run"]["id"])
+    called = [
+        (str(row.get("qualified_name")), str(row.get("status")))
+        for row in store.tool_calls.values()
+        if row.get("run_id") == writer_run
+    ]
+    assert called == [("skills.load", "succeeded"), ("documents.create", "succeeded")], called
+    names = [
+        str(row.get("name")) for row in store.files.values() if row.get("run_id") == writer_run
+    ]
+    assert "brand-brief.docx" in names, names
