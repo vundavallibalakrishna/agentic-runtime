@@ -235,6 +235,17 @@ class ConnectorBook:
         authorize_url, token_url = _oauth_urls(connector, body, kind)
         if _named(self.store, actor, name):
             return
+        header_name = "X-AR-Service-Account" if connector.slug == "gcp" else "Authorization"
+        if kind == "token_exchange":
+            named = next(
+                (
+                    field.placeholder
+                    for field in connector.fields
+                    if field.name == "tokenHeader" and field.placeholder
+                ),
+                "",
+            )
+            header_name = named or header_name
         ConnectionBook(self.store).create(
             actor,
             {
@@ -242,11 +253,12 @@ class ConnectorBook:
                 "kind": kind,
                 "secret": secret,
                 "username": str(body.get("username") or ""),
-                "header_name": (
-                    "X-AR-Service-Account" if connector.slug == "gcp" else "Authorization"
-                ),
+                "header_name": header_name,
                 "authorize_url": authorize_url,
                 "token_url": token_url,
+                "exchange_user_field": connector.exchange_user_field,
+                "exchange_secret_field": connector.exchange_secret_field,
+                "exchange_extra_header": connector.exchange_extra_header,
                 "client_id": str(body.get("client_id") or ""),
                 "scopes": list(connector.scopes),
                 "probe_url": _probe_url(connector, body),

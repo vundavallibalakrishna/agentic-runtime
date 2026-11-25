@@ -117,6 +117,10 @@ def _one(item: Mapping[str, object], outcome: Mapping[str, object]) -> dict[str,
         return _score(denied == 0, 1.0 if denied == 0 else 0.0, f"{denied} denials")
     if kind == "groundedness":
         return _groundedness(item, outcome)
+    if kind == "fields_match":
+        from ar_domain.evals.fields import fields_match  # noqa: PLC0415
+
+        return fields_match(dict(item), dict(outcome))
     return _score(False, 0.0, "unknown assertion")
 
 

@@ -154,10 +154,10 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
         book.start(actor, uuid.UUID(str(created["id"])))
     empty = {"kind": "bearer", "secret": b"", "access_token": b""}
     with pytest.raises(ArError):
-        _headers(empty)
+        _headers(None, empty)
     empty["kind"] = "oauth_client_credentials"
     with pytest.raises(ArError):
-        _headers(empty)
+        _headers(None, empty)
     assert _seal("") == b""
     assert _open(b"not-a-sealed-blob") == ""
     assert _open("text") == ""

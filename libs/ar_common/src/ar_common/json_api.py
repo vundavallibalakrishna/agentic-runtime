@@ -30,6 +30,14 @@ OPAQUE_JSON_KEYS = frozenset(
         "inputSchema",
         "output_schema",
         "outputSchema",
+        # Tool arguments, JSON Schema, extraction fields and settings documents are
+        # the caller's data. Renaming a key would store targetDate for target_date.
+        "arguments",
+        "schema",
+        "preview",
+        "fields",
+        "result",
+        "document",
     }
 )
 
@@ -76,11 +84,14 @@ def camelize(value: object) -> object:
     Values under :data:`OPAQUE_JSON_KEYS` are copied through unchanged.
     """
     if isinstance(value, dict):
+        # JSON-RPC's result is the response envelope. A tool or extraction result is data.
+        rpc = "jsonrpc" in value or "jsonRpc" in value
         rewritten: dict[str, object] = {}
         for key, item in value.items():
             name = str(key)
             public = camel_key(name)
-            if name in OPAQUE_JSON_KEYS or public in OPAQUE_JSON_KEYS:
+            opaque = name in OPAQUE_JSON_KEYS or public in OPAQUE_JSON_KEYS
+            if opaque and not (rpc and public == "result"):
                 rewritten[public] = item
             else:
                 rewritten[public] = camelize(item)

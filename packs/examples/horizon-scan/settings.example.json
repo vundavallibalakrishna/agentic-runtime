@@ -1,0 +1,11 @@
+{
+  "sources": [
+    {"name": "Example feed", "kind": "feed", "locator": "https://example.com/feed.xml"}
+  ],
+  "categories": ["example"],
+  "relevanceCriteria": "Relevant when the text changes a requirement a person must meet. Synthetic example.",
+  "reviewFrequency": "weekly",
+  "registerReadTool": "",
+  "registerWriteTool": "",
+  "approvalGroup": "reviewers"
+}

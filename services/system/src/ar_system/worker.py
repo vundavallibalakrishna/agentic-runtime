@@ -68,9 +68,16 @@ async def run_worker() -> None:
         ConversationSummaryWorkflow,
         refresh_conversation_summary,
     )
+    from ar_system.workflows.webhook_run import (  # noqa: PLC0415
+        WebhookDeliveryWorkflow,
+        deliver_webhook_activity,
+    )
 
+    store: object | None = None
     while True:
         try:
+            if store is None:
+                store = await _prepare_store()
             client = await asyncio.wait_for(
                 Client.connect(
                     _address(),
@@ -78,7 +85,7 @@ async def run_worker() -> None:
                 ),
                 timeout=5,
             )
-            store = await _prepare_store()
+            store.temporal_client = client  # type: ignore[attr-defined]
             from ar_system.sandbox_schedule import ensure_reaper_schedule  # noqa: PLC0415
 
             await ensure_reaper_schedule(client, get_settings().sandbox_reap_interval_s)
@@ -92,6 +99,7 @@ async def run_worker() -> None:
                     RoutinePollWorkflow,
                     RoutineReconcileWorkflow,
                     ConversationSummaryWorkflow,
+                    WebhookDeliveryWorkflow,
                 ],
                 activities=[
                     reap_sandboxes,
@@ -102,6 +110,7 @@ async def run_worker() -> None:
                     poll_activity,
                     reconcile_activity,
                     refresh_conversation_summary,
+                    deliver_webhook_activity,
                 ],
                 **temporal_worker_kwargs(),
             )
@@ -122,4 +131,9 @@ async def run_worker() -> None:
             raise
         except Exception as exc:  # noqa: BLE001 - keep the health server up
             _log.warning("temporal_unavailable", **temporal_unavailable_fields(_address(), exc))
+            if store is not None:
+                store.temporal_client = None  # type: ignore[attr-defined]
+                from ar_domain.webhooks.delivery import sweep_due_deliveries  # noqa: PLC0415
+
+                await sweep_due_deliveries(store)
             await asyncio.sleep(5)

@@ -203,3 +203,7 @@ Debian 13 slim; Python 3.14 with `uv`, `pandas`, `numpy`, `polars`, `matplotlib`
 - Integration (docker driver in CI): ensure → exec Python producing `/workspace/outputs/chart.png` → artifact created; suspend → resume preserves files; egress to non-allowlisted host blocked, allowlisted host allowed; metadata IP blocked; timeout kills process; browser navigate+snapshot against a local test site (`ar_testing.sites`).
 - Kubernetes (nightly, kind cluster with gVisor): pod spec conformance (`kubectl get pod -o json` assertions), NetworkPolicy isolation (sandbox cannot reach `api`, Postgres, other sandboxes), warm pool claim.
 - Security regression suite (`tests/security/sandbox_escape/*.sh`): known escape attempts must fail.
+
+## 12. Registered script
+
+`general.run_entry` copies a file the caller names and a parameter object into a temporary folder and runs `AR_REGISTERED_SCRIPT_ENTRY` (default `python model.py --params params.json`). The command is an install setting. The model does not choose it. The result records the SHA-256 of the script, the parameters and each output file. The same bytes produce the same hashes. A workbook recalculated by LibreOffice is not supported. The tool runs in the API or worker process that dispatched it, in a temporary directory, not inside a customer sandbox image.

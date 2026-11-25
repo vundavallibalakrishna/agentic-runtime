@@ -66,6 +66,16 @@ class ReprocessBody(ApiModel):
     engine: str = ""
 
 
+@router.get(
+    "/api/v1/library-documents/{document_id}/extractions",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def list_extractions(document_id: uuid.UUID, request: Request) -> dict[str, object]:
+    rows = DocumentLibrary(chat(request)).extractions(actor(request), document_id)
+    return {"data": [_extraction_view(row) for row in rows]}
+
+
 @router.delete(
     "/api/v1/library-documents/{document_id}",
     dependencies=[Depends(require_permission("chat:use"))],
@@ -172,3 +182,33 @@ async def export_rule_set_route(
     from ar_domain.documents.rules import export_rule_set  # noqa: PLC0415
 
     return export_rule_set(chat(request), actor(request), rule_set_id, version)
+
+
+def _extraction_view(row: dict[str, object]) -> dict[str, object]:
+    fields = row.get("fields")
+    return {
+        "id": row.get("id"),
+        "contentHash": row.get("content_hash"),
+        "schemaHash": row.get("schema_hash"),
+        "modelAlias": row.get("model_alias"),
+        "strategy": row.get("strategy"),
+        "fields": [_field_view(item) for item in fields] if isinstance(fields, list) else fields,
+        "result": row.get("result"),
+        "approvalId": row.get("approval_id"),
+        "createdAt": row.get("created_at"),
+    }
+
+
+def _field_view(item: object) -> object:
+    if not isinstance(item, dict):
+        return item
+    return {
+        "path": item.get("path"),
+        "value": item.get("value"),
+        "quote": item.get("quote"),
+        "page": item.get("page"),
+        "locator": item.get("locator"),
+        "confidence": item.get("confidence"),
+        "quoteVerified": item.get("quote_verified"),
+        "status": item.get("status"),
+    }

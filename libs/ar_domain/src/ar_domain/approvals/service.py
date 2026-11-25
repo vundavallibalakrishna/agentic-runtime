@@ -102,8 +102,10 @@ class ApprovalBook:
             if received >= as_int(row.get("required_approvals"), 1):
                 self._terminal(row, "approved", actor, channel)
         if row["status"] in {"approved", "rejected"}:
+            from ar_domain.documents.library import note_extraction_decision  # noqa: PLC0415
             from ar_domain.tools.resume import settle_approval  # noqa: PLC0415
 
+            note_extraction_decision(self.store, row)
             settle_approval(self.store, row)
         return self.detail(actor, row, reveal=True)
 
@@ -217,6 +219,9 @@ class ApprovalBook:
         now = utcnow()
         ttl = as_int(requirement.get("ttl_s"), 86400)
         approvers = requirement.get("approvers")
+        rule = dict(approvers) if isinstance(approvers, dict) else {"mode": "requester"}
+        if requirement.get("four_eyes"):
+            rule["four_eyes"] = True
         row: dict[str, object] = {
             "id": approval_id,
             "tenant_id": tenant_id,
@@ -231,11 +236,12 @@ class ApprovalBook:
             "arguments": arguments,
             "preview": preview,
             "justification": "",
-            "approver_rule": approvers if isinstance(approvers, dict) else {"mode": "requester"},
+            "approver_rule": rule,
             "required_approvals": as_int(requirement.get("required_approvals"), 1),
             "four_eyes": bool(requirement.get("four_eyes")),
             "step_up_required": bool(requirement.get("step_up")),
             "policy_reasons": reasons,
+            "notify_mail": requirement.get("notify_mail", True) is not False,
             "expires_at": now + timedelta(seconds=ttl),
             "decided_at": None,
             "consumed_at": None,
@@ -266,6 +272,9 @@ class ApprovalBook:
             detail={"risk_class": risk_class, "args_hash": args_hash},
         )
         self._notify(row)
+        from ar_domain.approvals.announce import announce  # noqa: PLC0415
+
+        announce(self.store, row, self._approver_ids(row)[:_MAX_NOTIFY])
         return row
 
     def list_standing(self, actor: Actor) -> list[dict[str, object]]:
@@ -451,6 +460,9 @@ class ApprovalBook:
         run = self.store.runs.get(run_id) if isinstance(run_id, uuid.UUID) else None
         if isinstance(run, dict):
             amend(run, approval_id=created["id"], arguments=arguments, args_hash=digest)
+        from ar_domain.documents.library import retarget_extraction  # noqa: PLC0415
+
+        retarget_extraction(self.store, row.get("id"), created.get("id"))
         return self.detail(actor, created, reveal=True)
 
     def _record_decision(
@@ -498,17 +510,21 @@ class ApprovalBook:
             detail={"status": status, "channel": channel, "args_hash": row.get("args_hash")},
         )
         _observe(row, status, channel)
+        decided = {
+            "approval_id": str(row["id"]),
+            "run_id": None if row.get("run_id") is None else str(row.get("run_id")),
+            "status": status,
+        }
         self.store.domain_events.append(
             {
                 "topic": "approval.decided",
-                "payload": {
-                    "approval_id": str(row["id"]),
-                    "run_id": None if row.get("run_id") is None else str(row.get("run_id")),
-                    "status": status,
-                },
+                "payload": decided,
                 "at": (as_datetime(row.get("decided_at")) or utcnow()).isoformat(),
             }
         )
+        from ar_domain.webhooks.delivery import dispatch_public_event  # noqa: PLC0415
+
+        dispatch_public_event(self.store, row.get("tenant_id"), "approval.decided", dict(decided))
 
     def _received(self, row: dict[str, object]) -> int:
         return sum(

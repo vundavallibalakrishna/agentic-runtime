@@ -995,12 +995,14 @@ def test_more_extract_library_and_lifecycle_edges(monkeypatch: pytest.MonkeyPatc
         "ar_domain.documents.model.ask_model",
         lambda *_a, **_k: '{"when": 1}',
     )
-    with pytest.raises(ArError):
-        library.extract(
-            actor,
-            document_id,
-            {"type": "object", "properties": {"when": {"type": "string"}}, "required": ["when"]},
-        )
+    extracted = library.extract(
+        actor,
+        document_id,
+        {"type": "object", "properties": {"when": {"type": "string"}}, "required": ["when"]},
+    )
+    fields = extracted.get("fields")
+    when = next(item for item in fields if isinstance(item, dict) and item.get("path") == "when")
+    assert when["status"] == "invalid"
     store.originals = {}
     with pytest.raises(NotFoundError):
         library.original(actor, document_id)

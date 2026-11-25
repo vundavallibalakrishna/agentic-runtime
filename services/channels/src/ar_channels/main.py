@@ -1,5 +1,6 @@
 """HTTP entrypoint for channels."""
 
+import asyncio
 import os
 from typing import TYPE_CHECKING
 
@@ -15,8 +16,11 @@ from ar_channels.handlers import (
     handle_slack_events,
     handle_slack_interaction,
     handle_teams,
+    slack_approval_message,
 )
+from ar_channels.render import adaptive_card
 from ar_channels.state import Dedupe, LeaderLock
+from ar_common.approval_cards import teams_incoming
 from ar_common.host_ports import listen_port
 from ar_common.settings import BaseServiceSettings
 from ar_common.web import create_app
@@ -25,6 +29,93 @@ if TYPE_CHECKING:
     from typing import Any
 
 LISTEN_PORT = 8004
+
+
+def _secret(body: dict[str, Any]) -> dict[str, object]:
+    credentials = body.get("credentials")
+    return credentials if isinstance(credentials, dict) else {}
+
+
+def _approval_card(body: dict[str, Any]) -> dict[str, object]:
+    """Render the interactive card. ``slack_approval_message`` is the Slack form."""
+    approval_id = str(body.get("approval_id") or "")
+    if not approval_id:
+        return {}
+    args_hash = str(body.get("args_hash") or "")
+    step_up = bool(body.get("step_up"))
+    review_url = str(body.get("review_url") or "")
+    text = str(body.get("text") or "Approval requested")
+    kind = str(body.get("kind") or "slack")
+    secret = _secret(body)
+    interactive = bool(secret.get("bot_token") or secret.get("app_id")) and not secret.get(
+        "webhook_url"
+    )
+    if kind == "teams":
+        return adaptive_card(
+            text,
+            approval_id=approval_id,
+            args_hash=args_hash,
+            step_up=step_up,
+            web_url=review_url,
+            interactive=interactive,
+        )
+    return slack_approval_message(approval_id, args_hash, step_up=step_up, web_url=review_url)
+
+
+def _deliver_card(body: dict[str, Any], card: dict[str, object]) -> str:
+    """POST the card when the binding stored a webhook or a bot token. Otherwise recorded."""
+    if not card:
+        return "recorded"
+    secret = _secret(body)
+    webhook = str(secret.get("webhook_url") or "")
+    if webhook:
+        payload = teams_incoming(card) if str(body.get("kind") or "") == "teams" else card
+        return _post_json(webhook, payload)
+    token = str(secret.get("bot_token") or "")
+    if token and str(body.get("kind") or "") == "slack":
+        return _slack_api(token, str(body.get("external_user_id") or ""), card)
+    return "recorded"
+
+
+def _post_json(url: str, payload: dict[str, object]) -> str:
+    import httpx  # noqa: PLC0415
+
+    from ar_common.egress_http import EgressDenied, sync_client  # noqa: PLC0415
+
+    try:
+        with sync_client(timeout=5.0) as client:
+            response = client.post(url, json=payload)
+    except httpx.HTTPError:
+        return "failed"
+    except EgressDenied:
+        return "failed"
+    return "sent" if response.status_code < 300 else "failed"
+
+
+def _slack_api(token: str, user: str, card: dict[str, object]) -> str:
+    """Post with the Slack SDK the channels service already depends on. Not live-tested."""
+    try:
+        from slack_sdk import WebClient  # noqa: PLC0415
+        from slack_sdk.errors import SlackApiError  # noqa: PLC0415
+    except ImportError:
+        return "recorded"
+    client = WebClient(token=token)
+    channel = user
+    try:
+        if user:
+            opened = client.conversations_open(users=user)
+            channel_body = opened.get("channel") if isinstance(opened, dict) else None
+            if isinstance(channel_body, dict):
+                channel = str(channel_body.get("id") or user)
+        blocks = card.get("blocks")
+        client.chat_postMessage(
+            channel=channel,
+            text=str(card.get("text") or "Approval requested"),
+            blocks=list(blocks) if isinstance(blocks, list) else None,
+        )
+    except SlackApiError:
+        return "failed"
+    return "sent"
 
 
 class Settings(BaseServiceSettings):
@@ -99,11 +190,24 @@ def create_application() -> FastAPI:
     @app.post("/internal/v1/outbound")
     async def outbound(request: Request) -> dict[str, Any]:
         body = await request.json()
+        rendered = _approval_card(body) if isinstance(body, dict) else {}
         external = f"out-{len(request.app.state.outbox) + 1}"
-        request.app.state.outbox.append(
-            {"kind": "outbound", "body": body, "external_message_id": external}
+        safe = (
+            {key: value for key, value in body.items() if key != "credentials"}
+            if isinstance(body, dict)
+            else {}
         )
-        return {"external_message_id": external}
+        if rendered:
+            safe["card"] = rendered
+        request.app.state.outbox.append(
+            {"kind": "outbound", "body": safe, "external_message_id": external}
+        )
+        delivered = (
+            await asyncio.to_thread(_deliver_card, body, rendered)
+            if isinstance(body, dict)
+            else "recorded"
+        )
+        return {"external_message_id": external, "delivered": delivered}
 
     @app.post("/internal/v1/notify")
     async def notify(request: Request) -> dict[str, Any]:

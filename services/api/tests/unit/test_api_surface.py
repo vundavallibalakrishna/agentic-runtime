@@ -383,7 +383,7 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
     delivery_id = uuid.uuid4()
     assert (
         client.post(f"/api/v1/webhooks/{hook_id}/deliveries/{delivery_id}:redeliver").status_code
-        == 200
+        == 404
     )
     assert client.post("/api/v1/tenant/run-callback-secret:rotate").status_code == 200
     client.delete(f"/api/v1/webhooks/{hook_id}")

@@ -28,6 +28,12 @@ def convert_and_extract(data: bytes, filename: str, media_type: str) -> Extracte
         return _email(data, filename)
     if name.endswith(".zip") or media_type in {"application/zip", "application/x-zip-compressed"}:
         return _zip(data, filename)
+    if name.endswith(".msg"):
+        raise ExtractError(
+            "unsupported",
+            "Outlook .msg files are read by the ingest worker, which keeps the body, "
+            "the headers and each attachment.",
+        )
     target = _office_target(name)
     if target is None:
         raise ExtractError("unsupported", f"Upload a supported file. {filename} is not one.")
@@ -40,8 +46,6 @@ def _office_target(name: str) -> str | None:
         return "docx"
     if name.endswith((".xls", ".ods")):
         return "xlsx"
-    if name.endswith(".msg"):
-        return "txt"
     return None
 
 

@@ -71,6 +71,9 @@ class ConnectorDef:
     allows_anonymous: bool = False
     prefix: str = ""
     implementation: str = "built"
+    exchange_user_field: str = ""
+    exchange_secret_field: str = ""
+    exchange_extra_header: str = ""
 
     def tool_prefix(self) -> str:
         return self.prefix or self.slug.replace("-", "")
@@ -1004,11 +1007,13 @@ def _build() -> tuple[ConnectorDef, ...]:
         ),
     )
     from ar_domain.connectors.catalog_batch import batch_definitions  # noqa: PLC0415
+    from ar_domain.connectors.catalog_feeds import feed_definitions  # noqa: PLC0415
     from ar_domain.connectors.catalog_stage11 import stage11_definitions  # noqa: PLC0415
 
     rows: list[tuple[ConnectorDef, tuple[ToolDef, ...]]] = list(raw)
     rows.extend(batch_definitions())
     rows.extend(stage11_definitions())
+    rows.extend(feed_definitions())
     built: list[ConnectorDef] = []
     for connector, tools in rows:
         built.append(

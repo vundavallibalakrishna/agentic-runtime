@@ -11,7 +11,7 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_untrusted
 from ar_domain.routines.metrics import DELIVERY, EVENTS, RUNS
 from ar_domain.routines.schedule import next_fire
-from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
+from ar_domain.runs.logic import configured_run_budget
 from ar_domain.tools.logic import redact
 
 if TYPE_CHECKING:
@@ -335,7 +335,7 @@ def _hold(
         risk_class=_RISK,
         args_hash=digest,
         arguments=arguments,
-        requirement={"approvers": {"mode": "requester"}},
+        requirement={"approvers": {"mode": "requester"}, "notify_mail": False},
         reasons=["routine_delivery"],
         preview=render_preview(None, arguments, title=str(routine.get("name") or tool)),
     )
@@ -691,7 +691,7 @@ def _open_run(
     run["trigger"] = "routine"
     run["routine_id"] = routine["id"]
     # The run carries the routine's budget, which `read_budget` applies as a ceiling.
-    run["budget"] = routine.get("budget") or dict(DEFAULT_RUN_BUDGET)
+    run["budget"] = routine.get("budget") or configured_run_budget()
     run["dry_run"] = bool(event.get("dry_run"))
     return conversation, store.messages[run["input_message_id"]], run
 

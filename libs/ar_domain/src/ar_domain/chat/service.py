@@ -474,6 +474,11 @@ class ChatBehaviour:
     document_chunks: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     ingestion_jobs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     document_revisions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    document_extractions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    resource_settings: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    outbound_webhooks: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    webhook_deliveries: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    outbox_events: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     user_emails: dict[uuid.UUID, str] = field(default_factory=dict)
     user_clearance: dict[uuid.UUID, str] = field(default_factory=dict)
     group_keys: dict[str, str] = field(default_factory=dict)
@@ -3162,6 +3167,19 @@ class ChatBehaviour:
             self.events[run_id].append(event)
         for queue in self.subscribers.get(run_id, []):
             queue.put_nowait(event)
+        if event_type in {"run.completed", "run.failed"}:
+            from ar_domain.webhooks.delivery import dispatch_public_event  # noqa: PLC0415
+
+            dispatch_public_event(
+                self,
+                run.get("tenant_id"),
+                event_type,
+                {
+                    "run_id": str(run_id),
+                    "conversation_id": str(run.get("conversation_id") or ""),
+                    "status": event_type.removeprefix("run."),
+                },
+            )
         if not self.reloading:
             self.flush_soon()
             self._publish_event(run_id, event)

@@ -46,6 +46,9 @@ async def flush_store(store: object) -> None:
             await _flush_once(store, engine)
             if not getattr(store, "_flush_again", False):
                 break
+    from ar_domain.durable.after import run_after_commit  # noqa: PLC0415
+
+    run_after_commit(store)
 
 
 def schedule_flush(store: object) -> None:
@@ -104,6 +107,22 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             )
             await _documents(session, pending["knowledge_documents"])
             await _revisions(session, pending.get("document_revisions", []))
+            from ar_domain.durable.webhooks_save import (  # noqa: PLC0415
+                save_deliveries,
+                save_outbox,
+                save_webhooks,
+            )
+
+            await save_outbox(session, pending.get("outbox_events", []))
+            await save_webhooks(session, pending.get("outbound_webhooks", []))
+            await save_deliveries(session, pending.get("webhook_deliveries", []))
+            from ar_domain.durable.extractions_save import (  # noqa: PLC0415
+                save_extractions,
+                save_settings,
+            )
+
+            await save_extractions(session, pending.get("document_extractions", []))
+            await save_settings(session, pending.get("resource_settings", []))
             await _chunks(session, pending["document_chunks"])
             await _facts(session, pending["memory_facts"])
             await _tool_servers(session, pending["tool_servers"])

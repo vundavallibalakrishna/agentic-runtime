@@ -40,14 +40,21 @@ def notices_for(topic: str, payload: dict[str, object]) -> list[Notice]:
         return []
     if topic == "approval.requested":
         name = str(payload.get("qualified_name") or "a tool")
-        return [
-            Notice(
-                "approval_requested",
-                "Approval requested",
-                f"A run is waiting on {name}",
-                "approvals@dev.local",
-            )
-        ]
+        title = "Approval requested"
+        body = f"A run is waiting on {name}"
+        link = str(payload.get("review_url") or "")
+        if link:
+            body = f"{body}\n\nReview: {link}"
+        emails = payload.get("approver_emails")
+        if not isinstance(emails, list):
+            emails = []
+        extra = str(payload.get("notify_email") or "")
+        recipients = [str(item).strip() for item in emails if str(item).strip()]
+        if extra.strip() and extra.strip() not in recipients:
+            recipients.append(extra.strip())
+        if not recipients:
+            return [Notice("approval_requested", title, body, None)]
+        return [Notice("approval_requested", title, body, email) for email in recipients]
     return []
 
 

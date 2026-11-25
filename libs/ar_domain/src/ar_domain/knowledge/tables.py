@@ -278,6 +278,69 @@ class DocumentRevision(Base):
     )
 
 
+class DocumentExtraction(Base):
+    """One extraction of a document against a schema, with the per-field result."""
+
+    __tablename__ = "document_extractions"
+    __table_args__ = (
+        Index(
+            "ix_document_extractions_document",
+            "tenant_id",
+            "document_id",
+            sql_text("created_at DESC"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
+    schema_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
+    model_alias: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
+    strategy: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
+    fields: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, server_default=sql_text("'[]'::jsonb")
+    )
+    result: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, server_default=sql_text("'{}'::jsonb")
+    )
+    corrections: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, server_default=sql_text("'[]'::jsonb")
+    )
+    approval_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = created_at_col()
+
+
+class ResourceSetting(Base):
+    """One version of a settings document checked against a JSON Schema."""
+
+    __tablename__ = "resource_settings"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "resource_type",
+            "resource_id",
+            "version",
+            name="uq_resource_settings_version",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    resource_type: Mapped[str] = mapped_column(Text, nullable=False)
+    resource_id: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    schema_doc: Mapped[dict[str, object]] = mapped_column("schema", JSONB, nullable=False)
+    document: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = created_at_col()
+
+
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     __table_args__ = (

@@ -165,13 +165,18 @@ class PackService:
             from ar_domain.documents.rules import import_rule_set  # noqa: PLC0415
 
             import_rule_set(self.store, actor, rule_set.model_dump(by_alias=False))
+        bundle_resources = [
+            item
+            for item in parsed.spec.resources
+            if not (isinstance(item, dict) and item.get("kind") == "Policy")
+        ]
         imported = import_bundle(
             self.store,
             actor,
             {
                 "apiVersion": "agentic-runtime.dev/v1",
                 "kind": "Bundle",
-                "spec": {"resources": parsed.spec.resources},
+                "spec": {"resources": bundle_resources},
             },
             dry_run=False,
         )
@@ -211,6 +216,8 @@ class PackService:
                 "resource_id": uuid.UUID(resource_id),
                 "created_at": now,
             }
+        _seed_settings(self.store, actor, manifest)
+        _apply_policies(self.store, actor, manifest)
         _audit(
             self.store,
             actor,
@@ -324,3 +331,100 @@ class PackService:
             "manifest_hash": row.get("manifest_hash"),
             "signature_key_id": row.get("signature_key_id"),
         }
+
+
+def _seed_settings(store: Any, actor: Actor, manifest: dict[str, object]) -> None:
+    """Version 1 of an agent's settings, taken from the pack manifest when it names them."""
+    spec = manifest.get("spec") if isinstance(manifest.get("spec"), dict) else None
+    resources = spec.get("resources") if isinstance(spec, dict) else None
+    if not isinstance(resources, list):
+        return
+    from ar_domain.config_docs.book import SettingsBook  # noqa: PLC0415
+
+    book = SettingsBook(store)
+    for item in resources:
+        if not isinstance(item, dict):
+            continue
+        body = item.get("spec") if isinstance(item.get("spec"), dict) else None
+        if not isinstance(body, dict):
+            continue
+        schema = body.get("settingsSchema") or body.get("settings_schema")
+        document = body.get("settings")
+        if not isinstance(schema, dict) or not isinstance(document, dict):
+            continue
+        raw_meta = item.get("metadata")
+        meta = raw_meta if isinstance(raw_meta, dict) else {}
+        resource_id = str(meta.get("slug") or meta.get("id") or "")
+        if not resource_id:
+            continue
+        book.save(
+            actor.tenant_id,
+            actor.user_id,
+            str(item.get("kind") or "agent").lower(),
+            resource_id,
+            schema,
+            document,
+        )
+
+
+def _apply_policies(store: Any, actor: Actor, manifest: dict[str, object]) -> None:
+    """Install Policy resources from the manifest. The group name comes from settings."""
+    spec = manifest.get("spec") if isinstance(manifest.get("spec"), dict) else None
+    resources = spec.get("resources") if isinstance(spec, dict) else None
+    if not isinstance(resources, list):
+        return
+    group = _extraction_group(store, actor.tenant_id)
+    from ar_common.ids import new_id  # noqa: PLC0415
+    from ar_common.time import utcnow  # noqa: PLC0415
+
+    now = utcnow()
+    for item in resources:
+        if not isinstance(item, dict) or item.get("kind") != "Policy":
+            continue
+        body = item.get("spec") if isinstance(item.get("spec"), dict) else None
+        document = body.get("document") if isinstance(body, dict) else None
+        if not isinstance(document, dict):
+            continue
+        rewritten = _with_group(document, group)
+        raw_meta = item.get("metadata")
+        meta = raw_meta if isinstance(raw_meta, dict) else {}
+        policy_id = new_id()
+        version_id = new_id()
+        store.policies[policy_id] = {
+            "id": policy_id,
+            "tenant_id": actor.tenant_id,
+            "name": str(meta.get("name") or "Pack policy"),
+            "kind": "rules",
+            "status": "active",
+            "priority": 100,
+            "active_version_id": version_id,
+            "created_at": now,
+            "updated_at": now,
+        }
+        store.policy_versions[version_id] = {
+            "id": version_id,
+            "tenant_id": actor.tenant_id,
+            "policy_id": policy_id,
+            "version": 1,
+            "document": rewritten,
+            "created_at": now,
+        }
+
+
+def _extraction_group(store: Any, tenant_id: object) -> str:
+    settings = getattr(store, "tenant_settings", {})
+    row = settings.get(tenant_id) if isinstance(settings, dict) else None
+    documents = row.get("documents") if isinstance(row, dict) else None
+    group = documents.get("extractionReviewGroup") if isinstance(documents, dict) else None
+    if isinstance(group, str) and group.strip():
+        return group.strip()
+    return "approvers"
+
+
+def _with_group(document: dict[str, object], group: str) -> dict[str, object]:
+    """Replace the placeholder group so the approver set comes from settings."""
+    import orjson  # noqa: PLC0415
+
+    text = orjson.dumps(document).decode().replace("{{approvalGroup}}", group)
+    loaded = orjson.loads(text)
+    return loaded if isinstance(loaded, dict) else document

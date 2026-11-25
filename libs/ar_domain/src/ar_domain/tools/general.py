@@ -69,6 +69,7 @@ def dispatch_general(store: Any, name: str, arguments: dict[str, object]) -> dic
         return chart
     handler = {
         "code": _code,
+        "run_entry": _run_entry,
         "shell": _shell,
         "read_file": _read,
         "write_file": _write,
@@ -85,6 +86,12 @@ def dispatch_general(store: Any, name: str, arguments: dict[str, object]) -> dic
     if handler is None:
         return _error("unknown_tool", f"unknown tool {name}")
     return handler(store, arguments)
+
+
+def _run_entry(store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    from ar_domain.tools.registered import run_entry  # noqa: PLC0415
+
+    return run_entry(store, arguments)
 
 
 def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -145,6 +152,7 @@ def _run_script(
     *,
     interpreters: tuple[list[str], list[str]],
     limits: dict[str, int | bool],
+    args: tuple[str, ...] = (),
 ) -> IsolatedRun | dict[str, object]:
     """Run the script a tool wrote in this run's folder, and return the finished run.
 
@@ -158,13 +166,13 @@ def _run_script(
     on_host, in_computer = interpreters
     timeout = _as_limit(limits["timeout_s"])
     if runs_in_computer(store):
-        return run_in_computer(store, arguments, root, [*in_computer, name], timeout=timeout)
+        return run_in_computer(store, arguments, root, [*in_computer, name, *args], timeout=timeout)
     if not host_exec_allowed():
         return _error("sandbox_unavailable", "the computer is not ready")
     return blocking(
         run_isolated,
         root,
-        [*on_host, _guest_path(root, name)],
+        [*on_host, _guest_path(root, name), *args],
         timeout=timeout,
         network=bool(limits["network"]),
         max_file_bytes=_as_limit(limits["max_file_bytes"]),

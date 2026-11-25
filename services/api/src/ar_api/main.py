@@ -55,6 +55,8 @@ from ar_api.routers.platform_usage import router as platform_usage_router
 from ar_api.routers.policies import router as policies_router
 from ar_api.routers.quotas import router as quotas_router
 from ar_api.routers.research import router as research_router
+from ar_api.routers.resource_settings import router as resource_settings_router
+from ar_api.routers.review_link import router as review_link_router
 from ar_api.routers.reviews import router as reviews_router
 from ar_api.routers.roles import router as roles_router
 from ar_api.routers.routines import router as routines_router
@@ -319,6 +321,8 @@ def create_application() -> FastAPI:
             plans_router,
             notifications_router,
             webhooks_router,
+            review_link_router,
+            resource_settings_router,
             agents_router,
             bundles_router,
             packs_router,

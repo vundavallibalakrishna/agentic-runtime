@@ -152,6 +152,13 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | connector | `rest` | `contract` | no | Catalogue verification is not_live. Proof is contract. |
 | connector-tool | `rest_get` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | connector-tool | `rest_post` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector | `lexisnexis-regulatory` | `unit` | no | Catalogue verification is not_live. Proof is unit. |
+| connector-tool | `lexisnexisregulatory_subscriptions` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `lexisnexisregulatory_contents` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `lexisnexisregulatory_content` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `lexisnexisregulatory_mandates` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `lexisnexisregulatory_regulators` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `lexisnexisregulatory_download` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | tool | `browser.click` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `browser.close_tab` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `browser.download` | `unit` | yes | In-process tool. Not a recorded live model run. |
@@ -187,6 +194,10 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `documents.read` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `documents.search` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `documents.tables` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `extensions.compare` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `extensions.get` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `extensions.list` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `extensions.put` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `files.attach_to_sandbox` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `files.list` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `files.read` | `unit` | yes | In-process tool. Not a recorded live model run. |
@@ -206,6 +217,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `general.pivot_table` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.query_table` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.read_file` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `general.run_entry` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.run_saved_query` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.sample_table` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.save_query` | `unit` | yes | In-process tool. Not a recorded live model run. |
@@ -232,5 +244,6 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `session.a2a_call` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `session.plan_update` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `session.search` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `settings.read` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `skills.load` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `web.discover` | `unit` | yes | In-process tool. Not a recorded live model run. |

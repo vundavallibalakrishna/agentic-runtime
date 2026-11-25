@@ -27,6 +27,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 |---|---|---|---|
 | `AR_ACTIVITY_HEARTBEAT_THROTTLE_S` | `2` | How often, at most, a worker reports a running activity to Temporal. A stop reaches an activity with that report, so this is how long a reply keeps being written after a person presses Stop. Temporal's own default would be 24 seconds here | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_API_INTERNAL_URL` | `http://api:8000` | Internal base URL of `api` (used by web server-side and channels) | [spec 16](../03-specs/16-channels.md), [spec 19](../03-specs/19-web-app.md) |
+| `AR_APPROVAL_NOTIFY_EMAIL` | empty | Extra mailbox that receives approval mail, in addition to the approvers named by the policy. Empty sends only to those approvers | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_APPROVAL_WAIT_S` | `86400` | How long a run waits for an approval or a person's answer before the workflow expires the wait | [spec 07](../03-specs/07-agent-runtime.md), [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_ASGI_SERVER` | `uvicorn` | `uvicorn` or `granian` for api/channels/gateways | [stack](../stack.md) |
 | `AR_AUDIT_ARCHIVE_BUCKET` | `ar-audit-archive` | Object Lock bucket for audit archives | [spec 17](../03-specs/17-audit-usage-metering.md) |
@@ -188,11 +189,19 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_PII_LANGUAGE_MODEL` | `en_core_web_sm` | The installed spaCy model the personal-data recognisers use. The default ships with the product. A deployment that masks names and places installs a larger model and names it here; a name that is not installed stops the first masking with an error, and nothing is downloaded | [data protection §5](../06-security/data-protection.md#5-pii-handling) |
 | `AR_PLATFORM_DB_DENY_CIDRS` | empty | Comma-separated CIDRs of the platform database pods and services. A resolved address inside one of them is refused. The chart copies `cluster.podCIDR` and `cluster.serviceCIDR`. | [egress](egress-closed.md) |
 | `AR_PLATFORM_DB_DENY_HOSTS` | empty | Comma-separated platform database service names. A customer DSN whose host is one of these, or whose resolved address matches one of them, is refused on any port. The chart fills the bundled CNPG `-rw`, `-ro`, `-r` and `-pooler` names. | [egress](egress-closed.md) |
-| `AR_PUBLIC_URL` | `http://localhost:3000` | Origin of the web app (cookies, CSRF origin check, redirects) | [spec 01](../03-specs/01-api-bff.md), [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 16](../03-specs/16-channels.md), [spec 19](../03-specs/19-web-app.md) |
+| `AR_PUBLIC_URL` | `http://localhost:3000` | Origin of the web app (cookies, CSRF origin check, redirects, review links and approval cards) | [spec 01](../03-specs/01-api-bff.md), [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 16](../03-specs/16-channels.md), [spec 19](../03-specs/19-web-app.md) |
+| `AR_REVIEW_LINK_TTL_S` | `86400` | How long a signed one-item review link stays valid. The link also ends when the approval expires | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_QDRANT_API_KEY` | (secret, unset) | Qdrant API key; only with the optional qdrant adapter | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_QDRANT_URL` | (unset) | Qdrant URL; required only when `AR_VECTOR_BACKEND=qdrant` or a collection uses the qdrant adapter (local `qdrant` profile: `http://localhost:6333`) | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_RETENTION_SWEEP_CRON` | `0 1 * * *` | Schedule of `RetentionSweepWorkflow` | [spec 17](../03-specs/17-audit-usage-metering.md) |
 | `AR_ROUTINE_MIN_INTERVAL_S` | `300` | Minimum schedule interval for routines | [spec 15](../03-specs/15-routines-triggers.md) |
+| `AR_ROUTINE_DEFAULT_MAX_STEPS` | `16` | Step ceiling for a routine that names no budget | [spec 15](../03-specs/15-routines-triggers.md) |
+| `AR_ROUTINE_DEFAULT_MAX_TOOL_CALLS` | `16` | Tool-call ceiling for a routine that names no budget | [spec 15](../03-specs/15-routines-triggers.md) |
+| `AR_ROUTINE_DEFAULT_MAX_TOKENS` | `80000` | Token ceiling for a routine that names no budget | [spec 15](../03-specs/15-routines-triggers.md) |
+| `AR_ROUTINE_DEFAULT_MAX_COST_MICROS` | `4000000` | Cost ceiling for a routine that names no budget | [spec 15](../03-specs/15-routines-triggers.md) |
+| `AR_ROUTINE_DEFAULT_MAX_WALL_CLOCK_S` | `600` | Wall-clock ceiling for a routine that names no budget | [spec 15](../03-specs/15-routines-triggers.md) |
+| `AR_EXTRACTION_MIN_CONFIDENCE` | `0.8` | A verified quote below this is low-confidence | [spec 24](../03-specs/24-documents.md) |
+| `AR_REGISTERED_SCRIPT_ENTRY` | `python model.py --params params.json` | Fixed command for a registered script. The model does not choose it | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES` | `200` | Per worker process | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUNTIME_MAX_CONCURRENT_WORKFLOW_TASKS` | `100` | Temporal worker workflow-task slots | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUNTIME_TENANT_MAX_ACTIVE_RUNS` | `50` (plan `max_concurrent_runs` takes precedence when lower) | Per-tenant cap of concurrently executing runs (excess runs stay `queued`) | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |

@@ -4917,6 +4917,42 @@
         ],
         "title": "ReviewDecideBody"
       },
+      "ReviewDecision": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment",
+            "default": ""
+          },
+          "argsHash": {
+            "type": "string",
+            "title": "Argshash",
+            "default": ""
+          },
+          "arguments": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arguments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "ReviewDecision"
+      },
       "RoleCreate": {
         "properties": {
           "key": {
@@ -6024,6 +6060,33 @@
           "text"
         ],
         "title": "SessionMessage"
+      },
+      "SettingsBody": {
+        "properties": {
+          "settingsSchema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settingsschema"
+          },
+          "document": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Document"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "document"
+        ],
+        "title": "SettingsBody"
       },
       "ShareBody": {
         "properties": {

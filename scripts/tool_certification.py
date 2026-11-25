@@ -114,6 +114,21 @@ def text_of(result: Result) -> str:
     return str(result.get("resultPreview") or "") + " " + str(result.get("wrapped") or "")
 
 
+def _keep_extension_row(result: Result, ctx: Ctx) -> str | None:
+    structured = result.get("structured")
+    row_id = str(structured.get("id") or "") if isinstance(structured, dict) else ""
+    if not row_id:
+        found = re.search(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            text_of(result),
+        )
+        row_id = found.group(0) if found else ""
+    if not row_id:
+        return "no row id"
+    ctx.values["extension_row"] = row_id
+    return None
+
+
 def has(*needles: str) -> Callable[[Result, Ctx], str | None]:
     def check(result: Result, _ctx: Ctx) -> str | None:
         body = text_of(result).lower()
@@ -593,6 +608,37 @@ def state_cases() -> list[Case]:
             has("Noted"),
         ),
         Case(
+            "general.run_entry",
+            "run a registered script",
+            lambda ctx: {"fileId": ctx["script_file"], "params": {"marker": "CERT-SCRIPT-1"}},
+            has("CERT-SCRIPT-1"),
+        ),
+        Case(
+            "settings.read",
+            "read the settings document",
+            fixed(resourceType="agent", resourceId="cert-agent"),
+            any_result,
+        ),
+        Case(
+            "extensions.put",
+            "store a pack row",
+            fixed(packId="cert", bucket="notes", payload={"marker": "CERT-ROW-1"}),
+            _keep_extension_row,
+        ),
+        Case(
+            "extensions.get",
+            "read the pack row",
+            lambda ctx: {"id": ctx["extension_row"]},
+            has("CERT-ROW-1"),
+        ),
+        Case("extensions.list", "list pack rows", fixed(packId="cert"), any_result),
+        Case(
+            "extensions.compare",
+            "compare two objects",
+            fixed(left={"units": 2}, right={"units": 3}),
+            has("units"),
+        ),
+        Case(
             "session.plan_update",
             "update the plan",
             fixed(plan=[{"id": "1", "title": "Certify", "status": "in_progress"}]),
@@ -907,6 +953,12 @@ def prepare(stack: Stack, ctx: Ctx) -> None:
     )
     ctx.values["ocr_file"] = stack.upload(
         "/api/v1/files:upload", "ocr-canary.png", OCR_IMAGE.read_bytes(), "image/png"
+    )
+    ctx.values["script_file"] = stack.upload(
+        "/api/v1/files:upload",
+        "cert-model.py",
+        b'print("CERT-SCRIPT-1")\n',
+        "text/x-python",
     )
     stamp = int(time.time())
     ctx.values["doc"] = stack.upload(

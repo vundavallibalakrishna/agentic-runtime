@@ -1569,5 +1569,28 @@
     "removeNamed": "Remove {host}",
     "removed": "{host} can no longer be reached.",
     "readOnly": "Changing this needs the permission to manage the organisation."
+  },
+  "review": {
+    "title": "Review this request",
+    "body": "Check the values, change any that are wrong, and approve or reject. This page is only this one request.",
+    "loading": "Loading the request",
+    "missing": "This review link is not valid, or it has expired.",
+    "empty": "There is nothing to change on this request.",
+    "reason": "Reason",
+    "reasonHint": "Say why, especially if you change a value or reject.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Approved. The original values are kept alongside any you changed.",
+    "pending": "Still pending. Another person has to approve this as well.",
+    "rejected": "Rejected.",
+    "quote": "Quote",
+    "page": "Page",
+    "confidence": "Confidence",
+    "fieldStatus": "Status",
+    "add": "Add",
+    "remove": "Remove",
+    "working": "Saving",
+    "failed": "That did not save. Try again.",
+    "signIn": "Sign in to review this request."
   }
 }

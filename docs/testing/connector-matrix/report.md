@@ -4,10 +4,10 @@ Every connector installed with stub credentials; every HTTP call caught by an ht
 
 ## Summary
 
-- Total connector tools: **100**
+- Total connector tools: **106**
 - dispatched: **6**
 - needs-oauth: **31**
-- needs-egress: **57**
+- needs-egress: **63**
 - needs-param: **6**
 - install-failed: **0**
 - failing: **0**
@@ -24,10 +24,10 @@ Every connector installed with stub credentials; every HTTP call caught by an ht
 
 | tool | state | note |
 |---|---|---|
-| `slack_list_channels` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `slack_read_channel` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `slack_post_message` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `slack_search` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `slack_list_channels` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `slack_read_channel` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `slack_post_message` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `slack_search` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## teams
 
@@ -82,50 +82,50 @@ Every connector installed with stub credentials; every HTTP call caught by an ht
 
 | tool | state | note |
 |---|---|---|
-| `jira_search` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `jira_create_issue` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `jira_update_issue` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `jira_add_comment` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `jira_search` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `jira_create_issue` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `jira_update_issue` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `jira_add_comment` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## github
 
 | tool | state | note |
 |---|---|---|
-| `github_list_repos` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `github_list_issues` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `github_list_pulls` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `github_read_file` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `github_create_issue` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `github_comment` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `github_list_repos` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `github_list_issues` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `github_list_pulls` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `github_read_file` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `github_create_issue` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `github_comment` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## confluence
 
 | tool | state | note |
 |---|---|---|
-| `confluence_search` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `confluence_read_page` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `confluence_write_page` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `confluence_search` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `confluence_read_page` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `confluence_write_page` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## notion
 
 | tool | state | note |
 |---|---|---|
-| `notion_search` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `notion_read_page` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `notion_read_database` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `notion_create_page` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `notion_search` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `notion_read_page` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `notion_read_database` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `notion_create_page` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## servicenow
 
 | tool | state | note |
 |---|---|---|
-| `servicenow_get_incident` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `servicenow_create_incident` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `servicenow_update_incident` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `servicenow_get_change` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `servicenow_create_change` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `servicenow_update_change` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `servicenow_query_table` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `servicenow_get_incident` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `servicenow_create_incident` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `servicenow_update_incident` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `servicenow_get_change` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `servicenow_create_change` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `servicenow_update_change` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `servicenow_query_table` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## salesforce
 
@@ -141,44 +141,44 @@ Every connector installed with stub credentials; every HTTP call caught by an ht
 
 | tool | state | note |
 |---|---|---|
-| `zendesk_search_tickets` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `zendesk_read_ticket` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `zendesk_create_ticket` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `zendesk_add_comment` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `zendesk_search_tickets` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `zendesk_read_ticket` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `zendesk_create_ticket` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `zendesk_add_comment` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## hubspot
 
 | tool | state | note |
 |---|---|---|
-| `hubspot_search_contacts` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `hubspot_read_contact` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `hubspot_search_companies` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `hubspot_read_company` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `hubspot_create_contact` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `hubspot_update_contact` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `hubspot_list_deals` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `hubspot_search_contacts` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `hubspot_read_contact` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `hubspot_search_companies` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `hubspot_read_company` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `hubspot_create_contact` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `hubspot_update_contact` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `hubspot_list_deals` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## okta
 
 | tool | state | note |
 |---|---|---|
-| `okta_list_users` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `okta_read_user` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `okta_list_groups` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `okta_read_group` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `okta_list_app_users` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `okta_deactivate_user` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `okta_list_users` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `okta_read_user` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `okta_list_groups` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `okta_read_group` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `okta_list_app_users` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `okta_deactivate_user` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## entra
 
 | tool | state | note |
 |---|---|---|
-| `entra_list_users` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `entra_read_user` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `entra_list_groups` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `entra_read_group` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `entra_list_apps` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `entra_list_signins` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `entra_list_users` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `entra_read_user` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `entra_list_groups` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `entra_read_group` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `entra_list_apps` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `entra_list_signins` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## aws
 
@@ -195,10 +195,10 @@ Every connector installed with stub credentials; every HTTP call caught by an ht
 
 | tool | state | note |
 |---|---|---|
-| `azure_list_resources` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `azure_list_resource_groups` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `azure_vm_state` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `azure_list_role_assignments` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `azure_list_resources` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `azure_list_resource_groups` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `azure_vm_state` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `azure_list_role_assignments` | needs-egress | egress_denied: stub.example.com could not be resolved |
 
 ## gcp
 
@@ -229,5 +229,16 @@ Every connector installed with stub credentials; every HTTP call caught by an ht
 
 | tool | state | note |
 |---|---|---|
-| `rest_get` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
-| `rest_post` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `rest_get` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `rest_post` | needs-egress | egress_denied: stub.example.com could not be resolved |
+
+## lexisnexis-regulatory
+
+| tool | state | note |
+|---|---|---|
+| `lexisnexisregulatory_subscriptions` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `lexisnexisregulatory_contents` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `lexisnexisregulatory_content` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `lexisnexisregulatory_mandates` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `lexisnexisregulatory_regulators` | needs-egress | egress_denied: stub.example.com could not be resolved |
+| `lexisnexisregulatory_download` | needs-egress | egress_denied: stub.example.com could not be resolved |

@@ -2411,6 +2411,30 @@ export type ReviewDecideBody = {
 };
 
 /**
+ * ReviewDecision
+ */
+export type ReviewDecision = {
+    /**
+     * Decision
+     */
+    decision: string;
+    /**
+     * Comment
+     */
+    comment?: string;
+    /**
+     * Argshash
+     */
+    argsHash?: string;
+    /**
+     * Arguments
+     */
+    arguments?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
  * RoleCreate
  */
 export type RoleCreate = {
@@ -3011,6 +3035,24 @@ export type SessionMessage = {
      * Text
      */
     text: string;
+};
+
+/**
+ * SettingsBody
+ */
+export type SettingsBody = {
+    /**
+     * Settingsschema
+     */
+    settingsSchema?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Document
+     */
+    document: {
+        [key: string]: unknown;
+    };
 };
 
 /**
@@ -7345,6 +7387,188 @@ export type RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponses = {
 };
 
 export type RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponse = RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponses[keyof RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponses];
+
+export type ReadReviewApiV1ReviewTokenGetData = {
+    body?: never;
+    path: {
+        /**
+         * Token
+         */
+        token: string;
+    };
+    query?: never;
+    url: '/api/v1/review/{token}';
+};
+
+export type ReadReviewApiV1ReviewTokenGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReadReviewApiV1ReviewTokenGetError = ReadReviewApiV1ReviewTokenGetErrors[keyof ReadReviewApiV1ReviewTokenGetErrors];
+
+export type ReadReviewApiV1ReviewTokenGetResponses = {
+    /**
+     * Response Read Review Api V1 Review  Token  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ReadReviewApiV1ReviewTokenGetResponse = ReadReviewApiV1ReviewTokenGetResponses[keyof ReadReviewApiV1ReviewTokenGetResponses];
+
+export type SubmitReviewApiV1ReviewTokenDecidePostData = {
+    body: ReviewDecision;
+    path: {
+        /**
+         * Token
+         */
+        token: string;
+    };
+    query?: never;
+    url: '/api/v1/review/{token}:decide';
+};
+
+export type SubmitReviewApiV1ReviewTokenDecidePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SubmitReviewApiV1ReviewTokenDecidePostError = SubmitReviewApiV1ReviewTokenDecidePostErrors[keyof SubmitReviewApiV1ReviewTokenDecidePostErrors];
+
+export type SubmitReviewApiV1ReviewTokenDecidePostResponses = {
+    /**
+     * Response Submit Review Api V1 Review  Token  Decide Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type SubmitReviewApiV1ReviewTokenDecidePostResponse = SubmitReviewApiV1ReviewTokenDecidePostResponses[keyof SubmitReviewApiV1ReviewTokenDecidePostResponses];
+
+export type ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Resource Type
+         */
+        resource_type: string;
+        /**
+         * Resource Id
+         */
+        resource_id: string;
+    };
+    query?: never;
+    url: '/api/v1/resource-settings/{resource_type}/{resource_id}';
+};
+
+export type ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetError = ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetErrors[keyof ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetErrors];
+
+export type ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetResponses = {
+    /**
+     * Response Read Settings Api V1 Resource Settings  Resource Type   Resource Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetResponse = ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetResponses[keyof ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetResponses];
+
+export type SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutData = {
+    body: SettingsBody;
+    path: {
+        /**
+         * Resource Type
+         */
+        resource_type: string;
+        /**
+         * Resource Id
+         */
+        resource_id: string;
+    };
+    query?: never;
+    url: '/api/v1/resource-settings/{resource_type}/{resource_id}';
+};
+
+export type SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutError = SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutErrors[keyof SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutErrors];
+
+export type SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutResponses = {
+    /**
+     * Response Save Settings Api V1 Resource Settings  Resource Type   Resource Id  Put
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutResponse = SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutResponses[keyof SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutResponses];
+
+export type ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Resource Type
+         */
+        resource_type: string;
+        /**
+         * Resource Id
+         */
+        resource_id: string;
+    };
+    query?: never;
+    url: '/api/v1/resource-settings/{resource_type}/{resource_id}/versions';
+};
+
+export type ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetError = ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetErrors[keyof ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetErrors];
+
+export type ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetResponses = {
+    /**
+     * Response List Settings Versions Api V1 Resource Settings  Resource Type   Resource Id  Versions Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetResponse = ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetResponses[keyof ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetResponses];
 
 export type ListAgentsApiV1AgentsGetData = {
     body?: never;
@@ -12188,6 +12412,40 @@ export type UploadLibraryDocumentApiV1LibraryDocumentsPostResponses = {
 };
 
 export type UploadLibraryDocumentApiV1LibraryDocumentsPostResponse = UploadLibraryDocumentApiV1LibraryDocumentsPostResponses[keyof UploadLibraryDocumentApiV1LibraryDocumentsPostResponses];
+
+export type ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/library-documents/{document_id}/extractions';
+};
+
+export type ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetError = ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetErrors[keyof ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetErrors];
+
+export type ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetResponses = {
+    /**
+     * Response List Extractions Api V1 Library Documents  Document Id  Extractions Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetResponse = ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetResponses[keyof ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetResponses];
 
 export type DeleteLibraryDocumentApiV1LibraryDocumentsDocumentIdDeleteData = {
     body?: never;

@@ -1,0 +1,148 @@
+{
+  "apiVersion": "agentic-runtime.dev/v1",
+  "kind": "ContentPack",
+  "metadata": {
+    "id": "scenario_runs",
+    "version": "1.0.0",
+    "name": "Scenario runs",
+    "minPlatform": "1.0.0"
+  },
+  "spec": {
+    "resources": [
+      {
+        "kind": "Agent",
+        "metadata": {
+          "slug": "scenario-runs",
+          "name": "Scenario runs"
+        },
+        "spec": {
+          "persona": {
+            "displayName": "Scenario runs",
+            "greeting": "I record scenarios, run a registered script, and keep the hashes."
+          },
+          "instructions": "You coordinate scenario records. You never state a number the registered script did not print.\n\n1. Store a scenario with `extensions.put` (packId `scenario_runs`, bucket `scenarios`). A change\n   is a new version and must include a reason.\n2. Register a script by storing its file id and hash in bucket `models`.\n3. Run it with `general.run_entry`. The entry point is the install setting. Do not invent a command.\n4. Store the run, including the hashes the tool returned, in bucket `runs`.\n5. Compare two runs with `extensions.compare`. Do not subtract figures yourself.\n6. A scenario is agreed only after a multi-level review. Results are approved with four-eyes,\n   and the preparer is not an approver. A report is issued only through `documents.create`\n   after that approval.\n\n`examples/model.py` in this pack is synthetic and is for tests only.\n",
+          "starterPrompts": [
+            "Record a scenario version"
+          ],
+          "tools": [
+            {
+              "server": "extensions",
+              "include": [
+                "put",
+                "get",
+                "list",
+                "compare"
+              ]
+            },
+            {
+              "server": "general",
+              "include": [
+                "run_entry"
+              ]
+            },
+            {
+              "server": "documents",
+              "include": [
+                "read",
+                "create"
+              ]
+            },
+            {
+              "server": "knowledge",
+              "include": [
+                "search"
+              ]
+            }
+          ],
+          "skills": [],
+          "budget": {
+            "maxSteps": 24,
+            "maxTokens": 80000,
+            "maxCostMicros": 4000000,
+            "maxWallClockS": 900,
+            "maxToolCalls": 24,
+            "maxParallelToolCalls": 1
+          }
+        }
+      },
+      {
+        "kind": "Policy",
+        "metadata": {
+          "name": "Scenario approvals"
+        },
+        "spec": {
+          "document": {
+            "rules": [
+              {
+                "id": "scenario-agreed",
+                "effect": "require_approval",
+                "message": "Agreeing a scenario needs more than one approver.",
+                "match": {
+                  "tools": [
+                    "extensions.put"
+                  ]
+                },
+                "approval": {
+                  "approvers": {
+                    "mode": "group",
+                    "groups": [
+                      "{{approvalGroup}}"
+                    ]
+                  },
+                  "required_approvals": 2,
+                  "four_eyes": false,
+                  "step_up": false,
+                  "ttl_s": 86400
+                }
+              },
+              {
+                "id": "results-four-eyes",
+                "effect": "require_approval",
+                "message": "Results need a second person. The preparer cannot approve.",
+                "match": {
+                  "tools": [
+                    "extensions.compare"
+                  ]
+                },
+                "approval": {
+                  "approvers": {
+                    "mode": "group",
+                    "groups": [
+                      "{{approvalGroup}}"
+                    ]
+                  },
+                  "required_approvals": 1,
+                  "four_eyes": true,
+                  "step_up": false,
+                  "ttl_s": 86400
+                }
+              },
+              {
+                "id": "report-issued",
+                "effect": "require_approval",
+                "message": "A report is issued through document creation after approval.",
+                "match": {
+                  "tools": [
+                    "documents.create"
+                  ]
+                },
+                "approval": {
+                  "approvers": {
+                    "mode": "group",
+                    "groups": [
+                      "{{approvalGroup}}"
+                    ]
+                  },
+                  "required_approvals": 1,
+                  "four_eyes": false,
+                  "step_up": false,
+                  "ttl_s": 86400
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

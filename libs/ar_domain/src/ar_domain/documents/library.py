@@ -146,12 +146,20 @@ async def _parse_on_worker(
     )
     await flush_store(store)
     document_id = str(staged.get("id") or "")
-    handle = await client.start_workflow(
-        "LibraryParseWorkflow",
-        {"document_id": document_id, "tenant_id": str(actor.tenant_id)},
-        id=f"library-parse-{document_id}",
-        task_queue="ar-ingest",
-    )
+    try:
+        handle = await client.start_workflow(
+            "LibraryParseWorkflow",
+            {"document_id": document_id, "tenant_id": str(actor.tenant_id)},
+            id=f"library-parse-{document_id}",
+            task_queue="ar-ingest",
+        )
+    except Exception as exc:
+        message = "The ingest worker is not running, so this file was not read."
+        if filename.lower().endswith(".msg"):
+            message = (
+                "Outlook .msg files are read by the ingest worker, and that worker is not running."
+            )
+        raise ArError(ErrorCode.UNAVAILABLE, message) from exc
     finished, answer = await worker_result(handle, WORKER_WAIT_S)
     if not finished:
         # The worker is still reading. The row says so, and the worker finishes it.
@@ -436,6 +444,18 @@ class DocumentLibrary:
         row["error_code"] = None
         row["error_message"] = None
         row["updated_at"] = utcnow()
+        from ar_domain.webhooks.delivery import dispatch_public_event  # noqa: PLC0415
+
+        dispatch_public_event(
+            self.store,
+            row.get("tenant_id"),
+            "document.ingested",
+            {
+                "document_id": str(document_id),
+                "content_hash": str(row.get("content_hash") or ""),
+                "status": "ready",
+            },
+        )
         return self._view(row)
 
     def list_items(
@@ -662,6 +682,70 @@ class DocumentLibrary:
             "nextCursor": nxt,
         }
 
+    def finish_from_text(
+        self,
+        actor: Actor,
+        document_id: uuid.UUID,
+        text: str,
+        metadata: dict[str, object],
+    ) -> dict[str, object]:
+        """Fill a staged row from text the ingest worker already read."""
+        row = self._own(actor, document_id)
+        row["title"] = (text.strip().splitlines() or ["Message"])[0][:200]
+        row["page_count"] = 1
+        current = row.get("metadata")
+        body = dict(current) if isinstance(current, dict) else {}
+        body.update(metadata)
+        row["metadata"] = body
+        row["passages"] = [{"anchor": "p1", "page": 1, "heading": "", "text": text}]
+        row["tables"] = []
+        row["status"] = "ready"
+        row["error_code"] = None
+        row["error_message"] = None
+        row["updated_at"] = utcnow()
+        from ar_domain.webhooks.delivery import dispatch_public_event  # noqa: PLC0415
+
+        dispatch_public_event(
+            self.store,
+            row.get("tenant_id"),
+            "document.ingested",
+            {
+                "document_id": str(document_id),
+                "content_hash": str(row.get("content_hash") or ""),
+                "status": "ready",
+            },
+        )
+        return self._view(row)
+
+    def extractions(self, actor: Actor, document_id: uuid.UUID) -> list[dict[str, object]]:
+        """Every stored extraction of this document, oldest first."""
+        self._own(actor, document_id)
+        book = getattr(self.store, "document_extractions", {})
+        if not isinstance(book, dict):
+            return []
+        rows = [
+            item
+            for item in book.values()
+            if isinstance(item, dict) and item.get("document_id") == document_id
+        ]
+        rows.sort(key=lambda item: str(item.get("created_at") or ""))
+        return [
+            {
+                "id": str(item.get("id")),
+                "content_hash": item.get("content_hash"),
+                "schema_hash": item.get("schema_hash"),
+                "model_alias": item.get("model_alias"),
+                "strategy": item.get("strategy"),
+                "fields": item.get("fields"),
+                "result": item.get("result"),
+                "approval_id": None
+                if item.get("approval_id") is None
+                else str(item.get("approval_id")),
+                "created_at": item.get("created_at"),
+            }
+            for item in rows
+        ]
+
     def original(self, actor: Actor, document_id: uuid.UUID) -> bytes:
         """The stored original. A hash mismatch is a failure, not the derived text."""
         row = self._own(actor, document_id)
@@ -679,39 +763,168 @@ class DocumentLibrary:
         schema: dict[str, object],
         *,
         alias: str = "",
+        review: bool = False,
+        run_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         """Fill ``schema`` from the document. A missing model is an error."""
         if not schema:
             raise ValidationFailedError("extract needs a JSON Schema.")
-        import orjson  # noqa: PLC0415
-
         from ar_common.wrapping import wrap_untrusted  # noqa: PLC0415
-        from ar_domain.documents.sections import _json_object  # noqa: PLC0415
 
         row = self._own(actor, document_id)
         passages = _rows(row.get("passages"))
-        evidence = "\n\n".join(
-            f"[{item.get('anchor')} p.{item.get('page')}] {item.get('text')}" for item in passages
+        from ar_domain.documents.binding import context_window_for  # noqa: PLC0415
+        from ar_domain.documents.evidence import (  # noqa: PLC0415
+            choose_strategy,
+            chunks_for,
+            interpret,
+            merge_interpretations,
+            prompt_for,
+            schema_hash,
         )
-        ask = self._ask(actor, alias)
-        raw = ask(
-            "Fill this JSON Schema from the passages only. "
-            "Return one JSON object and no other text. "
-            "Where a value comes from a passage, include that passage's anchor "
-            "when the schema allows it.\n" + orjson.dumps(schema).decode(),
-            wrap_untrusted(source="document", content=evidence),
-        )
-        if not isinstance(raw, str) or not raw.strip():
-            raise ArError(
-                ErrorCode.INVALID_STATE, "No model is configured, so nothing was extracted."
-            )
-        parsed = _json_object(raw)
-        from jsonschema import Draft202012Validator  # noqa: PLC0415
 
-        errors = list(Draft202012Validator(schema).iter_errors(parsed))
-        if errors:
-            raise ArError(ErrorCode.INVALID_STATE, "The extraction did not match the schema.")
-        return {"document_id": str(document_id), "result": parsed, "kind": "extract"}
+        window = context_window_for(
+            self.store, actor.tenant_id, {"model_alias": alias or "reasoning"}
+        )
+        text = "\n\n".join(str(item.get("text") or "") for item in passages)
+        strategy = choose_strategy(text, window)
+        ask = self._ask(actor, alias)
+        groups = chunks_for(passages, window) or [passages]
+        parts: list[dict[str, object]] = []
+        for group in groups:
+            evidence = "\n\n".join(
+                f"[{item.get('anchor')} p.{item.get('page')}] {item.get('text')}" for item in group
+            )
+            raw = ask(prompt_for(schema), wrap_untrusted(source="document", content=evidence))
+            if not isinstance(raw, str) or not raw.strip():
+                raise ArError(
+                    ErrorCode.INVALID_STATE, "No model is configured, so nothing was extracted."
+                )
+            parts.append(interpret(raw, schema, group))
+        body = parts[0] if len(parts) == 1 else merge_interpretations(parts, schema, passages)
+        body["document_id"] = str(document_id)
+        body["strategy"] = strategy
+        body["kind"] = "extract"
+        body["schema_hash"] = schema_hash(schema)
+        body["content_hash"] = str(row.get("content_hash") or "")
+        self._store_extraction(actor, row, body, alias, run_id=run_id)
+        if review or _extraction_review_enabled(self.store, actor.tenant_id):
+            self._review_extraction(actor, row, schema, body, run_id=run_id)
+        return body
+
+    def _store_extraction(
+        self,
+        actor: Actor,
+        row: dict[str, object],
+        body: dict[str, object],
+        alias: str,
+        *,
+        run_id: uuid.UUID | None = None,
+    ) -> None:
+        from ar_common.ids import new_id  # noqa: PLC0415
+
+        extraction_id = new_id()
+        record = {
+            "id": extraction_id,
+            "tenant_id": actor.tenant_id,
+            "document_id": row.get("id"),
+            "content_hash": str(row.get("content_hash") or ""),
+            "schema_hash": str(body.get("schema_hash") or ""),
+            "model_alias": alias or "reasoning",
+            "strategy": str(body.get("strategy") or ""),
+            "fields": body.get("fields") or [],
+            "result": body.get("result") or {},
+            "corrections": [],
+            "approval_id": None,
+            "run_id": run_id,
+            "created_at": utcnow(),
+        }
+        book = getattr(self.store, "document_extractions", None)
+        if not isinstance(book, dict):
+            self.store.document_extractions = {}
+            book = self.store.document_extractions
+        book[extraction_id] = record
+        body["extraction_id"] = str(extraction_id)
+        document_id = row.get("id")
+        self._audit(
+            actor,
+            "extraction.recorded",
+            document_id if isinstance(document_id, uuid.UUID) else None,
+            {"extraction_id": str(extraction_id)},
+        )
+        from ar_domain.webhooks.delivery import dispatch_public_event  # noqa: PLC0415
+
+        dispatch_public_event(
+            self.store,
+            actor.tenant_id,
+            "extraction.completed",
+            {
+                "document_id": str(row.get("id") or ""),
+                "extraction_id": str(extraction_id),
+                "content_hash": record["content_hash"],
+                "schema_hash": record["schema_hash"],
+            },
+        )
+
+    def _review_extraction(
+        self,
+        actor: Actor,
+        row: dict[str, object],
+        schema: dict[str, object],
+        body: dict[str, object],
+        *,
+        run_id: uuid.UUID | None = None,
+    ) -> None:
+        exceptions = body.get("exceptions")
+        meta = row.get("metadata")
+        fallback = isinstance(meta, dict) and meta.get("parser") == "fallback"
+        if not exceptions and not fallback:
+            return
+        if not isinstance(getattr(self.store, "approvals", None), dict):
+            return
+        from ar_common.ids import new_id  # noqa: PLC0415
+        from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
+        from ar_domain.tools.logic import call_args_hash  # noqa: PLC0415
+
+        raw_arguments = body.get("result")
+        arguments = raw_arguments if isinstance(raw_arguments, dict) else {}
+        preview = {
+            "title": "Review extracted fields",
+            "summary": "Some fields need a person.",
+            "schema": schema,
+            "fields": body.get("fields") or [],
+            "parser": meta.get("parser") if isinstance(meta, dict) else "",
+            "parser_note": meta.get("parserNote") if isinstance(meta, dict) else "",
+        }
+        digest = call_args_hash("documents.review_extraction", arguments)
+        created = ApprovalBook(self.store).create_pending(
+            tenant_id=actor.tenant_id,
+            user_id=actor.user_id,
+            run_id=run_id,
+            agent_id=None,
+            tool_call_id=new_id(),
+            qualified_name="documents.review_extraction",
+            risk_class="W2",
+            args_hash=digest,
+            arguments=arguments,
+            requirement={
+                "approvers": {
+                    "mode": "group",
+                    "groups": [_extraction_review_group(self.store, actor.tenant_id)],
+                },
+                "ttl_s": 86400,
+            },
+            reasons=["extraction_exception"],
+            preview=preview,
+        )
+        body["approval_id"] = str(created.get("id") or "")
+        book = getattr(self.store, "document_extractions", {})
+        extraction_id = body.get("extraction_id")
+        if isinstance(book, dict) and extraction_id:
+            for item in book.values():
+                if str(item.get("id")) == str(extraction_id):
+                    item["approval_id"] = created.get("id")
+                    item["run_id"] = run_id
 
     def edit(
         self,
@@ -1322,3 +1535,78 @@ def _iso(value: object) -> str:
     if value is None:
         return ""
     return str(value)
+
+
+def _document_settings(store: Any, tenant_id: object) -> dict[str, object]:
+    settings = getattr(store, "tenant_settings", {})
+    row = settings.get(tenant_id) if isinstance(settings, dict) else None
+    documents = row.get("documents") if isinstance(row, dict) else None
+    return documents if isinstance(documents, dict) else {}
+
+
+def _extraction_review_enabled(store: Any, tenant_id: object) -> bool:
+    return _document_settings(store, tenant_id).get("extractionReview") is True
+
+
+def _extraction_review_group(store: Any, tenant_id: object) -> str:
+    group = _document_settings(store, tenant_id).get("extractionReviewGroup")
+    if isinstance(group, str) and group.strip():
+        return group.strip()
+    return "approvers"
+
+
+def retarget_extraction(store: Any, old_id: object, new_id: object) -> None:
+    """An edited review replaces the approval the extraction points at."""
+    book = getattr(store, "document_extractions", {})
+    if not isinstance(book, dict):
+        return
+    for item in book.values():
+        if isinstance(item, dict) and item.get("approval_id") == old_id:
+            item["approval_id"] = new_id
+
+
+def note_extraction_decision(store: Any, approval: dict[str, object]) -> None:
+    """Write the approved values and their diff onto the extraction, then audit it."""
+    if str(approval.get("qualified_name") or "") != "documents.review_extraction":
+        return
+    if approval.get("status") != "approved":
+        return
+    book = getattr(store, "document_extractions", {})
+    if not isinstance(book, dict):
+        return
+    record = next(
+        (
+            item
+            for item in book.values()
+            if isinstance(item, dict) and item.get("approval_id") == approval.get("id")
+        ),
+        None,
+    )
+    if not isinstance(record, dict):
+        return
+    raw_values = approval.get("arguments")
+    values = raw_values if isinstance(raw_values, dict) else {}
+    raw_before = record.get("result")
+    before = raw_before if isinstance(raw_before, dict) else {}
+    diff = [
+        {"path": key, "before": before.get(key), "after": values.get(key)}
+        for key in sorted(set(before) | set(values))
+        if before.get(key) != values.get(key)
+    ]
+    record["result"] = values
+    corrections = record.get("corrections")
+    if not isinstance(corrections, list):
+        corrections = []
+        record["corrections"] = corrections
+    corrections.append({"diff": diff, "values": values})
+    from ar_domain.audit.memory import remember  # noqa: PLC0415
+
+    remember(
+        store,
+        tenant_id=approval.get("tenant_id"),
+        actor_id=approval.get("decided_by") or "system",
+        action="extraction.corrected",
+        target_type="document_extraction",
+        target_id=record.get("id"),
+        detail={"diff": diff},
+    )

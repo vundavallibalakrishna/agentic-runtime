@@ -52,6 +52,8 @@ ROUTE_ALLOWLIST: dict[tuple[str, str], str] = _allow(
     ),
     ("GET", "/api/v1/notifications/events", "The caller's own notification stream."),
     ("POST", "/api/v1/hooks/routines/{token}", "The hook token is the credential."),
+    ("GET", "/api/v1/review/{token}", "The signed review link is the credential."),
+    ("POST", "/api/v1/review/{token}:decide", "The signed review link is the credential."),
     ("POST", "/api/v1/auth/guest/request-link", "Sends a guest link."),
     ("POST", "/api/v1/auth/guest/session", "Redeems a guest link."),
     ("POST", "/api/v1/auth/guest/totp/enroll", "The guest session is the credential."),

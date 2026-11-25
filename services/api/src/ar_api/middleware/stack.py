@@ -42,6 +42,8 @@ def is_public(path: str) -> bool:
         return True
     if path.startswith("/api/v1/auth/guest/"):
         return True
+    if path.startswith("/api/v1/review/"):
+        return True
     return path.startswith("/api/v1/invitations/") and path.endswith(":accept")
 
 
@@ -120,12 +122,24 @@ class CsrfMiddleware:
             return
         # Public routes stay usable with a leftover session cookie. The dev
         # sign-in form switches users and does not carry the previous token.
-        if is_public(str(scope.get("path", ""))):
+        # A review decision is public so the link works, and it still checks
+        # Origin, plus the session CSRF token when a session is present.
+        path = str(scope.get("path", ""))
+        if is_public(path) and not _review_decide(path):
             await self.app(scope, receive, send)
             return
         state = scope.get("state", {})
         principal = state.get("principal") if isinstance(state, dict) else None
+        review = _review_decide(path)
         if principal is None or getattr(principal, "auth_method", "") != "session":
+            if review and not _origin_allowed(scope):
+                response = problem_response(
+                    ArError(ErrorCode.CSRF_FAILED, "CSRF check failed"),
+                    instance=path,
+                    request_id=_request_id(scope),
+                )
+                await response(scope, receive, send)
+                return
             await self.app(scope, receive, send)
             return
         header = _header(scope, b"x-csrf-token")
@@ -264,6 +278,21 @@ def _tenant_allowed(principal: object, path: str) -> bool:
         return True
     kind = getattr(principal, "kind", "")
     return kind == "platform_admin" and path.startswith("/api/v1/platform/")
+
+
+def _review_decide(path: str) -> bool:
+    """The public one-item decision. Other public routes do not take this check."""
+    return path.startswith("/api/v1/review/") and ":decide" in path
+
+
+def _origin_allowed(scope: Scope) -> bool:
+    origin = _header(scope, b"origin")
+    settings = scope["app"].state.settings
+    public_url = str(getattr(settings, "public_url", "http://localhost:3000"))
+    env = str(getattr(getattr(settings, "env", ""), "value", getattr(settings, "env", "")))
+    extra = str(getattr(settings, "csrf_allowed_origins", "") or "")
+    allowed = [item.strip() for item in extra.split(",") if item.strip()]
+    return origin_ok(origin, public_url, allowed=allowed, dev=env in {"dev", "ci"})
 
 
 def _header(scope: Scope, name: bytes) -> str | None:

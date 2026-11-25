@@ -31,6 +31,23 @@ DEFAULT_RUN_BUDGET: dict[str, int] = {
 }
 
 
+def configured_run_budget() -> dict[str, int]:
+    """The routine default. Settings override the numbers above; an agent budget still wins."""
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    settings = get_settings()
+    budget = dict(DEFAULT_RUN_BUDGET)
+    overlay = {
+        "max_steps": settings.routine_default_max_steps,
+        "max_tokens": settings.routine_default_max_tokens,
+        "max_cost_micros": settings.routine_default_max_cost_micros,
+        "max_wall_clock_s": settings.routine_default_max_wall_clock_s,
+        "max_tool_calls": settings.routine_default_max_tool_calls,
+    }
+    budget.update({key: value for key, value in overlay.items() if value >= 0})
+    return budget
+
+
 def budget_exceeded(
     *,
     steps: int,

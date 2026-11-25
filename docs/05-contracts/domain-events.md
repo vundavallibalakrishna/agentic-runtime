@@ -49,6 +49,8 @@ Webhook bodies use these camelCase names. The outbox columns stay `tenant_id` an
 | `routine.run_completed` | yes | `routine_id, run_id, status` | routines |
 | `routine.paused` | yes | `routine_id, reason` | routines |
 | `knowledge.ingestion_completed` | yes | `ingestion_job_id, source_id, status, stats` | knowledge |
+| `document.ingested` | yes | `document_id, content_hash, status` | documents |
+| `extraction.completed` | yes | `document_id, extraction_id, content_hash, schema_hash` | documents |
 | `document.deleted` | no | `document_id, collection_id` | knowledge |
 | `knowledge.document_changed` | no | `document_id, collection_id, source_id, version_hash, change: created\|updated` (routine `file_arrival` triggers) | knowledge |
 | `memory.fact_proposed` | no | `fact_id, scope, agent_id` (agent-scope review) | memory |

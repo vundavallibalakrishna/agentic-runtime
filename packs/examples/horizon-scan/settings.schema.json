@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "required": ["sources", "categories", "relevanceCriteria", "reviewFrequency"],
+  "properties": {
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "kind", "locator"],
+        "properties": {
+          "name": {"type": "string"},
+          "kind": {"type": "string"},
+          "locator": {"type": "string"}
+        }
+      }
+    },
+    "categories": {"type": "array", "items": {"type": "string"}},
+    "relevanceCriteria": {"type": "string"},
+    "reviewFrequency": {"type": "string"},
+    "registerReadTool": {"type": "string"},
+    "registerWriteTool": {"type": "string"},
+    "approvalGroup": {"type": "string"}
+  }
+}

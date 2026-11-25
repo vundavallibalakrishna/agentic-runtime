@@ -4,11 +4,12 @@ import uuid
 
 from fastapi import APIRouter, Depends, Request
 
-from ar_api.deps import expose, require_permission
-from ar_api.state import as_object
+from ar_api.deps import current_principal, expose, require_permission
 from ar_common.errors import NotFoundError
 from ar_common.http import assert_public_url
 from ar_contracts.api_model import ApiModel
+from ar_domain.webhooks.book import WebhookBook
+from ar_domain.webhooks.delivery import _start_or_attempt
 
 router = APIRouter()
 
@@ -19,17 +20,31 @@ class WebhookCreate(ApiModel):
     topics: list[str]
 
 
+def _book(request: Request) -> tuple[WebhookBook, uuid.UUID, uuid.UUID | None]:
+    principal = current_principal(request)
+    tenant_id = principal.tenant_id
+    if not isinstance(tenant_id, uuid.UUID):
+        raise NotFoundError("webhook not found")
+    try:
+        user_id = uuid.UUID(str(principal.id))
+    except ValueError:
+        user_id = None
+    return WebhookBook(request.app.state.chat), tenant_id, user_id
+
+
 @router.get("/api/v1/webhooks", dependencies=[Depends(require_permission("webhooks:manage"))])
 @expose(public=False, permission="webhooks:manage")
 async def list_webhooks(request: Request) -> dict[str, object]:
-    return {"data": await request.app.state.webhooks.list_hooks()}
+    book, tenant_id, _user = _book(request)
+    return {"data": book.list_hooks(tenant_id)}
 
 
 @router.post("/api/v1/webhooks", dependencies=[Depends(require_permission("webhooks:manage"))])
 @expose(public=False, permission="webhooks:manage")
 async def create_webhook(body: WebhookCreate, request: Request) -> dict[str, object]:
     _check_url(body.url, allow_private=bool(request.app.state.settings.webhook_allow_private))
-    return as_object(await request.app.state.webhooks.create(body.name, body.url, body.topics))
+    book, tenant_id, user_id = _book(request)
+    return book.create(tenant_id, user_id, body.name, body.url, body.topics)
 
 
 @router.get(
@@ -37,10 +52,8 @@ async def create_webhook(body: WebhookCreate, request: Request) -> dict[str, obj
 )
 @expose(public=False, permission="webhooks:manage")
 async def get_webhook(webhook_id: uuid.UUID, request: Request) -> dict[str, object]:
-    found = await request.app.state.webhooks.get(str(webhook_id))
-    if found is None:
-        raise NotFoundError("webhook not found")
-    return as_object(found)
+    book, tenant_id, _user = _book(request)
+    return book.get(tenant_id, webhook_id)
 
 
 @router.patch(
@@ -51,12 +64,8 @@ async def patch_webhook(
     webhook_id: uuid.UUID, body: WebhookCreate, request: Request
 ) -> dict[str, object]:
     _check_url(body.url, allow_private=bool(request.app.state.settings.webhook_allow_private))
-    found = await request.app.state.webhooks.update(
-        str(webhook_id), body.name, body.url, body.topics
-    )
-    if found is None:
-        raise NotFoundError("webhook not found")
-    return as_object(found)
+    book, tenant_id, _user = _book(request)
+    return book.update(tenant_id, webhook_id, body.name, body.url, body.topics)
 
 
 @router.delete(
@@ -64,7 +73,8 @@ async def patch_webhook(
 )
 @expose(public=False, permission="webhooks:manage")
 async def delete_webhook(webhook_id: uuid.UUID, request: Request) -> dict[str, bool]:
-    if not await request.app.state.webhooks.delete(str(webhook_id)):
+    book, tenant_id, _user = _book(request)
+    if not book.delete(tenant_id, webhook_id):
         raise NotFoundError("webhook not found")
     return {"deleted": True}
 
@@ -75,10 +85,8 @@ async def delete_webhook(webhook_id: uuid.UUID, request: Request) -> dict[str, b
 )
 @expose(public=False, permission="webhooks:manage")
 async def rotate(webhook_id: uuid.UUID, request: Request) -> dict[str, str]:
-    secret = await request.app.state.webhooks.rotate(str(webhook_id))
-    if secret is None:
-        raise NotFoundError("webhook not found")
-    return {"secret": secret}
+    book, tenant_id, _user = _book(request)
+    return {"secret": book.rotate(tenant_id, webhook_id)}
 
 
 @router.post(
@@ -87,7 +95,15 @@ async def rotate(webhook_id: uuid.UUID, request: Request) -> dict[str, str]:
 )
 @expose(public=False, permission="webhooks:manage")
 async def test_webhook(webhook_id: uuid.UUID, request: Request) -> dict[str, str]:
-    await request.app.state.webhooks.enqueue_test(str(webhook_id))
+    book, tenant_id, _user = _book(request)
+    book.get(tenant_id, webhook_id)
+    made = book.enqueue(
+        tenant_id, "webhook.test", {"webhook_id": str(webhook_id)}, webhook_id=webhook_id
+    )
+    for row in made:
+        delivery_id = row.get("id")
+        if isinstance(delivery_id, uuid.UUID):
+            _start_or_attempt(request.app.state.chat, delivery_id)
     return {"status": "queued"}
 
 
@@ -97,7 +113,8 @@ async def test_webhook(webhook_id: uuid.UUID, request: Request) -> dict[str, str
 )
 @expose(public=False, permission="webhooks:manage")
 async def deliveries(webhook_id: uuid.UUID, request: Request) -> dict[str, object]:
-    return {"data": await request.app.state.webhooks.deliveries(str(webhook_id))}
+    book, tenant_id, _user = _book(request)
+    return {"data": book.deliveries(tenant_id, webhook_id)}
 
 
 @router.post(
@@ -108,8 +125,11 @@ async def deliveries(webhook_id: uuid.UUID, request: Request) -> dict[str, objec
 async def redeliver(
     webhook_id: uuid.UUID, delivery_id: uuid.UUID, request: Request
 ) -> dict[str, str]:
-    del webhook_id
-    await request.app.state.webhooks.redeliver(str(delivery_id))
+    book, tenant_id, _user = _book(request)
+    created = book.redeliver(tenant_id, webhook_id, delivery_id)
+    new_id = created.get("id")
+    if isinstance(new_id, uuid.UUID):
+        _start_or_attempt(request.app.state.chat, new_id)
     return {"status": "queued"}
 
 

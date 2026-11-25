@@ -78,6 +78,8 @@ Passages are split at about 1,000 characters with a 120-character overlap. The p
 
 `chat:use`. Paths are listed in the [API catalogue](../05-contracts/api-catalogue.md). Another tenant receives 404. `documents.create` is a tool, not a new HTTP route. Downloading the artifact uses the existing file content route.
 
+`GET /api/v1/library-documents/{document_id}/extractions` lists every stored extraction of that document. `documents.extract` returns each field with its value, the quote and locator, the model's confidence, and whether that quote is in the stored text. A field is `extracted`, `missing`, `low_confidence` or `conflicting`. A required field that is missing, a quote below `AR_EXTRACTION_MIN_CONFIDENCE`, or a parser that fell back, opens an approval so a person can review it. The threshold is configuration, not a constant in the tool.
+
 ## 5. Create
 
 `documents.create` takes `format` (`docx`, `pdf`, `pptx` or `xlsx`), `title`, and optional `subtitle`, `author`, `template`, `fileName`, `sections` and `sheets`.

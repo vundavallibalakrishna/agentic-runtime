@@ -70,6 +70,13 @@
 | 0061 | `routine_event_deliveries` | `routine_events.detail` (`jsonb`, default `{}`): what happened to each delivery of the event (sent, failed and why, waiting for its owner, refused). It was kept only in the process that completed the event. Expand only. Downgrade drops the column |
 | 0062 | `document_revisions` | New table `document_revisions`: one row per version of a knowledge document a sync fetched, pointing at the `files` row that holds its bytes, with what was measured on the fetch. Tenant RLS and grants in the same revision. Expand only; downgrade drops the table and leaves the files |
 | 0063 | `routine_budget_default` | Data only. A routine's budget is now applied as a ceiling under its agent's, so every routine that still holds the old default (8 steps, 4 tool calls, 8,000 tokens, 300 s) or an empty budget is given the run default, which adds no limit. A budget a person set is left and takes effect. Downgrade puts the old default back on rows that hold the new one |
+| 0064 | `message_tool_calls` | `messages.tool_calls` so a reply keeps the calls that produced it |
+| 0065 | `no_fake_providers` | Deletes providers of kind `fake` with their models and aliases, and narrows the kind check. Downgrade restores the wider check and does not restore the deleted rows |
+| 0066 | `document_extractions` | New table `document_extractions`: one row per extraction of a document against a schema, with the per-field result. Tenant RLS and grants in the same revision. Expand only; downgrade drops the table |
+| 0067 | `token_exchange_kind` | `service_connections.kind` may be `token_exchange`. Downgrade deletes rows of that kind and restores the previous check |
+| 0068 | `resource_settings` | New table `resource_settings`: one version of a settings document checked against a JSON Schema. Tenant RLS and grants in the same revision. Expand only; downgrade drops the table |
+| 0069 | `extension_row_versions` | Add `version` and `reason` to `extension_rows`. New append-only table `extension_row_versions`. Tenant RLS and grants in the same revision. Downgrade drops the history table and the two columns |
+| 0070 | `webhook_secret_optional` | `outbound_webhooks.secret_ref_id` may be null. The signing secret stays in the named secret. Downgrade refuses while a webhook has no reference |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 

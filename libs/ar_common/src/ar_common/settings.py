@@ -16,6 +16,7 @@ from ar_common.host_ports import apply_host_ports
 CATALOGUE_ENV: frozenset[str] = frozenset(
     {
         "AR_API_INTERNAL_URL",
+        "AR_APPROVAL_NOTIFY_EMAIL",
         "AR_APPROVAL_WAIT_S",
         "AR_ASGI_SERVER",
         "AR_AUTH_MODE",
@@ -57,6 +58,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DOCUMENT_CREATE_MAX_TEXT",
         "AR_DOCUMENT_CREATE_MAX_TITLE",
         "AR_DOCUMENT_EXCERPT_CHARS",
+        "AR_EXTRACTION_MIN_CONFIDENCE",
         "AR_DOCUMENT_HEADING_CAP",
         "AR_DOCUMENT_HISTORY_RESERVE",
         "AR_DOCUMENT_INSTRUCTION_RESERVE",
@@ -181,9 +183,16 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_PACKS_DIR",
         "AR_PGVECTOR_DIMENSIONS",
         "AR_PUBLIC_URL",
+        "AR_REVIEW_LINK_TTL_S",
         "AR_QDRANT_API_KEY",
         "AR_QDRANT_URL",
         "AR_RETENTION_SWEEP_CRON",
+        "AR_REGISTERED_SCRIPT_ENTRY",
+        "AR_ROUTINE_DEFAULT_MAX_COST_MICROS",
+        "AR_ROUTINE_DEFAULT_MAX_STEPS",
+        "AR_ROUTINE_DEFAULT_MAX_TOKENS",
+        "AR_ROUTINE_DEFAULT_MAX_TOOL_CALLS",
+        "AR_ROUTINE_DEFAULT_MAX_WALL_CLOCK_S",
         "AR_ROUTINE_MIN_INTERVAL_S",
         "AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES",
         "AR_RUNTIME_MAX_CONCURRENT_WORKFLOW_TASKS",
@@ -506,6 +515,16 @@ class BaseServiceSettings(BaseSettings):
     asgi_server: str = "uvicorn"
     service_name: str = "agentic-runtime"
     routine_min_interval_s: int = 300
+    # The budget a routine gets when it names none. The numbers match the run default.
+    routine_default_max_steps: int = Field(default=16, ge=1)
+    routine_default_max_tokens: int = Field(default=80_000, ge=1)
+    routine_default_max_cost_micros: int = Field(default=4_000_000, ge=0)
+    routine_default_max_wall_clock_s: int = Field(default=600, ge=1)
+    routine_default_max_tool_calls: int = Field(default=16, ge=1)
+    # A quote is low-confidence below this. The caller can pass another threshold.
+    extraction_min_confidence: float = Field(default=0.8, ge=0, le=1)
+    # Fixed command for a registered script. The model does not choose it.
+    registered_script_entry: str = "python model.py --params params.json"
     binder_max_items: int = 5000
     evidence_bucket: str = "ar-evidence"
     evidence_default_lock_days: int = 2555
