@@ -38,11 +38,24 @@ def fields_match(item: dict[str, object], outcome: dict[str, object]) -> dict[st
         )
     labelled = len(rows)
     correct = sum(1 for row in rows if row["match"] and row["actual"] is not None)
-    extracted = sum(1 for row in rows if row["actual"] is not None)
-    precision = correct / extracted if extracted else 0.0
+    expected_paths = {path for path, _value in _flat(expected)}
+    extra = [path for path, _value in _flat(predicted) if path not in expected_paths]
+    rows.extend(
+        {
+            "path": path,
+            "expected": None,
+            "actual": _get(predicted, path),
+            "normaliser": "extra",
+            "match": False,
+            "document_type": str(item.get("document_type") or ""),
+        }
+        for path in extra
+    )
+    predicted_count = sum(1 for row in rows if row["actual"] is not None)
+    precision = correct / predicted_count if predicted_count else 0.0
     recall = correct / labelled if labelled else 0.0
     f1 = 0.0 if precision + recall == 0 else 2 * precision * recall / (precision + recall)
-    passed = labelled > 0 and correct == labelled
+    passed = labelled > 0 and correct == labelled and not extra
     return {
         "passed": passed,
         "score": f1,
@@ -111,6 +124,8 @@ def _get(payload: dict[str, object], path: str) -> object:
 
 
 def _equal(expected: object, actual: object, kind: str) -> bool:
+    if isinstance(expected, list) or isinstance(actual, list):
+        return _lists_match(expected, actual, kind)
     if actual is None:
         return False
     if kind == "number":
@@ -120,6 +135,28 @@ def _equal(expected: object, actual: object, kind: str) -> bool:
     if kind == "name":
         return _name(expected) == _name(actual) and _name(expected) != ""
     return _name(expected) == _name(actual) if kind == "text" else str(expected) == str(actual)
+
+
+def _lists_match(expected: object, actual: object, kind: str) -> bool:
+    """Order does not matter. Each expected item must match one predicted item."""
+    if not isinstance(expected, list) or not isinstance(actual, list):
+        return False
+    if len(expected) != len(actual):
+        return False
+    pending = list(actual)
+    for wanted in expected:
+        found = next(
+            (
+                index
+                for index, got in enumerate(pending)
+                if _equal(wanted, got, "exact" if kind == "array" else kind)
+            ),
+            None,
+        )
+        if found is None:
+            return False
+        pending.pop(found)
+    return True
 
 
 def _number(value: object) -> str:

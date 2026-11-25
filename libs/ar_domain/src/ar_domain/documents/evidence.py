@@ -116,7 +116,7 @@ def interpret(
 def merge_interpretations(
     parts: list[dict[str, object]], schema: dict[str, object], passages: list[dict[str, object]]
 ) -> dict[str, object]:
-    """Merge chunk results. Two different verified values for one path conflict."""
+    """Merge chunk results. Arrays are concatenated. Other paths conflict when they disagree."""
     by_path: dict[str, list[dict[str, object]]] = {}
     for part in parts:
         rows = part.get("fields")
@@ -126,16 +126,25 @@ def merge_interpretations(
             if isinstance(item, dict):
                 by_path.setdefault(str(item.get("path") or ""), []).append(item)
     fields: list[dict[str, object]] = []
+    seen: set[str] = set()
+    array_bases = {_array_base(path) for path in by_path if _array_base(path)}
+    for base in sorted(item for item in array_bases if item):
+        fields.extend(_merge_array(base, by_path))
+        seen.add(base)
     for path in required_paths(schema) or list(by_path):
-        chosen = _pick(by_path.get(path, []))
+        if path in seen or _array_base(path):
+            continue
+        chosen = _pick(_merged_values(by_path.get(path, [])))
         if chosen is None:
             chosen = _missing(path)
         fields.append(chosen)
+        seen.add(path)
     for path, rows in by_path.items():
-        if path and path not in {str(item.get("path")) for item in fields}:
-            picked = _pick(rows)
-            if picked is not None:
-                fields.append(picked)
+        if not path or path in seen or _array_base(path):
+            continue
+        picked = _pick(_merged_values(rows))
+        if picked is not None:
+            fields.append(picked)
     del passages
     return {
         "result": _nest(_present(fields)),
@@ -216,7 +225,93 @@ def _judge(
 
 
 def _conflicts(fields: list[dict[str, object]]) -> list[dict[str, object]]:
-    return fields
+    """One row per path. Two verified values for that path are a conflict."""
+    grouped: dict[str, list[dict[str, object]]] = {}
+    order: list[str] = []
+    for item in fields:
+        path = str(item.get("path") or "")
+        if path not in grouped:
+            order.append(path)
+        grouped.setdefault(path, []).append(item)
+    chosen: list[dict[str, object]] = []
+    for path in order:
+        rows = grouped[path]
+        if _array_base(path):
+            chosen.extend(rows)
+            continue
+        picked = _pick(rows)
+        if picked is not None:
+            chosen.append(picked)
+    return chosen
+
+
+def _array_base(path: str) -> str:
+    """The name before the first numeric index, or empty when the path is not an item."""
+    parts = path.split(".")
+    for index, part in enumerate(parts):
+        if part.isdigit():
+            return ".".join(parts[:index])
+    return ""
+
+
+def _merge_array(base: str, by_path: dict[str, list[dict[str, object]]]) -> list[dict[str, object]]:
+    """Concatenate item evidence from every chunk and drop a repeated value."""
+    depth = len([part for part in base.split(".") if part]) if base else 0
+    leaves: list[tuple[str, str, dict[str, object]]] = []
+    for path, rows in by_path.items():
+        if _array_base(path) != base:
+            continue
+        parts = path.split(".")
+        tail = ".".join(parts[depth + 1 :])
+        for row in rows:
+            key = orjson.dumps(row.get("value"), option=orjson.OPT_SORT_KEYS).decode()
+            leaves.append((tail, f"{tail}|{key}", dict(row)))
+    merged: list[dict[str, object]] = []
+    seen: set[str] = set()
+    next_index: dict[str, int] = {}
+    for tail, marker, row in leaves:
+        if marker in seen:
+            continue
+        seen.add(marker)
+        slot = next_index.get(tail, 0)
+        next_index[tail] = slot + 1
+        row["path"] = f"{base}.{slot}" if not tail else f"{base}.{slot}.{tail}"
+        if not base:
+            row["path"] = str(slot) if not tail else f"{slot}.{tail}"
+        merged.append(row)
+    return merged
+
+
+def _merged_values(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """A list value is the concatenation of the chunk lists, with duplicates removed."""
+    if not rows or not any(isinstance(row.get("value"), list) for row in rows):
+        return rows
+    combined: list[object] = []
+    seen: set[str] = set()
+    evidence: list[dict[str, object]] = []
+    for row in rows:
+        value = row.get("value")
+        items = value if isinstance(value, list) else [value]
+        for item in items:
+            key = orjson.dumps(item, option=orjson.OPT_SORT_KEYS).decode()
+            if key in seen:
+                continue
+            seen.add(key)
+            combined.append(item)
+            evidence.append(
+                {
+                    "value": item,
+                    "quote": row.get("quote"),
+                    "page": row.get("page"),
+                    "locator": row.get("locator"),
+                    "confidence": row.get("confidence"),
+                    "status": row.get("status"),
+                }
+            )
+    head = dict(rows[0])
+    head["value"] = combined
+    head["items"] = evidence
+    return [head]
 
 
 def _pick(rows: list[dict[str, object]]) -> dict[str, object] | None:

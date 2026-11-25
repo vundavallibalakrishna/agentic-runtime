@@ -62,6 +62,96 @@ def test_an_extraction_review_uses_the_group_and_keeps_the_correction() -> None:
     assert store.audit_log[-1]["action"] == "extraction.corrected"
 
 
+def test_parser_fallback_opens_a_review_when_review_is_opted_in() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    store.tenant_settings[tenant] = {"documents": {"extractionReview": True}}
+    actor = Actor(tenant, demo_id("admin"), frozenset())
+    body: dict[str, object] = {"exceptions": [], "result": {"note": "draft"}, "fields": []}
+    DocumentLibrary(store)._review_extraction(
+        actor,
+        {"id": uuid.uuid4(), "metadata": {"parser": "fallback"}},
+        {"type": "object", "properties": {"note": {"type": "string"}}},
+        body,
+    )
+    assert store.approvals
+    quiet = demo_store()
+    DocumentLibrary(quiet)._review_extraction(
+        actor,
+        {"id": uuid.uuid4(), "metadata": {"parser": "docling"}},
+        {"type": "object"},
+        {"exceptions": [], "result": {}, "fields": []},
+    )
+    assert quiet.approvals == {}
+
+
+def test_chunks_conflict_on_a_scalar_and_merge_array_items() -> None:
+    from ar_domain.documents.evidence import merge_interpretations
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "owner": {"type": "string"},
+            "findings": {"type": "array"},
+        },
+    }
+    owner = {
+        "path": "owner",
+        "value": "Ada",
+        "quote": "Ada",
+        "quote_verified": True,
+        "status": "extracted",
+        "page": 1,
+    }
+    other = dict(owner)
+    other["value"] = "Grace"
+    first = {
+        "path": "findings.0",
+        "value": "leak",
+        "quote": "leak",
+        "quote_verified": True,
+        "status": "extracted",
+        "page": 1,
+        "confidence": 0.9,
+    }
+    second = dict(first)
+    second["path"] = "findings.0"
+    second["value"] = "gap"
+    second["page"] = 2
+    repeat = dict(first)
+    merged = merge_interpretations(
+        [
+            {"fields": [owner, first]},
+            {"fields": [other, second, repeat]},
+        ],
+        schema,
+        [],
+    )
+    by_path = {item["path"]: item for item in merged["fields"]}
+    assert by_path["owner"]["status"] == "conflicting"
+    assert by_path["findings.0"]["value"] == "leak"
+    assert by_path["findings.0"]["page"] == 1
+    assert by_path["findings.1"]["value"] == "gap"
+    assert by_path["findings.1"]["page"] == 2
+    assert "findings.2" not in by_path
+
+
+def test_precision_counts_extra_fields_and_arrays_ignore_order() -> None:
+    outcome = {"output_json": {"owner": "Ada", "extra": "no", "tags": ["b", "a"]}}
+    item = {
+        "type": "fields_match",
+        "expected": {"owner": "Ada", "tags": ["a", "b"]},
+        "normalisers": {"tags": "array"},
+    }
+    score = fields_match(item, outcome)
+    assert score["passed"] is False
+    assert score["precision"] < 1
+    extras = [row for row in score["fields"] if row["normaliser"] == "extra"]
+    assert extras and extras[0]["path"] == "extra"
+    tags = next(row for row in score["fields"] if row["path"] == "tags")
+    assert tags["match"] is True
+
+
 def test_a_quote_in_the_source_is_extracted_and_a_missing_one_is_not() -> None:
     passages = [{"text": "The report date is 4 March 2026.", "page": 1, "anchor": "p1"}]
     raw = (
