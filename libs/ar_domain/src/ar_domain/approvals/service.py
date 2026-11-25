@@ -102,8 +102,10 @@ class ApprovalBook:
             if received >= as_int(row.get("required_approvals"), 1):
                 self._terminal(row, "approved", actor, channel)
         if row["status"] in {"approved", "rejected"}:
+            from ar_domain.documents.library import note_extraction_decision  # noqa: PLC0415
             from ar_domain.tools.resume import settle_approval  # noqa: PLC0415
 
+            note_extraction_decision(self.store, row)
             settle_approval(self.store, row)
         return self.detail(actor, row, reveal=True)
 
@@ -454,6 +456,9 @@ class ApprovalBook:
         run = self.store.runs.get(run_id) if isinstance(run_id, uuid.UUID) else None
         if isinstance(run, dict):
             amend(run, approval_id=created["id"], arguments=arguments, args_hash=digest)
+        from ar_domain.documents.library import retarget_extraction  # noqa: PLC0415
+
+        retarget_extraction(self.store, row.get("id"), created.get("id"))
         return self.detail(actor, created, reveal=True)
 
     def _record_decision(

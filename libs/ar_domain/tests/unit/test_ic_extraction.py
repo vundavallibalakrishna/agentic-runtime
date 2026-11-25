@@ -5,14 +5,59 @@ Label: unit
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
+from ar_domain.agents.access import Actor
+from ar_domain.chat.service import demo_id
 from ar_domain.documents.evidence import choose_strategy, interpret
 from ar_domain.documents.extract import extract_bytes
+from ar_domain.documents.library import (
+    DocumentLibrary,
+    _extraction_review_enabled,
+    note_extraction_decision,
+)
 from ar_domain.evals.fields import fields_match, report
 from ar_domain.evals.scoring import grade
+from ar_testing.demo import demo_store
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "documents"
+
+
+def test_an_extraction_review_uses_the_group_and_keeps_the_correction() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    store.tenant_settings[tenant] = {"documents": {"extractionReviewGroup": "reviewers"}}
+    assert _extraction_review_enabled(store, tenant) is False
+    actor = Actor(tenant, demo_id("admin"), frozenset())
+    run_id = uuid.uuid4()
+    body: dict[str, object] = {
+        "exceptions": ["report_date"],
+        "result": {"report_date": "old"},
+        "fields": [],
+    }
+    DocumentLibrary(store)._review_extraction(
+        actor, {"id": uuid.uuid4(), "metadata": {}}, {"type": "object"}, body, run_id=run_id
+    )
+    approval = next(iter(store.approvals.values()))
+    assert approval["approver_rule"]["groups"] == ["reviewers"]
+    assert approval["run_id"] == run_id
+    extraction_id = uuid.uuid4()
+    store.document_extractions[extraction_id] = {
+        "id": extraction_id,
+        "approval_id": approval["id"],
+        "result": {"report_date": "old"},
+        "corrections": [],
+    }
+    approval["status"] = "approved"
+    approval["arguments"] = {"report_date": "new"}
+    note_extraction_decision(store, approval)
+    saved = store.document_extractions[extraction_id]
+    assert saved["result"] == {"report_date": "new"}
+    assert saved["corrections"][0]["diff"] == [
+        {"path": "report_date", "before": "old", "after": "new"}
+    ]
+    assert store.audit_log[-1]["action"] == "extraction.corrected"
 
 
 def test_a_quote_in_the_source_is_extracted_and_a_missing_one_is_not() -> None:

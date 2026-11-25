@@ -755,6 +755,8 @@ class DocumentLibrary:
         schema: dict[str, object],
         *,
         alias: str = "",
+        review: bool = False,
+        run_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         """Fill ``schema`` from the document. A missing model is an error."""
         if not schema:
@@ -797,12 +799,19 @@ class DocumentLibrary:
         body["kind"] = "extract"
         body["schema_hash"] = schema_hash(schema)
         body["content_hash"] = str(row.get("content_hash") or "")
-        self._store_extraction(actor, row, body, alias)
-        self._review_extraction(actor, row, schema, body)
+        self._store_extraction(actor, row, body, alias, run_id=run_id)
+        if review or _extraction_review_enabled(self.store, actor.tenant_id):
+            self._review_extraction(actor, row, schema, body, run_id=run_id)
         return body
 
     def _store_extraction(
-        self, actor: Actor, row: dict[str, object], body: dict[str, object], alias: str
+        self,
+        actor: Actor,
+        row: dict[str, object],
+        body: dict[str, object],
+        alias: str,
+        *,
+        run_id: uuid.UUID | None = None,
     ) -> None:
         from ar_common.ids import new_id  # noqa: PLC0415
 
@@ -819,7 +828,7 @@ class DocumentLibrary:
             "result": body.get("result") or {},
             "corrections": [],
             "approval_id": None,
-            "run_id": None,
+            "run_id": run_id,
             "created_at": utcnow(),
         }
         book = getattr(self.store, "document_extractions", None)
@@ -851,6 +860,8 @@ class DocumentLibrary:
         row: dict[str, object],
         schema: dict[str, object],
         body: dict[str, object],
+        *,
+        run_id: uuid.UUID | None = None,
     ) -> None:
         exceptions = body.get("exceptions")
         meta = row.get("metadata")
@@ -876,14 +887,20 @@ class DocumentLibrary:
         created = ApprovalBook(self.store).create_pending(
             tenant_id=actor.tenant_id,
             user_id=actor.user_id,
-            run_id=None,
+            run_id=run_id,
             agent_id=None,
             tool_call_id=new_id(),
             qualified_name="documents.review_extraction",
             risk_class="W2",
             args_hash=digest,
             arguments=arguments,
-            requirement={"approvers": {"mode": "requester"}, "ttl_s": 86400},
+            requirement={
+                "approvers": {
+                    "mode": "group",
+                    "groups": [_extraction_review_group(self.store, actor.tenant_id)],
+                },
+                "ttl_s": 86400,
+            },
             reasons=["extraction_exception"],
             preview=preview,
         )
@@ -894,6 +911,7 @@ class DocumentLibrary:
             for item in book.values():
                 if str(item.get("id")) == str(extraction_id):
                     item["approval_id"] = created.get("id")
+                    item["run_id"] = run_id
 
     def edit(
         self,
@@ -1504,3 +1522,76 @@ def _iso(value: object) -> str:
     if value is None:
         return ""
     return str(value)
+
+
+def _document_settings(store: Any, tenant_id: object) -> dict[str, object]:
+    settings = getattr(store, "tenant_settings", {})
+    row = settings.get(tenant_id) if isinstance(settings, dict) else None
+    documents = row.get("documents") if isinstance(row, dict) else None
+    return documents if isinstance(documents, dict) else {}
+
+
+def _extraction_review_enabled(store: Any, tenant_id: object) -> bool:
+    return _document_settings(store, tenant_id).get("extractionReview") is True
+
+
+def _extraction_review_group(store: Any, tenant_id: object) -> str:
+    group = _document_settings(store, tenant_id).get("extractionReviewGroup")
+    if isinstance(group, str) and group.strip():
+        return group.strip()
+    return "approvers"
+
+
+def retarget_extraction(store: Any, old_id: object, new_id: object) -> None:
+    """An edited review replaces the approval the extraction points at."""
+    book = getattr(store, "document_extractions", {})
+    if not isinstance(book, dict):
+        return
+    for item in book.values():
+        if isinstance(item, dict) and item.get("approval_id") == old_id:
+            item["approval_id"] = new_id
+
+
+def note_extraction_decision(store: Any, approval: dict[str, object]) -> None:
+    """Write the approved values and their diff onto the extraction, then audit it."""
+    if str(approval.get("qualified_name") or "") != "documents.review_extraction":
+        return
+    if approval.get("status") != "approved":
+        return
+    book = getattr(store, "document_extractions", {})
+    if not isinstance(book, dict):
+        return
+    record = next(
+        (
+            item
+            for item in book.values()
+            if isinstance(item, dict) and item.get("approval_id") == approval.get("id")
+        ),
+        None,
+    )
+    if not isinstance(record, dict):
+        return
+    values = approval.get("arguments") if isinstance(approval.get("arguments"), dict) else {}
+    before = record.get("result") if isinstance(record.get("result"), dict) else {}
+    diff = [
+        {"path": key, "before": before.get(key), "after": values.get(key)}
+        for key in sorted(set(before) | set(values))
+        if before.get(key) != values.get(key)
+    ]
+    record["result"] = values
+    corrections = record.get("corrections")
+    if not isinstance(corrections, list):
+        corrections = []
+        record["corrections"] = corrections
+    corrections.append({"diff": diff, "values": values})
+    from ar_domain.audit.memory import remember  # noqa: PLC0415
+
+    remember(
+        store,
+        tenant_id=approval.get("tenant_id"),
+        actor_id=approval.get("decided_by") or "system",
+        action="extraction.corrected",
+        target_type="document_extraction",
+        target_id=record.get("id"),
+        detail={"diff": diff},
+    )

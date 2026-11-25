@@ -122,11 +122,14 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
             schema = arguments.get("schema") or arguments.get("outputSchema")
             if not isinstance(schema, dict):
                 return _error("validation_failed", "extract needs a JSON Schema.")
+            run_raw = arguments.get("_run_id")
             body = library.extract(
                 actor,
                 _required_id(arguments),
                 schema,
                 alias=_alias(arguments),
+                review=arguments.get("review") is True,
+                run_id=run_raw if isinstance(run_raw, uuid.UUID) else None,
             )
             return _ok(_field_text(body), body)
         if name == "edit":
