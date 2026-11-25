@@ -188,7 +188,9 @@ export function ModelsAdmin() {
       embeddingDimensions: change.embeddingDimensions,
       ...(change.kind === "rerank" || target.model?.kind === "rerank"
         ? { requestOptions: { ...(target.model?.requestOptions ?? {}), rerank: change.rerank } }
-        : {}),
+        : change.requestOptions !== null
+          ? { requestOptions: change.requestOptions }
+          : {}),
       ...(target.model || change.vision
         ? { capabilities: change.vision ? [...kept, "vision"] : kept }
         : {}),

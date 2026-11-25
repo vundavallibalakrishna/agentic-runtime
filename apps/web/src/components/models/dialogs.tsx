@@ -194,7 +194,28 @@ export type ModelChange = {
   rerank: RerankRoute;
   /** Standard aliases to point at the new model. */
   useFor: string[];
+  /** Extra fields sent to the provider with each request. Null leaves them as they are. */
+  requestOptions: Record<string, unknown> | null;
 };
+
+/** The model's own request options, without the rerank route the dialog edits elsewhere. */
+function optionsText(model: Model | null): string {
+  const { rerank: _rerank, ...rest } = model?.requestOptions ?? {};
+  return Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2) : "";
+}
+
+/** The typed options as an object, or null when the text is not a JSON object. */
+function parsedOptions(text: string): Record<string, unknown> | null {
+  if (!text.trim()) return {};
+  try {
+    const value: unknown = JSON.parse(text);
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Add a model to a provider, or change one. `model` is null when adding. */
 export function ModelDialog({
@@ -223,8 +244,10 @@ export function ModelDialog({
   const [rerankBody, setRerankBody] = useState<"query" | "queries">("query");
   const [rerankFloor, setRerankFloor] = useState(String(DEFAULT_RERANK_FLOOR));
   const [useFor, setUseFor] = useState<string[]>([]);
+  const [options, setOptions] = useState("");
 
   useEffect(() => {
+    setOptions(optionsText(model));
     setName(model?.name ?? "");
     setUpstream(model?.upstreamModel ?? "");
     setKind(model?.kind ?? "chat");
@@ -255,11 +278,14 @@ export function ModelDialog({
   }
 
   const parsedDimensions = Number.parseInt(dimensions, 10);
+  const typedOptions = parsedOptions(options);
   return (
     <FormDialog
       onClose={onClose}
-      onSubmit={() =>
-        onSave({
+      onSubmit={() => {
+        if (typedOptions === null) return Promise.reject(new Error(t("requestOptionsInvalid")));
+        return onSave({
+          requestOptions: advanced && kind === "chat" ? typedOptions : null,
           name: name.trim() || upstream.trim(),
           upstreamModel: upstream.trim(),
           kind,
@@ -276,8 +302,8 @@ export function ModelDialog({
             min_score: floorOf(rerankFloor),
           },
           useFor: model ? [] : useFor.filter((alias) => unset.some((item) => item.alias === alias)),
-        })
-      }
+        });
+      }}
       open={target !== null}
       submitLabel={model ? t("save") : t("addModel")}
       title={model ? t("editModel") : t("addModelTo", { provider: target?.provider.name ?? "" })}
@@ -372,6 +398,24 @@ export function ModelDialog({
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)] sm:col-span-2">
             {t("priceHint")}
           </p>
+          <div className="sm:col-span-2">
+            <Field hint={t("requestOptionsHint")} id="model-options" label={t("requestOptions")}>
+              <textarea
+                aria-describedby="model-options-hint"
+                aria-invalid={typedOptions === null}
+                className="min-h-28 w-full rounded-md border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-sm"
+                id="model-options"
+                onChange={(event) => setOptions(event.target.value)}
+                spellCheck={false}
+                value={options}
+              />
+            </Field>
+            {typedOptions === null ? (
+              <p className="mt-1 text-sm text-[var(--destructive)]" role="alert">
+                {t("requestOptionsInvalid")}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : null}
       {advanced && kind === "rerank" ? (

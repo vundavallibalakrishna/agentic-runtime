@@ -894,16 +894,9 @@ class ChatBehaviour:
         row["embedding_dimensions"] = _vector_length(kind, embedding_dimensions)
         row["price_input_micros_per_mtok"] = max(0, int(price_input_micros_per_mtok))
         row["price_output_micros_per_mtok"] = max(0, int(price_output_micros_per_mtok))
-        from ar_domain.models.options import (  # noqa: PLC0415
-            copy_request_options,
-            default_request_options,
-        )
+        from ar_domain.models.options import copy_request_options  # noqa: PLC0415
 
-        row["request_options"] = (
-            copy_request_options(request_options)
-            if request_options is not None
-            else default_request_options(upstream_model)
-        )
+        row["request_options"] = copy_request_options(request_options)
         self.models[model_id] = row
         return self._public(row)
 
@@ -1289,7 +1282,6 @@ class ChatBehaviour:
         """
         from ar_domain.models.options import (  # noqa: PLC0415
             apply_request_options,
-            default_request_options,
             request_options_of,
         )
         from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
@@ -1308,7 +1300,7 @@ class ChatBehaviour:
                 for row in self.models.values()
                 if str(row.get("upstream_model")) == model and row.get("request_options")
             ),
-            default_request_options(model),
+            {},
         )
         apply_request_options(body, options)
         output = "provider test failed"

@@ -57,6 +57,7 @@ bash scripts/certify_stack.sh
 | `AR_CERT_REPEAT` | 2 | Times each tool flow runs |
 | `AR_CERT_EVIDENCE` | `var/certification` | Where the scorecards, each part's log and exit code, the container list, memory use, every service's log and each computer's log are written |
 | `AR_CERT_CONTEXT_WINDOW`, `AR_CERT_MAX_OUTPUT_TOKENS` | the product default | The limits the provider serves for the chat model, sent when the run registers it |
+| `AR_CERT_REQUEST_OPTIONS` | none | A JSON object of extra request fields for the chat model, sent when the run registers it. The product gives a model none; a model that reasons out loud unless told not to is told here |
 | `AR_CERT_ALLOWED_HOSTS` | `example.com` | Hosts the script puts on the tenant's allowed list before the parts run, so the page and HTTP tools are tested and not refused |
 | `AR_CERT_DATA_DSN`, `AR_CERT_DATA_TABLE` | a database the script makes | The database the data tools read. With none named, the script starts a Postgres server of its own with one table, `regions`, and a role that can only read it. It is a separate server because the product refuses a data connection to its own database server |
 | `AR_CERT_KEEP_INSTALL` | unset | `1` leaves the install running when the script ends. Otherwise the script stops what it started |

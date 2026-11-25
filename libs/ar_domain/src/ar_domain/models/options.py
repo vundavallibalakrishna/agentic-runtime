@@ -1,21 +1,13 @@
-"""Per-model request options. Spec: docs/03-specs/04-model-gateway.md §3."""
+"""Per-model request options. Spec: docs/03-specs/04-model-gateway.md §3.
+
+A model's options are what the person who registered it wrote on it. Nothing here
+knows a vendor or a model family: a new model starts with none.
+"""
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Any
-
-# Models whose chat template reasons out loud unless asked not to. The rule lives
-# here once, as a registration default a tenant can see and change on the model row.
-_NO_THINKING_FAMILIES = ("qwen3",)
-
-
-def default_request_options(upstream_model: str) -> dict[str, object]:
-    """Options a newly registered model starts with, from its upstream name."""
-    lowered = upstream_model.lower()
-    if any(family in lowered for family in _NO_THINKING_FAMILIES):
-        return {"chat_template_kwargs": {"enable_thinking": False}}
-    return {}
 
 
 def request_options_of(model: Any) -> dict[str, object]:

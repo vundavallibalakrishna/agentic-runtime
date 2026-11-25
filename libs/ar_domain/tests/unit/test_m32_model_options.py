@@ -9,7 +9,6 @@ from ar_domain.chat.service import demo_id
 from ar_domain.models.options import (
     apply_request_options,
     copy_request_options,
-    default_request_options,
     request_options_of,
 )
 from ar_domain.models.registry import UpstreamTarget
@@ -18,10 +17,6 @@ from ar_testing.demo import demo_store
 
 
 def test_defaults_and_merge_rules() -> None:
-    assert default_request_options("Qwen/Qwen3-32B") == {
-        "chat_template_kwargs": {"enable_thinking": False}
-    }
-    assert default_request_options("gpt-4.1") == {}
     body = {"model": "m", "chat_template_kwargs": {"enable_thinking": True}, "max_tokens": 5}
     merged = apply_request_options(
         body, {"chat_template_kwargs": {"enable_thinking": False, "extra": 1}, "temperature": 0}
@@ -42,8 +37,19 @@ def test_registration_stores_options_and_aliases_resolve_them() -> None:
     store = demo_store()
     tenant = demo_id("tenant")
     provider = store.providers[demo_id("provider")]
+    # A model gets the options a person writes on it and no others, whatever it is called.
+    bare = store.create_model(
+        tenant, uuid.UUID(str(provider["id"])), "Bare", "Qwen/Qwen3-32B", "chat", platform=False
+    )
+    assert bare["request_options"] == {}
     qwen = store.create_model(
-        tenant, uuid.UUID(str(provider["id"])), "Qwen", "Qwen/Qwen3-32B", "chat", platform=False
+        tenant,
+        uuid.UUID(str(provider["id"])),
+        "Qwen",
+        "vendor/quiet-model",
+        "chat",
+        platform=False,
+        request_options={"chat_template_kwargs": {"enable_thinking": False}},
     )
     assert qwen["request_options"] == {"chat_template_kwargs": {"enable_thinking": False}}
     other = store.create_model(
