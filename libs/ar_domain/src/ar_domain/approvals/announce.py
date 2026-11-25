@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from ar_domain.approvals.review_link import approvals_url
 from ar_domain.channels.cards import links_for, post_cards
+from ar_domain.durable.after import run_off_request
 from ar_domain.notifications.smtp_mail import send_install_mail
 from ar_domain.webhooks.delivery import dispatch_public_event
 
@@ -60,6 +61,15 @@ def approver_emails(store: Any, approver_ids: list[str]) -> list[str]:
 
 
 def _mail(
+    store: Any, row: dict[str, object], approver_ids: list[str], links: dict[str, str]
+) -> None:
+    def _send() -> None:
+        _send_mail(store, row, approver_ids, links)
+
+    run_off_request(store, _send)
+
+
+def _send_mail(
     store: Any, row: dict[str, object], approver_ids: list[str], links: dict[str, str]
 ) -> None:
     name = str(row.get("qualified_name") or "a tool")

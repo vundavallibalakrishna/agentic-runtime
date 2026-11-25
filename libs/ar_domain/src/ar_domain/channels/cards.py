@@ -19,6 +19,7 @@ from ar_domain.approvals.review_link import (
     review_url,
 )
 from ar_domain.channels.posts import load_credentials, record_channel_post
+from ar_domain.durable.after import run_off_request
 
 if TYPE_CHECKING:
     from typing import Any
@@ -79,7 +80,19 @@ def post_cards(
             detail=detail,
             status="posted",
         )
-        delivered = _ask_channels(store, integration, identity, detail, text)
+        delivered = "queued"
+
+        def _send(
+            store: Any = store,
+            integration: dict[str, object] = integration,
+            identity: dict[str, object] | None = identity,
+            detail: dict[str, object] = detail,
+            text: str = text,
+        ) -> None:
+            nonlocal delivered
+            delivered = _ask_channels(store, integration, identity, detail, text)
+
+        run_off_request(store, _send)
         posted.append({"kind": kind, "review_url": link, "delivered": delivered})
     return posted
 

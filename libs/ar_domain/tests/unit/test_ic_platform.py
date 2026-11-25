@@ -32,7 +32,7 @@ from ar_domain.channels.cards import post_cards
 from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.webhooks.book import WebhookBook
-from ar_domain.webhooks.delivery import attempt, dispatch_public_event
+from ar_domain.webhooks.delivery import attempt, dispatch_public_event, sweep_due
 from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
@@ -301,6 +301,85 @@ def test_webhook_delivery_is_signed_and_can_be_replayed() -> None:
         assert len(server.calls) == 1  # type: ignore[attr-defined]
     finally:
         server.shutdown()
+
+
+class _Status(BaseHTTPRequestHandler):
+    def do_POST(self) -> None:
+        length = int(self.headers.get("Content-Length", "0"))
+        self.rfile.read(length)
+        self.send_response(int(getattr(self.server, "status", 204)))
+        self.end_headers()
+
+    def log_message(self, fmt: str, *args: object) -> None:
+        del fmt, args
+
+
+def _hook(store: ChatService, url: str, topics: list[str] | None = None) -> uuid.UUID:
+    created = WebhookBook(store).create(
+        demo_id("tenant"), demo_id("admin"), "sink", "https://example.com/hook", topics or ["*"]
+    )
+    hook_id = uuid.UUID(str(created["id"]))
+    store.outbound_webhooks[hook_id]["url"] = url
+    return hook_id
+
+
+def test_a_failed_delivery_waits_then_dies() -> None:
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Status)
+    server.status = 500  # type: ignore[attr-defined]
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        store = demo_store()
+        _hook(store, f"http://127.0.0.1:{server.server_address[1]}/in")
+        dispatch_public_event(store, demo_id("tenant"), "run.completed", {"run_id": "r1"})
+        row = next(iter(store.webhook_deliveries.values()))
+        assert row["status"] == "failed"
+        assert row["next_attempt_at"] > utcnow()
+        store.temporal_client = None
+        for _ in range(20):
+            row["next_attempt_at"] = utcnow() - timedelta(seconds=1)
+            sweep_due(store)
+            if row["status"] == "dead":
+                break
+        assert row["status"] == "dead"
+    finally:
+        server.shutdown()
+
+
+def test_a_410_disables_the_hook_and_a_private_url_is_dead() -> None:
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Status)
+    server.status = 410  # type: ignore[attr-defined]
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        store = demo_store()
+        hook_id = _hook(store, f"http://127.0.0.1:{server.server_address[1]}/gone")
+        dispatch_public_event(store, demo_id("tenant"), "run.completed", {"run_id": "r1"})
+        assert store.outbound_webhooks[hook_id]["status"] == "disabled"
+        row = next(iter(store.webhook_deliveries.values()))
+        assert row["status"] == "dead"
+    finally:
+        server.shutdown()
+    store = demo_store()
+    _hook(store, "http://10.1.1.1/latest")
+    dispatch_public_event(store, demo_id("tenant"), "run.completed", {"run_id": "r1"})
+    refused = next(iter(store.webhook_deliveries.values()))
+    assert refused["status"] == "dead"
+    assert "retry_in_s" not in refused or refused.get("status") == "dead"
+
+
+def test_a_named_hook_is_tested_whatever_its_topics_and_redelivery_is_a_new_row() -> None:
+    store = demo_store()
+    hook_id = _hook(store, "https://example.com/hook", ["run.completed"])
+    book = WebhookBook(store)
+    made = book.enqueue(demo_id("tenant"), "webhook.test", {"ok": True}, webhook_id=hook_id)
+    assert len(made) == 1
+    original = made[0]["id"]
+    assert isinstance(original, uuid.UUID)
+    created = book.redeliver(demo_id("tenant"), hook_id, original)
+    assert created["id"] != original
+    with pytest.raises(NotFoundError):
+        book.redeliver(demo_id("tenant"), hook_id, uuid.uuid4())
 
 
 def test_post_cards_helper_is_a_no_op_without_bindings() -> None:

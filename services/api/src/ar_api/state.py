@@ -125,67 +125,9 @@ class NotificationApi:
 
 @dataclass
 class WebhookApi:
-    rows: dict[str, dict[str, object]] = field(default_factory=dict)
+    """The run-callback secret. Outbound webhooks live in WebhookBook, not here."""
+
     callback_secret: str = ""
-
-    async def list_hooks(self) -> list[dict[str, object]]:
-        return [_public(row) for row in self.rows.values()]
-
-    async def get(self, webhook_id: str) -> dict[str, object] | None:
-        row = self.rows.get(webhook_id)
-        return None if row is None else _public(row)
-
-    async def create(self, name: str, url: str, topics: list[str]) -> dict[str, object]:
-        webhook_id = str(uuid.uuid4())
-        self.rows[webhook_id] = {
-            "id": webhook_id,
-            "name": name,
-            "url": url,
-            "topics": topics,
-            "secret": secrets.token_urlsafe(24),
-            "deliveries": [],
-        }
-        return _public(self.rows[webhook_id])
-
-    async def update(
-        self, webhook_id: str, name: str, url: str, topics: list[str]
-    ) -> dict[str, object] | None:
-        row = self.rows.get(webhook_id)
-        if row is None:
-            return None
-        row["name"] = name
-        row["url"] = url
-        row["topics"] = topics
-        return _public(row)
-
-    async def delete(self, webhook_id: str) -> bool:
-        return self.rows.pop(webhook_id, None) is not None
-
-    async def rotate(self, webhook_id: str) -> str | None:
-        row = self.rows.get(webhook_id)
-        if row is None:
-            return None
-        secret = secrets.token_urlsafe(24)
-        row["secret"] = secret
-        return secret
-
-    async def enqueue_test(self, webhook_id: str) -> None:
-        row = self.rows.get(webhook_id)
-        if row is None:
-            return
-        deliveries = row["deliveries"]
-        if isinstance(deliveries, list):
-            deliveries.append({"id": str(uuid.uuid4()), "status": "pending"})
-
-    async def deliveries(self, webhook_id: str) -> list[object]:
-        row = self.rows.get(webhook_id)
-        if row is None:
-            return []
-        found = row["deliveries"]
-        return list(found) if isinstance(found, list) else []
-
-    async def redeliver(self, delivery_id: str) -> None:
-        del delivery_id
 
     def mint_callback_secret(self) -> str:
         """A new secret that is not installed until the caller commits it."""
@@ -194,10 +136,6 @@ class WebhookApi:
     def apply_callback_secret(self, secret: str) -> None:
         """Install a secret that has already been committed."""
         self.callback_secret = secret
-
-
-def _public(row: dict[str, object]) -> dict[str, object]:
-    return {key: value for key, value in row.items() if key != "secret"}
 
 
 def as_object(value: object) -> dict[str, object]:

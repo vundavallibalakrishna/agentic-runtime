@@ -46,6 +46,9 @@ async def flush_store(store: object) -> None:
             await _flush_once(store, engine)
             if not getattr(store, "_flush_again", False):
                 break
+    from ar_domain.durable.after import run_after_commit  # noqa: PLC0415
+
+    run_after_commit(store)
 
 
 def schedule_flush(store: object) -> None:

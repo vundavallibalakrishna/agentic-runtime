@@ -9,7 +9,7 @@ from ar_common.errors import NotFoundError
 from ar_common.http import assert_public_url
 from ar_contracts.api_model import ApiModel
 from ar_domain.webhooks.book import WebhookBook
-from ar_domain.webhooks.delivery import attempt
+from ar_domain.webhooks.delivery import _start_or_attempt
 
 router = APIRouter()
 
@@ -96,13 +96,14 @@ async def rotate(webhook_id: uuid.UUID, request: Request) -> dict[str, str]:
 @expose(public=False, permission="webhooks:manage")
 async def test_webhook(webhook_id: uuid.UUID, request: Request) -> dict[str, str]:
     book, tenant_id, _user = _book(request)
+    book.get(tenant_id, webhook_id)
     made = book.enqueue(
         tenant_id, "webhook.test", {"webhook_id": str(webhook_id)}, webhook_id=webhook_id
     )
     for row in made:
         delivery_id = row.get("id")
         if isinstance(delivery_id, uuid.UUID):
-            attempt(request.app.state.chat, delivery_id)
+            _start_or_attempt(request.app.state.chat, delivery_id)
     return {"status": "queued"}
 
 
@@ -125,11 +126,10 @@ async def redeliver(
     webhook_id: uuid.UUID, delivery_id: uuid.UUID, request: Request
 ) -> dict[str, str]:
     book, tenant_id, _user = _book(request)
-    row = book.get_delivery(delivery_id)
-    if row is None or row.get("webhook_id") != webhook_id or row.get("tenant_id") != tenant_id:
-        return {"status": "missing"}
-    row["status"] = "pending"
-    attempt(request.app.state.chat, delivery_id)
+    created = book.redeliver(tenant_id, webhook_id, delivery_id)
+    new_id = created.get("id")
+    if isinstance(new_id, uuid.UUID):
+        _start_or_attempt(request.app.state.chat, new_id)
     return {"status": "queued"}
 
 

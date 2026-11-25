@@ -137,7 +137,7 @@ class WebhookBook:
     def deliveries(self, tenant_id: uuid.UUID, webhook_id: uuid.UUID) -> list[dict[str, object]]:
         self._own(tenant_id, webhook_id)
         rows = [
-            _delivery_public(item)
+            _delivery_public(self.store, item)
             for item in _bucket(self.store, "webhook_deliveries").values()
             if item.get("webhook_id") == webhook_id and item.get("tenant_id") == tenant_id
         ]
@@ -180,8 +180,6 @@ class WebhookBook:
                 "webhook_id": row.get("id"),
                 "target_url": None,
                 "outbox_event_id": event_id,
-                "topic": topic,
-                "payload": payload,
                 "status": "pending",
                 "attempts": 0,
                 "last_status_code": None,
@@ -193,6 +191,26 @@ class WebhookBook:
             _bucket(self.store, "webhook_deliveries")[delivery_id] = delivery
             made.append(delivery)
         return made
+
+    def redeliver(
+        self, tenant_id: uuid.UUID, webhook_id: uuid.UUID, delivery_id: uuid.UUID
+    ) -> dict[str, object]:
+        """A new attempt row for the same event. The previous row stays as history."""
+        row = self.get_delivery(delivery_id)
+        if row is None or row.get("webhook_id") != webhook_id or row.get("tenant_id") != tenant_id:
+            raise NotFoundError("delivery not found")
+        event = _bucket(self.store, "outbox_events").get(row.get("outbox_event_id"))
+        topic = "webhook.test"
+        payload: dict[str, object] = {}
+        if isinstance(event, dict):
+            topic = str(event.get("topic") or topic)
+            body = event.get("payload")
+            if isinstance(body, dict):
+                payload = body
+        made = self.enqueue(tenant_id, topic, payload, webhook_id=webhook_id)
+        if not made:
+            raise NotFoundError("delivery not found")
+        return made[0]
 
     def get_delivery(self, delivery_id: uuid.UUID) -> dict[str, object] | None:
         row = _bucket(self.store, "webhook_deliveries").get(delivery_id)
@@ -210,8 +228,8 @@ def _wants(
 ) -> bool:
     if row.get("tenant_id") != tenant_id or row.get("status") != "active":
         return False
-    if webhook_id is not None and row.get("id") != webhook_id:
-        return False
+    if webhook_id is not None:
+        return row.get("id") == webhook_id
     topics = row.get("topics")
     names = topics if isinstance(topics, list) else []
     return "*" in names or topic in names
@@ -238,10 +256,23 @@ def _new_secret() -> str:
     return secrets.token_urlsafe(24)
 
 
-def _delivery_public(row: dict[str, object]) -> dict[str, object]:
+def event_body(store: object, row: dict[str, object]) -> tuple[str, dict[str, object]]:
+    """Topic and payload live on the outbox event, not on the delivery row."""
+    events = getattr(store, "outbox_events", {})
+    event_id = row.get("outbox_event_id")
+    event = events.get(event_id) if isinstance(events, dict) else None
+    if isinstance(event, dict):
+        payload = event.get("payload")
+        return str(event.get("topic") or ""), payload if isinstance(payload, dict) else {}
+    payload = row.get("payload")
+    return str(row.get("topic") or ""), payload if isinstance(payload, dict) else {}
+
+
+def _delivery_public(store: object, row: dict[str, object]) -> dict[str, object]:
+    topic, _payload = event_body(store, row)
     return {
         "id": str(row.get("id")),
-        "topic": row.get("topic"),
+        "topic": topic,
         "status": row.get("status"),
         "attempts": row.get("attempts"),
         "last_status_code": row.get("last_status_code"),
