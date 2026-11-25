@@ -99,18 +99,44 @@ def drop_pack_schema(store: Any, actor: Actor, pack_id: str) -> None:
 
 
 def tenant_packs(store: Any, actor: Actor) -> list[dict[str, object]]:
-    rows = []
+    """Flags plus installed content packs.
+
+    A content pack is installed in ``packs`` and has no extension flag. The
+    pack page reads this list, so an installed pack is enabled here.
+    """
+    rows: list[dict[str, object]] = []
+    seen: set[str] = set()
     for flag in bucket(store, "pack_flags").values():
-        if flag.get("tenant_id") != actor.tenant_id:
+        if not _same_tenant(flag.get("tenant_id"), actor.tenant_id):
             continue
+        pack_id = str(flag.get("pack_id") or "")
+        seen.add(pack_id)
         item: dict[str, object] = {
             "pack_id": flag.get("pack_id"),
-            "version": _version(store, actor, str(flag.get("pack_id"))),
+            "version": _version(store, actor, pack_id),
             "enabled": bool(flag.get("enabled")),
         }
         if flag.get("enabled") and _can_see_nav(actor, flag):
             item["nav"] = flag.get("nav") or []
         rows.append(item)
+    packs = getattr(store, "packs", {})
+    if isinstance(packs, dict):
+        for row in packs.values():
+            if not isinstance(row, dict) or row.get("status") != "installed":
+                continue
+            if not _same_tenant(row.get("tenant_id"), actor.tenant_id):
+                continue
+            pack_id = str(row.get("pack_id") or "")
+            if not pack_id or pack_id in seen:
+                continue
+            seen.add(pack_id)
+            rows.append(
+                {
+                    "pack_id": pack_id,
+                    "version": str(row.get("version") or ""),
+                    "enabled": True,
+                }
+            )
     return rows
 
 
@@ -140,6 +166,10 @@ def _version(store: Any, actor: Actor, pack_id: str) -> str:
         if row.get("tenant_id") == actor.tenant_id and row.get("pack_id") == pack_id:
             return str(row.get("version") or "")
     return ""
+
+
+def _same_tenant(left: object, right: object) -> bool:
+    return left == right or str(left) == str(right)
 
 
 def _can_see_nav(actor: Actor, flag: dict[str, object]) -> bool:

@@ -41,6 +41,28 @@ def _actor() -> Actor:
     return Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS, display_name="Dev Admin")
 
 
+def test_an_installed_content_pack_counts_as_enabled() -> None:
+    from ar_domain.packs.registry import tenant_packs
+
+    store = demo_store()
+    actor = _actor()
+    store.packs[uuid.uuid4()] = {
+        "tenant_id": actor.tenant_id,
+        "pack_id": "document_extraction",
+        "version": "1.0.0",
+        "status": "installed",
+    }
+    store.packs[uuid.uuid4()] = {
+        "tenant_id": actor.tenant_id,
+        "pack_id": "retired",
+        "version": "0.1.0",
+        "status": "uninstalled",
+    }
+    rows = {str(row["pack_id"]): row for row in tenant_packs(store, actor)}
+    assert rows["document_extraction"]["enabled"] is True
+    assert "retired" not in rows
+
+
 def test_pack_manifests_match_their_sources() -> None:
     for name in ("document-extraction", "horizon-scan", "scenario-runs"):
         folder = ROOT / name
