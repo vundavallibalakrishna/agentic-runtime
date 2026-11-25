@@ -415,7 +415,7 @@ class KnowledgeBook:
         return {"id": str(source_id), "status": "deleted"}
 
     def test_source(self, actor: Actor, source_id: uuid.UUID) -> dict[str, object]:
-        return check(self._source(actor, source_id, manage=True))
+        return check({**self._source(actor, source_id, manage=True), "store": self.store})
 
     def sync(self, actor: Actor, source_id: uuid.UUID, mode: str) -> dict[str, object]:
         row = self._source(actor, source_id, manage=True)

@@ -27,6 +27,7 @@ from ar_common.offload import blocking
 from ar_domain.tools.logic import name_ok, propose_risk
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import Any
 
 _ARG = re.compile(r"^[A-Za-z0-9_./+=:@-]{1,180}$")
@@ -86,6 +87,91 @@ def list_remote(
     if not found:
         raise RemoteError("tools/list returned no tools")
     return found
+
+
+def list_resources(
+    store: Any,
+    url: str,
+    token: str = "",
+    mode: str = "none",
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: float = 30.0,
+    transport: str = "streamable",
+) -> tuple[list[dict[str, object]], Callable[[str], tuple[bytes, str]]]:
+    """The server's resources, and a reader that fetches one of them in the same session.
+
+    ``resources/list`` is followed through ``nextCursor``. The reader calls
+    ``resources/read`` and returns the bytes and the media type of the first content.
+    """
+    session: dict[str, str] = {}
+    found: list[dict[str, object]] = []
+    cursor: str | None = None
+    for page in range(100):
+        params: dict[str, object] = {"cursor": cursor} if cursor else {}
+        payload = _rpc(
+            store,
+            url,
+            {"jsonrpc": "2.0", "id": 2, "method": "resources/list", "params": params},
+            token,
+            mode,
+            headers=headers,
+            timeout=timeout,
+            transport=transport,
+            initialize=(page == 0),
+            session=session,
+        )
+        _raise_rpc_error(payload)
+        result = payload.get("result")
+        rows = result.get("resources") if isinstance(result, dict) else None
+        if isinstance(rows, list):
+            found.extend(row for row in rows if isinstance(row, dict))
+        cursor = _next_cursor(payload)
+        if not cursor:
+            break
+
+    def read(uri: str) -> tuple[bytes, str]:
+        answer = _rpc(
+            store,
+            url,
+            {"jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": uri}},
+            token,
+            mode,
+            headers=headers,
+            timeout=timeout,
+            transport=transport,
+            initialize=False,
+            session=session,
+        )
+        _raise_rpc_error(answer)
+        return _resource_bytes(answer)
+
+    return found, read
+
+
+def _raise_rpc_error(payload: dict[str, object]) -> None:
+    error = payload.get("error")
+    if isinstance(error, dict):
+        raise RemoteError(str(error.get("message") or "the remote server refused the call"))
+
+
+def _resource_bytes(payload: dict[str, object]) -> tuple[bytes, str]:
+    result = payload.get("result")
+    contents = result.get("contents") if isinstance(result, dict) else None
+    for item in contents if isinstance(contents, list) else []:
+        if not isinstance(item, dict):
+            continue
+        mime = str(item.get("mimeType") or "text/plain")
+        if isinstance(item.get("text"), str):
+            return str(item["text"]).encode(), mime
+        if isinstance(item.get("blob"), str):
+            import base64  # noqa: PLC0415
+
+            try:
+                return base64.b64decode(str(item["blob"]), validate=True), mime
+            except ValueError as exc:
+                raise RemoteError("the resource was not valid base64") from exc
+    raise RemoteError("the resource had no content")
 
 
 def _next_cursor(payload: dict[str, object]) -> str | None:

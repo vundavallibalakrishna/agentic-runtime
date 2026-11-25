@@ -13,13 +13,36 @@ import { api } from "@/lib/api";
 
 const KINDS = ["web", "s3", "sharepoint", "confluence", "google_drive", "database", "mcp_resource"];
 
+// What each kind needs, as a starting point a person fills in. No value is a default the
+// product relies on: an empty one is refused with a message that says what is missing.
+const STARTERS: Record<string, Record<string, string>> = {
+  s3: { bucket: "", prefix: "", endpoint: "", region: "", connection: "" },
+  database: { query: "", idColumn: "id", titleColumn: "title", textColumn: "text" },
+  mcp_resource: { server: "" },
+  sharepoint: { url: "", connection: "" },
+  confluence: { url: "", connection: "" },
+  google_drive: { url: "", connection: "" },
+};
+
+const HELP: Record<string, string> = {
+  s3: "configurationHelpS3",
+  database: "configurationHelpDatabase",
+  mcp_resource: "configurationHelpMcp",
+  sharepoint: "configurationHelpUrl",
+  confluence: "configurationHelpUrl",
+  google_drive: "configurationHelpUrl",
+};
+
+function starter(kind: string): string {
+  return JSON.stringify(STARTERS[kind] ?? {}, null, 2);
+}
+
 export function SourceWizard({ collectionId }: { collectionId: string }) {
   const t = useTranslations("knowledge");
   const detail = useTranslations("detail");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [config, setConfig] = useState("{}");
-  const [secretId, setSecretId] = useState("");
   const [dataConnectionId, setDataConnectionId] = useState("");
   const [name, setName] = useState("");
   const [kind, setKind] = useState("web");
@@ -41,7 +64,6 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
           name: name.trim(),
           kind,
           config: configuration,
-          ...(secretId.trim() ? { secretId: secretId.trim() } : {}),
           ...(dataConnectionId.trim() ? { dataConnectionId: dataConnectionId.trim() } : {}),
         }),
       });
@@ -93,7 +115,10 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
             <select
               className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2"
               id="source-kind"
-              onChange={(event) => setKind(event.target.value)}
+              onChange={(event) => {
+                setKind(event.target.value);
+                setConfig(starter(event.target.value));
+              }}
               value={kind}
             >
               {KINDS.map((item) => (
@@ -127,16 +152,8 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
                 />
               </label>
               <p className="text-sm text-[var(--muted-foreground)]">
-                {detail("configurationHelp")}
+                {detail(HELP[kind] ?? "configurationHelp")} {detail("configurationHelp")}
               </p>
-              <label htmlFor="source-secret">
-                {detail("secretId")}
-                <Input
-                  id="source-secret"
-                  value={secretId}
-                  onChange={(event) => setSecretId(event.target.value)}
-                />
-              </label>
               {kind === "database" ? (
                 <label htmlFor="source-connection">
                   {detail("dataConnectionId")}

@@ -129,6 +129,67 @@ def get_object(store: Any, settings: dict[str, str], *, key: str) -> dict[str, o
     }
 
 
+def list_keys(
+    store: Any, settings: dict[str, str], *, prefix: str, limit: int
+) -> tuple[list[dict[str, object]], bool]:
+    """Every object under ``prefix``, page by page, with its ETag and size.
+
+    Returns the rows and whether the listing is whole: it stops at ``limit`` rows and
+    says so. A refusal by the host check or the service is raised as ``OSError``.
+    """
+    host = _endpoint_host(settings["endpoint"])
+    if host:
+        problem = host_blocked(store, host)
+        if problem:
+            raise OSError(problem)
+    rows: list[dict[str, object]] = []
+    token = ""
+    try:
+        client = _client(store, **_auth(settings))
+        while True:
+            request: dict[str, object] = {"Bucket": settings["bucket"], "Prefix": prefix}
+            if token:
+                request["ContinuationToken"] = token
+            response = client.list_objects_v2(**request)
+            contents = response.get("Contents") if isinstance(response, dict) else None
+            for item in contents if isinstance(contents, list) else []:
+                if not isinstance(item, dict) or not item.get("Key"):
+                    continue
+                if len(rows) >= limit:
+                    return rows, False
+                rows.append(
+                    {
+                        "key": str(item["Key"]),
+                        "size": item.get("Size"),
+                        "etag": str(item.get("ETag") or "").strip('"'),
+                    }
+                )
+            token = str(response.get("NextContinuationToken") or "")
+            if not response.get("IsTruncated") or not token:
+                return rows, True
+    except OSError:
+        raise
+    except Exception as exc:
+        raise OSError(_safe(exc)) from exc
+
+
+def read_object(store: Any, settings: dict[str, str], *, key: str) -> bytes:
+    """The whole object. A refusal is raised as ``OSError``."""
+    host = _endpoint_host(settings["endpoint"])
+    if host:
+        problem = host_blocked(store, host)
+        if problem:
+            raise OSError(problem)
+    try:
+        client = _client(store, **_auth(settings))
+        body = client.get_object(Bucket=settings["bucket"], Key=key)["Body"].read()
+    except OSError:
+        raise
+    except Exception as exc:
+        raise OSError(_safe(exc)) from exc
+    return body if isinstance(body, bytes) else b""
+
+
 def put_object(store: Any, settings: dict[str, str], *, key: str, text: str) -> dict[str, object]:
     host = _endpoint_host(settings["endpoint"])
     if host:

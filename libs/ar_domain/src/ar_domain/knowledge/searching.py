@@ -15,7 +15,7 @@ from ar_domain.knowledge.embedding import (
     embed_for_collection,
     refuse_embedding_mismatch,
 )
-from ar_domain.knowledge.fetchers import check_access
+from ar_domain.knowledge.fetchers import current_acl, map_item_acl
 from ar_domain.knowledge.metrics import SEARCH_HITS, SEARCH_SECONDS, UNANSWERABLE
 from ar_domain.knowledge.retrieval import answerable, apply_rerank
 from ar_domain.knowledge.store import StoreUnavailable, active_index
@@ -218,12 +218,7 @@ def _late(
         if collection.get("sensitivity") == "high":
             source = store.knowledge_sources.get(document.get("source_id"))
             if isinstance(source, dict):
-                try:
-                    allowed = check_access(
-                        source, str(document.get("external_id") or ""), str(actor.user_id)
-                    )
-                except OSError, TimeoutError, ValueError:
-                    allowed = False
+                allowed = _still_allowed(store, actor, source, document, collection)
                 if not allowed:
                     from ar_domain.knowledge.metrics import LATE_DENIED  # noqa: PLC0415
 
@@ -231,3 +226,29 @@ def _late(
                     continue
         kept.append(hit)
     return kept
+
+
+def _still_allowed(
+    store: Any,
+    actor: Any,
+    source: dict[str, object],
+    document: dict[str, object],
+    collection: dict[str, object],
+) -> bool:
+    """Ask the source who may read the document now. No answer is a refusal.
+
+    A kind whose documents take the collection's readers has nothing more to ask: the
+    check made on the indexed readers stands.
+    """
+    import httpx  # noqa: PLC0415
+
+    from ar_common.errors import ArError  # noqa: PLC0415
+
+    try:
+        readers = current_acl({**source, "store": store}, str(document.get("external_id") or ""))
+    except OSError, TimeoutError, ValueError, httpx.HTTPError, ArError:
+        return False
+    if readers is None:
+        return True
+    principals, _unmapped = map_item_acl({"acl": readers}, store)
+    return can_read_document(store, actor, {**document, "acl_principals": principals}, collection)
