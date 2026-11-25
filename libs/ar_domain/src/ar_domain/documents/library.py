@@ -845,8 +845,12 @@ class DocumentLibrary:
             book = self.store.document_extractions
         book[extraction_id] = record
         body["extraction_id"] = str(extraction_id)
+        document_id = row.get("id")
         self._audit(
-            actor, "extraction.recorded", row.get("id"), {"extraction_id": str(extraction_id)}
+            actor,
+            "extraction.recorded",
+            document_id if isinstance(document_id, uuid.UUID) else None,
+            {"extraction_id": str(extraction_id)},
         )
         from ar_domain.webhooks.delivery import dispatch_public_event  # noqa: PLC0415
 
@@ -882,7 +886,8 @@ class DocumentLibrary:
         from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
         from ar_domain.tools.logic import call_args_hash  # noqa: PLC0415
 
-        arguments = body.get("result") if isinstance(body.get("result"), dict) else {}
+        raw_arguments = body.get("result")
+        arguments = raw_arguments if isinstance(raw_arguments, dict) else {}
         preview = {
             "title": "Review extracted fields",
             "summary": "Some fields need a person.",
@@ -1579,8 +1584,10 @@ def note_extraction_decision(store: Any, approval: dict[str, object]) -> None:
     )
     if not isinstance(record, dict):
         return
-    values = approval.get("arguments") if isinstance(approval.get("arguments"), dict) else {}
-    before = record.get("result") if isinstance(record.get("result"), dict) else {}
+    raw_values = approval.get("arguments")
+    values = raw_values if isinstance(raw_values, dict) else {}
+    raw_before = record.get("result")
+    before = raw_before if isinstance(raw_before, dict) else {}
     diff = [
         {"path": key, "before": before.get(key), "after": values.get(key)}
         for key in sorted(set(before) | set(values))

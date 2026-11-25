@@ -95,8 +95,9 @@ def _script_bytes(store: Any, arguments: dict[str, object]) -> bytes | dict[str,
     except TypeError, ValueError:
         return _error("validation_failed", "fileId is required.")
     blobs = getattr(store, "blobs", {})
-    if isinstance(blobs, dict) and isinstance(blobs.get(key), bytes):
-        return blobs[key]
+    blob = blobs.get(key) if isinstance(blobs, dict) else None
+    if isinstance(blob, bytes):
+        return blob
     files = getattr(store, "files", {})
     row = files.get(key) if isinstance(files, dict) else None
     if isinstance(row, dict):

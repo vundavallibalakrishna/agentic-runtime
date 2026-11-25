@@ -35,8 +35,9 @@ def _put(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     existing = book.get(row_id)
     version = 1
     if isinstance(existing, dict):
-        version = int(existing.get("version") or 1) + 1
-    row = {
+        current = existing.get("version")
+        version = (current if isinstance(current, int) else 1) + 1
+    row: dict[str, object] = {
         "id": row_id,
         "tenant_id": _uuid(arguments.get("_tenant_id")),
         "pack_id": pack_id,

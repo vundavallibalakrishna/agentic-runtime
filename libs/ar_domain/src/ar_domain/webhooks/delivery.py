@@ -98,7 +98,7 @@ def attempt(store: Any, delivery_id: uuid.UUID) -> dict[str, object]:  # noqa: P
         row["status"] = "succeeded"
         row["last_status_code"] = code
         row["last_error"] = None
-        row["attempts"] = int(row.get("attempts") or 0) + 1
+        row["attempts"] = _count(row.get("attempts")) + 1
         row["updated_at"] = utcnow()
         return {"status": "succeeded", "status_code": code}
     if code == 410:
@@ -108,7 +108,7 @@ def attempt(store: Any, delivery_id: uuid.UUID) -> dict[str, object]:  # noqa: P
 
 
 def _schedule(row: dict[str, object], code: int | None, error: str) -> dict[str, object]:
-    attempts = int(row.get("attempts") or 0) + 1
+    attempts = _count(row.get("attempts")) + 1
     row["attempts"] = attempts
     row["last_status_code"] = code
     row["last_error"] = error[:500]
@@ -122,13 +122,17 @@ def _schedule(row: dict[str, object], code: int | None, error: str) -> dict[str,
     return {"status": "failed", "retry_in_s": wait, "error": error}
 
 
+def _count(value: object) -> int:
+    return value if isinstance(value, int) else 0
+
+
 def _fail(
     row: dict[str, object], error: str, *, dead: bool, code: int | None = None
 ) -> dict[str, object]:
     row["status"] = "dead" if dead else "failed"
     row["last_error"] = error
     row["last_status_code"] = code
-    row["attempts"] = int(row.get("attempts") or 0) + 1
+    row["attempts"] = _count(row.get("attempts")) + 1
     row["updated_at"] = utcnow()
     return {"status": row["status"], "error": error}
 

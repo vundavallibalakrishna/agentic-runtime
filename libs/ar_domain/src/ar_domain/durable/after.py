@@ -20,10 +20,10 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-_TASKS: set[asyncio.Task[None]] = set()
+_TASKS: set[asyncio.Task[object]] = set()
 
 
-def run_off_request(store: Any, step: Callable[[], None]) -> None:
+def run_off_request(store: Any, step: Callable[[], object]) -> None:
     """Run ``step`` off the request thread when this store is serving a request."""
     in_request = bool(
         getattr(store, "request_scoped", False) or getattr(store, "durable_engine", None)

@@ -26,7 +26,7 @@ def parse_outlook(
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "message.msg"
         path.write_bytes(data)
-        message = extract_msg.Message(str(path))
+        message = extract_msg.Message(str(path))  # type: ignore[no-untyped-call]
         try:
             return _read_message(message, parent="", limits=limits, state={"count": 0, "bytes": 0})
         finally:

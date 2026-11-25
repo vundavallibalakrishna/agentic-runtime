@@ -352,7 +352,8 @@ def _seed_settings(store: Any, actor: Actor, manifest: dict[str, object]) -> Non
         document = body.get("settings")
         if not isinstance(schema, dict) or not isinstance(document, dict):
             continue
-        meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        raw_meta = item.get("metadata")
+        meta = raw_meta if isinstance(raw_meta, dict) else {}
         resource_id = str(meta.get("slug") or meta.get("id") or "")
         if not resource_id:
             continue
@@ -385,7 +386,8 @@ def _apply_policies(store: Any, actor: Actor, manifest: dict[str, object]) -> No
         if not isinstance(document, dict):
             continue
         rewritten = _with_group(document, group)
-        meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        raw_meta = item.get("metadata")
+        meta = raw_meta if isinstance(raw_meta, dict) else {}
         policy_id = new_id()
         version_id = new_id()
         store.policies[policy_id] = {

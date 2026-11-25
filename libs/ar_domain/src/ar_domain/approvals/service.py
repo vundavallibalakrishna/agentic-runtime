@@ -524,7 +524,7 @@ class ApprovalBook:
         )
         from ar_domain.webhooks.delivery import dispatch_public_event  # noqa: PLC0415
 
-        dispatch_public_event(self.store, row.get("tenant_id"), "approval.decided", decided)
+        dispatch_public_event(self.store, row.get("tenant_id"), "approval.decided", dict(decided))
 
     def _received(self, row: dict[str, object]) -> int:
         return sum(

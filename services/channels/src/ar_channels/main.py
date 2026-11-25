@@ -104,11 +104,14 @@ def _slack_api(token: str, user: str, card: dict[str, object]) -> str:
     try:
         if user:
             opened = client.conversations_open(users=user)
-            channel = str(opened.get("channel", {}).get("id") or user)
+            channel_body = opened.get("channel") if isinstance(opened, dict) else None
+            if isinstance(channel_body, dict):
+                channel = str(channel_body.get("id") or user)
+        blocks = card.get("blocks")
         client.chat_postMessage(
             channel=channel,
             text=str(card.get("text") or "Approval requested"),
-            blocks=card.get("blocks") if isinstance(card.get("blocks"), list) else None,
+            blocks=list(blocks) if isinstance(blocks, list) else None,
         )
     except SlackApiError:
         return "failed"

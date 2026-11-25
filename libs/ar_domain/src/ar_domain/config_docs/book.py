@@ -44,7 +44,8 @@ class SettingsBook:
     ) -> dict[str, object]:
         _check(schema, document)
         rows = self._rows(tenant_id, resource_type, resource_id)
-        version = 1 if not rows else int(rows[-1].get("version") or 0) + 1
+        previous_version = rows[-1].get("version") if rows else 0
+        version = (previous_version if isinstance(previous_version, int) else 0) + 1
         previous = rows[-1].get("schema") if rows else None
         schema_changed = bool(rows) and previous != schema
         row = {
@@ -85,8 +86,13 @@ class SettingsBook:
             and row.get("resource_type") == resource_type
             and row.get("resource_id") == resource_id
         ]
-        found.sort(key=lambda item: int(item.get("version") or 0))
+        found.sort(key=_version)
         return found
+
+
+def _version(item: dict[str, object]) -> int:
+    value = item.get("version")
+    return value if isinstance(value, int) else 0
 
 
 def _check(schema: dict[str, object], document: dict[str, object]) -> None:

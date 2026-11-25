@@ -305,7 +305,7 @@ def _from_connection(
         raise ValidationFailedError("connection_id is required") from exc
     row = ConnectionBook(store)._own(actor, connection_id)
     url = str(body.get("url") or row.get("probe_url") or "").strip()
-    headers, secret = _headers(row)
+    headers, secret = _headers(store, row)
     text = _fetch(store, url, headers=headers)
     if secret and secret in text:
         text = text.replace(secret, "[redacted]")

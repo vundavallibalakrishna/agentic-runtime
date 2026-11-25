@@ -144,8 +144,9 @@ def _approval(store: Any, claims: dict[str, str]) -> dict[str, object]:
 def input_schema(store: Any, row: dict[str, object]) -> dict[str, object]:
     """The tool's input schema, or a schema read off the arguments themselves."""
     preview = row.get("preview")
-    if isinstance(preview, dict) and isinstance(preview.get("schema"), dict):
-        return preview["schema"]
+    found = preview.get("schema") if isinstance(preview, dict) else None
+    if isinstance(found, dict):
+        return found
     name = str(row.get("qualified_name") or "")
     versions = getattr(store, "tool_versions", {})
     if isinstance(versions, dict):
