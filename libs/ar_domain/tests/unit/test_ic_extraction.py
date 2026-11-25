@@ -8,6 +8,8 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
+import pytest
+
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import demo_id
 from ar_domain.documents.evidence import choose_strategy, interpret
@@ -134,9 +136,53 @@ def test_fields_match_normalises_dates_numbers_and_names() -> None:
     assert summary["by_document_type"]["sample"]["recall"] == 1.0
 
 
-def test_fixture_pdfs_are_real_files() -> None:
+def test_two_chunks_merge_and_a_msg_without_a_worker_is_a_clear_error() -> None:
+    from ar_domain.documents.evidence import chunks_for, merge_interpretations
+
+    passages = [
+        {"text": "alpha " * 40, "page": 1, "anchor": "p1"},
+        {"text": "beta " * 40, "page": 2, "anchor": "p2"},
+    ]
+    groups = chunks_for(passages, 30)
+    assert len(groups) >= 2
+    schema = {"type": "object", "properties": {"note": {"type": "string"}}}
+    merged = merge_interpretations(
+        [
+            {
+                "fields": [
+                    {
+                        "path": "note",
+                        "value": "alpha",
+                        "quote": "alpha",
+                        "quote_verified": True,
+                        "status": "extracted",
+                    }
+                ]
+            },
+            {
+                "fields": [
+                    {
+                        "path": "note",
+                        "value": "alpha",
+                        "quote": "alpha",
+                        "quote_verified": True,
+                        "status": "extracted",
+                    }
+                ]
+            },
+        ],
+        schema,
+        passages,
+    )
+    assert merged["fields"][0]["value"] == "alpha"
+    from ar_domain.documents.convert import convert_and_extract
     from ar_domain.documents.extract import ExtractError
 
+    with pytest.raises(ExtractError, match="ingest worker"):
+        convert_and_extract(b"not a message", "note.msg", "")
+
+
+def test_fixture_pdfs_are_real_files() -> None:
     text = (FIXTURES / "synthetic-report.pdf").read_bytes()
     scanned = (FIXTURES / "synthetic-scan.pdf").read_bytes()
     assert text.startswith(b"%PDF")
@@ -144,12 +190,6 @@ def test_fixture_pdfs_are_real_files() -> None:
     reading = extract_bytes(text, filename="synthetic-report.pdf")
     joined = "\n".join(item.text for item in reading.passages)
     assert "SYNTHETIC-REPORT-REF" in joined
-    try:
-        scanned_reading = extract_bytes(scanned, filename="synthetic-scan.pdf")
-    except ExtractError as exc:
-        message = exc.message
-    else:
-        scanned_text = "\n".join(item.text for item in scanned_reading.passages)
-        assert "SCANNED" in scanned_text.upper()
-        return
-    assert "OCR" in message or "Unicode" in message
+    scanned_reading = extract_bytes(scanned, filename="synthetic-scan.pdf")
+    scanned_text = "\n".join(item.text for item in scanned_reading.passages)
+    assert "SCANNED" in scanned_text.upper()

@@ -146,12 +146,20 @@ async def _parse_on_worker(
     )
     await flush_store(store)
     document_id = str(staged.get("id") or "")
-    handle = await client.start_workflow(
-        "LibraryParseWorkflow",
-        {"document_id": document_id, "tenant_id": str(actor.tenant_id)},
-        id=f"library-parse-{document_id}",
-        task_queue="ar-ingest",
-    )
+    try:
+        handle = await client.start_workflow(
+            "LibraryParseWorkflow",
+            {"document_id": document_id, "tenant_id": str(actor.tenant_id)},
+            id=f"library-parse-{document_id}",
+            task_queue="ar-ingest",
+        )
+    except Exception as exc:
+        message = "The ingest worker is not running, so this file was not read."
+        if filename.lower().endswith(".msg"):
+            message = (
+                "Outlook .msg files are read by the ingest worker, and that worker is not running."
+            )
+        raise ArError(ErrorCode.UNAVAILABLE, message) from exc
     finished, answer = await worker_result(handle, WORKER_WAIT_S)
     if not finished:
         # The worker is still reading. The row says so, and the worker finishes it.
