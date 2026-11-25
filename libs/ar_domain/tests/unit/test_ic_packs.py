@@ -6,6 +6,7 @@ Label: unit
 from __future__ import annotations
 
 import importlib.util
+import uuid
 from pathlib import Path
 
 import orjson
@@ -22,7 +23,7 @@ from ar_domain.demo_ids import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.runs.logic import configured_run_budget
 from ar_domain.tools.extensions import dispatch_extensions
-from ar_domain.tools.registered import run_registered
+from ar_domain.tools.registered import run_entry
 from ar_testing.demo import demo_store
 
 ROOT = Path(__file__).resolve().parents[4] / "packs" / "examples"
@@ -64,16 +65,39 @@ def test_horizon_settings_are_versioned_and_rejected_when_invalid() -> None:
         book.save(demo_id("tenant"), demo_id("admin"), "agent", "horizon-scan", schema, {})
 
 
+def _run_script(script: bytes, params: dict[str, object]) -> dict[str, object]:
+    store = demo_store()
+    file_id = uuid.uuid4()
+    store.files[file_id] = {"id": file_id, "data": script}
+    result = run_entry(store, {"fileId": str(file_id), "params": params})
+    assert isinstance(result, dict)
+    return result
+
+
 def test_a_registered_script_rerun_has_the_same_hashes() -> None:
     script = (ROOT / "scenario-runs" / "examples" / "model.py").read_bytes()
     params = {"label": "synthetic"}
-    first = run_registered(script, params, [])
-    second = run_registered(script, params, [])
-    assert first["ok"] is True
-    assert first["script_sha256"] == second["script_sha256"]
-    assert first["params_sha256"] == second["params_sha256"]
-    assert first["output_hashes"] == second["output_hashes"]
-    assert orjson.loads(first["stdout"])["units"] == 2
+    first = _run_script(script, params)
+    second = _run_script(script, params)
+    assert first["is_error"] is False
+    body = first["structured"]
+    again = second["structured"]
+    assert isinstance(body, dict) and isinstance(again, dict)
+    assert body["script_sha256"] == again["script_sha256"]
+    assert body["params_sha256"] == again["params_sha256"]
+    assert body["output_hashes"] == again["output_hashes"]
+    assert orjson.loads(str(body["stdout"]))["units"] == 2
+
+
+def test_a_registered_script_refuses_when_the_host_may_not_run_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("ar_domain.tools.general.host_exec_allowed", lambda: False)
+    monkeypatch.setattr("ar_domain.sandboxes.folder_run.runs_in_computer", lambda _store: False)
+    script = (ROOT / "scenario-runs" / "examples" / "model.py").read_bytes()
+    result = _run_script(script, {"label": "synthetic"})
+    assert result["is_error"] is True
+    assert result["code"] == "sandbox_unavailable"
 
 
 def test_compare_is_computed_in_code() -> None:

@@ -152,6 +152,7 @@ def _run_script(
     *,
     interpreters: tuple[list[str], list[str]],
     limits: dict[str, int | bool],
+    args: tuple[str, ...] = (),
 ) -> IsolatedRun | dict[str, object]:
     """Run the script a tool wrote in this run's folder, and return the finished run.
 
@@ -165,13 +166,15 @@ def _run_script(
     on_host, in_computer = interpreters
     timeout = _as_limit(limits["timeout_s"])
     if runs_in_computer(store):
-        return run_in_computer(store, arguments, root, [*in_computer, name], timeout=timeout)
+        return run_in_computer(
+            store, arguments, root, [*in_computer, name, *args], timeout=timeout
+        )
     if not host_exec_allowed():
         return _error("sandbox_unavailable", "the computer is not ready")
     return blocking(
         run_isolated,
         root,
-        [*on_host, _guest_path(root, name)],
+        [*on_host, _guest_path(root, name), *args],
         timeout=timeout,
         network=bool(limits["network"]),
         max_file_bytes=_as_limit(limits["max_file_bytes"]),

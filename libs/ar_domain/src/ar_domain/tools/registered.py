@@ -1,80 +1,29 @@
 """Run a registered script at a fixed entry point and record hashes.
 
 The command comes from ``AR_REGISTERED_SCRIPT_ENTRY``. The model chooses the
-script and the parameter object, not the command. Numbers in the output are
-whatever the script printed.
+script and the parameter object, not the command. The script runs through the
+same computer path as ``general.code``. Numbers in the output are whatever the
+script printed.
 """
 
 from __future__ import annotations
 
 import hashlib
-import os
-import subprocess
-import tempfile
+import sys
 import uuid
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import orjson
 
-from ar_common.offload import blocking
+from ar_common.settings import get_settings
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from typing import Any
 
 
 def dispatch_run_entry(store: Any, arguments: dict[str, object]) -> dict[str, object] | None:
     return run_entry(store, arguments)
-
-
-def run_registered(
-    script: bytes, params: dict[str, object], inputs: list[tuple[str, bytes]]
-) -> dict[str, object]:
-    """Run the configured entry point. The same bytes produce the same hashes."""
-    entry = os.environ.get("AR_REGISTERED_SCRIPT_ENTRY", "python model.py --params params.json")
-    parts = entry.split()
-    if not parts:
-        return {"ok": False, "error": "AR_REGISTERED_SCRIPT_ENTRY is empty"}
-    with tempfile.TemporaryDirectory() as folder:
-        root = Path(folder)
-        (root / "model.py").write_bytes(script)
-        (root / "params.json").write_bytes(orjson.dumps(params))
-        input_hashes = []
-        for name, data in inputs:
-            safe = Path(name).name
-            (root / safe).write_bytes(data)
-            input_hashes.append({"name": safe, "sha256": _sha(data)})
-        try:
-            completed = blocking(
-                lambda: subprocess.run(  # noqa: S603 — the entry point is an install setting
-                    parts,
-                    cwd=root,
-                    check=False,
-                    capture_output=True,
-                    timeout=60,
-                )
-            )
-        except subprocess.TimeoutExpired:
-            return {"ok": False, "error": "the script timed out"}
-        outputs = []
-        for path in sorted(root.iterdir()):
-            if path.name in {"model.py", "params.json"} or not path.is_file():
-                continue
-            if any(path.name == item["name"] for item in input_hashes):
-                continue
-            blob = path.read_bytes()
-            outputs.append({"name": path.name, "sha256": _sha(blob), "bytes": len(blob)})
-        return {
-            "ok": completed.returncode == 0,
-            "exit_code": completed.returncode,
-            "stdout": completed.stdout.decode("utf-8", "replace"),
-            "stderr": completed.stderr.decode("utf-8", "replace"),
-            "command": parts,
-            "script_sha256": _sha(script),
-            "params_sha256": _sha(orjson.dumps(params)),
-            "input_hashes": input_hashes,
-            "output_hashes": outputs,
-        }
 
 
 def run_entry(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -86,14 +35,57 @@ def run_entry(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         params = {}
     if not isinstance(params, dict):
         return _error("validation_failed", "params must be an object.")
-    result = run_registered(script, params, [])
-    if not result.get("ok") and result.get("error"):
-        return _error("validation_failed", str(result["error"]))
+    from ar_domain.tools.general import _limits, _prepare, _run_script  # noqa: PLC0415
+
+    limits = _limits(store, arguments, "run_entry")
+    root = _prepare(store, arguments)
+    workspace = root / "workspace"
+    (workspace / "model.py").write_bytes(script)
+    params_bytes = orjson.dumps(params)
+    (workspace / "params.json").write_bytes(params_bytes)
+    entry = get_settings().registered_script_entry.split()
+    extra = tuple(entry[2:]) if len(entry) > 2 else ()
+    finished = _run_script(
+        store,
+        arguments,
+        root,
+        "model.py",
+        interpreters=([sys.executable, "-I"], ["python3"]),
+        limits=limits,
+        args=extra,
+    )
+    if isinstance(finished, dict):
+        return finished
+    outputs = _output_hashes(workspace)
     return {
-        "text": str(result.get("stdout") or ""),
-        "structured": result,
-        "is_error": not result.get("ok"),
+        "text": finished.stdout,
+        "structured": {
+            "ok": finished.exit_code == 0,
+            "exit_code": finished.exit_code,
+            "stdout": finished.stdout,
+            "stderr": finished.stderr,
+            "command": entry,
+            "script_sha256": _sha(script),
+            "params_sha256": _sha(params_bytes),
+            "output_hashes": outputs,
+        },
+        "is_error": finished.exit_code != 0,
     }
+
+
+def _output_hashes(workspace: Path) -> list[dict[str, object]]:
+    skip = {"model.py", "params.json"}
+    found: list[dict[str, object]] = []
+    for path in sorted(workspace.rglob("*")):
+        if not path.is_file() or path.name in skip:
+            continue
+        if "inputs" in path.relative_to(workspace).parts:
+            continue
+        blob = path.read_bytes()
+        found.append(
+            {"name": str(path.relative_to(workspace)), "sha256": _sha(blob), "bytes": len(blob)}
+        )
+    return found
 
 
 def _script_bytes(store: Any, arguments: dict[str, object]) -> bytes | dict[str, object]:
