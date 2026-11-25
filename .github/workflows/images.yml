@@ -18,7 +18,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # On a pull request every image is built here only when the change touches what the
+      # compose smoke does not already build (scripts/ci_changes.sh). The job still runs
+      # and passes, so a rule that requires this check is met. A push to main always builds.
+      - id: files
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/ci_changes.sh
       - name: Build
+        if: steps.files.outputs.images == 'true'
         run: bash scripts/build_images.sh
       - name: SBOM and sign on main
         if: github.ref == 'refs/heads/main'
