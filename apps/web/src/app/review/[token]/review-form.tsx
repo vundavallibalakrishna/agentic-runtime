@@ -15,13 +15,21 @@ type Schema = {
   required?: string[];
 };
 
+type Evidence = {
+  path?: string;
+  quote?: string;
+  page?: number | null;
+  confidence?: number;
+  status?: string;
+};
+
 type ReviewItem = {
   qualifiedName?: string;
   status?: string;
   arguments?: Record<string, unknown>;
   schema?: Schema;
   argsHash?: string;
-  preview?: { summary?: string; title?: string };
+  preview?: { summary?: string; title?: string; fields?: Evidence[] };
 };
 
 type Field = { name: string; schema: Schema; required: boolean };
@@ -60,7 +68,7 @@ export function ReviewForm({ token }: { token: string }) {
     setError("");
     try {
       const changed = JSON.stringify(values) !== JSON.stringify(item?.arguments ?? {});
-      await api(`/api/v1/review/${token}:decide`, {
+      const saved = await api<{ status?: string }>(`/api/v1/review/${token}:decide`, {
         method: "POST",
         body: JSON.stringify({
           decision,
@@ -69,7 +77,11 @@ export function ReviewForm({ token }: { token: string }) {
           ...(decision === "approve" && changed ? { arguments: values } : {}),
         }),
       });
-      setDone(decision === "approve" ? t("approved") : t("rejected"));
+      if (decision === "approve" && saved?.status === "pending") {
+        setDone(t("pending"));
+      } else {
+        setDone(decision === "approve" ? t("approved") : t("rejected"));
+      }
       setPhase("done");
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
@@ -115,12 +127,14 @@ export function ReviewForm({ token }: { token: string }) {
             <p className="text-sm text-[var(--muted-foreground)]">{t("empty")}</p>
           ) : (
             fields.map((field) => (
-              <FieldInput
-                field={field}
-                key={field.name}
-                onChange={(next) => setValues((current) => ({ ...current, [field.name]: next }))}
-                value={values[field.name]}
-              />
+              <div className="space-y-1" key={field.name}>
+                <FieldInput
+                  field={field}
+                  onChange={(next) => setValues((current) => ({ ...current, [field.name]: next }))}
+                  value={values[field.name]}
+                />
+                <EvidenceLine evidence={evidenceFor(item.preview?.fields, field.name)} />
+              </div>
             ))
           )}
           <div className="space-y-1.5">
@@ -227,21 +241,22 @@ function FieldInput({
       </Labeled>
     );
   }
-  if (kind === "array" || kind === "object") {
-    const text =
-      typeof value === "string"
-        ? value
-        : JSON.stringify(value ?? (kind === "array" ? [] : {}), null, 2);
+  if (kind === "array") {
     return (
-      <Labeled id={id} label={label} required={field.required}>
-        <textarea
-          className="min-h-24 w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 font-mono text-sm"
-          id={id}
-          onChange={(event) => onChange(parseJson(event.target.value, value))}
-          value={text}
-        />
-      </Labeled>
+      <ArrayEditor
+        field={field}
+        id={id}
+        onChange={onChange}
+        value={Array.isArray(value) ? value : []}
+      />
     );
+  }
+  if (kind === "object") {
+    const record =
+      value && typeof value === "object" && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+    return <ObjectEditor field={field} id={id} onChange={onChange} value={record} />;
   }
   return (
     <Labeled id={id} label={label} required={field.required}>
@@ -277,10 +292,96 @@ function Labeled({
   );
 }
 
-function parseJson(text: string, previous: unknown): unknown {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return previous;
-  }
+function evidenceFor(fields: Evidence[] | undefined, name: string): Evidence | undefined {
+  return fields?.find((item) => item.path === name || item.path?.startsWith(`${name}.`));
+}
+
+function EvidenceLine({ evidence }: { evidence: Evidence | undefined }) {
+  const t = useTranslations("review");
+  if (!evidence) return null;
+  return (
+    <p className="text-xs text-[var(--muted-foreground)]">
+      {t("quote")}: {evidence.quote || "—"} · {t("page")}: {evidence.page ?? "—"} ·{" "}
+      {t("confidence")}: {evidence.confidence ?? "—"} · {t("fieldStatus")}: {evidence.status || "—"}
+    </p>
+  );
+}
+
+function ObjectEditor({
+  field,
+  id,
+  value,
+  onChange,
+}: {
+  field: Field;
+  id: string;
+  value: Record<string, unknown>;
+  onChange: (next: unknown) => void;
+}) {
+  const properties = field.schema.properties ?? {};
+  const names = Object.keys(properties).length > 0 ? Object.keys(properties) : Object.keys(value);
+  return (
+    <fieldset className="space-y-2 rounded-md border border-[var(--border)] p-3" id={id}>
+      <legend className="px-1 text-sm font-medium">{field.name}</legend>
+      {names.map((name) => (
+        <FieldInput
+          field={{
+            name,
+            schema: properties[name] ?? schemaFor(value[name]),
+            required: false,
+          }}
+          key={name}
+          onChange={(next) => onChange({ ...value, [name]: next })}
+          value={value[name]}
+        />
+      ))}
+    </fieldset>
+  );
+}
+
+function ArrayEditor({
+  field,
+  id,
+  value,
+  onChange,
+}: {
+  field: Field;
+  id: string;
+  value: unknown[];
+  onChange: (next: unknown) => void;
+}) {
+  const t = useTranslations("review");
+  const itemSchema = field.schema.items ?? { type: "string" };
+  return (
+    <fieldset className="space-y-2 rounded-md border border-[var(--border)] p-3" id={id}>
+      <legend className="px-1 text-sm font-medium">{field.name}</legend>
+      {value.map((item, index) => (
+        <div className="flex items-start gap-2" key={`${field.name}-${String(item)}`}>
+          <div className="min-w-0 flex-1">
+            <FieldInput
+              field={{ name: String(index + 1), schema: itemSchema, required: false }}
+              onChange={(next) =>
+                onChange(value.map((current, itemIndex) => (itemIndex === index ? next : current)))
+              }
+              value={item}
+            />
+          </div>
+          <Button
+            onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
+            type="button"
+            variant="outline"
+          >
+            {t("remove")}
+          </Button>
+        </div>
+      ))}
+      <Button
+        onClick={() => onChange([...value, itemSchema.type === "object" ? {} : ""])}
+        type="button"
+        variant="outline"
+      >
+        {t("add")}
+      </Button>
+    </fieldset>
+  );
 }

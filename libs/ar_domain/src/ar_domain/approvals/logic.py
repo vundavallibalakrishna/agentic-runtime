@@ -52,9 +52,11 @@ def can_decide(store: Any, actor: Any, approval: dict[str, object]) -> bool:
     """True when this person may decide the approval. Spec 09 §5."""
     if approval.get("status") != "pending":
         return False
-    if approval.get("four_eyes") and str(actor.user_id) == str(
-        approval.get("requested_for_user_id")
-    ):
+    rule = approval.get("approver_rule")
+    four_eyes = bool(approval.get("four_eyes")) or (
+        isinstance(rule, dict) and bool(rule.get("four_eyes"))
+    )
+    if four_eyes and str(actor.user_id) == str(approval.get("requested_for_user_id")):
         return False
     return is_approver(store, actor, approval)
 

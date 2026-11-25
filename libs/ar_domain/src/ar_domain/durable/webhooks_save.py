@@ -82,28 +82,24 @@ async def save_webhooks(session: AsyncSession, rows: list[dict[str, Any]]) -> No
         tenant_id = as_uuid(row.get("tenant_id"))
         secret_id = as_uuid(row.get("secret_ref_id"))
         url = as_text(row.get("url"))
-        if (
-            webhook_id is None
-            or tenant_id is None
-            or secret_id is None
-            or not url.startswith("https://")
-        ):
+        if webhook_id is None or tenant_id is None or not url.startswith("https://"):
             continue
         now = utcnow()
         owner = as_uuid(row.get("created_by"))
-        await session.execute(
-            text(ref_sql),
-            {
-                "id": secret_id,
-                "tenant_id": tenant_id,
-                "name": f"webhook-{webhook_id}",
-                "path": str(secret_id),
-                "owner_user_id": owner,
-                "created_by": owner,
-                "created_at": now,
-                "updated_at": now,
-            },
-        )
+        if secret_id is not None:
+            await session.execute(
+                text(ref_sql),
+                {
+                    "id": secret_id,
+                    "tenant_id": tenant_id,
+                    "name": f"webhook-{webhook_id}",
+                    "path": str(secret_id),
+                    "owner_user_id": owner,
+                    "created_by": owner,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
         topics = row.get("topics")
         names = [str(item) for item in topics] if isinstance(topics, list) else []
         await session.execute(

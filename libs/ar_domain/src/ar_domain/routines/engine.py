@@ -335,7 +335,7 @@ def _hold(
         risk_class=_RISK,
         args_hash=digest,
         arguments=arguments,
-        requirement={"approvers": {"mode": "requester"}},
+        requirement={"approvers": {"mode": "requester"}, "notify_mail": False},
         reasons=["routine_delivery"],
         preview=render_preview(None, arguments, title=str(routine.get("name") or tool)),
     )

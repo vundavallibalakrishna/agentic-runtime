@@ -27,8 +27,8 @@ def announce(store: Any, row: dict[str, object], approver_ids: list[str]) -> Non
         post_cards(store, row, approver_ids, links)
     except Exception:  # noqa: BLE001 — a card failure must not lose the approval
         links = links or {}
-    # A delivery approval is the message itself. Mailing about it would send that message early.
-    if not str(row.get("qualified_name") or "").startswith("delivery."):
+    # Delivery approvals set notify_mail false. The message is the delivery itself.
+    if row.get("notify_mail") is not False:
         _mail(store, row, approver_ids, links)
     tenant_id = row.get("tenant_id")
     dispatch_public_event(

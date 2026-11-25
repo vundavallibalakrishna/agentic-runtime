@@ -71,6 +71,9 @@ class ConnectorDef:
     allows_anonymous: bool = False
     prefix: str = ""
     implementation: str = "built"
+    exchange_user_field: str = ""
+    exchange_secret_field: str = ""
+    exchange_extra_header: str = ""
 
     def tool_prefix(self) -> str:
         return self.prefix or self.slug.replace("-", "")

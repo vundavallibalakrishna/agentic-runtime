@@ -76,6 +76,7 @@
 | 0067 | `token_exchange_kind` | `service_connections.kind` may be `token_exchange`. Downgrade deletes rows of that kind and restores the previous check |
 | 0068 | `resource_settings` | New table `resource_settings`: one version of a settings document checked against a JSON Schema. Tenant RLS and grants in the same revision. Expand only; downgrade drops the table |
 | 0069 | `extension_row_versions` | Add `version` and `reason` to `extension_rows`. New append-only table `extension_row_versions`. Tenant RLS and grants in the same revision. Downgrade drops the history table and the two columns |
+| 0070 | `webhook_secret_optional` | `outbound_webhooks.secret_ref_id` may be null. The signing secret stays in the named secret. Downgrade refuses while a webhook has no reference |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 

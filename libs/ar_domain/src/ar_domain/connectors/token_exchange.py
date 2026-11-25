@@ -20,10 +20,13 @@ if TYPE_CHECKING:
 
 
 def request_body(row: dict[str, object], secret: str) -> dict[str, str]:
-    """JSON body. ``authorize_url`` holds ``userField:secretField:extraHeader``."""
-    spec = str(row.get("authorize_url") or "username:password")
-    user_field, _, rest = spec.partition(":")
-    secret_field, _, _extra = rest.partition(":")
+    """JSON body. Field names are on the connection. Older rows stored them in ``authorize_url``."""
+    user_field = str(row.get("exchange_user_field") or "")
+    secret_field = str(row.get("exchange_secret_field") or "")
+    if not user_field or not secret_field:
+        spec = str(row.get("authorize_url") or "username:password")
+        user_field, _, rest = spec.partition(":")
+        secret_field, _, _extra = rest.partition(":")
     return {
         user_field or "username": str(row.get("username") or ""),
         secret_field or "password": secret,
@@ -35,8 +38,10 @@ def headers_for_token(row: dict[str, object], token: str) -> dict[str, str]:
     header = str(row.get("header_name") or "Authorization")
     prefix = "Bearer " if header.lower() == "authorization" else ""
     headers = {header: f"{prefix}{token}"}
-    parts = str(row.get("authorize_url") or "").split(":")
-    extra = parts[2] if len(parts) > 2 else ""
+    extra = str(row.get("exchange_extra_header") or "")
+    if not extra:
+        parts = str(row.get("authorize_url") or "").split(":")
+        extra = parts[2] if len(parts) > 2 else ""
     client = str(row.get("client_id") or "")
     if extra and client:
         headers[extra] = client
@@ -70,6 +75,13 @@ def remember(store: Any, row: dict[str, object], token: str, seconds: int) -> No
     }
 
 
+def forget(store: Any, row: dict[str, object]) -> None:
+    """Drop a cached token. Called when the secret changes or the server returns 401."""
+    book = getattr(store, "exchange_cache", None)
+    if isinstance(book, dict):
+        book.pop(str(row.get("id")), None)
+
+
 def exchange(store: Any, row: dict[str, object], secret: str) -> str:
     """POST the secret and return the token. A cached token is reused."""
     found = cached_token(store, row)
@@ -95,6 +107,9 @@ def exchange(store: Any, row: dict[str, object], secret: str) -> str:
             raise ArError(
                 ErrorCode.UNAVAILABLE, f"token exchange failed ({type(exc).__name__})"
             ) from exc
+        if response.status_code == 401:
+            forget(store, row)
+            raise ArError(ErrorCode.FORBIDDEN, "token exchange answered 401")
         if response.status_code >= 300:
             raise ArError(ErrorCode.FORBIDDEN, f"token exchange answered {response.status_code}")
         payload = response.json()

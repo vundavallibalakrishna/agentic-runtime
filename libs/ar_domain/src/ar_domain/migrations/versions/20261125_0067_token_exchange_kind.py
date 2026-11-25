@@ -36,6 +36,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(sa.text("DELETE FROM service_connections WHERE kind = 'token_exchange'"))
+    bind = op.get_bind()
+    count = bind.execute(
+        sa.text("SELECT count(*) FROM service_connections WHERE kind = 'token_exchange'")
+    ).scalar()
+    if count:
+        raise RuntimeError("cannot downgrade while a connection uses token_exchange")
     op.drop_constraint(op.f("ck_service_connections_kind"), "service_connections", type_="check")
     op.create_check_constraint(op.f("ck_service_connections_kind"), "service_connections", _OLD)

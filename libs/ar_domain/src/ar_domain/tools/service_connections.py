@@ -154,6 +154,9 @@ class ConnectionBook:
         if secret.encode() in sealed:
             raise ArError(ErrorCode.INTERNAL_ERROR, "connection secret was not encrypted")
         row["secret"] = sealed
+        from ar_domain.connectors.token_exchange import forget  # noqa: PLC0415
+
+        forget(self.store, row)
         row["access_token"] = b""
         row["refresh_token"] = b""
         current = row.get("version")
@@ -210,6 +213,10 @@ class ConnectionBook:
             row["last_tested_at"] = utcnow()
             return {"ok": False, "status": 0, "error": "the host did not answer"}
         snippet = _scrub(body[:200], secret)
+        if status == 401 and str(row.get("kind")) == "token_exchange":
+            from ar_domain.connectors.token_exchange import forget  # noqa: PLC0415
+
+            forget(self.store, row)
         ok = 200 <= status < 400
         row["last_error"] = None if ok else f"HTTP {status}"
         row["last_tested_at"] = utcnow()
@@ -321,6 +328,9 @@ class ConnectionBook:
             "username": str(body.get("username") or ""),
             "token_url": str(body.get("token_url") or ""),
             "authorize_url": str(body.get("authorize_url") or ""),
+            "exchange_user_field": str(body.get("exchange_user_field") or ""),
+            "exchange_secret_field": str(body.get("exchange_secret_field") or ""),
+            "exchange_extra_header": str(body.get("exchange_extra_header") or ""),
             "client_id": str(body.get("client_id") or ""),
             "scopes": scope_list,
             "probe_url": str(body.get("probe_url") or ""),

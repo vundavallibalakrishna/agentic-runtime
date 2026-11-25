@@ -219,6 +219,9 @@ class ApprovalBook:
         now = utcnow()
         ttl = as_int(requirement.get("ttl_s"), 86400)
         approvers = requirement.get("approvers")
+        rule = dict(approvers) if isinstance(approvers, dict) else {"mode": "requester"}
+        if requirement.get("four_eyes"):
+            rule["four_eyes"] = True
         row: dict[str, object] = {
             "id": approval_id,
             "tenant_id": tenant_id,
@@ -233,11 +236,12 @@ class ApprovalBook:
             "arguments": arguments,
             "preview": preview,
             "justification": "",
-            "approver_rule": approvers if isinstance(approvers, dict) else {"mode": "requester"},
+            "approver_rule": rule,
             "required_approvals": as_int(requirement.get("required_approvals"), 1),
             "four_eyes": bool(requirement.get("four_eyes")),
             "step_up_required": bool(requirement.get("step_up")),
             "policy_reasons": reasons,
+            "notify_mail": requirement.get("notify_mail", True) is not False,
             "expires_at": now + timedelta(seconds=ttl),
             "decided_at": None,
             "consumed_at": None,

@@ -75,7 +75,7 @@ class WebhookBook:
             "tenant_id": tenant_id,
             "name": name,
             "url": url,
-            "secret_ref_id": new_id(),
+            "secret_ref_id": None,
             "secret_name": secret_name,
             "topics": cleaned,
             "status": "active",
