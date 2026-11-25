@@ -54,6 +54,7 @@ def resolved_timeout_s(version: dict[str, object] | None) -> int:
         return max(stored, configured)
     return stored
 
+
 _IMPLICIT = frozenset(
     {
         "files.read",
@@ -1069,6 +1070,13 @@ class ToolPipeline:
         if prior is None:
             return None
         status = str(prior.get("status") or "")
+        # A held call has a preview and is not finished. The approved execution
+        # must update this row, not be answered by the hold or written beside it.
+        if status == "awaiting_approval":
+            existing = _uuid_of(prior.get("id"))
+            if existing is not None:
+                request["tool_call_id"] = existing
+            return None
         if status in _TERMINAL or prior.get("result_preview"):
             return _from_stored(prior, version)
         existing = _uuid_of(prior.get("id"))

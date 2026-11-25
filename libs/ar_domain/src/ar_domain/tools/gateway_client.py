@@ -138,6 +138,7 @@ def _body(request: dict[str, object]) -> dict[str, object]:
         "step",
         "query_id",
         "call_index",
+        "tool_call_id",
     )
     body: dict[str, object] = {}
     for key in keys:

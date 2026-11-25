@@ -13,12 +13,48 @@ if TYPE_CHECKING:
     from typing import Any
 
 
+def settle_held_call(store: Any, approval: dict[str, object]) -> None:
+    """Move the tool call the approval is about off ``awaiting_approval``.
+
+    The decision is recorded on that row. The later execution of an approved call
+    writes its outcome onto the same row, so a second row is not the only place
+    the result exists.
+    """
+    decision = str(approval.get("status") or "")
+    status = {
+        "approved": "approved",
+        "rejected": "rejected",
+        "expired": "expired",
+        "cancelled": "cancelled",
+    }.get(decision, "failed")
+    calls = getattr(store, "tool_calls", None)
+    if not isinstance(calls, dict):
+        return
+    call_id = approval.get("tool_call_id")
+    call = calls.get(call_id)
+    if not isinstance(call, dict):
+        call = next(
+            (
+                row
+                for row in calls.values()
+                if isinstance(row, dict) and row.get("approval_id") == approval.get("id")
+            ),
+            None,
+        )
+    if isinstance(call, dict) and str(call.get("status") or "") == "awaiting_approval":
+        call["status"] = status
+        if decision != "approved":
+            call["is_error"] = True
+            call["error"] = {"code": status, "message": f"The approval was {decision}."}
+
+
 def settle_approval(store: Any, approval: dict[str, object]) -> None:
     """Record that a decision is ready and wake the run's workflow.
 
     The API does not call the tool. The next ``advance_chat_step`` does, through the
     gateway. A missing workflow is started so that activity can apply the decision.
     """
+    settle_held_call(store, approval)
     from ar_domain.routines.engine import is_delivery_tool  # noqa: PLC0415
 
     if is_delivery_tool(approval.get("qualified_name")):

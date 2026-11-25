@@ -6,16 +6,14 @@ Label: unit
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
+
+import pytest
 
 from ar_common.settings import get_settings
-from ar_domain.tools.gateway_client import _timeout
-from ar_domain.tools.pipeline import resolved_timeout_s
+from ar_domain.tools.gateway_client import _body, _timeout
+from ar_domain.tools.pipeline import ToolPipeline, _call_key, resolved_timeout_s
 from ar_domain.tools.resume import fail_interrupted_tool
 from ar_testing.demo import demo_store
-
-if TYPE_CHECKING:
-    import pytest
 
 
 def test_extract_timeout_follows_the_setting_and_the_client_waits_past_it(
@@ -72,3 +70,73 @@ def test_an_interrupted_tool_fails_instead_of_staying_on_the_approval_message() 
     assert "Waiting for approval" not in str(reply["text"])
     assert reply["tool_calls"][0]["status"] == "failed"
     assert store.tool_calls[call_id]["status"] == "failed"
+
+
+def test_an_approved_call_updates_the_held_row() -> None:
+    store = demo_store()
+    tenant = uuid.uuid4()
+    run_id = uuid.uuid4()
+    call_id = uuid.uuid4()
+    request = {
+        "tenant_id": tenant,
+        "run_id": run_id,
+        "model_call_id": "call-1",
+        "approval_id": uuid.uuid4(),
+    }
+    version = {"qualified_name": "documents.extract", "id": uuid.uuid4(), "tool_id": uuid.uuid4()}
+    key = _call_key(request, "documents.extract")
+    store.tool_calls[call_id] = {
+        "id": call_id,
+        "tenant_id": tenant,
+        "run_id": run_id,
+        "status": "awaiting_approval",
+        "result_preview": "Waiting for approval.",
+        "idempotency_key": key,
+        "qualified_name": "documents.extract",
+    }
+    replay = ToolPipeline(store)._replay(dict(request), version)
+    assert replay is None
+    followed = dict(request)
+    ToolPipeline(store)._replay(followed, version)
+    assert followed["tool_call_id"] == call_id
+    sent = _body({**followed, "tool_call_id": call_id, "arguments": {}})
+    assert sent["tool_call_id"] == str(call_id)
+    ToolPipeline(store)._stored(
+        followed,
+        version,
+        {"id": version["tool_id"]},
+        "succeeded",
+        "allow",
+        "extracted",
+        False,
+        0.0,
+        None,
+    )
+    assert list(store.tool_calls) == [call_id]
+    assert store.tool_calls[call_id]["status"] == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_extraction_status_is_written() -> None:
+    from ar_domain.durable.extractions_save import save_extractions
+
+    seen: dict[str, object] = {}
+
+    class _Session:
+        async def execute(self, _statement: object, params: dict[str, object]) -> None:
+            seen.update(params)
+
+    extraction_id = uuid.uuid4()
+    await save_extractions(
+        _Session(),  # type: ignore[arg-type]
+        [
+            {
+                "id": extraction_id,
+                "tenant_id": uuid.uuid4(),
+                "document_id": uuid.uuid4(),
+                "status": "awaiting_approval",
+            }
+        ],
+    )
+    assert seen["status"] == "awaiting_approval"
+    assert seen["id"] == extraction_id
