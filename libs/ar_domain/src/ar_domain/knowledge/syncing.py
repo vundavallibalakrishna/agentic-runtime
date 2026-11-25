@@ -94,7 +94,8 @@ def sync_source(
         for external_id in deleted:
             _delete_external(store, source, str(external_id), actor_id=actor_id)
             _stats(job)["deleted"] = int(_stats(job)["deleted"]) + 1  # type: ignore[call-overload]
-    if mode == "full":
+    # A full sync, or a listing the source gave whole, shows which documents are gone.
+    if mode == "full" or page.get("complete") is True:
         for document in _source_documents(store, source["id"]):
             if str(document.get("external_id")) not in seen and document.get("status") != "deleted":
                 delete_document(store, document, actor_id=actor_id)
@@ -120,7 +121,7 @@ def acl_sync(store: Any, source: dict[str, object], *, actor_id: object) -> dict
     )
     index = memory_index(store)
     collection = store.knowledge_collections[source["collection_id"]]
-    for change in list_acl_changes(source):
+    for change in list_acl_changes({**source, "store": store}):
         external_id = str(change.get("external_id") or "")
         document = _by_external(store, source["id"], external_id)
         if document is None:

@@ -107,7 +107,7 @@ def test_collection_routes_cover_sources_documents_and_jobs() -> None:
         json={
             "name": "Site",
             "kind": "web",
-            "config": {"items": [{"external_id": "p", "title": "Page", "text": "Desk opens"}]},
+            "config": {},
         },
     )
     assert source.status_code == 200

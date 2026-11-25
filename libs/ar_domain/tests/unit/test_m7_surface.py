@@ -22,21 +22,11 @@ from ar_domain.knowledge.citations import (
     readable,
     tool_result_citation,
 )
-from ar_domain.knowledge.fetchers import check_access, list_acl_changes, list_changes
+from ar_domain.knowledge.fetchers import list_changes
 from ar_domain.knowledge.parse import ParseError, parse_bytes
 from ar_domain.knowledge.retrieval import merge_groups, search_targets
 from ar_domain.knowledge.store import memory_index
 from ar_domain.knowledge.store_types import ScoredChunk, SearchTarget
-from ar_ingest.connectors import (
-    ConfluenceSource,
-    DatabaseSource,
-    GoogleDriveSource,
-    McpResourceSource,
-    S3Source,
-    SharePointSource,
-    UploadSource,
-    WebSource,
-)
 from ar_ingest.workflows import acl_sync as _acl_workflow
 from ar_ingest.workflows import delete_document as _delete_workflow
 from ar_ingest.workflows import ingest_document as _ingest_workflow
@@ -136,7 +126,7 @@ def test_fetchers_and_connectors_use_recorded_http() -> None:
             )
         )
         graph = list_changes(
-            {"kind": "sharepoint", "config": {"url": "https://graph.test/delta", "token": "t"}},
+            {"kind": "sharepoint", "config": {"url": "https://graph.test/delta"}},
             mode="incremental",
         )
         assert graph["deleted_external_ids"] == ["2"]
@@ -145,30 +135,6 @@ def test_fetchers_and_connectors_use_recorded_http() -> None:
         mode="full",
     )
     assert blocked["items"] == []
-    s3 = list_changes(
-        {"kind": "s3", "config": {"objects": [{"key": "a.txt", "text": "hello"}]}},
-        mode="full",
-    )
-    assert s3["items"][0]["external_id"] == "a.txt"
-    source = {
-        "kind": "web",
-        "config": {"items": [{"external_id": "p", "title": "Page", "acl": [{"type": "anyone"}]}]},
-    }
-    connector = WebSource(source)
-    assert connector.list_changes(None)["items"]
-    assert connector.fetch({"text": "hi"})[0] == b"hi"
-    assert connector.list_acl_changes(None) == list_acl_changes(source)
-    assert connector.check_access("p", "user") is check_access(source, "p", "user")
-    for cls in (
-        S3Source,
-        SharePointSource,
-        ConfluenceSource,
-        GoogleDriveSource,
-        DatabaseSource,
-        McpResourceSource,
-        UploadSource,
-    ):
-        assert cls({"kind": cls.kind, "config": {"items": []}}).check()["ok"]
 
 
 def test_citations_plan_limits_and_gateway() -> None:

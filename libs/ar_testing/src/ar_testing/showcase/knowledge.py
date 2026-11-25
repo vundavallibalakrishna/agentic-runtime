@@ -33,6 +33,40 @@ Escalate after two missed calls.
 """
 
 
+def library_rows() -> list[dict[str, object]]:
+    """The three documents of the demo library, as the listing a source returns them."""
+    return [
+        {
+            "id": "visitor-guide",
+            "title": "Visitor guide",
+            "webUrl": "sharepoint://visitor-guide",
+            "text": _GUIDE,
+            "acl": [{"type": "anyone"}],
+        },
+        {
+            "id": "payroll",
+            "title": "Payroll calendar",
+            "webUrl": "sharepoint://payroll",
+            "text": _PAYROLL,
+            "acl": [{"type": "user", "email": "admin@dev.local"}],
+        },
+        {
+            "id": "roster",
+            "title": "On-call roster",
+            "webUrl": "sharepoint://roster",
+            "text": _ROSTER,
+            "acl": [{"type": "user", "email": "member@dev.local"}],
+        },
+    ]
+
+
+def library_address() -> str:
+    """Where the demo library's listing is served: the test server, over HTTP."""
+    from ar_testing.stand_in import shared  # noqa: PLC0415
+
+    return shared().serve_json("company-library", {"value": library_rows()})
+
+
 def seed_library(store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
     """Idempotent SharePoint-shaped library and the librarian agent."""
     store.user_emails.setdefault(demo_id("admin"), "admin@dev.local")
@@ -67,31 +101,7 @@ def seed_library(store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         {
             "name": "Company SharePoint",
             "kind": "sharepoint",
-            "config": {
-                "items": [
-                    {
-                        "external_id": "visitor-guide",
-                        "title": "Visitor guide",
-                        "uri": "sharepoint://visitor-guide",
-                        "text": _GUIDE,
-                        "acl": [{"type": "anyone"}],
-                    },
-                    {
-                        "external_id": "payroll",
-                        "title": "Payroll calendar",
-                        "uri": "sharepoint://payroll",
-                        "text": _PAYROLL,
-                        "acl": [{"type": "user", "email": "admin@dev.local"}],
-                    },
-                    {
-                        "external_id": "roster",
-                        "title": "On-call roster",
-                        "uri": "sharepoint://roster",
-                        "text": _ROSTER,
-                        "acl": [{"type": "user", "email": "member@dev.local"}],
-                    },
-                ]
-            },
+            "config": {"url": library_address()},
         },
     )
     _librarian(store, tenant_id, user_id)

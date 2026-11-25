@@ -15,6 +15,7 @@ from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.skills.delegate import _insert_child
 from ar_testing.demo import demo_store
+from ar_testing.stand_in import shared
 
 
 def test_keep_persists_writes_a_raw_assignment_would_lose() -> None:
@@ -79,15 +80,20 @@ def test_create_source_persists_the_first_sync_state() -> None:
             "name": "SharePoint",
             "kind": "sharepoint",
             "config": {
-                "items": [
+                "url": shared().serve_json(
+                    "prodcert-library",
                     {
-                        "external_id": "guide",
-                        "title": "Visitor guide",
-                        "uri": "sharepoint://guide",
-                        "text": "The visitor desk opens at 08:30.",
-                        "acl": [{"type": "anyone"}],
-                    }
-                ]
+                        "value": [
+                            {
+                                "id": "guide",
+                                "title": "Visitor guide",
+                                "webUrl": "sharepoint://guide",
+                                "text": "The visitor desk opens at 08:30.",
+                                "acl": [{"type": "anyone"}],
+                            }
+                        ]
+                    },
+                )
             },
         },
     )
@@ -97,4 +103,4 @@ def test_create_source_persists_the_first_sync_state() -> None:
     stored = store.knowledge_sources[source_id]
     assert stored["last_sync_status"] == "succeeded"
     assert stored["last_sync_at"] is not None
-    assert stored["cursor"] == {"page": 1}
+    assert stored["cursor"] == {}

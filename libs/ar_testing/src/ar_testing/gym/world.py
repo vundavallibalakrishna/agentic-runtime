@@ -115,6 +115,26 @@ def _library(store: ChatService, actor: Actor) -> str:
     return str(saved["id"])
 
 
+def _handbook_address() -> str:
+    """The handbook's listing, served over HTTP by the test server."""
+    from ar_testing.stand_in import shared  # noqa: PLC0415
+
+    return shared().serve_json(
+        "gym-handbook",
+        {
+            "value": [
+                {
+                    "id": "desk",
+                    "title": "Visitor guide",
+                    "uri": "gym://desk",
+                    "text": _GUIDE,
+                    "acl": [{"type": "anyone"}],
+                }
+            ]
+        },
+    )
+
+
 def _knowledge(store: ChatService, actor: Actor) -> None:
     book = KnowledgeBook(store)
     created = book.create_collection(
@@ -133,17 +153,7 @@ def _knowledge(store: ChatService, actor: Actor) -> None:
         {
             "name": "Handbook",
             "kind": "sharepoint",
-            "config": {
-                "items": [
-                    {
-                        "external_id": "desk",
-                        "title": "Visitor guide",
-                        "uri": "gym://desk",
-                        "text": _GUIDE,
-                        "acl": [{"type": "anyone"}],
-                    }
-                ]
-            },
+            "config": {"url": _handbook_address()},
         },
     )
 

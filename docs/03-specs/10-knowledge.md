@@ -106,7 +106,7 @@ Connector `list_acl_changes(cursor)` → per document new external principal set
 ### 4.5 `ReindexCollectionWorkflow(collection_id, new_settings)` id `reindex-{collection_id}`
 Signature `ReindexCollectionWorkflow(collection_id, new_settings, target_backend: str | None = None)`. Blue/green: `ensure_collection` for the target (new `index_version`; new `store_collection` when dims or backend change), re-chunk/re-embed all documents (from parsed files, no refetch) with concurrency 8 — or, when only `target_backend` is given, copy vectors (§9) — then in one transaction switch `knowledge_collections.index_version`/`store_backend`/`store_collection`/`embedding_model_id`/`text_search_config`, then delete the old version's entries (after `AR_VECTOR_MIGRATION_RETAIN_HOURS` when the backend changed). Retrieval during reindex uses the old index.
 
-## 5. Connectors (`ar_ingest.connectors`)
+## 5. Connectors (`ar_domain.knowledge.fetchers`)
 
 ### 5.1 Interface (`ar_connector_sdk.DocumentSource`, see [connector-sdk](../05-contracts/connector-sdk.md))
 `check()`, `list_changes(cursor, page_size)`, `fetch(external_id) -> bytes + mime`, `list_acl_changes(cursor)`, `check_access(external_id, user: UserIdentity) -> bool` (for late verification; optional).
@@ -122,6 +122,16 @@ Signature `ReindexCollectionWorkflow(collection_id, new_settings, target_backend
 | `google_drive` | Drive changes API (`startPageToken`) | Drive permissions (users/groups by email; `domain` → `tenant:*`; `anyone` → `tenant:*`) |
 | `database` | `updated_at > watermark` via a query checked by the SQL guard (same read-only DSN rules) | optional `acl` column (array of emails/group names) |
 | `mcp_resource` | `resources/list` + resource version/etag via `mcp-gateway` | collection |
+
+**As built (2026-11-25, [OQ-197](../open-questions.md)).** Every kind calls the system it names; the code is `ar_domain.knowledge.fetchers`, and the wrapper classes in `ar_ingest.connectors`, which nothing used, are removed. Before this date `s3`, `database` and `mcp_resource` made no call and indexed rows written into the source's `config`, and every kind accepted an `items` list in place of the source. Those paths are gone.
+
+- `s3`: `ListObjectsV2` on the bucket and prefix, page by page, then `GetObject` for each object as it is ingested. The ETag is the version. The access key and secret key are a saved connection.
+- `database`: one query through the data connection, checked by the SQL guard and read-only, at most the connection's row limit. Each row is a document; an optional column lists its readers (emails and group names).
+- `mcp_resource`: `resources/list` (following `nextCursor`) and `resources/read` on an approved remote tool server of the tenant. The source reads as one account: a saved connection, or none when the server needs no sign-in. A server that signs each person in is refused with that reason. The call is made by the process that runs the sync, under the same address check as a tool call, not through `mcp-gateway`.
+- `sharepoint`, `confluence`, `google_drive`: one `GET` of the address in `config.url`, signed with a saved connection. Not built: the Graph delta, CQL and Drive changes calls in the table above.
+- A listing a source gives whole shows which documents are gone, so an incremental sync of `s3`, `database` and `mcp_resource` removes a document whose object, row or resource is no longer returned. One sync reads at most 5,000 objects, rows or resources; past that the listing is not whole and nothing is removed.
+- Late verification (`sensitivity='high'`): for the kinds whose source keeps a reader list (the three above and `database` with a readers column), a search reads the item's readers from the source again and applies them. A source that does not answer is a refusal. The other kinds take the collection's readers, so there is nothing more to ask.
+- Not built: the `updated_at` watermark for `database` (the whole query runs on each sync and unchanged rows are skipped by their version).
 
 ### 5.2.1 Fetched bytes and versions
 Every body a sync fetches is stored as a file (`files.kind = knowledge_raw`) in the object store, `documents.raw_file_id` points at the newest, and a `document_revisions` row records each one ([schema §33](../04-data/schema.md)). Nothing is overwritten, and nothing a sync fetched lives only in the process that fetched it: re-indexing a document or a collection reads the stored file, on any replica. Bytes equal to the version a document already points at are not stored again. Text added by hand (`kind: text`) is kept the same way, so it can be re-indexed. `GET /api/v1/knowledge/documents/{document_id}` returns `revisions`, newest first: `id`, `fileId`, `versionHash`, `sizeBytes`, `capturedAt` and `metadata` (what was measured on the fetch). A source's `cursor`, `sync_schedule`, `last_sync_at` and `last_sync_status` are saved with it.
