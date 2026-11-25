@@ -75,8 +75,7 @@ def _pending(
         risk_class="W2",
         args_hash="hash-1",
         arguments=arguments or {"name": "Ada", "count": 2},
-        requirement=requirement
-        or {"approvers": {"mode": "requester"}, "ttl_s": 3600},
+        requirement=requirement or {"approvers": {"mode": "requester"}, "ttl_s": 3600},
         reasons=["ask"],
         preview={"title": "Send", "summary": "A request"},
     )
