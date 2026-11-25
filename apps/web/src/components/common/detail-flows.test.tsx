@@ -144,6 +144,7 @@ describe("detail flow failures", () => {
           id: "approval",
           qualifiedName: "tickets.create",
           status,
+          canDecide: true,
           argsHash: "hash",
         }),
       ),
@@ -161,6 +162,24 @@ describe("detail flow failures", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Approve" })).toBeNull());
     expect(decisions).toBe(1);
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("hides the decision when separation of duties blocks the viewer", async () => {
+    server.use(
+      http.get("*/api/v1/approvals/approval", () =>
+        HttpResponse.json({
+          id: "approval",
+          qualifiedName: "documents.extract",
+          status: "pending",
+          canDecide: false,
+          decisionReason: "You own this agent, so you cannot approve this request.",
+        }),
+      ),
+    );
+    render(wrap(<ApprovalDetail approvalId="approval" />));
+    expect(await screen.findByText("You own this agent, so you cannot approve this request.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reject" })).toBeNull();
   });
 
   it("shows a routine as facts with its status and each event's result as a badge", async () => {

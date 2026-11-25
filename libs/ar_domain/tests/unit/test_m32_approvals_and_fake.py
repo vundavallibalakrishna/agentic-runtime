@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from ar_domain.approvals.logic import can_decide, is_approver, requester_blocked
+from ar_domain.approvals.logic import can_decide, decision_reason, is_approver, requester_blocked
 from ar_domain.approvals.service import ApprovalBook
 from ar_domain.tools.agent_loop import run_agent_loop
 from ar_testing.demo import demo_store, disconnect_chat
@@ -44,6 +44,9 @@ def test_requester_mode_lets_another_approver_decide_when_sod_blocks_the_request
     assert requester_blocked(store, free) is False
     assert can_decide(store, _actor(approver, "approvals:decide"), free) is False
     assert can_decide(store, _actor(requester), free) is True
+    owner = _actor(requester, "approvals:decide")
+    assert can_decide(store, owner, blocked) is False
+    assert "own this agent" in decision_reason(store, owner, blocked)
     four_eyes = dict(free, four_eyes=True)
     assert requester_blocked(store, four_eyes) is True
     assert can_decide(store, _actor(approver, "approvals:decide"), four_eyes) is True

@@ -147,7 +147,12 @@ export function ApprovalDetail({ approvalId }: { approvalId: string }) {
               </pre>
             </section>
           ) : null}
-          {row.status === "pending" ? (
+          {row.status === "pending" && row.canDecide !== true && row.decisionReason ? (
+            <p className="mt-5 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted-foreground)]">
+              {String(row.decisionReason)}
+            </p>
+          ) : null}
+          {row.status === "pending" && row.canDecide === true ? (
             <fieldset disabled={busy} className="mt-5 border-t border-[var(--border)] pt-1">
               <label className="mt-4 block text-sm" htmlFor="detail-comment">
                 {t("comment")}

@@ -8,7 +8,13 @@ from ar_common.errors import ConflictError, ForbiddenError, NotFoundError, Valid
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.approvals.errors import StepUpRequiredError
-from ar_domain.approvals.logic import can_decide, can_view, is_approver, render_preview
+from ar_domain.approvals.logic import (
+    can_decide,
+    can_view,
+    decision_reason,
+    is_approver,
+    render_preview,
+)
 from ar_domain.approvals.pending import amend
 from ar_domain.audit.memory import remember
 from ar_domain.policy.service import _settings
@@ -407,6 +413,7 @@ class ApprovalBook:
                     "input_schema": {} if version is None else version.get("input_schema"),
                 },
                 "can_decide": can_decide(self.store, actor, row),
+                "decision_reason": decision_reason(self.store, actor, row),
             }
         )
         return body
