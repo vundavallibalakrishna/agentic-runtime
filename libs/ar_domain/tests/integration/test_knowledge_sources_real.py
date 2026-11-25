@@ -118,35 +118,41 @@ def test_a_database_source_indexes_the_rows_a_real_query_returns(postgres_url: s
             "(2, 'Payroll', 'Payroll is released on the 28th.', 'member@dev.local')"
         )
 
-    store = demo_store()
-    store.user_emails[demo_id("admin")] = "admin@dev.local"
-    store.user_emails[demo_id("member")] = "member@dev.local"
-    store.company_domains = {"dev.local"}
-    connection_row = DataConnections(store).create(
-        _admin(), {"name": "articles", "engine": "postgres", "dsn": dsn}
-    )
-    created = KnowledgeBook(store).create_collection(
-        _admin(), {"slug": "real-rows", "name": "Rows", "acl_mode": "source"}
-    )
-    collection_id = uuid.UUID(str(created["id"]))
-    source = KnowledgeBook(store).create_source(
-        _admin(),
-        collection_id,
-        {
-            "name": "Articles",
-            "kind": "database",
-            "data_connection_id": str(connection_row["id"]),
-            "config": {
-                "query": f"SELECT id, title, body, readers FROM {table}",  # noqa: S608
-                "textColumn": "body",
-                "aclColumn": "readers",
+    # The server is shared with the migration tests, which compare its tables with the
+    # models: the table made here is dropped whatever happens.
+    try:
+        store = demo_store()
+        store.user_emails[demo_id("admin")] = "admin@dev.local"
+        store.user_emails[demo_id("member")] = "member@dev.local"
+        store.company_domains = {"dev.local"}
+        connection_row = DataConnections(store).create(
+            _admin(), {"name": "articles", "engine": "postgres", "dsn": dsn}
+        )
+        created = KnowledgeBook(store).create_collection(
+            _admin(), {"slug": "real-rows", "name": "Rows", "acl_mode": "source"}
+        )
+        collection_id = uuid.UUID(str(created["id"]))
+        source = KnowledgeBook(store).create_source(
+            _admin(),
+            collection_id,
+            {
+                "name": "Articles",
+                "kind": "database",
+                "data_connection_id": str(connection_row["id"]),
+                "config": {
+                    "query": f"SELECT id, title, body, readers FROM {table}",  # noqa: S608
+                    "textColumn": "body",
+                    "aclColumn": "readers",
+                },
             },
-        },
-    )
-    assert source["last_sync_status"] == "succeeded", store.knowledge_jobs
-    assert _titles(store, collection_id) == {"Visitor desk", "Payroll"}
-    # Each row's readers column decides who finds it: the admin is on the first row only.
-    seen = KnowledgeBook(store).search(
-        _admin(), {"query": "visitor desk payroll", "collection_ids": [collection_id]}
-    )
-    assert {hit["title"] for hit in seen["hits"]} == {"Visitor desk"}
+        )
+        assert source["last_sync_status"] == "succeeded", store.knowledge_jobs
+        assert _titles(store, collection_id) == {"Visitor desk", "Payroll"}
+        # Each row's readers column decides who finds it: the admin is on the first row only.
+        seen = KnowledgeBook(store).search(
+            _admin(), {"query": "visitor desk payroll", "collection_ids": [collection_id]}
+        )
+        assert {hit["title"] for hit in seen["hits"]} == {"Visitor desk"}
+    finally:
+        with psycopg.connect(dsn, autocommit=True) as connection:
+            connection.execute(f"DROP TABLE IF EXISTS {table}")
