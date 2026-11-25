@@ -244,5 +244,6 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `session.a2a_call` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `session.plan_update` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `session.search` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `settings.read` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `skills.load` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `web.discover` | `unit` | yes | In-process tool. Not a recorded live model run. |
