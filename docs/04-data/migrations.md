@@ -78,6 +78,7 @@
 | 0069 | `extension_row_versions` | Add `version` and `reason` to `extension_rows`. New append-only table `extension_row_versions`. Tenant RLS and grants in the same revision. Downgrade drops the history table and the two columns |
 | 0070 | `webhook_secret_optional` | `outbound_webhooks.secret_ref_id` may be null. The signing secret stays in the named secret. Downgrade refuses while a webhook has no reference |
 | 0071 | `approval_origin_optional` | `approvals.run_id`, `agent_id` and `tool_call_id` may be null so a system review is stored. A webhook redelivery may share the original event id. Downgrade refuses while one of those approval ids is empty |
+| 0072 | `service_users` | `users.kind` (`person` or `service`), and a user row for each service account, so what a service account creates has an owner. Downgrade refuses while a service user owns a file, a conversation or a run |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 
