@@ -79,16 +79,25 @@ def opening_messages(
     return [dict(item) for item in bundle.messages]
 
 
-def citation_parts(retrieval: object) -> list[dict[str, object]]:
-    """Citation cards for the chunks that were actually placed in the prompt."""
+def citation_parts(retrieval: object, answer: str | None = None) -> list[dict[str, object]]:
+    """Citation cards for the passages the run placed before the model.
+
+    Passages are numbered once per run, those placed in the prompt first and those a
+    search found later after them. When ``answer`` cites any of them with ``[n]``, the
+    cards are the ones it cites (spec 07 §Citations); an answer that cites none gets a
+    card for each passage it was given, so a reader still sees its sources.
+    """
     if not isinstance(retrieval, dict):
         return []
     hits = retrieval.get("hits")
     if not isinstance(hits, list):
         return []
+    from ar_domain.knowledge.grounding import cited_indexes  # noqa: PLC0415
+
+    cited = {index for index in cited_indexes(answer or "") if 1 <= index <= len(hits)}
     parts: list[dict[str, object]] = []
     for index, hit in enumerate(hits, start=1):
-        if not isinstance(hit, dict):
+        if not isinstance(hit, dict) or (cited and index not in cited):
             continue
         document_id = str(hit.get("document_id") or "")
         anchor = str(hit.get("anchor") or "")
@@ -216,7 +225,9 @@ def _append_system(
             blocks.append(f"[{index}] {hit.get('title')} anchor={anchor} page={page}\n{text}")
         wrapped = wrap_untrusted(source="knowledge", content="\n\n".join(blocks))
         extra.append(
-            "Answer from the knowledge passages. Cite the anchor in brackets. "
+            "Answer from the knowledge passages. After each claim, cite the number of the "
+            "passage it comes from in brackets, like [2]. Passages a search finds later "
+            "carry their own numbers; cite those the same way. "
             "If the passages do not contain the answer, say it was not found.\n"
             f"{wrapped}"
         )

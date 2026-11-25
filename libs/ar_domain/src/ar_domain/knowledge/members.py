@@ -243,29 +243,69 @@ async def retrieve(
         "used_chars": used,
         "min_score": min_score,
         "below_threshold": min_score is not None and not kept,
-        "hits": [
-            {
-                "chunk_id": str(hit.get("chunk_id") or ""),
-                "document_id": str(hit.get("document_id") or ""),
-                "title": hit.get("title") or "",
-                "anchor": hit.get("anchor") or "",
-                "page": hit.get("page"),
-                "heading": hit.get("heading") or "",
-                "score": hit.get("rerank_score", hit.get("score")),
-                "chars": len(str(hit.get("text") or hit.get("snippet") or "")),
-                "snippet": str(hit.get("snippet") or "")[:500],
-                "text": str(hit.get("text") or hit.get("snippet") or ""),
-                "library_document_id": str(hit.get("library_document_id") or ""),
-                # Where the passage was read from. A citation links there.
-                "uri": str(hit.get("uri") or ""),
-            }
-            for hit in kept
-        ],
+        "hits": [trace_hit(hit) for hit in kept],
     }
     body: dict[str, object] = {"hits": kept, "answerable": bool(kept), "trace": trace}
     if not kept:
         body["answer"] = LIBRARY_MISS
     return body
+
+
+def trace_hit(hit: dict[str, object]) -> dict[str, object]:
+    """One passage as a run records it: what a citation to it shows and links to."""
+    return {
+        "chunk_id": str(hit.get("chunk_id") or ""),
+        "document_id": str(hit.get("document_id") or ""),
+        "title": hit.get("title") or "",
+        "anchor": hit.get("anchor") or "",
+        "page": hit.get("page"),
+        "heading": hit.get("heading") or "",
+        "score": hit.get("rerank_score", hit.get("score")),
+        "chars": len(str(hit.get("text") or hit.get("snippet") or "")),
+        "snippet": str(hit.get("snippet") or "")[:500],
+        "text": str(hit.get("text") or hit.get("snippet") or ""),
+        "library_document_id": str(hit.get("library_document_id") or ""),
+        # Where the passage was read from. A citation links there.
+        "uri": str(hit.get("uri") or ""),
+    }
+
+
+def number_found(run: dict[str, object], hits: list[object]) -> list[int]:
+    """The citation number of each passage a search found during the run.
+
+    Knowledge passages are numbered once per run (spec 07 §Citations). A passage the run
+    already holds keeps its number; a new one is added to the run's record and numbered
+    after the last. The answer's citation cards are built from that record.
+    """
+    trace = run.get("retrieval")
+    if not isinstance(trace, dict):
+        trace = {"query": "", "hits": []}
+        run["retrieval"] = trace
+    held = trace.get("hits")
+    if not isinstance(held, list):
+        held = []
+        trace["hits"] = held
+
+    def key(row: dict[str, object]) -> tuple[str, str, str]:
+        return (
+            str(row.get("chunk_id") or ""),
+            str(row.get("document_id") or ""),
+            str(row.get("anchor") or ""),
+        )
+
+    known = {key(row): index for index, row in enumerate(held, start=1) if isinstance(row, dict)}
+    numbers: list[int] = []
+    for hit in hits:
+        if not isinstance(hit, dict):
+            continue
+        row = trace_hit(hit)
+        number = known.get(key(row))
+        if number is None:
+            held.append(row)
+            number = len(held)
+            known[key(row)] = number
+        numbers.append(number)
+    return numbers
 
 
 def _from_library(
