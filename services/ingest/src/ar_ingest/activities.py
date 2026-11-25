@@ -8,7 +8,7 @@ from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
 from ar_domain.knowledge.pipeline import embedding_error, ingest_document_async, needs_admin
-from ar_domain.knowledge.syncing import acl_sync, delete_document, reindex, sync_source
+from ar_domain.knowledge.syncing import acl_sync, delete_document, reindex
 from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfiguredError
 from ar_domain.readmodel.activity import repository_activity
 
@@ -167,14 +167,37 @@ async def parse_library_activity(payload: dict[str, Any]) -> dict[str, Any]:
 @activity.defn(name="sync_source")
 @repository_activity(process_store)
 async def sync_source_activity(payload: dict[str, Any]) -> dict[str, Any]:
+    """Sync one source on this worker. The source and its job were made by another process.
+
+    A retry finds the job still open and carries on: a page already indexed is unchanged.
+    """
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.durable.hydrate import reload_source  # noqa: PLC0415
+    from ar_domain.knowledge.syncing import sync_source_async  # noqa: PLC0415
+
     store = _store()
-    source = store.knowledge_sources[uuid.UUID(str(payload["source_id"]))]
-    job = sync_source(
-        store,
-        source,
-        mode=str(payload.get("mode") or "incremental"),
-        actor_id=payload.get("actor_id"),
+    source_id = uuid.UUID(str(payload["source_id"]))
+    await reload_source(store, source_id)
+    source = store.knowledge_sources.get(source_id)
+    if not isinstance(source, dict):
+        raise ApplicationError("the source was not found", non_retryable=True)
+    opened = (
+        store.ingestion_jobs.get(uuid.UUID(str(payload["job_id"])))
+        if payload.get("job_id")
+        else None
     )
+    try:
+        job = await sync_source_async(
+            store,
+            source,
+            mode=str(payload.get("mode") or "incremental"),
+            actor_id=payload.get("actor_id"),
+            job=opened if isinstance(opened, dict) else None,
+            beat=activity.heartbeat,
+        )
+    finally:
+        # What was read so far is kept, whether or not the sync got to its end.
+        await flush_store(store)
     return {"job_id": str(job["id"]), "status": str(job["status"])}
 
 

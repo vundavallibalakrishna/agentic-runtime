@@ -1,5 +1,6 @@
 """Source sync, ACL sync, reindex and delete. Activities call the same functions."""
 
+import asyncio
 import hashlib
 from typing import TYPE_CHECKING, Any
 
@@ -11,7 +12,12 @@ from ar_domain.audit.memory import remember
 from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.access import as_uuid
 from ar_domain.knowledge.fetchers import fetch_bytes, list_acl_changes, list_changes, map_item_acl
-from ar_domain.knowledge.pipeline import embedding_error, ingest_document, stored_bytes
+from ar_domain.knowledge.pipeline import (
+    embedding_error,
+    ingest_document,
+    ingest_document_async,
+    stored_bytes,
+)
 from ar_domain.knowledge.raw import keep_raw
 from ar_domain.knowledge.site import NotModified
 from ar_domain.knowledge.store import memory_index
@@ -62,20 +68,50 @@ def finish_job(job: dict[str, object], *, status: str, error: str | None = None)
 def sync_source(
     store: Any, source: dict[str, object], *, mode: str, actor_id: object
 ) -> dict[str, object]:
-    """Ingest changed items and delete tombstones. Unchanged bytes are a no-op."""
-    running = _running(store, source["id"], "full_sync" if mode == "full" else "incremental_sync")
-    if running is not None:
-        return running
-    kind = "full_sync" if mode == "full" else "incremental_sync"
-    job = open_job(
+    """Sync a source from code that is not async. See ``sync_source_async``."""
+    return run_sync(sync_source_async(store, source, mode=mode, actor_id=actor_id))
+
+
+def sync_kind(mode: str) -> str:
+    return "full_sync" if mode == "full" else "incremental_sync"
+
+
+def open_sync(store: Any, source: dict[str, object], mode: str) -> dict[str, object]:
+    """The job of one sync of a source, opened before the sync starts."""
+    return open_job(
         store,
         tenant_id=as_uuid(source["tenant_id"]),
         collection_id=as_uuid(source["collection_id"]),
         source_id=as_uuid(source["id"]),
-        kind=kind,
+        kind=sync_kind(mode),
         triggered_by="manual",
     )
-    page = list_changes({**source, "store": store, "tenant_id": source.get("tenant_id")}, mode=mode)
+
+
+async def sync_source_async(
+    store: Any,
+    source: dict[str, object],
+    *,
+    mode: str,
+    actor_id: object,
+    job: dict[str, object] | None = None,
+    beat: Any = None,
+) -> dict[str, object]:
+    """Ingest changed items and delete tombstones. Unchanged bytes are a no-op.
+
+    It runs on the caller's event loop, where the index's database connections live. The
+    waiting it does, on the source and on each item, is off the loop. ``job`` is the job
+    another process opened for this sync, when one did; ``beat`` is called as each item
+    is done, so whoever is waiting for a long sync knows it is alive.
+    """
+    if job is None:
+        running = _running(store, source["id"], sync_kind(mode))
+        if running is not None:
+            return running
+        job = open_sync(store, source, mode)
+    page = await asyncio.to_thread(
+        list_changes, {**source, "store": store, "tenant_id": source.get("tenant_id")}, mode=mode
+    )
     if page.get("error"):
         _fail(job, "", str(page["error"]))
         job["status"] = "failed"
@@ -89,10 +125,12 @@ def sync_source(
         seen.add(external_id)
         _stats(job)["seen"] = int(_stats(job)["seen"]) + 1  # type: ignore[call-overload]
         try:
-            _upsert_item(store, source, item, mode=mode, job=job, actor_id=actor_id)
+            await _upsert_item(store, source, item, mode=mode, job=job, actor_id=actor_id)
         except (OSError, ValueError, httpx.HTTPError) as exc:
             # One page that cannot be read is that page's failure, not the sync's.
             _fail(job, external_id, str(exc))
+        if callable(beat):
+            beat()
     deleted = page.get("deleted_external_ids")
     if isinstance(deleted, list):
         for external_id in deleted:
@@ -270,7 +308,7 @@ def delete_document(store: Any, document: dict[str, object], *, actor_id: object
     )
 
 
-def _upsert_item(
+async def _upsert_item(
     store: Any,
     source: dict[str, object],
     item: dict[str, object],
@@ -284,7 +322,7 @@ def _upsert_item(
     # A source may ask its site only whether a document it already holds has changed.
     item["known"] = existing is not None and existing.get("status") == "indexed"
     try:
-        raw, mime = fetch_bytes(item)
+        raw, mime = await asyncio.to_thread(fetch_bytes, item)
     except NotModified:
         _stats(job)["unchanged"] = int(_stats(job)["unchanged"]) + 1  # type: ignore[call-overload]
         return
@@ -320,7 +358,7 @@ def _upsert_item(
         current = int(_stats(job).get("unmapped_principals") or 0)  # type: ignore[call-overload]
         _stats(job)["unmapped_principals"] = current + unmapped
     try:
-        status = ingest_document(store, as_uuid(document["id"]), raw)
+        status = await ingest_document_async(store, as_uuid(document["id"]), raw)
     except EmbeddingUnconfiguredError, EmbeddingFailedError:
         status = "failed"
     if status == "failed":

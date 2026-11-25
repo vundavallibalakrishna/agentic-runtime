@@ -318,8 +318,15 @@ class KnowledgeBook:
         ]
 
     def create_source(
-        self, actor: Actor, collection_id: uuid.UUID, body: dict[str, object]
+        self,
+        actor: Actor,
+        collection_id: uuid.UUID,
+        body: dict[str, object],
+        *,
+        first_sync: bool = True,
     ) -> dict[str, object]:
+        """Make a source. ``first_sync`` reads it at once, here; a caller that hands the
+        sync to a worker passes False and starts it with ``start_sync``."""
         collection = self._managed(actor, collection_id)
         kind = str(body.get("kind") or "")
         if kind not in _KINDS:
@@ -365,7 +372,7 @@ class KnowledgeBook:
             target_id=source_id,
             detail={"kind": kind},
         )
-        if kind != "upload":
+        if kind != "upload" and first_sync:
             sync_source(self.store, row, mode="full", actor_id=actor.user_id)
         del collection
         return self._source_view(row)
@@ -416,6 +423,22 @@ class KnowledgeBook:
 
     def test_source(self, actor: Actor, source_id: uuid.UUID) -> dict[str, object]:
         return check({**self._source(actor, source_id, manage=True), "store": self.store})
+
+    async def start_sync(self, actor: Actor, source_id: uuid.UUID, mode: str) -> dict[str, object]:
+        """Start a sync where this install runs them, and return its job id."""
+        from ar_domain.knowledge.dispatch import request_sync  # noqa: PLC0415
+
+        row = self._source(actor, source_id, manage=True)
+        if mode not in {"incremental", "full"}:
+            raise ValidationFailedError("mode must be incremental or full")
+        stored = self.store.knowledge_sources.get(source_id)
+        job = await request_sync(
+            self.store,
+            stored if isinstance(stored, dict) else row,
+            mode=mode,
+            actor_id=actor.user_id,
+        )
+        return {"job_id": str(job["id"])}
 
     def sync(self, actor: Actor, source_id: uuid.UUID, mode: str) -> dict[str, object]:
         row = self._source(actor, source_id, manage=True)

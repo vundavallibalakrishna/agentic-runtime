@@ -689,6 +689,107 @@ async def reload_document(store: object, document_id: uuid.UUID) -> None:
             _merge(store, "document_chunks", row["id"], row)
 
 
+async def refresh_knowledge(store: object, tenant_id: uuid.UUID) -> None:
+    """Bring this process's knowledge up to date with what other processes indexed.
+
+    The ingest worker indexes; the process that answers a search is another one, and held
+    only what was there when it started. So a collection made since, a source synced
+    since or a file uploaded since was not found until that process was restarted. Before
+    a search this asks the database, in three small queries, what each source holds now,
+    and reloads only the sources whose answer has changed.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine):
+        return
+    seen = getattr(store, "_knowledge_seen", None)
+    if not isinstance(seen, dict):
+        seen = {}
+        store._knowledge_seen = seen  # type: ignore[attr-defined]
+    changed: list[uuid.UUID] = []
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        from ar_domain.durable.flush import _set_tenant_context  # noqa: PLC0415
+
+        await _set_tenant_context(session, store)
+        for row in await _rows(
+            session, "SELECT * FROM knowledge_collections WHERE tenant_id = :tenant_id", tenant_id
+        ):
+            _merge(store, "knowledge_collections", row["id"], row)
+        marks = await session.execute(
+            text(
+                "SELECT s.id, s.last_sync_at, count(d.id) AS held, max(d.indexed_at) AS newest, "
+                "count(d.id) FILTER (WHERE d.status = 'deleted') AS gone "
+                "FROM knowledge_sources s LEFT JOIN documents d ON d.source_id = s.id "
+                "WHERE s.tenant_id = :tenant_id GROUP BY s.id, s.last_sync_at"
+            ),
+            {"tenant_id": tenant_id},
+        )
+        for mark in marks.mappings():
+            now = (mark["last_sync_at"], mark["held"], mark["newest"], mark["gone"])
+            if seen.get(mark["id"]) != now:
+                seen[mark["id"]] = now
+                changed.append(mark["id"])
+    for source_id in changed:
+        await reload_source(store, source_id)
+
+
+async def reload_source(store: object, source_id: uuid.UUID) -> None:
+    """Make this process's copy of one knowledge source equal the database's.
+
+    A source is made by one process and synced by another. Whichever reads it next needs
+    the source, its collection, the documents it holds and their passages, and the jobs
+    that say how its syncs went.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine):
+        return
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        from ar_domain.durable.flush import _set_tenant_context  # noqa: PLC0415
+
+        await _set_tenant_context(session, store)
+        found = await session.execute(
+            text("SELECT * FROM knowledge_sources WHERE id = :id"), {"id": source_id}
+        )
+        source = found.mappings().first()
+        if source is None:
+            return
+        _merge(store, "knowledge_sources", source_id, dict(source))
+        for table, bucket, column, value in (
+            ("knowledge_collections", "knowledge_collections", "id", source["collection_id"]),
+            ("ingestion_jobs", "ingestion_jobs", "source_id", source_id),
+            ("documents", "knowledge_documents", "source_id", source_id),
+        ):
+            rows = await session.execute(
+                text(f"SELECT * FROM {table} WHERE {column} = :value"),  # noqa: S608 - fixed names
+                {"value": value},
+            )
+            for row in rows.mappings():
+                _merge(store, bucket, row["id"], dict(row))
+        chunks = await session.execute(
+            text(
+                "SELECT c.* FROM document_chunks c JOIN documents d ON d.id = c.document_id "
+                "WHERE d.source_id = :id"
+            ),
+            {"id": source_id},
+        )
+        held = getattr(store, "document_chunks", None)
+        seen: set[object] = set()
+        for chunk in chunks.mappings():
+            seen.add(chunk["id"])
+            _merge(store, "document_chunks", chunk["id"], dict(chunk))
+        # A passage the sync replaced is gone from the database, and from here too.
+        documents = getattr(store, "knowledge_documents", {})
+        if isinstance(held, dict):
+            for key, row in list(held.items()):
+                owner = documents.get(row.get("document_id")) if isinstance(row, dict) else None
+                if (
+                    isinstance(owner, dict)
+                    and owner.get("source_id") == source_id
+                    and key not in seen
+                    and key not in getattr(held, "dirty", set())
+                ):
+                    held.pop(key, None)
+
+
 async def _facts(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
     """Make the store's memory of one tenant equal its database rows.
 

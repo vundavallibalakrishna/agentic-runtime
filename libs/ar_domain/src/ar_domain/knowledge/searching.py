@@ -67,6 +67,10 @@ async def search_async(
 ) -> dict[str, object]:
     """Hybrid search filtered by the caller's principals. Managers are not exempt."""
     await refresh_registry(store)
+    from ar_domain.durable.hydrate import refresh_knowledge  # noqa: PLC0415
+
+    # What another process indexed since this one last looked is found by this search.
+    await refresh_knowledge(store, actor.tenant_id)
     started = time.perf_counter()
     targets, collections = _targets(store, actor, collection_ids)
     if not targets:
