@@ -53,7 +53,7 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _advance(
-    store: object,
+    store: Any,
     run: dict[str, Any],
     run_id: uuid.UUID,
     payload: dict[str, Any],
@@ -98,7 +98,7 @@ async def _advance(
         else payload.get("names")
     )
     names = [str(item) for item in raw_names] if isinstance(raw_names, list) else []
-    advance = getattr(store, "advance_turn")
+    advance = store.advance_turn
     kind = await advance(run_id, text, names)
     await flush_store(store)
     run = runs.get(run_id, {}) if isinstance(runs, dict) else {}
