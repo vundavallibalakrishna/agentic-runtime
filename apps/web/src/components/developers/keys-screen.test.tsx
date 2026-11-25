@@ -93,6 +93,8 @@ describe("service accounts and keys", () => {
     const shown = await screen.findByTestId("new-secret");
     expect(shown.textContent).toContain("ak_abc.sk_secret");
     expect(shown.textContent).toContain("This is the only time the key is shown.");
+    // The secret is on the page in one place: the sample beside it does not repeat it.
+    expect(shown.textContent?.split("ak_abc.sk_secret")).toHaveLength(2);
     expect(calls.map((call) => call.path)).toEqual(["account", "role", "role", "key"]);
     expect(calls[1]?.body).toEqual({
       roleId: "role-member",

@@ -81,8 +81,10 @@ Spec: [02-identity-tenancy.md](../03-specs/02-identity-tenancy.md)
 | POST | [`/api/v1/service-accounts`](../03-specs/02-identity-tenancy.md#post-apiv1service-accounts) | `service_accounts:manage` | 3. Public API |
 | PATCH | [`/api/v1/service-accounts/{service_account_id}`](../03-specs/02-identity-tenancy.md#patch-apiv1service-accountsservice_account_id) | `service_accounts:manage` | 3. Public API |
 | DELETE | [`/api/v1/service-accounts/{service_account_id}`](../03-specs/02-identity-tenancy.md#delete-apiv1service-accountsservice_account_id) | `service_accounts:manage` | 3. Public API |
+| GET | `/api/v1/service-accounts:capabilities` | `service_accounts:manage` | 3. Public API |
 | GET | [`/api/v1/api-keys`](../03-specs/02-identity-tenancy.md#get-apiv1api-keys) | `api_keys:manage_own` | 3. Public API |
 | POST | [`/api/v1/api-keys`](../03-specs/02-identity-tenancy.md#post-apiv1api-keys) | `api_keys:manage_own` | 3. Public API |
+| POST | `/api/v1/api-keys/{api_key_id}:rotate` | `api_keys:manage_own` | 3. Public API |
 | DELETE | [`/api/v1/api-keys/{api_key_id}`](../03-specs/02-identity-tenancy.md#delete-apiv1api-keysapi_key_id) | `api_keys:manage_own` | 3. Public API |
 | GET | [`/api/v1/scim-tokens`](../03-specs/02-identity-tenancy.md#get-apiv1scim-tokens) | `tenant:manage` | 3. Public API |
 | POST | [`/api/v1/scim-tokens`](../03-specs/02-identity-tenancy.md#post-apiv1scim-tokens) | `tenant:manage` | 3. Public API |

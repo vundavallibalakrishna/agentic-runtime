@@ -178,7 +178,9 @@ export function KeysScreen() {
   }
 
   const origin = typeof window === "undefined" ? "" : window.location.origin;
-  const check = `curl -s ${origin}/api/v1/permissions \\\n  -H "Authorization: Bearer ${secret || "$CURA_KEY"}" | head -c 200`;
+  // The sample reads the key from the caller's own environment: the secret is on this
+  // page once, in one place.
+  const check = `export CURA_KEY='<the key above>'\ncurl -s ${origin}/api/v1/permissions \\\n  -H "Authorization: Bearer $CURA_KEY" | head -c 200`;
 
   const form = (
     <form
