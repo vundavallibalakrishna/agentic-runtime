@@ -816,6 +816,11 @@ class DocumentLibrary:
         self._store_extraction(actor, row, body, alias, run_id=run_id)
         if review or _extraction_review_enabled(self.store, actor.tenant_id):
             self._review_extraction(actor, row, schema, body, run_id=run_id, agent_id=agent_id)
+        if not body.get("exceptions"):
+            routed = route_target(self.store, actor, agent_id, body, run_id=run_id)
+            if routed is not None:
+                body["targetTool"] = routed.get("qualified_name")
+                body["targetStatus"] = routed.get("status")
         return body
 
     def _store_extraction(
@@ -1601,6 +1606,65 @@ def retarget_extraction(store: Any, old_id: object, new_id: object) -> None:
             item["approval_id"] = new_id
 
 
+def route_target(
+    store: Any,
+    actor: Any,
+    agent_id: uuid.UUID | None,
+    body: dict[str, object],
+    *,
+    run_id: uuid.UUID | None = None,
+) -> dict[str, object] | None:
+    """Send a finished extraction to the tool named in the agent's settings."""
+    if agent_id is None:
+        return None
+    document = _agent_settings(store, actor.tenant_id, agent_id)
+    named = document.get("targetTool") if isinstance(document, dict) else None
+    if not isinstance(named, str) or not named.strip():
+        return None
+    from ar_domain.config_docs.book import registered_tool  # noqa: PLC0415
+    from ar_domain.tools.pipeline import ToolPipeline  # noqa: PLC0415
+
+    version = registered_tool(store, named.strip())
+    if version is None:
+        raise ValidationFailedError(f"{named} is not a registered tool")
+    result = body.get("result")
+    arguments = result if isinstance(result, dict) else {}
+    outcome = ToolPipeline(store).execute(
+        {
+            "tenant_id": actor.tenant_id,
+            "user_id": actor.user_id,
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "tool_version_id": version.get("id"),
+            "arguments": arguments,
+            "model_call_id": "extract-target",
+        }
+    )
+    outcome["qualified_name"] = named.strip()
+    return outcome
+
+
+def _agent_settings(store: Any, tenant_id: uuid.UUID, agent_id: uuid.UUID) -> dict[str, object]:
+    from ar_common.errors import NotFoundError  # noqa: PLC0415
+    from ar_domain.config_docs.book import SettingsBook  # noqa: PLC0415
+
+    agents = getattr(store, "agents", {})
+    agent = agents.get(agent_id) if isinstance(agents, dict) else None
+    slug = str(agent.get("slug") or "") if isinstance(agent, dict) else ""
+    book = SettingsBook(store)
+    for resource_id in (slug, str(agent_id)):
+        if not resource_id:
+            continue
+        try:
+            found = book.latest(tenant_id, "agent", resource_id)
+        except NotFoundError:
+            continue
+        document = found.get("document")
+        if isinstance(document, dict):
+            return document
+    return {}
+
+
 def _interpreted(  # noqa: PLR0917
     ask: Any,
     schema: dict[str, object],
@@ -1624,9 +1688,7 @@ def _interpreted(  # noqa: PLR0917
         )
         again = ask(repair, wrap_untrusted(source="document", content=evidence), response)
         if not isinstance(again, str) or not again.strip():
-            raise ArError(
-                ErrorCode.INVALID_STATE, "The extraction was not JSON."
-            ) from first
+            raise ArError(ErrorCode.INVALID_STATE, "The extraction was not JSON.") from first
         try:
             return interpret(again, schema, group)
         except ArError as second:

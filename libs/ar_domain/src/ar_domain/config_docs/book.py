@@ -44,6 +44,7 @@ class SettingsBook:
         document: dict[str, object],
     ) -> dict[str, object]:
         _check(schema, document)
+        _check_target_tool(self.store, document)
         rows = self._rows(tenant_id, resource_type, resource_id)
         previous_version = rows[-1].get("version") if rows else 0
         version = (previous_version if isinstance(previous_version, int) else 0) + 1
@@ -125,6 +126,25 @@ def agent_settings_block(store: Any, run: dict[str, object]) -> str:
 def _version(item: dict[str, object]) -> int:
     value = item.get("version")
     return value if isinstance(value, int) else 0
+
+
+def registered_tool(store: Any, name: str) -> dict[str, object] | None:
+    """The tool version registered under ``name``, if this install has one."""
+    versions = getattr(store, "tool_versions", {})
+    if not isinstance(versions, dict):
+        return None
+    for row in versions.values():
+        if isinstance(row, dict) and str(row.get("qualified_name") or "") == name:
+            return row
+    return None
+
+
+def _check_target_tool(store: Any, document: dict[str, object]) -> None:
+    named = document.get("targetTool")
+    if not isinstance(named, str) or not named.strip():
+        return
+    if registered_tool(store, named.strip()) is None:
+        raise ValidationFailedError(f"{named} is not a registered tool")
 
 
 def _check(schema: dict[str, object], document: dict[str, object]) -> None:

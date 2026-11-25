@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 
-from ar_common.errors import ArError, ForbiddenError
+from ar_common.errors import ArError, ForbiddenError, ValidationFailedError
 from ar_domain.agents.access import Actor
 from ar_domain.agents.packs import PackService, _apply_policies
 from ar_domain.approvals.errors import StepUpRequiredError
@@ -18,7 +18,7 @@ from ar_domain.bundles.import_ import import_bundle
 from ar_domain.chat.service import demo_id
 from ar_domain.config_docs.book import SettingsBook, agent_settings_block
 from ar_domain.documents.evidence import interpret
-from ar_domain.documents.library import _interpreted, note_extraction_decision
+from ar_domain.documents.library import _interpreted, note_extraction_decision, route_target
 from ar_domain.documents.model import _response_format
 from ar_domain.durable.hydrate import index_groups
 from ar_domain.memory.session import prepare_prompt
@@ -341,6 +341,59 @@ def test_a_turn_keeps_one_assistant_reply() -> None:
         if row.get("run_id") == run_id and row.get("role") == "assistant"
     ]
     assert replies == [assistant]
-    assert [part.get("text") for part in assistant["content"] if part.get("type") == "text"] == [
-        "The total is 42."
-    ]
+    texts = [part.get("text") for part in assistant["content"] if part.get("type") == "text"]
+    assert texts == ["The total is 42."]
+
+
+def test_target_tool_must_be_registered_and_receives_the_extraction() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    user = demo_id("admin")
+    schema = {
+        "type": "object",
+        "properties": {"targetTool": {"type": "string"}, "approvalGroup": {"type": "string"}},
+    }
+    with pytest.raises(ValidationFailedError, match="not a registered tool"):
+        SettingsBook(store).save(
+            tenant, user, "agent", "document-extraction", schema, {"targetTool": "missing.push"}
+        )
+    version_id = uuid.uuid4()
+    store.tool_versions[version_id] = {
+        "id": version_id,
+        "qualified_name": "connectors.push",
+        "name": "push",
+    }
+    SettingsBook(store).save(
+        tenant,
+        user,
+        "agent",
+        "document-extraction",
+        schema,
+        {"targetTool": "connectors.push", "approvalGroup": "reviewers"},
+    )
+    agent_id = uuid.uuid4()
+    store.agents[agent_id] = {"id": agent_id, "tenant_id": tenant, "slug": "document-extraction"}
+    seen: dict[str, object] = {}
+
+    def execute(self: object, request: dict[str, object]) -> dict[str, object]:
+        seen["arguments"] = request.get("arguments")
+        seen["tool_version_id"] = request.get("tool_version_id")
+        return {"status": "succeeded"}
+
+    from ar_domain.tools.pipeline import ToolPipeline
+
+    original = ToolPipeline.execute
+    ToolPipeline.execute = execute  # type: ignore[method-assign]
+    try:
+        outcome = route_target(
+            store,
+            Actor(tenant, user, frozenset()),
+            agent_id,
+            {"result": {"total": 42}},
+        )
+    finally:
+        ToolPipeline.execute = original  # type: ignore[method-assign]
+    assert outcome is not None
+    assert outcome["qualified_name"] == "connectors.push"
+    assert seen["arguments"] == {"total": 42}
+    assert seen["tool_version_id"] == version_id

@@ -118,7 +118,10 @@ def manifest() -> dict[str, object]:
                             "type": "object",
                             "required": ["approvalGroup"],
                             "additionalProperties": False,
-                            "properties": {"approvalGroup": {"type": "string"}},
+                            "properties": {
+                                "approvalGroup": {"type": "string"},
+                                "targetTool": {"type": "string"},
+                            },
                         },
                         "settings": {"approvalGroup": "extraction-reviewers"},
                         "budget": {
