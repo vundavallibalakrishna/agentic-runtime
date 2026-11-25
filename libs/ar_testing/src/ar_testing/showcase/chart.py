@@ -6,10 +6,11 @@ model ran and no computer drew the chart. That is why this lives in the test lib
 
 from __future__ import annotations
 
+import struct
+import zlib
 from typing import TYPE_CHECKING, Any
 
 from ar_common.ids import new_id
-from ar_common.sandboxkit import png_chart
 from ar_common.time import utcnow
 from ar_domain.demo_ids import demo_id
 from ar_domain.files.logic import object_key
@@ -129,3 +130,58 @@ def _message(
         "created_at": now,
         "author_user_id": user_id if role == "user" else None,
     }
+
+
+def png_chart(values: list[int], *, labels: list[str] | None = None) -> bytes:
+    """A small bar chart PNG with no third-party library."""
+    del labels
+    width, height = 480, 240
+    series = values or [0]
+    peak = max(series) or 1
+    margin = 16
+    slot = max(1, (width - margin * 2) // len(series))
+    rows: list[bytes] = []
+    for y in range(height):
+        pixel = bytearray()
+        for x in range(width):
+            ink = _bar(x, y, series, peak=peak, slot=slot, margin=margin, height=height)
+            pixel.extend(ink)
+        rows.append(b"\x00" + bytes(pixel))
+    return _png(width, height, b"".join(rows))
+
+
+def _bar(
+    x: int,
+    y: int,
+    series: list[int],
+    *,
+    peak: int,
+    slot: int,
+    margin: int,
+    height: int,
+) -> bytes:
+    if x < margin or x >= margin + slot * len(series) or y > height - margin:
+        return b"\xf4\xf1\xec"
+    index = min((x - margin) // slot, len(series) - 1)
+    local = (x - margin) % slot
+    bar_height = int(series[index] / peak * (height - margin * 3))
+    top = height - margin - bar_height
+    if 4 < local < slot - 4 and top <= y <= height - margin:
+        return b"\x1f\x6f\x68"
+    return b"\xf4\xf1\xec"
+
+
+def _png(width: int, height: int, raw: bytes) -> bytes:
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        body = tag + data
+        return (
+            struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+        )
+
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(raw, 9))
+        + chunk(b"IEND", b"")
+    )
