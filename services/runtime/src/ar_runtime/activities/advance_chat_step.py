@@ -29,25 +29,28 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
     run = runs.get(run_id) if isinstance(runs, dict) else None
     if not isinstance(run, dict):
         return {"status": "missing", "kind": "final", "run_id": str(run_id)}
+    during_tool = False
     try:
         async with heartbeating():
+            during_tool = True
             stopped = await _stop_or_apply(store, run, run_id, payload)
+            during_tool = False
             if stopped is not None:
                 await flush_store(store)
                 return stopped
             return await _advance(store, run, run_id, payload, runs)
     except asyncio.CancelledError:
-        # Stop is the person's request. Any other cancellation is the step being
-        # cut off, usually because a tool outlasted its deadline. That is a failed
-        # tool call, not a silent cancel that leaves the approval message up.
+        # A stop while the model is writing cancels the run and keeps the text.
+        # A stop during the approved tool call is the deadline cutting it off:
+        # that is a failed tool call, not a silent cancel.
         from ar_domain.tools.resume import fail_interrupted_tool, mark_cancelled  # noqa: PLC0415
 
         stopped_run = runs.get(run_id) if isinstance(runs, dict) else None
         if isinstance(stopped_run, dict):
-            if stopped_run.get("cancel_requested") is True:
-                mark_cancelled(store, stopped_run)
-            else:
+            if during_tool and stopped_run.get("cancel_requested") is not True:
                 fail_interrupted_tool(store, stopped_run)
+            else:
+                mark_cancelled(store, stopped_run)
         await asyncio.shield(flush_store(store))
         raise
 

@@ -50,6 +50,24 @@ def render_preview(
     }
 
 
+def may_attempt(store: Any, actor: Any, approval: dict[str, object]) -> bool:
+    """True when this person is an approver the request will consider.
+
+    Separation of duties is checked afterwards and reported as ``sod_violation``.
+    ``can_decide`` includes that check so the console does not offer a button
+    the decision will refuse.
+    """
+    if approval.get("status") != "pending":
+        return False
+    rule = approval.get("approver_rule")
+    four_eyes = bool(approval.get("four_eyes")) or (
+        isinstance(rule, dict) and bool(rule.get("four_eyes"))
+    )
+    if four_eyes and str(actor.user_id) == str(approval.get("requested_for_user_id")):
+        return False
+    return is_approver(store, actor, approval)
+
+
 def can_decide(store: Any, actor: Any, approval: dict[str, object]) -> bool:
     """True when this person may approve. The same SoD rules as decide. Spec 09 §5."""
     return decision_reason(store, actor, approval) == ""

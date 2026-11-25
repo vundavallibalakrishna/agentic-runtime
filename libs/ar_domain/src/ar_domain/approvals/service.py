@@ -13,6 +13,7 @@ from ar_domain.approvals.logic import (
     can_view,
     decision_reason,
     is_approver,
+    may_attempt,
     render_preview,
 )
 from ar_domain.approvals.pending import amend
@@ -80,7 +81,7 @@ class ApprovalBook:
         channel: str = "web",
     ) -> dict[str, object]:
         row = self._require(actor, approval_id)
-        if not can_decide(self.store, actor, row):
+        if not may_attempt(self.store, actor, row):
             raise ForbiddenError("you cannot decide this approval")
         from ar_domain.approvals.sod import SodBook  # noqa: PLC0415
 
