@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 from ar_common.errors import QuotaExceededError
 from ar_domain.audit.memory import remember
 from ar_domain.tools.general import host_refusal
-from ar_domain.tools.logic import as_int
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.usage.service import UsageBook
 
@@ -76,11 +75,13 @@ def _quota(store: Any, request: dict[str, object]) -> dict[str, object] | None:
 
 
 def _timeout_s(store: Any, request: dict[str, object]) -> int:
+    from ar_domain.tools.pipeline import resolved_timeout_s  # noqa: PLC0415
+
     versions = getattr(store, "tool_versions", {})
     version = versions.get(request.get("tool_version_id")) if isinstance(versions, dict) else None
     if not isinstance(version, dict):
         return 30
-    return as_int(version.get("timeout_s"), 30)
+    return resolved_timeout_s(version)
 
 
 def _egress(store: Any, request: dict[str, object]) -> dict[str, object] | None:

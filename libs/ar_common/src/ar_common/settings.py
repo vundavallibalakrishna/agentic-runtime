@@ -46,6 +46,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DOCUMENT_CHUNK_OVERLAP",
         "AR_DOCUMENT_COLLECTION_CAP",
         "AR_DOCUMENT_ASK_MAX_TOKENS",
+        "AR_DOCUMENT_EXTRACT_TIMEOUT_S",
         "AR_DOCUMENT_CREATE_MAX_BULLETS",
         "AR_DOCUMENT_CREATE_MAX_COLUMNS",
         "AR_DOCUMENT_CREATE_MAX_FILE_BYTES",
@@ -247,6 +248,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_TENANT_TEMPORAL_NAMESPACES",
         "AR_TOKEN_CACHE_KEY",
         "AR_TOOL_DRIFT_INTERVAL",
+        "AR_TOOL_GATEWAY_GRACE_S",
         "AR_TOOL_RESULT_MAX_FILE_BYTES",
         "AR_TOOL_WORKER_THREADS",
         "AR_TRACE_SAMPLE_RATIO",
@@ -477,6 +479,12 @@ class BaseServiceSettings(BaseSettings):
     document_crosscheck_max_chars: int = Field(default=40_000, ge=1)
     document_vision_max_bytes: int = Field(default=8 * 1024 * 1024, ge=1)
     document_ask_max_tokens: int = Field(default=1800, ge=1)
+    # documents.extract may run for many model calls. The stored tool default is
+    # shorter than that work. This is the budget the gateway and its client use.
+    document_extract_timeout_s: int = Field(default=900, ge=1, le=900)
+    # Added to a tool's timeout when the runtime calls the gateway, so the client
+    # does not give up before the tool's own deadline.
+    tool_gateway_grace_s: int = Field(default=60, ge=0, le=300)
     document_listed_item_cap: int = Field(default=40, ge=1)
     ingest_max_bytes: int = Field(default=209_715_200, ge=1)
     ingest_inline_max_bytes: int = Field(default=256 * 1024, ge=1)

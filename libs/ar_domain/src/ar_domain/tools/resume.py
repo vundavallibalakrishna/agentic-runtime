@@ -108,6 +108,59 @@ def apply_decision(store: Any, run: dict[str, object], decision: dict[str, objec
     return "paused"
 
 
+_WAITING = "Waiting for approval before this tool runs."
+_INTERRUPTED = (
+    "The tool call did not finish in time. It was stopped, and whether it "
+    "changed anything is not known. Check before asking for it again."
+)
+
+
+def fail_interrupted_tool(store: Any, run: dict[str, object]) -> None:
+    """A step cut off while a tool was running. The reply says so, and the call is failed."""
+    from ar_domain.runs.failure import fail_run  # noqa: PLC0415
+
+    if not run_is_active(str(run.get("status"))):
+        return
+    assistant_id = run.get("assistant_message_id")
+    messages = getattr(store, "messages", {})
+    assistant = messages.get(assistant_id) if isinstance(messages, dict) else None
+    if isinstance(assistant, dict):
+        said = str(assistant.get("text") or "")
+        if not said or said == _WAITING:
+            assistant["text"] = _INTERRUPTED
+            assistant["content"] = [{"type": "text", "text": _INTERRUPTED}]
+        calls = assistant.get("tool_calls")
+        if isinstance(calls, list):
+            for call in calls:
+                if isinstance(call, dict) and str(call.get("status") or "") in {
+                    "awaiting_approval",
+                    "running",
+                }:
+                    call["status"] = "failed"
+                    call["result_preview"] = _INTERRUPTED
+                    call["error"] = {"code": "upstream_timeout", "message": _INTERRUPTED}
+    calls_book = getattr(store, "tool_calls", {})
+    if isinstance(calls_book, dict):
+        for row in calls_book.values():
+            if (
+                isinstance(row, dict)
+                and row.get("run_id") == run.get("id")
+                and str(row.get("status") or "") in {"awaiting_approval", "running"}
+            ):
+                row["status"] = "failed"
+                row["is_error"] = True
+                row["error"] = {"code": "upstream_timeout", "message": _INTERRUPTED}
+                row["result_preview"] = _INTERRUPTED
+    fail_run(
+        store,
+        run,
+        code="upstream_timeout",
+        message=_INTERRUPTED,
+        reason="tool_timeout",
+        assistant=assistant if isinstance(assistant, dict) else None,
+    )
+
+
 def mark_cancelled(store: Any, run: dict[str, object]) -> None:
     """Stop a run whose cancel was requested. A second call leaves a terminal run alone."""
     if not run_is_active(str(run.get("status"))):
