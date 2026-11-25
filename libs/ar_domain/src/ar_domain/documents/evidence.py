@@ -9,8 +9,10 @@ does not fit the model's usable window.
 from __future__ import annotations
 
 import hashlib
+import re
 
 import orjson
+from dateutil import parser as date_parser  # type: ignore[import-untyped]
 from jsonschema import Draft202012Validator
 
 from ar_common.settings import get_settings
@@ -104,7 +106,7 @@ def interpret(
     parsed = _object(raw)
     reports = _reports(parsed, schema)
     minimum = _threshold(threshold)
-    fields = [_judge(item, passages, minimum) for item in reports]
+    fields = [_judge(item, passages, minimum, schema) for item in reports]
     fields = _conflicts(fields)
     return {
         "result": _nest(_present(fields)),
@@ -189,7 +191,10 @@ def _mark_type_errors(schema: dict[str, object], reports: list[dict[str, object]
 
 
 def _judge(
-    item: dict[str, object], passages: list[dict[str, object]], threshold: float
+    item: dict[str, object],
+    passages: list[dict[str, object]],
+    threshold: float,
+    schema: dict[str, object],
 ) -> dict[str, object]:
     path = str(item.get("path") or "")
     if item.get("type_error") is True:
@@ -205,7 +210,9 @@ def _judge(
         located = _locate_value(passages, item.get("value"))
     if not verified:
         status = "missing"
-    elif not _supported(item.get("value"), quote or str(item.get("value") or "")):
+    elif not _supported(
+        item.get("value"), quote or str(item.get("value") or ""), _type_of(schema, path)
+    ):
         status = "invalid"
     elif confidence < threshold:
         status = "low_confidence"
@@ -326,20 +333,127 @@ def _pick(rows: list[dict[str, object]]) -> dict[str, object] | None:
     return verified[0]
 
 
-def _supported(value: object, quote: str) -> bool:
-    """The value is in the quote, or its digits are, so a normalised number still counts."""
+def _supported(value: object, quote: str, kind: str = "") -> bool:
+    """The quote supports the value, including a normalised number, date or boolean."""
     if value is None:
         return True
+    if _contains_text(value, quote):
+        return True
+    if kind == "boolean" or isinstance(value, bool):
+        return _boolean_supported(value, quote)
+    if kind in {"number", "integer"} or (
+        isinstance(value, int | float) and not isinstance(value, bool)
+    ):
+        return _number_supported(value, quote)
+    return _dates_match(value, quote)
+
+
+def _contains_text(value: object, quote: str) -> bool:
     folded_quote = " ".join(quote.split()).casefold()
     folded = " ".join(str(value).split()).casefold()
-    if folded and folded in folded_quote:
-        return True
-    if isinstance(value, bool):
+    return bool(folded) and folded in folded_quote
+
+
+def _number_supported(value: object, quote: str) -> bool:
+    wanted = _parse_number(value)
+    if wanted is None:
         return False
-    if isinstance(value, int | float):
-        digits = "".join(ch for ch in str(value) if ch.isdigit())
-        return bool(digits) and digits in "".join(ch for ch in quote if ch.isdigit())
+    for token in re.findall(r"[-+]?(?:[$€£]\s*)?\d[\d,\s]*(?:\.\d+)?", quote):
+        found = _parse_number(token)
+        if found is not None and found == wanted:
+            return True
     return False
+
+
+def _parse_number(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    text = str(value).strip().replace(",", "").replace(" ", "")
+    for mark in ("$", "€", "£"):
+        text = text.replace(mark, "")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _dates_match(value: object, quote: str) -> bool:
+    if not _looks_like_date(str(value)) or not _looks_like_date(quote):
+        return False
+    wanted = _parse_date(value)
+    found = _parse_date(quote)
+    return wanted is not None and found is not None and wanted == found
+
+
+def _looks_like_date(text: str) -> bool:
+    stripped = text.strip()
+    if re.fullmatch(r"\d{4}-\d{1,2}-\d{1,2}", stripped):
+        return True
+    return bool(re.search(r"\d", text) and re.search(r"[A-Za-z]", text))
+
+
+def _parse_date(value: object) -> object:
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date_parser.parse(text, fuzzy=True).date()
+    except ValueError, OverflowError:
+        return None
+
+
+def _boolean_supported(value: object, quote: str) -> bool:
+    wanted = value if isinstance(value, bool) else _boolean_value(value)
+    if wanted is None:
+        return False
+    words = set(re.findall(r"[A-Za-z0-9]+", quote.casefold()))
+    yes, no = _boolean_synonyms()
+    if wanted is True:
+        return bool(words & yes) and not bool(words & no)
+    return bool(words & no) and not bool(words & yes)
+
+
+def _boolean_value(value: object) -> bool | None:
+    text = str(value).strip().casefold()
+    yes, no = _boolean_synonyms()
+    if text in yes:
+        return True
+    if text in no:
+        return False
+    return None
+
+
+def _boolean_synonyms() -> tuple[set[str], set[str]]:
+    raw = str(getattr(get_settings(), "extraction_boolean_synonyms", "") or "")
+    true_text, _, false_text = raw.partition(";")
+    yes = {item.strip().casefold() for item in true_text.split(",") if item.strip()}
+    no = {item.strip().casefold() for item in false_text.split(",") if item.strip()}
+    if not yes:
+        yes = {"yes", "true", "y"}
+    if not no:
+        no = {"no", "false", "n"}
+    return yes, no
+
+
+def _type_of(schema: dict[str, object], path: str) -> str:
+    node: object = schema
+    for part in path.split("."):
+        if not isinstance(node, dict):
+            return ""
+        node = node.get("items") if part.isdigit() else _property(node, part)
+    if not isinstance(node, dict):
+        return ""
+    kind = node.get("type")
+    return kind if isinstance(kind, str) else ""
+
+
+def _property(node: dict[str, object], name: str) -> object:
+    properties = node.get("properties")
+    if not isinstance(properties, dict):
+        return None
+    return properties.get(name)
 
 
 def _invalid(path: str, value: object, quote: str) -> dict[str, object]:

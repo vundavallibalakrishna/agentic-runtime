@@ -27,6 +27,7 @@ dependencies = [
     "sqlglot==30.23.0",
     "pymysql==1.2.3",
     "orjson==3.13.0",
+    "python-dateutil==2.9.0.post0",
     "pydantic==2.14.1",
     "httpx==0.28.1",
     "boto3==1.43.106",

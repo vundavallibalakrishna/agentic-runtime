@@ -1,5 +1,7 @@
 import hashlib
 import importlib.util
+import shutil
+import subprocess
 from pathlib import Path
 from types import ModuleType
 
@@ -33,6 +35,31 @@ def test_catalogue_is_in_the_env_example() -> None:
     text = (ROOT / ".env.example").read_text(encoding="utf-8")
     missing = sorted(name for name in CATALOGUE_ENV if f"{name}=" not in text)
     assert missing == []
+
+
+def test_env_example_sources_in_bash() -> None:
+    """A shell-sourced install file must not treat a semicolon as a new command."""
+    script = """
+set -euo pipefail
+set -a
+. ./.env.example
+set +a
+test "$AR_EXTRACTION_BOOLEAN_SYNONYMS" = 'yes,true,y;no,false,n'
+"""
+    bash = shutil.which("bash")
+    assert bash is not None
+    completed = subprocess.run(  # noqa: S603
+        [bash, "-c", script],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    from ar_common.host_ports import parse_env
+
+    parsed = parse_env(ROOT / ".env.example")
+    assert parsed["AR_EXTRACTION_BOOLEAN_SYNONYMS"] == "yes,true,y;no,false,n"
 
 
 def test_restore_dataset_meets_rpo() -> None:

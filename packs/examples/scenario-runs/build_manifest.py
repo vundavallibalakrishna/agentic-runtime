@@ -60,6 +60,13 @@ def manifest() -> dict[str, object]:
                             "maxToolCalls": 24,
                             "maxParallelToolCalls": 1,
                         },
+                        "settingsSchema": {
+                            "type": "object",
+                            "required": ["approvalGroup"],
+                            "additionalProperties": False,
+                            "properties": {"approvalGroup": {"type": "string"}},
+                        },
+                        "settings": {"approvalGroup": "scenario-reviewers"},
                     },
                 },
                 {

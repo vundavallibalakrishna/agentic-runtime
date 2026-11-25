@@ -56,6 +56,21 @@
           "skills": [
             "document-extraction-schemas"
           ],
+          "settingsSchema": {
+            "type": "object",
+            "required": [
+              "approvalGroup"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "approvalGroup": {
+                "type": "string"
+              }
+            }
+          },
+          "settings": {
+            "approvalGroup": "extraction-reviewers"
+          },
           "budget": {
             "maxSteps": 24,
             "maxTokens": 120000,

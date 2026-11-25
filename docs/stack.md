@@ -59,6 +59,7 @@ Rules:
 | microsoft-agents-hosting-core / -aiohttp | 1.9.0 | Current Microsoft SDK for Teams bots (successor of Bot Framework SDK). |
 | aioimaplib / aiosmtplib | 2.0.3 / 5.1.3 | Email channel: inbound IMAP polling, outbound SMTP relay. |
 | croniter | 6.2.4 | Validate cron expressions and compute `next_run_at` for display (Temporal schedules do the actual firing). |
+| python-dateutil | 2.9.0.post0 | Parse the dates a document quote uses when the extracted value is normalised. |
 | structlog | 26.1.0 | Structured JSON logs with trace correlation. |
 | opentelemetry-sdk / -exporter-otlp | 1.45.1 | Traces and metrics (GenAI semantic conventions). |
 | opentelemetry-instrumentation-fastapi / -httpx / -sqlalchemy | 0.66b1 | Auto-instrumentation of inbound HTTP, outbound HTTP and DB. |

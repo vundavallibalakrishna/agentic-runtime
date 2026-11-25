@@ -62,6 +62,21 @@
             "maxWallClockS": 900,
             "maxToolCalls": 24,
             "maxParallelToolCalls": 1
+          },
+          "settingsSchema": {
+            "type": "object",
+            "required": [
+              "approvalGroup"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "approvalGroup": {
+                "type": "string"
+              }
+            }
+          },
+          "settings": {
+            "approvalGroup": "scenario-reviewers"
           }
         }
       },

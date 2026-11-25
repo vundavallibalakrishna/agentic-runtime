@@ -206,7 +206,7 @@ class ApprovalBook:
         user_id: uuid.UUID,
         run_id: uuid.UUID | None,
         agent_id: uuid.UUID | None,
-        tool_call_id: uuid.UUID,
+        tool_call_id: uuid.UUID | None,
         qualified_name: str,
         risk_class: str,
         args_hash: str,

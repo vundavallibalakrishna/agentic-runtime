@@ -95,7 +95,6 @@ class WebhookDelivery(Base):
     __table_args__ = (
         CheckConstraint("status IN ('pending','succeeded','failed','dead')", name="status"),
         CheckConstraint("(webhook_id IS NOT NULL) <> (target_url IS NOT NULL)", name="target"),
-        UniqueConstraint("webhook_id", "outbox_event_id", name="uq_webhook_delivery_event"),
         UniqueConstraint("outbox_event_id", "target_url", name="uq_webhook_delivery_url"),
         Index("ix_webhook_deliveries_tenant", "tenant_id", "webhook_id", text("created_at DESC")),
     )

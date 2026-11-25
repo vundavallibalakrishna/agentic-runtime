@@ -276,6 +276,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_VECTOR_PG_EF_SEARCH` | `100` | `hnsw.ef_search` for knowledge searches on pgvector | [spec 10](../03-specs/10-knowledge.md#73-hybrid-query-one-sql-statement-per-search) |
 | `AR_VECTOR_PG_READ_DSN` | (unset) | Optional read-replica DSN for knowledge searches on pgvector | [spec 10](../03-specs/10-knowledge.md#11-configuration), [scaling](scaling.md) |
 | `AR_WEBHOOK_ALLOW_PRIVATE` | `false` | Allow webhook targets in private ranges (dev only) | [spec 20](../03-specs/20-notifications-events.md) |
+| `AR_WEBHOOK_SWEEP_GRACE_S` | `120` | Extra seconds after a delivery is due before the sweep retries it while Temporal is up | [spec 20](../03-specs/20-notifications-events.md) |
+| `AR_EXTRACTION_BOOLEAN_SYNONYMS` | `yes,true,y;no,false,n` | Words a quote may use for true, then false, separated by a semicolon | [spec 24](../03-specs/24-documents.md) |
 
 ### 3.1 Variables added for records, grounding and packs
 

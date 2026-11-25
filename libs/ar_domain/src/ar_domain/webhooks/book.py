@@ -8,16 +8,17 @@ on rotate, and is not on the public row.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import uuid
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any
 
 from ar_common.errors import ConflictError, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_contracts.events import PUBLIC_TOPICS
 from ar_domain.tools.named_secrets import read_named_secret, write_named_secret
-
-if TYPE_CHECKING:
-    import uuid
 
 _STATUSES = frozenset({"active", "disabled", "failing"})
 
@@ -199,18 +200,29 @@ class WebhookBook:
         row = self.get_delivery(delivery_id)
         if row is None or row.get("webhook_id") != webhook_id or row.get("tenant_id") != tenant_id:
             raise NotFoundError("delivery not found")
-        event = _bucket(self.store, "outbox_events").get(row.get("outbox_event_id"))
-        topic = "webhook.test"
-        payload: dict[str, object] = {}
-        if isinstance(event, dict):
-            topic = str(event.get("topic") or topic)
-            body = event.get("payload")
-            if isinstance(body, dict):
-                payload = body
-        made = self.enqueue(tenant_id, topic, payload, webhook_id=webhook_id)
-        if not made:
+        event_id = row.get("outbox_event_id")
+        if not isinstance(event_id, uuid.UUID):
             raise NotFoundError("delivery not found")
-        return made[0]
+        if not isinstance(_bucket(self.store, "outbox_events").get(event_id), dict):
+            raise NotFoundError("delivery not found")
+        now = utcnow()
+        delivery_id = new_id()
+        delivery: dict[str, object] = {
+            "id": delivery_id,
+            "tenant_id": tenant_id,
+            "webhook_id": webhook_id,
+            "target_url": None,
+            "outbox_event_id": event_id,
+            "status": "pending",
+            "attempts": 0,
+            "last_status_code": None,
+            "last_error": None,
+            "next_attempt_at": now,
+            "created_at": now,
+            "updated_at": now,
+        }
+        _bucket(self.store, "webhook_deliveries")[delivery_id] = delivery
+        return delivery
 
     def get_delivery(self, delivery_id: uuid.UUID) -> dict[str, object] | None:
         row = _bucket(self.store, "webhook_deliveries").get(delivery_id)

@@ -264,7 +264,9 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_VECTOR_MIGRATION_RETAIN_HOURS",
         "AR_VECTOR_PG_EF_SEARCH",
         "AR_VECTOR_PG_READ_DSN",
+        "AR_EXTRACTION_BOOLEAN_SYNONYMS",
         "AR_WEBHOOK_ALLOW_PRIVATE",
+        "AR_WEBHOOK_SWEEP_GRACE_S",
     }
 ) | frozenset(
     {
@@ -341,6 +343,11 @@ class BaseServiceSettings(BaseSettings):
     # Off by default. An exact allowlist name may resolve to a private address only
     # when this is true. The air-gap overlay turns it on. Metadata addresses stay denied.
     egress_allow_named_private: bool = False
+    # Seconds after next_attempt_at before the webhook sweep retries a delivery
+    # that a Temporal workflow did not finish.
+    webhook_sweep_grace_s: int = 120
+    # Boolean words a quote may use. True synonyms, a semicolon, then false synonyms.
+    extraction_boolean_synonyms: str = "yes,true,y;no,false,n"
     # Extra trust anchor for outbound TLS. ``SSL_CERT_FILE`` wins when this is empty.
     ca_bundle: str = ""
     # Directory customer-database TLS files must live under. Client certificates

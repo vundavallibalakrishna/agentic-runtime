@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 import httpx
 
 from ar_common.egress_http import EgressDenied, current_allow, guard, sync_client
+from ar_common.logging import get_logger
+from ar_common.settings import get_settings
 from ar_common.time import utcnow
 from ar_domain.durable.after import run_off_request
 from ar_domain.events.sign import next_backoff_s, public_json_bytes, sign_body
@@ -23,6 +25,7 @@ from ar_domain.webhooks.book import WebhookBook, event_body
 if TYPE_CHECKING:
     from typing import Any
 
+_log = get_logger(__name__)
 _TIMEOUT_S = 10.0
 _HEADER = "X-AR-Signature"
 _EVENT = "X-AR-Event-Id"
@@ -138,9 +141,8 @@ def _fail(
 
 
 def sweep_due(store: Any) -> int:
-    """Retry deliveries that are due. A connected Temporal client owns the retries."""
-    if getattr(store, "temporal_client", None) is not None:
-        return 0
+    """Retry deliveries that are due. Temporal gets a grace period before this repeats them."""
+    grace = _grace_s() if getattr(store, "temporal_client", None) is not None else 0
     now = utcnow()
     bucket = getattr(store, "webhook_deliveries", {})
     if not isinstance(bucket, dict):
@@ -149,8 +151,7 @@ def sweep_due(store: Any) -> int:
     for row in list(bucket.values()):
         if not isinstance(row, dict) or row.get("status") not in {"pending", "failed"}:
             continue
-        due = row.get("next_attempt_at")
-        if isinstance(due, datetime) and due > now:
+        if not _past_due(row.get("next_attempt_at"), now, grace):
             continue
         delivery_id = row.get("id")
         if isinstance(delivery_id, uuid.UUID):
@@ -161,16 +162,26 @@ def sweep_due(store: Any) -> int:
 
 async def sweep_due_deliveries(store: Any) -> int:
     """The system worker's sweep. Postgres is read when this process has no rows of its own."""
-    if getattr(store, "temporal_client", None) is not None:
-        return 0
+    grace = _grace_s() if getattr(store, "temporal_client", None) is not None else 0
     from ar_domain.readmodel.model import RepositoryReadModel  # noqa: PLC0415
 
     if isinstance(store, RepositoryReadModel):
-        return await _sweep_postgres(store)
+        return await _sweep_postgres(store, grace)
     return sweep_due(store)
 
 
-async def _sweep_postgres(store: Any) -> int:
+def _grace_s() -> int:
+    raw = getattr(get_settings(), "webhook_sweep_grace_s", 120)
+    return raw if isinstance(raw, int) and raw >= 0 else 120
+
+
+def _past_due(due: object, now: datetime, grace_s: int) -> bool:
+    if not isinstance(due, datetime):
+        return True
+    return due + timedelta(seconds=grace_s) <= now
+
+
+async def _sweep_postgres(store: Any, grace_s: int) -> int:
     from sqlalchemy import text  # noqa: PLC0415
 
     from ar_domain.db.session import platform_session  # noqa: PLC0415
@@ -182,9 +193,11 @@ async def _sweep_postgres(store: Any) -> int:
                     text(
                         "SELECT id, tenant_id FROM webhook_deliveries "
                         "WHERE status IN ('pending', 'failed') "
-                        "AND (next_attempt_at IS NULL OR next_attempt_at <= now()) "
+                        "AND (next_attempt_at IS NULL "
+                        "OR next_attempt_at + make_interval(secs => :grace) <= now()) "
                         "LIMIT 50"
-                    )
+                    ),
+                    {"grace": grace_s},
                 )
             ).all()
     except Exception:  # noqa: BLE001 — no platform database means there is nothing to sweep
@@ -203,27 +216,32 @@ def _start_or_attempt(store: Any, delivery_id: uuid.UUID) -> None:
     client = getattr(store, "temporal_client", None)
     start = getattr(client, "start_workflow", None)
     if not callable(start):
-        run_off_request(store, lambda: attempt(store, delivery_id))
+        _after_commit_or_now(store, lambda: attempt(store, delivery_id))
         return
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        # A test or a script has no request loop. Deliver here so the result is visible.
-        attempt(store, delivery_id)
+        # No worker is polling. Deliver here, after the row is committed when it is durable.
+        _after_commit_or_now(store, lambda: attempt(store, delivery_id))
         return
     tenant_id = _tenant_of(store, delivery_id)
 
     def _go() -> None:
         _spawn(store, start, delivery_id, tenant_id)
 
+    _after_commit_or_now(store, _go)
+
+
+def _after_commit_or_now(store: Any, step: Any) -> None:
+    """A durable store waits until the row is committed. A script delivers now."""
     if getattr(store, "durable_engine", None) is not None:
         waiting = getattr(store, "after_commit", None)
         if not isinstance(waiting, list):
             waiting = []
             store.after_commit = waiting
-        waiting.append(_go)
+        waiting.append(step)
         return
-    _go()
+    run_off_request(store, step)
 
 
 def _tenant_of(store: Any, delivery_id: uuid.UUID) -> str:
@@ -253,5 +271,10 @@ async def _start(start: Any, delivery_id: uuid.UUID, tenant_id: str) -> None:
             id=f"whd-{delivery_id}",
             task_queue="ar-system",
         )
-    except Exception:  # noqa: BLE001 — the row stays pending for a later sweep
+    except Exception as exc:  # noqa: BLE001 — the row stays due so the sweep can retry it
+        _log.warning(
+            "webhook_workflow_start_failed",
+            delivery_id=str(delivery_id),
+            error=type(exc).__name__,
+        )
         return

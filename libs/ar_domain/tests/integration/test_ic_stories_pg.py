@@ -21,7 +21,7 @@ from ar_domain.approvals.review_link import decide_review, issue_review_token, l
 from ar_domain.approvals.service import ApprovalBook
 from ar_domain.chat.service import ChatService
 from ar_domain.config_docs.book import SettingsBook
-from ar_domain.documents.library import note_extraction_decision
+from ar_domain.documents.library import DocumentLibrary
 from ar_domain.durable.bind import bind_store
 from ar_domain.durable.flush import flush_store
 from ar_domain.identity.permissions import PERMISSION_KEYS
@@ -199,42 +199,55 @@ async def test_a_webhook_delivery_reloads_from_postgres(database_url: str) -> No
 
 async def test_an_extraction_correction_reloads(database_url: str) -> None:
     store, actor = await _ready(database_url)
-    run_id, agent_id, call_id = _run_and_call(store, actor)
-    approval = ApprovalBook(store).create_pending(
-        tenant_id=actor.tenant_id,
-        user_id=actor.user_id,
+    run_id, agent_id, _call_id = _run_and_call(store, actor)
+    document_id = uuid.uuid4()
+    store.library_documents[document_id] = {
+        "id": document_id,
+        "tenant_id": actor.tenant_id,
+        "owner_user_id": actor.user_id,
+        "title": "Report",
+        "filename": "report.txt",
+        "content_hash": "abc",
+        "passages": [{"text": "The report date is old.", "page": 1, "anchor": "p1"}],
+        "status": "ready",
+        "created_at": utcnow(),
+        "updated_at": utcnow(),
+    }
+    library = DocumentLibrary(store)
+    library._ask = lambda _actor, _alias: (  # type: ignore[method-assign]
+        lambda _prompt, _wrapped: (
+            '{"fields": {"report_date": {"value": "old", "quote": "not on the page", '
+            '"confidence": 0.9}}}'
+        )
+    )
+    body = library.extract(
+        actor,
+        document_id,
+        {
+            "type": "object",
+            "properties": {"report_date": {"type": "string"}},
+            "required": ["report_date"],
+        },
+        review=True,
         run_id=run_id,
         agent_id=agent_id,
-        tool_call_id=call_id,
-        qualified_name="documents.review_extraction",
-        risk_class="W2",
-        args_hash="hash",
-        arguments={"report_date": "old"},
-        requirement={"approvers": {"mode": "requester"}, "ttl_s": 3600},
-        reasons=["ask"],
-        preview={"title": "Extract"},
     )
-    extraction_id = uuid.uuid4()
-    store.document_extractions[extraction_id] = {
-        "id": extraction_id,
-        "tenant_id": actor.tenant_id,
-        "document_id": uuid.uuid4(),
-        "content_hash": "abc",
-        "schema_hash": "def",
-        "model_alias": "reasoning",
-        "strategy": "single",
-        "fields": [],
-        "result": {"report_date": "old"},
-        "corrections": [],
-        "approval_id": approval["id"],
-        "run_id": approval["run_id"],
-        "created_at": approval["created_at"],
-    }
+    approval_id = uuid.UUID(str(body["approval_id"]))
+    approval = store.approvals[approval_id]
+    assert approval["run_id"] == run_id
+    assert approval["agent_id"] == agent_id
     approval["status"] = "approved"
     approval["arguments"] = {"report_date": "new"}
+    from ar_domain.documents.library import note_extraction_decision
+
     note_extraction_decision(store, approval)
     await flush_store(store)
     loaded = await _reload(database_url)
+    saved_approval = loaded.approvals[approval_id]
+    assert saved_approval["status"] == "approved"
+    assert saved_approval["run_id"] == run_id
+    assert saved_approval["agent_id"] == agent_id
+    extraction_id = uuid.UUID(str(body["extraction_id"]))
     saved = loaded.document_extractions[extraction_id]
     assert saved["result"]["report_date"] == "new"
     assert saved["corrections"][0]["diff"][0]["after"] == "new"
@@ -252,15 +265,23 @@ async def test_settings_versions_reload(database_url: str) -> None:
         "properties": {"limit": {"type": "integer"}, "note": {"type": "string"}},
         "additionalProperties": False,
     }
+    agent = store.ensure_assistant(actor.tenant_id, actor.user_id)
     book = SettingsBook(store)
-    book.save(actor.tenant_id, actor.user_id, "agent", "scan", schema, {"limit": 1})
-    book.save(actor.tenant_id, actor.user_id, "agent", "scan", wider, {"limit": 1, "note": "a"})
+    book.save(actor.tenant_id, actor.user_id, "agent", "assistant", schema, {"limit": 1})
+    book.save(
+        actor.tenant_id, actor.user_id, "agent", "assistant", wider, {"limit": 1, "note": "a"}
+    )
     await flush_store(store)
     loaded = await _reload(database_url)
     read = dispatch_settings(
         loaded,
         "read",
-        {"_tenant_id": actor.tenant_id, "resourceType": "agent", "resourceId": "scan"},
+        {
+            "_tenant_id": actor.tenant_id,
+            "_agent_id": agent["id"],
+            "resourceType": "agent",
+            "resourceId": "assistant",
+        },
     )
     assert read["structured"]["version"] == 2
     assert read["structured"]["document"]["note"] == "a"

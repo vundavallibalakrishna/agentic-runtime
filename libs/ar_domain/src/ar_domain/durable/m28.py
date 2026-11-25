@@ -291,10 +291,7 @@ async def save_approvals(session: AsyncSession, rows: list[dict[str, Any]]) -> N
         if None in {
             approval_id,
             as_uuid(row.get("tenant_id")),
-            as_uuid(row.get("tool_call_id")),
-            as_uuid(row.get("run_id")),
             as_uuid(row.get("requested_for_user_id")),
-            as_uuid(row.get("agent_id")),
         }:
             continue
         now = utcnow()
