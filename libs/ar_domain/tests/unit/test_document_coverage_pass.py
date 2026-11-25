@@ -1002,7 +1002,7 @@ def test_more_extract_library_and_lifecycle_edges(monkeypatch: pytest.MonkeyPatc
     )
     fields = extracted.get("fields")
     when = next(item for item in fields if isinstance(item, dict) and item.get("path") == "when")
-    assert when["status"] == "missing"
+    assert when["status"] == "invalid"
     store.originals = {}
     with pytest.raises(NotFoundError):
         library.original(actor, document_id)

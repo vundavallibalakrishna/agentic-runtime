@@ -154,7 +154,10 @@ def test_member_edges_and_connection_redaction() -> None:
     original_book = connections.ConnectionBook
     original_headers = connections._headers
     connections.ConnectionBook = _Book  # type: ignore[misc]
-    connections._headers = lambda _row: ({"Authorization": "Bearer secret-token"}, "secret-token")  # type: ignore[assignment]
+    connections._headers = lambda _store, _row: (  # type: ignore[assignment]
+        {"Authorization": "Bearer secret-token"},
+        "secret-token",
+    )
     try:
         added = asyncio.run(
             add_member(

@@ -12,6 +12,7 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.approvals.logic import can_decide
 from ar_domain.approvals.review_link import decide_review, issue_review_token, link_deadline
@@ -68,23 +69,45 @@ async def _reload(database_url: str) -> ChatService:
     return store
 
 
-def _run_and_agent(store: ChatService) -> tuple[uuid.UUID, uuid.UUID]:
-    run = next(iter(store.runs.values()), None)
-    agent = next(iter(store.agents.values()), None)
-    if not isinstance(run, dict) or not isinstance(agent, dict):
-        pytest.skip("the dev tenant has no run to attach")
-    return run["id"], agent["id"]  # type: ignore[return-value]
+def _run_and_call(store: ChatService, actor: Actor) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+    """A run and a tool call the approval's foreign keys can point at."""
+    agent = store.ensure_assistant(actor.tenant_id, actor.user_id)
+    posted = store.create_api_run(
+        actor.tenant_id,
+        actor.user_id,
+        uuid.UUID(str(agent["id"])),
+        "review",
+        callback_url=None,
+        on_behalf_of=None,
+        allow_on_behalf=False,
+        permissions=["chat:use"],
+    )
+    run = posted["run"]
+    assert isinstance(run, dict)
+    run_id = uuid.UUID(str(run["id"]))
+    call_id = uuid.uuid4()
+    store.tool_calls[call_id] = {
+        "id": call_id,
+        "tenant_id": actor.tenant_id,
+        "run_id": run_id,
+        "qualified_name": "pack.example",
+        "args_hash": "hash-1",
+        "status": "awaiting_approval",
+        "idempotency_key": f"{run_id}:{call_id}",
+        "created_at": utcnow(),
+    }
+    return run_id, uuid.UUID(str(agent["id"])), call_id
 
 
 async def test_a_review_link_decision_is_still_there_after_reload(database_url: str) -> None:
     store, actor = await _ready(database_url)
-    run_id, agent_id = _run_and_agent(store)
+    run_id, agent_id, call_id = _run_and_call(store, actor)
     row = ApprovalBook(store).create_pending(
         tenant_id=actor.tenant_id,
         user_id=actor.user_id,
         run_id=run_id,
         agent_id=agent_id,
-        tool_call_id=uuid.uuid4(),
+        tool_call_id=call_id,
         qualified_name="pack.example",
         risk_class="W2",
         args_hash="hash-1",
@@ -130,13 +153,13 @@ async def test_a_webhook_delivery_reloads_from_postgres(database_url: str) -> No
 
 async def test_an_extraction_correction_reloads(database_url: str) -> None:
     store, actor = await _ready(database_url)
-    run_id, agent_id = _run_and_agent(store)
+    run_id, agent_id, call_id = _run_and_call(store, actor)
     approval = ApprovalBook(store).create_pending(
         tenant_id=actor.tenant_id,
         user_id=actor.user_id,
         run_id=run_id,
         agent_id=agent_id,
-        tool_call_id=uuid.uuid4(),
+        tool_call_id=call_id,
         qualified_name="documents.review_extraction",
         risk_class="W2",
         args_hash="hash",
@@ -222,13 +245,13 @@ async def test_scenario_versions_and_four_eyes_reload(database_url: str) -> None
             "reason": "revised",
         },
     )
-    run_id, agent_id = _run_and_agent(store)
+    run_id, agent_id, call_id = _run_and_call(store, actor)
     approval = ApprovalBook(store).create_pending(
         tenant_id=actor.tenant_id,
         user_id=actor.user_id,
         run_id=run_id,
         agent_id=agent_id,
-        tool_call_id=uuid.uuid4(),
+        tool_call_id=call_id,
         qualified_name="extensions.compare",
         risk_class="W2",
         args_hash="hash",

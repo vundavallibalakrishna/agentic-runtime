@@ -168,10 +168,12 @@ def test_render_and_activity_helpers() -> None:
     assert should_ignore({"type": "message", "channel_type": "channel"}, allowed=[]) == "ignore"
     assert action_value('{"decision": "approve"}')["decision"] == "approve"
     assert action_value("nope") == {}
-    assert approval_blocks("a", "h", step_up=True, web_url="/approvals")[0]["text"] == "Open in web"
-    card = adaptive_card("hi", approval_id="a", args_hash="h")
+    opened = approval_blocks("a", "h", step_up=True, web_url="/approvals")[0]["elements"]
+    assert isinstance(opened, list)
+    assert opened[0]["text"]["text"] == "Open in web"
+    card = adaptive_card("hi", approval_id="a", args_hash="h", interactive=True)
     assert card["actions"]
-    stepped = adaptive_card("hi", step_up=True)
+    stepped = adaptive_card("hi", step_up=True, web_url="/approvals")
     assert stepped["actions"]
     assert "<script>" not in render_email_html("hello <script>bad()</script> onclick=x")
     welcome = welcome_or_message({"type": "conversationUpdate", "text": ""})
