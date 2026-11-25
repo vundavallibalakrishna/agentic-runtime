@@ -71,6 +71,7 @@ async def test_routine_reload_recovers_signing_key_status_and_dry_run_without_di
         ],
         "routines": [{"id": routine, "name": "Saved", "webhook_secret_ref_id": secret}],
         "routine_events": [{"id": event, "status": "accepted", "envelope": {"dry_run": True}}],
+        "group_members": [],
     }
 
     async def query(session, sql, tenant_id):
