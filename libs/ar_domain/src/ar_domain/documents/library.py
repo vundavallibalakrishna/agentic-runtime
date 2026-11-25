@@ -778,9 +778,9 @@ class DocumentLibrary:
         from ar_domain.documents.evidence import (  # noqa: PLC0415
             choose_strategy,
             chunks_for,
-            interpret,
             merge_interpretations,
             prompt_for,
+            response_schema,
             schema_hash,
         )
 
@@ -790,18 +790,23 @@ class DocumentLibrary:
         text = "\n\n".join(str(item.get("text") or "") for item in passages)
         strategy = choose_strategy(text, window)
         ask = self._ask(actor, alias)
+        shaped = response_schema(schema)
         groups = chunks_for(passages, window) or [passages]
         parts: list[dict[str, object]] = []
         for group in groups:
             evidence = "\n\n".join(
                 f"[{item.get('anchor')} p.{item.get('page')}] {item.get('text')}" for item in group
             )
-            raw = ask(prompt_for(schema), wrap_untrusted(source="document", content=evidence))
+            raw = ask(
+                prompt_for(schema),
+                wrap_untrusted(source="document", content=evidence),
+                shaped,
+            )
             if not isinstance(raw, str) or not raw.strip():
                 raise ArError(
                     ErrorCode.INVALID_STATE, "No model is configured, so nothing was extracted."
                 )
-            parts.append(interpret(raw, schema, group))
+            parts.append(_interpreted(ask, schema, group, evidence, raw, shaped))
         body = parts[0] if len(parts) == 1 else merge_interpretations(parts, schema, passages)
         body["document_id"] = str(document_id)
         body["strategy"] = strategy
@@ -838,6 +843,7 @@ class DocumentLibrary:
             "corrections": [],
             "approval_id": None,
             "run_id": run_id,
+            "status": "done",
             "created_at": utcnow(),
         }
         book = getattr(self.store, "document_extractions", None)
@@ -927,6 +933,7 @@ class DocumentLibrary:
                 if str(item.get("id")) == str(extraction_id):
                     item["approval_id"] = created.get("id")
                     item["run_id"] = run_id
+                    item["status"] = "awaiting_approval"
 
     def edit(
         self,
@@ -1594,10 +1601,46 @@ def retarget_extraction(store: Any, old_id: object, new_id: object) -> None:
             item["approval_id"] = new_id
 
 
+def _interpreted(  # noqa: PLR0917
+    ask: Any,
+    schema: dict[str, object],
+    group: list[dict[str, object]],
+    evidence: str,
+    raw: str,
+    response: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Parse one answer. A bad answer is sent back once, then the error is the result."""
+    from ar_common.wrapping import wrap_untrusted  # noqa: PLC0415
+    from ar_domain.documents.evidence import interpret, prompt_for  # noqa: PLC0415
+
+    try:
+        return interpret(raw, schema, group)
+    except ArError as first:
+        repair = (
+            prompt_for(schema)
+            + "\nThe previous answer could not be read ("
+            + str(first.detail or first)
+            + "). Return only the JSON object."
+        )
+        again = ask(repair, wrap_untrusted(source="document", content=evidence), response)
+        if not isinstance(again, str) or not again.strip():
+            raise ArError(
+                ErrorCode.INVALID_STATE, "The extraction was not JSON."
+            ) from first
+        try:
+            return interpret(again, schema, group)
+        except ArError as second:
+            raise ArError(
+                ErrorCode.INVALID_STATE,
+                "The extraction was not JSON.",
+            ) from second
+
+
 def note_extraction_decision(store: Any, approval: dict[str, object]) -> None:
     """Write the approved values and their diff onto the extraction, then audit it."""
     if str(approval.get("qualified_name") or "") != "documents.review_extraction":
         return
+    _settle_extraction(store, approval)
     if approval.get("status") != "approved":
         return
     book = getattr(store, "document_extractions", {})
@@ -1639,3 +1682,19 @@ def note_extraction_decision(store: Any, approval: dict[str, object]) -> None:
         target_id=record.get("id"),
         detail={"diff": diff},
     )
+
+
+def _settle_extraction(store: Any, approval: dict[str, object]) -> None:
+    """Move the extraction and its review call off awaiting_approval."""
+    decision = str(approval.get("status") or "")
+    done = decision == "approved"
+    book = getattr(store, "document_extractions", {})
+    if isinstance(book, dict):
+        for item in book.values():
+            if isinstance(item, dict) and item.get("approval_id") == approval.get("id"):
+                item["status"] = "done" if done else decision or "failed"
+    calls = getattr(store, "tool_calls", {})
+    call_id = approval.get("tool_call_id")
+    call = calls.get(call_id) if isinstance(calls, dict) else None
+    if isinstance(call, dict) and call.get("status") == "awaiting_approval":
+        call["status"] = "succeeded" if done else "failed"
