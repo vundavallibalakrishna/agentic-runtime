@@ -6,8 +6,7 @@ Spec: docs/03-specs/14-skills.md §4. Instructions are trusted author content.
 import uuid
 from typing import TYPE_CHECKING
 
-from ar_common.sandboxkit import confine
-from ar_domain.sandboxes.runtime import ensure_scope, workspace_root
+from ar_domain.sandboxes.runtime import ensure_scope, write_computer_file
 from ar_domain.skills.book import SkillBook
 from ar_domain.skills.logic import as_int, highest_match, split_skill_ref
 from ar_domain.skills.metrics import SKILL_LOADS
@@ -98,8 +97,8 @@ def _write_assets(
     sandbox = _ensure(store, run)
     if sandbox is None:
         return []
-    root = workspace_root(uuid.UUID(str(sandbox["id"])))
     slug = str(skill.get("slug"))
+    reachable = bool(sandbox.get("endpoint_url"))
     manifest: list[dict[str, object]] = []
     for item in assets:
         if not isinstance(item, dict):
@@ -113,15 +112,12 @@ def _write_assets(
             blob = str(item["text"]).encode()
         if not isinstance(blob, bytes):
             continue
-        target = confine(root, f"/workspace/.skills/{slug}/{path}")
-        digest = str(item.get("sha256") or "")
-        if target.is_file() and target.read_bytes() == blob:
-            mounted = True
-        else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(blob)
-            mounted = True
-        manifest.append({"path": path, "sha256": digest, "mounted": mounted})
+        # The asset is written on the computer, through its agent. With no computer
+        # running it is listed and marked as not there.
+        mounted = reachable and (
+            write_computer_file(sandbox, f"/workspace/.skills/{slug}/{path}", blob) is None
+        )
+        manifest.append({"path": path, "sha256": str(item.get("sha256") or ""), "mounted": mounted})
     return manifest
 
 

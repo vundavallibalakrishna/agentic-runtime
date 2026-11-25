@@ -217,7 +217,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_S3_SSE` | `AES256` | `none` to disable | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_SAAS_SELF_SIGNUP` | `false` | Unused. Self-serve signup was removed in Stage 7 and this flag does not mount a route | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_SANDBOX_ALLOWED_REGISTRIES` | `registry.local/ar` | Registries sandbox template images may come from | [spec 12](../03-specs/12-sandbox-manager.md) |
-| `AR_SANDBOX_ALLOW_UNISOLATED` | `false` | Whether a sandbox may run without kernel isolation (the `docker` driver, or an empty one that runs on the host). Off in production. A setting of the install, not a consequence of `AR_ENV`. | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_ALLOW_UNISOLATED` | `false` | Whether a sandbox may run without kernel isolation (the `docker` driver). Nothing runs on the host itself, whatever this is set to. Off in production. A setting of the install, not a consequence of `AR_ENV`. | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DOCKER_NETWORK` | empty | Internal Docker network for sandbox containers. Compose sets `agentic-runtime_sandbox`. | [compose](compose.md) |
 | `AR_SANDBOX_DOCKER_NETWORK` | empty | Internal docker network the in-process launcher attaches a sandbox container to; empty publishes the agent port to loopback (dev) | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DOCKER_RUNTIME` | `runc` | `runsc` if installed | [spec 12](../03-specs/12-sandbox-manager.md) |

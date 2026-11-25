@@ -12,16 +12,12 @@ import contextlib
 import hashlib
 import os
 import shutil
-import signal
-import subprocess
 import sys
-import tarfile
 import tempfile
 import threading
 import time
 import uuid
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -40,20 +36,12 @@ from ar_common.logging import get_logger
 from ar_common.offload import blocking
 from ar_common.sandboxkit import (
     DEFAULT_DENY_CIDRS,
-    PathEscapeError,
     allowed_hosts,
-    clean_env,
-    confine,
-    curl_host,
     host_denied,
-    package_install,
     sanitise_name,
-    truncate_output,
-    virtual_path,
 )
 from ar_common.settings import (
     get_settings,
-    host_exec_allowed,
     install_id,
     loopback_allowed,
     wildcard_egress_allowed,
@@ -171,24 +159,16 @@ def run_tool(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
     sandbox = book["sandbox"]
     if not isinstance(sandbox, dict):
         return _error("sandbox_unavailable", "the computer is not ready")
-    root = workspace_root(uuid.UUID(str(sandbox["id"])))
-    # A container endpoint runs the tool inside the sandbox. An empty endpoint is host
-    # bash in dev and CI only. Everywhere else the tool does not run.
-    remote = bool(sandbox.get("endpoint_url"))
-    if not remote and not host_exec_allowed():
-        return _error("sandbox_unavailable", "the computer is not ready")
-    if name == "exec":
-        return (
-            _exec_remote(store, sandbox, arguments)
-            if remote
-            else _exec(store, sandbox, root, arguments)
-        )
-    if name == "read_file":
-        return _proxy(sandbox, "read_file", arguments) if remote else _read(root, arguments)
-    if name == "write_file":
-        return _proxy(sandbox, "write_file", arguments) if remote else _write(root, arguments)
-    if name == "list_files":
-        return _proxy(sandbox, "list_files", arguments) if remote else _list(root, arguments)
+    # A command runs and a file lives on the computer, through its agent, and nowhere
+    # else: with no computer running the tool says so, in every environment.
+    if name in {"exec", "read_file", "write_file", "list_files"}:
+        if not sandbox.get("endpoint_url"):
+            return _error("sandbox_unavailable", _NO_COMPUTER)
+        if name == "exec":
+            return _exec_refusal(store, sandbox, arguments) or _exec_remote(
+                store, sandbox, arguments
+            )
+        return _proxy(sandbox, name, arguments)
     if name.startswith("browser_") or name in {
         "navigate",
         "snapshot",
@@ -250,10 +230,9 @@ class SandboxStartError(RuntimeError):
 def _launch(store: Any, row: dict[str, object], token: str) -> None:
     """Start a container or a pod for the row and stamp its endpoint.
 
-    With no launcher and no pod creator (the default install, or a test), ``endpoint_url``
-    stays ``None`` and the tools run on the dev host. A registered launcher or the sandbox
-    manager's pod creator has opted into isolation, so a failure to start is surfaced.
-    Only the sandbox manager holds a pod creator.
+    With no launcher and no pod creator ``endpoint_url`` stays ``None``, and a tool that
+    needs the computer says none is running. A failure to start is surfaced. Only the
+    sandbox manager holds a pod creator.
     """
     launcher = getattr(store, "sandbox_launcher", None)
     if isinstance(launcher, ComputersOff):
@@ -556,10 +535,9 @@ def suspend(store: Any, row: dict[str, object]) -> dict[str, object]:
 def _suspend(store: Any, row: dict[str, object]) -> dict[str, object]:
     """Suspend a computer whose scope the caller holds.
 
-    A container's working folder is copied out through its agent and kept as a file in
-    the object store; then the container is stopped and removed. A computer on the dev
-    host keeps its folder and only records the snapshot. When the folder cannot be
-    copied, ``SnapshotError`` is raised and the computer keeps running.
+    The working folder is copied out through the computer's agent and kept as a file in
+    the object store; then the container is stopped and removed. When the folder cannot
+    be copied, ``SnapshotError`` is raised and the computer keeps running.
     """
     from ar_domain.sandboxes import snapshot  # noqa: PLC0415
 
@@ -580,16 +558,24 @@ def _suspend(store: Any, row: dict[str, object]) -> dict[str, object]:
         row["endpoint_url"] = None
         row["updated_at"] = utcnow()
         return row
-    root = workspace_root(uuid.UUID(str(row["id"])))
+    if not row.get("endpoint_url"):
+        # Nothing is running, so there is nothing to copy out: an earlier snapshot stays.
+        row["status"] = "suspended"
+        row["updated_at"] = utcnow()
+        return row
     row["status"] = "suspending"
     try:
-        if row.get("endpoint_url"):
-            limit = get_settings().sandbox_snapshot_max_mb * 1024 * 1024
-            blob, mime, manifest = snapshot.take(row, max_bytes=limit), snapshot.MIME, []
-        else:
-            blob, mime, manifest = _tar(root / "workspace"), "application/x-tar", _manifest(root)
+        limit = get_settings().sandbox_snapshot_max_mb * 1024 * 1024
+        # The list a suspended computer shows is taken now, while it can still be asked.
+        manifest = computer_listing(row, "/workspace", recursive=True)
+        blob = snapshot.take(row, max_bytes=limit)
         saved = _store_blob(
-            store, row, name=f"{row['id']}.tar", mime=mime, data=blob, kind="sandbox_snapshot"
+            store,
+            row,
+            name=f"{row['id']}.tar",
+            mime=snapshot.MIME,
+            data=blob,
+            kind="sandbox_snapshot",
         )
     except snapshot.SnapshotError:
         row["status"] = "ready"
@@ -731,7 +717,11 @@ def end_conversation_computers(
 def list_workspace(
     row: dict[str, object], path: str, *, recursive: bool
 ) -> list[dict[str, object]]:
-    """List files. A suspended computer is listed from its snapshot manifest."""
+    """List a computer's files, by asking the computer.
+
+    A suspended computer is listed from the list taken when it was suspended. With no
+    computer running there is nothing to list.
+    """
     if row.get("status") == "suspended":
         manifest = row.get("manifest")
         items = manifest if isinstance(manifest, list) else []
@@ -741,46 +731,89 @@ def list_workspace(
             for item in items
             if isinstance(item, dict) and str(item.get("path", "")).startswith(prefix)
         ]
-    root = workspace_root(uuid.UUID(str(row["id"])))
-    try:
-        base = confine(root, path or "/workspace")
-    except PathEscapeError as exc:
-        raise ValueError(str(exc)) from exc
-    if not base.exists():
+    if not row.get("endpoint_url"):
         return []
-    found: list[dict[str, object]] = []
-    walker = base.rglob("*") if recursive else base.iterdir()
-    for entry in walker:
-        if len(found) >= 1000:
-            break
-        stat = entry.stat()
-        found.append(
+    return computer_listing(row, path or "/workspace", recursive=recursive)
+
+
+def computer_listing(
+    sandbox: dict[str, object], path: str, *, recursive: bool
+) -> list[dict[str, object]]:
+    """What the computer's agent lists under ``path``: each entry's path, name, kind and size."""
+    body = _agent_post(
+        sandbox, "list_files", {"path": path, "recursive": recursive, "max_entries": 1000}
+    )
+    if body.get("is_error"):
+        if body.get("code") == "validation_failed":
+            raise ValueError(str(body.get("text") or "the path is not in the working folder"))
+        return []
+    raw = body.get("structured")
+    structured = raw if isinstance(raw, dict) else {}
+    now = utcnow().isoformat()
+    detailed = structured.get("items")
+    found: list[dict[str, object]]
+    if isinstance(detailed, list):
+        found = [
             {
-                "path": virtual_path(root, entry),
-                "name": entry.name,
-                "type": "dir" if entry.is_dir() else "file",
-                "size_bytes": 0 if entry.is_dir() else stat.st_size,
-                "modified_at": utcnow().isoformat(),
+                "path": str(item.get("path") or ""),
+                "name": str(item.get("name") or ""),
+                "type": "dir" if item.get("type") == "dir" else "file",
+                "size_bytes": as_int(item.get("size_bytes"), 0),
+                "modified_at": now,
             }
-        )
+            for item in detailed
+            if isinstance(item, dict) and item.get("path")
+        ]
+    else:
+        # An agent from before the list carried details names its entries only.
+        entries = structured.get("entries")
+        found = [
+            {
+                "path": str(entry),
+                "name": str(entry).rsplit("/", 1)[-1],
+                "type": "file",
+                "size_bytes": 0,
+                "modified_at": now,
+            }
+            for entry in (entries if isinstance(entries, list) else [])
+        ]
     found.sort(key=lambda item: str(item["path"]))
     return found
 
 
 def read_workspace(row: dict[str, object], path: str) -> bytes:
-    """Read one workspace file. A suspended computer must be resumed first."""
+    """Read one file from the computer. A suspended computer must be resumed first."""
     if row.get("status") == "suspended":
         raise ValueError("resume the computer before reading a file")
-    root = workspace_root(uuid.UUID(str(row["id"])))
-    try:
-        target = confine(root, path)
-    except PathEscapeError as exc:
-        raise ValueError(str(exc)) from exc
-    if not target.is_file():
+    if not row.get("endpoint_url"):
         raise FileNotFoundError(path)
-    if target.stat().st_size > 100 * 1024 * 1024:
-        raise ValueError("file is larger than 100 MiB")
-    return target.read_bytes()
+    data = read_computer_file(row, path)
+    if data is None:
+        raise FileNotFoundError(path)
+    return data
+
+
+def write_computer_file(sandbox: dict[str, object], path: str, data: bytes) -> str | None:
+    """Write one file on the computer, piece by piece. Returns why it failed, or None."""
+    pieces = [data[at : at + _WRITE_PIECE] for at in range(0, len(data), _WRITE_PIECE)] or [b""]
+    for index, piece in enumerate(pieces):
+        sent = _agent_post(
+            sandbox,
+            "write_file",
+            {
+                "path": path,
+                "content": base64.b64encode(piece).decode("ascii"),
+                "encoding": "base64",
+                "append": index > 0,
+            },
+        )
+        if sent.get("is_error"):
+            return str(sent.get("text") or "the computer did not take the file")
+    return None
+
+
+# A file goes to the computer in pieces under the agent's limit for one write.
+_WRITE_PIECE = 4 * 1024 * 1024
 
 
 def _resume(store: Any, row: dict[str, object]) -> dict[str, object]:
@@ -802,11 +835,8 @@ def _resume(store: Any, row: dict[str, object]) -> dict[str, object]:
     if launcher is not None and row.get("driver") == "docker":
         _resume_container(store, row, blob, expected=isinstance(snapshot_id, uuid.UUID))
     else:
-        root = workspace_root(uuid.UUID(str(row["id"])))
-        if blob:
-            _untar(root / "workspace", blob)
-        (root / "workspace").mkdir(parents=True, exist_ok=True)
-        (root / "tmp").mkdir(parents=True, exist_ok=True)
+        # This process cannot start a computer. The row is live again, and a tool that
+        # needs the computer says none is running.
         row["status"] = "ready"
     if row["status"] != "ready":
         return row
@@ -898,6 +928,28 @@ def _proxy(
     }
 
 
+def _exec_refusal(
+    store: Any, sandbox: dict[str, object], arguments: dict[str, object]
+) -> dict[str, object] | None:
+    """Why a command is not sent to the computer, or None when it may be.
+
+    A package install is refused where the template does not allow one, and a command
+    that names a host is refused when the host is not on the allow list. The computer's
+    own network rules apply as well; this says no before the command leaves.
+    """
+    from ar_common.sandboxkit import curl_host, package_install  # noqa: PLC0415
+
+    command = str(arguments.get("command") or "")
+    template = _by_id(store, sandbox.get("template_id")) or {}
+    if package_install(command) and template.get("allow_packages") is not True:
+        return _error("egress_denied", "package installs are not allowed on this computer")
+    host = curl_host(command)
+    if host is not None and not _host_ok(store, sandbox, template, host):
+        _deny(store, sandbox, host)
+        return _error("egress_denied", f"{host} is not on the egress allowlist")
+    return None
+
+
 def _exec_remote(
     store: Any, sandbox: dict[str, object], arguments: dict[str, object]
 ) -> dict[str, object]:
@@ -986,74 +1038,6 @@ def _export_from_agent(
     return exported
 
 
-def _exec(
-    store: Any, sandbox: dict[str, object], root: Path, arguments: dict[str, object]
-) -> dict[str, object]:
-    command = str(arguments.get("command") or "")
-    template = _by_id(store, sandbox.get("template_id")) or {}
-    if package_install(command) and template.get("allow_packages") is not True:
-        return _error("egress_denied", "package installs are not allowed on this computer")
-    host = curl_host(command)
-    if host is not None and not _host_ok(store, sandbox, template, host):
-        _deny(store, sandbox, host)
-        return _error("egress_denied", f"{host} is not on the egress allowlist")
-    timeout = as_int(arguments.get("timeout_s"), as_int(template.get("exec_timeout_s"), 120))
-    timeout = max(1, min(timeout, as_int(template.get("exec_timeout_s"), 120)))
-    cwd = _cwd(root, str(arguments.get("cwd") or "/workspace"))
-    env = clean_env(_env(arguments.get("env")))
-    env["SANDBOX_WORKSPACE"] = str(root / "workspace")
-    before = _output_stamp(root)
-    try:
-        code, stdout, stderr, truncated = blocking(
-            _popen, command, cwd=cwd, env=env, timeout=timeout
-        )
-    except PathEscapeError as exc:
-        return _error("validation_failed", str(exc))
-    new_files = _new_outputs(root, before)
-    exported = _auto_export(store, sandbox, root, new_files)
-    text = stdout or stderr or "done"
-    structured: dict[str, object] = {
-        "exit_code": code,
-        "stdout": stdout,
-        "stderr": stderr,
-        "truncated": truncated,
-        "duration_ms": 0,
-        "new_files": new_files,
-        "artifacts": [item["file_id"] for item in exported],
-    }
-    presentation = _image_presentation(exported)
-    if presentation is not None:
-        structured["presentation"] = presentation
-    return {
-        "text": text,
-        "structured": structured,
-        "is_error": code not in {0, None},
-        "streams": [{"stream": "stdout", "text": stdout}, {"stream": "stderr", "text": stderr}],
-    }
-
-
-def _popen(
-    command: str, *, cwd: Path, env: dict[str, str], timeout: int
-) -> tuple[int, str, str, bool]:
-    proc = subprocess.Popen(  # noqa: S603
-        ["/bin/bash", "-lc", command],
-        cwd=cwd,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=True,
-    )
-    try:
-        out, err = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        os.killpg(proc.pid, signal.SIGKILL)
-        out, err = proc.communicate()
-        text_out, text_err, truncated = truncate_output(out or b"", err or b"")
-        return 124, text_out, text_err or "timed out", True
-    text_out, text_err, truncated = truncate_output(out or b"", err or b"")
-    return proc.returncode or 0, text_out, text_err, truncated
-
-
 def _browser(
     store: Any,
     sandbox: dict[str, object],
@@ -1074,6 +1058,12 @@ def _browser(
         "The browser runs on the agent's computer, and no computer is running. "
         "An administrator starts computers in Settings.",
     )
+
+
+_NO_COMPUTER = (
+    "This runs on the agent's computer, and no computer is running. "
+    "An administrator starts computers in Settings."
+)
 
 
 def _use_connection(
@@ -1163,6 +1153,19 @@ def _remote_capture(
     }
 
 
+def _deny(store: Any, sandbox: dict[str, object], host: str) -> None:
+    remember(
+        store,
+        tenant_id=sandbox.get("tenant_id"),
+        actor_id=sandbox.get("user_id"),
+        action="sandbox.egress_denied",
+        target_type="sandbox",
+        target_id=sandbox.get("id"),
+        detail={"host": host},
+        outcome="failure",
+    )
+
+
 def _attach(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     file_id = _uuid(arguments.get("file_id"))
     from ar_domain.durability.store import read_blob  # noqa: PLC0415
@@ -1177,31 +1180,26 @@ def _attach(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     live = sandbox["sandbox"]
     if not isinstance(live, dict):
         return _error("sandbox_unavailable", "the computer is not ready")
-    root = workspace_root(uuid.UUID(str(live["id"])))
+    if not live.get("endpoint_url"):
+        return _error("sandbox_unavailable", _NO_COMPUTER)
     name = sanitise_name(str(row.get("name") or "upload"))
-    target = confine(root, str(arguments.get("path") or f"/workspace/inputs/{name}"))
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(bytes(blob))
-    return {
-        "text": f"copied {name}",
-        "structured": {"path": virtual_path(root, target)},
-        "is_error": False,
-    }
+    path = str(arguments.get("path") or f"/workspace/inputs/{name}")
+    problem = write_computer_file(live, path, bytes(blob))
+    if problem is not None:
+        return _error("validation_failed", problem)
+    return {"text": f"copied {name}", "structured": {"path": path}, "is_error": False}
 
 
 def save_artifact(
     store: Any, sandbox: dict[str, object], path: str, name: str = ""
 ) -> dict[str, object]:
-    """Copy one workspace file into the artifact catalogue."""
-    root = workspace_root(uuid.UUID(str(sandbox["id"])))
-    try:
-        target = confine(root, path)
-    except PathEscapeError as exc:
-        return _error("validation_failed", str(exc))
-    if not target.is_file():
+    """Copy one file from the computer into the artifact catalogue."""
+    if not sandbox.get("endpoint_url"):
+        return _error("sandbox_unavailable", _NO_COMPUTER)
+    data = read_computer_file(sandbox, path)
+    if data is None:
         return _error("not_found", "file was not found")
-    label = sanitise_name(name or target.name)
-    data = target.read_bytes()
+    label = sanitise_name(name or path.rsplit("/", 1)[-1])
     file_id = _store_blob(store, sandbox, name=label, mime=_mime(label), data=data, kind="artifact")
     _emit_artifact(store, sandbox, file_id=file_id, name=label, mime=_mime(label), size=len(data))
     return {
@@ -1235,22 +1233,13 @@ def _export_named(store: Any, arguments: dict[str, object]) -> dict[str, object]
 def _file_to_export(sandbox: dict[str, object], path: str) -> bytes | dict[str, object]:
     """The bytes of one file on the computer, or the error to return.
 
-    A container is read through its agent. With no container the file is on the dev
-    host, and anywhere else there is no computer to read from.
+    The file is read through the computer's agent. With no computer running there is
+    nothing to read from.
     """
-    if bool(sandbox.get("endpoint_url")):
-        data = read_computer_file(sandbox, path)
-        return _error("not_found", "file was not found") if data is None else data
-    if not host_exec_allowed():
-        return _error("sandbox_unavailable", "the computer is not ready")
-    root = workspace_root(uuid.UUID(str(sandbox["id"])))
-    try:
-        target = confine(root, path)
-    except PathEscapeError as exc:
-        return _error("validation_failed", str(exc))
-    if not target.is_file():
-        return _error("not_found", "file was not found")
-    return target.read_bytes()
+    if not sandbox.get("endpoint_url"):
+        return _error("sandbox_unavailable", _NO_COMPUTER)
+    data = read_computer_file(sandbox, path)
+    return _error("not_found", "file was not found") if data is None else data
 
 
 def _ensure_for_call(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -1310,14 +1299,12 @@ def _copy_inputs(store: Any, sandbox: dict[str, object], conversation_id: object
     from ar_domain.durability.store import read_blob  # noqa: PLC0415
     from ar_domain.files.attachments import conversation_attachments  # noqa: PLC0415
 
-    root = workspace_root(uuid.UUID(str(sandbox["id"])))
+    if not sandbox.get("endpoint_url"):
+        return
     for item in conversation_attachments(store, conversation_id):
         blob = read_blob(store, item.file_id)
-        if blob is None:
-            continue
-        target = confine(root, item.path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(bytes(blob))
+        if blob is not None:
+            write_computer_file(sandbox, item.path, bytes(blob))
 
 
 def host_permitted(
@@ -1344,19 +1331,6 @@ def _host_ok(
     if host not in hosts and "*" not in hosts:
         return False
     return not host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=loopback_allowed())
-
-
-def _deny(store: Any, sandbox: dict[str, object], host: str) -> None:
-    remember(
-        store,
-        tenant_id=sandbox.get("tenant_id"),
-        actor_id=sandbox.get("user_id"),
-        action="sandbox.egress_denied",
-        target_type="sandbox",
-        target_id=sandbox.get("id"),
-        detail={"host": host},
-        outcome="failure",
-    )
 
 
 def _resolve(host: str) -> list[str]:
@@ -1517,24 +1491,6 @@ def _emit_artifact(
             )
 
 
-def _auto_export(
-    store: Any, sandbox: dict[str, object], root: Path, paths: list[str]
-) -> list[dict[str, str]]:
-    exported: list[dict[str, str]] = []
-    for path in paths[:20]:
-        target = confine(root, path)
-        if not target.is_file() or target.stat().st_size > 100 * 1024 * 1024:
-            continue
-        data = target.read_bytes()
-        name = sanitise_name(target.name)
-        file_id = _store_blob(
-            store, sandbox, name=name, mime=_mime(name), data=data, kind="artifact"
-        )
-        _emit_artifact(store, sandbox, file_id=file_id, name=name, mime=_mime(name), size=len(data))
-        exported.append({"file_id": str(file_id), "name": name, "mime": _mime(name)})
-    return exported
-
-
 _IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp")
 
 
@@ -1554,134 +1510,6 @@ def _image_presentation(exported: list[dict[str, str]]) -> dict[str, object] | N
         "files": [{"file_id": item["file_id"], "name": item["name"]} for item in images],
         "truncated": False,
     }
-
-
-def _output_stamp(root: Path) -> dict[str, int]:
-    outputs = root / "workspace" / "outputs"
-    found: dict[str, int] = {}
-    if not outputs.exists():
-        return found
-    for path in outputs.rglob("*"):
-        if path.is_file():
-            found[str(path)] = path.stat().st_mtime_ns
-    return found
-
-
-def _new_outputs(root: Path, before: dict[str, int]) -> list[str]:
-    outputs = root / "workspace" / "outputs"
-    found: list[str] = []
-    if not outputs.exists():
-        return found
-    for path in outputs.rglob("*"):
-        if not path.is_file():
-            continue
-        stamp = path.stat().st_mtime_ns
-        if before.get(str(path)) != stamp:
-            found.append(virtual_path(root, path))
-    return found
-
-
-def _manifest(root: Path) -> list[dict[str, object]]:
-    base = root / "workspace"
-    if not base.exists():
-        return []
-    return [
-        {
-            "path": virtual_path(root, path),
-            "name": path.name,
-            "type": "dir" if path.is_dir() else "file",
-            "size_bytes": 0 if path.is_dir() else path.stat().st_size,
-            "modified_at": utcnow().isoformat(),
-        }
-        for path in base.rglob("*")
-    ]
-
-
-def _tar(workspace: Path) -> bytes:
-    buffer = BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w") as archive:
-        if workspace.exists():
-            archive.add(workspace, arcname="workspace")
-    return buffer.getvalue()
-
-
-def _untar(workspace: Path, blob: bytes) -> None:
-    workspace.parent.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(fileobj=BytesIO(blob), mode="r") as archive:
-        archive.extractall(workspace.parent, filter="data")
-
-
-def _cwd(root: Path, raw: str) -> Path:
-    path = confine(root, raw)
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def _read(root: Path, arguments: dict[str, object]) -> dict[str, object]:
-    try:
-        target = confine(root, str(arguments.get("path") or ""))
-    except PathEscapeError as exc:
-        return _error("validation_failed", str(exc))
-    if not target.is_file():
-        return _error("not_found", "file was not found")
-    data = target.read_bytes()
-    offset = max(0, as_int(arguments.get("offset"), 0))
-    limit = min(65536, as_int(arguments.get("limit"), 65536))
-    chunk = data[offset : offset + limit]
-    encoding = str(arguments.get("encoding") or "utf8")
-    content = chunk.decode("utf-8", errors="replace") if encoding != "base64" else _b64(chunk)
-    return {
-        "text": content,
-        "structured": {
-            "content": content,
-            "size_bytes": len(data),
-            "eof": offset + limit >= len(data),
-        },
-        "is_error": False,
-    }
-
-
-def _write(root: Path, arguments: dict[str, object]) -> dict[str, object]:
-    content = str(arguments.get("content") or "")
-    if len(content.encode()) > 10 * 1024 * 1024:
-        return _error("validation_failed", "file is larger than 10 MiB")
-    try:
-        target = confine(root, str(arguments.get("path") or ""))
-    except PathEscapeError as exc:
-        return _error("validation_failed", str(exc))
-    target.parent.mkdir(parents=True, exist_ok=True)
-    mode = "ab" if arguments.get("append") is True else "wb"
-    payload = content.encode()
-    with target.open(mode) as handle:
-        handle.write(payload)
-    return {
-        "text": f"wrote {len(payload)} bytes",
-        "structured": {"bytes_written": len(payload)},
-        "is_error": False,
-    }
-
-
-def _list(root: Path, arguments: dict[str, object]) -> dict[str, object]:
-    try:
-        base = confine(root, str(arguments.get("path") or "/workspace"))
-    except PathEscapeError as exc:
-        return _error("validation_failed", str(exc))
-    entries: list[dict[str, object]] = []
-    if base.exists():
-        walker = base.rglob("*") if arguments.get("recursive") is True else base.iterdir()
-        for entry in walker:
-            entries.append(
-                {
-                    "path": virtual_path(root, entry),
-                    "name": entry.name,
-                    "type": "dir" if entry.is_dir() else "file",
-                    "size_bytes": 0 if entry.is_dir() else entry.stat().st_size,
-                }
-            )
-            if len(entries) >= min(1000, as_int(arguments.get("max_entries"), 1000) or 1000):
-                break
-    text = "\n".join(str(item["path"]) for item in entries) or "empty"
-    return {"text": text, "structured": {"entries": entries}, "is_error": False}
 
 
 def _meter_session(store: Any, row: dict[str, object]) -> None:
@@ -1765,12 +1593,6 @@ def _tenant_allow(store: Any, tenant_id: object) -> list[str]:
     return _strings(settings.get("egress_allowlist"))
 
 
-def _env(value: object) -> dict[str, str]:
-    if not isinstance(value, dict):
-        return {}
-    return {str(key): str(item) for key, item in value.items()}
-
-
 def _strings(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -1792,12 +1614,6 @@ def _mime(name: str) -> str:
     from ar_domain.files.logic import mime_of_name  # noqa: PLC0415
 
     return mime_of_name(name, "application/octet-stream")
-
-
-def _b64(data: bytes) -> str:
-    import base64  # noqa: PLC0415
-
-    return base64.b64encode(data).decode("ascii")
 
 
 def _error(code: str, message: str) -> dict[str, object]:

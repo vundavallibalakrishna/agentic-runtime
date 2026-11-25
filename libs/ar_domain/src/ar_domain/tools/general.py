@@ -10,7 +10,6 @@ import ast
 import hashlib
 import os
 import re
-import sys
 import tempfile
 import time
 import uuid
@@ -24,7 +23,6 @@ import httpx
 
 from ar_common.egress_http import sync_client
 from ar_common.ids import new_id
-from ar_common.isolate import IsolatedRun, isolation_mode, run_isolated
 from ar_common.offload import blocking
 from ar_common.sandboxkit import (
     PathEscapeError,
@@ -32,7 +30,6 @@ from ar_common.sandboxkit import (
     relative_path,
     sanitise_name,
 )
-from ar_common.settings import host_exec_allowed
 from ar_common.time import utcnow
 from ar_domain.files.logic import object_key
 from ar_domain.rows import as_int
@@ -40,6 +37,8 @@ from ar_domain.tools.searching import SearchRejectedError, SearchUnavailableErro
 
 if TYPE_CHECKING:
     from typing import Any
+
+    from ar_common.isolate import IsolatedRun
 
 _MAX_FILE = 1_048_576
 _MAX_OUTPUT = 16_384
@@ -110,13 +109,13 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         arguments,
         root,
         "_agent.py",
-        interpreters=([sys.executable, "-I"], ["python3", "-I"]),
+        command=["python3", "-I"],
         limits=limits,
     )
     if isinstance(result, dict):
         return result
     files = _publish_new(store, arguments, root, before)
-    return _command_result("code", "python", _missing_package(_told(root, result, source)), files)
+    return _command_result("code", "python", _missing_package(result), files)
 
 
 def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -134,14 +133,11 @@ def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     root = _prepare(store, arguments)
     (root / "workspace" / "_agent.sh").write_text(command, encoding="utf-8")
     before = _stamp(root)
-    shell = "/bin/bash" if Path("/bin/bash").exists() else "/usr/bin/bash"
-    result = _run_script(
-        store, arguments, root, "_agent.sh", interpreters=([shell], ["/bin/bash"]), limits=limits
-    )
+    result = _run_script(store, arguments, root, "_agent.sh", command=["/bin/bash"], limits=limits)
     if isinstance(result, dict):
         return result
     files = _publish_new(store, arguments, root, before)
-    return _command_result("shell", command, _told(root, result, command), files)
+    return _command_result("shell", command, result, files)
 
 
 def _run_script(
@@ -150,33 +146,26 @@ def _run_script(
     root: Path,
     name: str,
     *,
-    interpreters: tuple[list[str], list[str]],
+    command: list[str],
     limits: dict[str, int | bool],
     args: tuple[str, ...] = (),
 ) -> IsolatedRun | dict[str, object]:
     """Run the script a tool wrote in this run's folder, and return the finished run.
 
-    Where this process has computers, the script runs in the conversation's computer.
-    A dev host with none runs it in the host's own isolation. Anywhere else the tool says
-    the computer is not ready: code never runs on a host that does not allow it.
-    ``interpreters`` is the command on the host and the command in the computer.
+    The script runs in the conversation's computer. Where this process has no way to
+    start one, the tool says so: code never runs on the machine the product runs on.
+    ``command`` is the interpreter and its flags, as the computer names them.
     """
     from ar_domain.sandboxes.folder_run import run_in_computer, runs_in_computer  # noqa: PLC0415
 
-    on_host, in_computer = interpreters
     timeout = _as_limit(limits["timeout_s"])
-    if runs_in_computer(store):
-        return run_in_computer(store, arguments, root, [*in_computer, name, *args], timeout=timeout)
-    if not host_exec_allowed():
-        return _error("sandbox_unavailable", "the computer is not ready")
-    return blocking(
-        run_isolated,
-        root,
-        [*on_host, _guest_path(root, name), *args],
-        timeout=timeout,
-        network=bool(limits["network"]),
-        max_file_bytes=_as_limit(limits["max_file_bytes"]),
-    )
+    if not runs_in_computer(store):
+        return _error(
+            "sandbox_unavailable",
+            "This runs on the agent's computer, and no computer is running. "
+            "An administrator starts computers in Settings.",
+        )
+    return run_in_computer(store, arguments, root, [*command, name, *args], timeout=timeout)
 
 
 def _read(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -655,32 +644,6 @@ def showing_last_value(source: str) -> str:
     )
 
 
-_NO_WORKSPACE = (
-    "This computer has no /workspace folder. The command started in the working folder: "
-    "use a path relative to it, such as inputs/data.csv or result.csv."
-)
-
-
-def _told(root: Path, result: IsolatedRun, script: str) -> IsolatedRun:
-    """The run's output as the model should read it.
-
-    Without a private root the command runs in the run's folder on the host, where
-    ``/workspace`` does not exist. The host's name for that folder is taken out of the
-    output, so a path the model reads there is one the tools take, and a command that
-    failed after naming ``/workspace`` is told what to use.
-    """
-    if result.mode == "namespace":
-        return result
-    stdout, stderr = result.stdout, result.stderr
-    folder = root / "workspace"
-    for base in sorted({str(folder.resolve()), str(folder)}, key=len, reverse=True):
-        stdout = stdout.replace(f"{base}/", "").replace(base, ".")
-        stderr = stderr.replace(f"{base}/", "").replace(base, ".")
-    if result.exit_code != 0 and "/workspace" in script:
-        stderr = f"{stderr.rstrip()}\n{_NO_WORKSPACE}".lstrip()
-    return replace(result, stdout=stdout, stderr=stderr)
-
-
 _NO_PACKAGE = (
     "That package is not installed here, and no other plotting package is either. "
     "To draw a chart call general.chart: give it path (a CSV or sheet in this folder) "
@@ -756,13 +719,6 @@ def no_such_file(root: Path, asked: str) -> str:
     shown = ", ".join(names[:_NAMED])
     more = f" and {len(names) - _NAMED} more" if len(names) > _NAMED else ""
     return f"Nothing is at {asked}. The working folder holds: {shown}{more}."
-
-
-def _guest_path(root: Path, name: str) -> str:
-    """Script path inside the namespace, or the host path when isolation is a subprocess."""
-    if isolation_mode() == "namespace":
-        return f"/workspace/{name}"
-    return str(root / "workspace" / name)
 
 
 def _prepare(store: Any, arguments: dict[str, object]) -> Path:
@@ -860,12 +816,6 @@ def _agent_hosts(store: Any, arguments: dict[str, object], tool: str) -> list[st
     override = _override(store, arguments, tool)
     extra = override.get("allow_hosts", override.get("allowHosts"))
     return [str(item) for item in extra if str(item).strip()] if isinstance(extra, list) else []
-
-
-def _allow_hosts(store: Any, arguments: dict[str, object], tool: str) -> list[str]:
-    """The organisation's hosts, for a caller that adds a host of its own to check."""
-    del tool
-    return _tenant_hosts(store, arguments)
 
 
 def host_refusal(store: Any, arguments: dict[str, object], tool: str, host: str) -> str | None:
@@ -1438,17 +1388,6 @@ def _mapping(value: object) -> dict[str, object]:
     return value if isinstance(value, dict) else {}
 
 
-def _uuid(value: object) -> uuid.UUID | None:
-    if isinstance(value, uuid.UUID):
-        return value
-    if isinstance(value, str):
-        try:
-            return uuid.UUID(value)
-        except ValueError:
-            return None
-    return None
-
-
 def _as_limit(raw: object) -> int:
     if isinstance(raw, bool) or not isinstance(raw, int):
         return _MAX_OUTPUT
@@ -1474,8 +1413,3 @@ def _error(code: str, message: str, *, attempts: int | None = None) -> dict[str,
         "is_error": True,
         "code": code,
     }
-
-
-def sandbox_mode() -> str:
-    """The isolation mode this process will use for code and shell."""
-    return isolation_mode()

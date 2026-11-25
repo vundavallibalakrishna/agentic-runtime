@@ -95,7 +95,17 @@ Only the sandbox manager starts and stops containers and pods outside `dev` and 
 `aiodocker`; one container per sandbox on network `ar-sandbox-net` (internal, no internet) with Squid, `sandbox-manager` and `mcp-gateway` attached to both networks (the same two callers the Kubernetes NetworkPolicy lets in); runtime `runc` (`runtime_class='runc_dev'`) unless `runsc` is installed (`AR_SANDBOX_DOCKER_RUNTIME=runsc`). Suspend, resume, labels and the orphan sweep are as §2.1 to §2.3 describe; the working folder is a tmpfs in the container, so the snapshot is read out through the agent's tools and not with `docker cp`. An unisolated driver (docker, or the host) is refused at startup unless `AR_SANDBOX_ALLOW_UNISOLATED` is set; it is a setting of the install, not a consequence of `AR_ENV`. Outside `dev` and `ci`, host bash does not run: an empty `endpoint_url` returns `sandbox_unavailable`, and Helm production accepts only the kubernetes driver. The manager starts the container from `AR_SANDBOX_IMAGE`; with no image named, `ensure` fails and names that setting. As built, the container joins `AR_SANDBOX_DOCKER_NETWORK` when one is set and otherwise publishes its agent port on loopback with open network access: the internal network with Squid described above is not wired for this driver ([OQ-132](../open-questions.md)).
 
 ### 4.3 `general.code` and `general.shell`
-The general tools keep one working folder per run. A process that has a place to start computers runs these two tools in the conversation's computer: the folder is copied in through the agent, the script runs in the agent's working folder, and the files it wrote are copied back, so the other general tools find them as before (`ar_domain.sandboxes.folder_run`). A dev host with no computers runs them in the host's own isolation. Anywhere else they return `sandbox_unavailable`.
+The general tools keep one working folder per run. A process that has a place to start computers runs these two tools in the conversation's computer: the folder is copied in through the agent, the script runs in the agent's working folder, and the files it wrote are copied back, so the other general tools find them as before (`ar_domain.sandboxes.folder_run`). With no place to start a computer they return `sandbox_unavailable`, in every environment.
+
+**As built (2026-11-25, [OQ-197](../open-questions.md)).** Nothing runs, and no file of a computer is read or written, on the machine the product runs on. Until this date `dev` and `ci` ran `exec`, `read_file`, `write_file`, `list_files`, `general.code`, `general.shell` and `general.run_entry` on the host when no container was running. That path is removed, with `host_exec_allowed`. Removing it showed that several features had only ever worked there, because a container does not share the host's folder for a computer. They now go through the computer's agent and work on a container install:
+
+- the computer panel's file list and download (`GET /api/v1/sandboxes/{id}/files`, `/files/content`);
+- save as artifact (`POST /api/v1/sandboxes/{id}/files:export`);
+- `attach_to_sandbox`, and the copy of a conversation's attachments onto a new computer;
+- a skill's asset files (`/workspace/.skills/{slug}/...`);
+- the file list of a suspended computer, which is taken through the agent just before the computer stops (it was empty for a container).
+
+The agent's `list_files` returns `items` (path, name, kind, size) beside `entries`; an agent from an older image returns `entries` only and the panel shows names without sizes. A package install and a command that names a host are still refused before the command is sent, by the template's `allow_packages` and the egress allow list.
 
 ## 5. Egress control
 

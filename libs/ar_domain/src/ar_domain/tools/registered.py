@@ -9,7 +9,6 @@ script printed.
 from __future__ import annotations
 
 import hashlib
-import sys
 import uuid
 from typing import TYPE_CHECKING
 
@@ -50,7 +49,7 @@ def run_entry(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         arguments,
         root,
         "model.py",
-        interpreters=([sys.executable, "-I"], ["python3"]),
+        command=["python3"],
         limits=limits,
         args=extra,
     )

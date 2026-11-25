@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-from ar_common.isolate import isolation_mode
 from ar_common.sandboxkit import PathEscapeError, confine, relative_path, working_path
 from ar_domain.demo_ids import demo_id
 from ar_domain.tools.general import dispatch_general
@@ -133,26 +132,6 @@ def test_another_conversation_does_not_see_the_files() -> None:
     read = dispatch_general(store, "read_file", {**other, "path": "private.txt"})
     assert read["is_error"] is True
     assert read["code"] == "not_found"
-
-
-def test_a_command_that_names_a_missing_workspace_folder_is_told_what_to_use() -> None:
-    """Where ``/workspace`` is not real, a failed command says so and names the way out."""
-    store = demo_store()
-    who = _who()
-    ran = dispatch_general(
-        store, "code", {**who, "source": "open('/workspace/result.csv', 'w').write('a,b')"}
-    )
-    if isolation_mode() == "namespace":
-        assert ran["is_error"] is False, "a private root has a real /workspace"
-        return
-    assert ran["is_error"] is True
-    assert "has no /workspace folder" in str(ran["text"])
-    assert "relative to it" in str(ran["text"])
-    again = dispatch_general(
-        store, "code", {**who, "source": "open('result.csv', 'w').write('a,b')"}
-    )
-    assert again["is_error"] is False, again["text"]
-    assert str(dispatch_general(store, "read_file", {**who, "path": "result.csv"})["text"]) == "a,b"
 
 
 def test_a_failed_command_does_not_show_the_hosts_folder() -> None:

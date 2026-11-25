@@ -10,6 +10,7 @@ import pytest
 
 from ar_domain.chat.service import ChatService
 from ar_domain.evals.live import LIVE_KEY, LiveConfigError, install_live, live_requested
+from ar_testing.computers import give_computers
 from ar_testing.demo import connect_embeddings, demo_store
 from ar_testing.demo_tenant import seed_demo_tenant
 from ar_testing.gym.cli import main
@@ -23,6 +24,8 @@ from ar_testing.objects import MemoryObjectStore
 def _make_store() -> ChatService:
     """The seeded tenant the gym runs on, built by test tooling (M38b-T04d)."""
     store = ChatService()
+    # The gym's code and shell tasks run on a computer: the sandbox agent as a local process.
+    give_computers(store)
     seed_demo_tenant(store)
     return store
 

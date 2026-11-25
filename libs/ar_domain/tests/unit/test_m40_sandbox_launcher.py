@@ -6,6 +6,8 @@ The launcher is injected on the store, so the test registers its own stand-in fr
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
 from ar_domain.chat.service import demo_id
@@ -39,8 +41,8 @@ class _StubLauncher:
 
 
 def _ensure(store: object, launcher: object | None, scope_key: str) -> dict[str, object]:
-    if launcher is not None:
-        store.sandbox_launcher = launcher  # type: ignore[attr-defined]
+    # None means no launcher at all: this process cannot start a computer.
+    store.sandbox_launcher = launcher  # type: ignore[attr-defined]
     return ensure_scope(
         store,
         tenant_id=demo_id("tenant"),
@@ -66,11 +68,24 @@ def test_a_registered_launcher_starts_a_container_and_stamps_the_row() -> None:
     assert launcher.started[0][1] == row["token"]
 
 
-def test_without_a_launcher_the_tools_run_on_the_host() -> None:
+def test_without_a_launcher_there_is_no_computer_and_the_tools_say_so() -> None:
+    """Nothing runs on the machine the product runs on, in any environment. OQ-197."""
+    from ar_domain.sandboxes.runtime import run_tool
+
     store = demo_store()
-    row = _ensure(store, None, "conv:host")
+    row = _ensure(store, None, "conv:none")
     assert row["endpoint_url"] is None
     assert row.get("container_id") is None
+    who = {"_tenant_id": demo_id("tenant"), "_user_id": demo_id("admin")}
+    for name, more in (
+        ("exec", {"command": "echo hello"}),
+        ("write_file", {"path": "/workspace/a.txt", "content": "a"}),
+        ("read_file", {"path": "/workspace/a.txt"}),
+        ("list_files", {"path": "/workspace"}),
+    ):
+        answer = run_tool(store, name, {**who, "_conversation_id": uuid.uuid4(), **more})
+        assert answer["code"] == "sandbox_unavailable", name
+        assert "no computer is running" in str(answer["text"]), name
 
 
 def test_a_failed_start_fails_the_sandbox_and_does_not_fall_back() -> None:

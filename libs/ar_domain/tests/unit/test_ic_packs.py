@@ -69,7 +69,8 @@ def _run_script(script: bytes, params: dict[str, object]) -> dict[str, object]:
     store = demo_store()
     file_id = uuid.uuid4()
     store.files[file_id] = {"id": file_id, "data": script}
-    result = run_entry(store, {"fileId": str(file_id), "params": params})
+    who = {"_tenant_id": demo_id("tenant"), "_user_id": demo_id("admin"), "_run_id": uuid.uuid4()}
+    result = run_entry(store, {**who, "fileId": str(file_id), "params": params})
     assert isinstance(result, dict)
     return result
 
@@ -89,10 +90,9 @@ def test_a_registered_script_rerun_has_the_same_hashes() -> None:
     assert orjson.loads(str(body["stdout"]))["units"] == 2
 
 
-def test_a_registered_script_refuses_when_the_host_may_not_run_it(
+def test_a_registered_script_refuses_when_no_computer_can_run_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("ar_domain.tools.general.host_exec_allowed", lambda: False)
     monkeypatch.setattr("ar_domain.sandboxes.folder_run.runs_in_computer", lambda _store: False)
     script = (ROOT / "scenario-runs" / "examples" / "model.py").read_bytes()
     result = _run_script(script, {"label": "synthetic"})

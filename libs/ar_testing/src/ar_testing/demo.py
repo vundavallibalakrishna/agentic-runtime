@@ -9,6 +9,7 @@ session for one of those people.
 
 from typing import TYPE_CHECKING
 
+from ar_testing.computers import give_computers
 from ar_testing.demo_people import DEV_TENANT_ID, catalogue
 from ar_testing.demo_tenant import seed_demo_tenant
 from ar_testing.objects import MemoryObjectStore
@@ -30,6 +31,9 @@ def demo_store(*, stand_in_tools: bool = True, **options: Any) -> Any:
     # File bytes go to a store in memory; the product's own is the configured S3 bucket.
     options.setdefault("objects", MemoryObjectStore())
     store = ChatService(**options)
+    # A tool that runs a command does it on a computer: the sandbox agent, started here
+    # as a local process the first time one is needed.
+    give_computers(store)
     seed_demo_tenant(store, stand_in_tools=stand_in_tools)
     connect_embeddings(store)
     return store
@@ -90,6 +94,7 @@ def serve_demo_tenant(app: Any) -> Any:
     store = app.state.chat
     # The browser tests run with no object store; file bytes are kept in memory.
     store.objects = MemoryObjectStore()
+    give_computers(store)
     seed_demo_tenant(store)
     connect_embeddings(store)
     connect_chat(store, DEV_TENANT_ID)
