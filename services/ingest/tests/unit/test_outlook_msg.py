@@ -4,7 +4,6 @@ Label: unit
 """
 
 # The OLE layout is easier to read when a stream name stays on one line.
-# ruff: noqa: E501
 
 from __future__ import annotations
 
