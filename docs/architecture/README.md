@@ -8,7 +8,7 @@ This page is the map of the system a customer runs. The normative detail stays i
 |---|---|
 | Web app | Chat-first UI. Next.js, production build with `next start`. It proxies `/api` and `/v1` to the API. |
 | API | Sessions, agents, tools, documents, knowledge, connectors, approvals, and the public `/v1` surface. |
-| Model gateway | Forwards chat completions to the provider the tenant registered. A `fake-*` model stays on the local fake. |
+| Model gateway | Forwards chat completions to the provider the tenant registered. An alias with no model is an error the caller is told. |
 | Runtime worker | Temporal worker for turns when `AR_TEMPORAL_ADDRESS` points at a live server. If Temporal is down, the API finishes the turn in process. |
 | Postgres | System of record, including pgvector for knowledge. Every tenant table has row-level security. |
 | Valkey | Cache and rate buckets when the process is configured to use it. |

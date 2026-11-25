@@ -38,7 +38,7 @@ _BUDGET = {
 
 def _store() -> ChatService:
     store = demo_store()
-    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)  # type: ignore[method-assign]
+    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0)  # type: ignore[method-assign]
     return store
 
 

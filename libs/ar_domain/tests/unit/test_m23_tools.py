@@ -225,7 +225,7 @@ def test_structured_output_retries_once() -> None:
     }
     assert output_schema({"output": {"jsonSchema": schema}}) == schema
     store = demo_store()
-    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)  # type: ignore[method-assign]
+    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0)  # type: ignore[method-assign]
     calls = {"n": 0}
 
     async def complete(

@@ -25,7 +25,6 @@ def _store(steps: list[dict[str, object]]) -> ChatService:
         "Qwen/Qwen3-32B",
         {},
         5.0,
-        True,
     )
     pending = list(steps)
 

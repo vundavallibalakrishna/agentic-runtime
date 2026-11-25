@@ -295,7 +295,7 @@ async def _complete(store: Any, child: dict[str, object], task: str) -> dict[str
     alias_target = store._completion_call(
         uuid.UUID(str(child["tenant_id"])), model_alias_for(store, child)
     )
-    if not alias_target[3]:
+    if alias_target is None:
         return finish_failed(store, child, "model_unavailable", "This agent has no model to run.")
     assistant = open_reply(store, child)
     from ar_domain.tools.agent_loop import run_agent_loop  # noqa: PLC0415

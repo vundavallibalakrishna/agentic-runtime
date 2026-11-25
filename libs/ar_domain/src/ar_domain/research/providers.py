@@ -85,9 +85,7 @@ def library_hits(
     passage an embedding model might rank low and never regresses the old behaviour. The
     two lists are merged, meaning first, one address per passage, up to ``limit``.
 
-    With no embedding model the result is the word match alone. A fake model's vectors
-    carry no meaning, so only an exact-text passage clears the bar and the word match
-    still does the work.
+    With no embedding model the result is the word match alone.
     """
     if not isinstance(tenant_id, uuid.UUID):
         return []

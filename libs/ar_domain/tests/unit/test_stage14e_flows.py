@@ -22,7 +22,6 @@ def _turn(text: str) -> dict[str, object]:
         "text": text,
         "tool_calls": [],
         "usage": {"tokens_in": 1, "tokens_out": 1},
-        "real": True,
     }
 
 
@@ -31,7 +30,7 @@ def _structured_run(
 ) -> tuple[Any, dict[str, object], list[list[dict[str, object]]]]:
     """Run one turn that asks for ``_SCHEMA`` against the given model replies."""
     store = demo_store()
-    store._completion_call = lambda _t, alias="reasoning": ("model", {}, 5.0, True)
+    store._completion_call = lambda _t, alias="reasoning": ("model", {}, 5.0)
     seen: list[list[dict[str, object]]] = []
 
     async def complete(
@@ -113,7 +112,7 @@ def _attached_turn(reply: str) -> tuple[Any, dict[str, object], list[dict[str, o
     from ar_domain.identity.permissions import PERMISSION_KEYS
 
     store = demo_store()
-    store._completion_call = lambda _t, alias="reasoning": ("model", {}, 5.0, True)
+    store._completion_call = lambda _t, alias="reasoning": ("model", {}, 5.0)
     tenant, user = demo_id("tenant"), demo_id("admin")
     upload = store.upload(tenant, user, "access-policy.md", "text/markdown", _POLICY.encode())
     asyncio.run(
@@ -470,7 +469,7 @@ def test_image_questions_are_offered_only_with_a_model_that_reads_images() -> No
     store = demo_store()
     tenant = demo_id("tenant")
     answers = {"capabilities": ["chat"]}
-    store._completion_call = lambda _t, alias="vision": ("some-model", {}, 5.0, True)
+    store._completion_call = lambda _t, alias="vision": ("some-model", {}, 5.0)
     store._alias_target = lambda _t, _alias: ({}, dict(answers))
     # A chat model that is not marked as reading images: the tool would only refuse.
     assert not ready_for(store, tenant, "image.ask")

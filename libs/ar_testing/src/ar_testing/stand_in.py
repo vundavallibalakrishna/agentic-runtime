@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from ar_fake_llm.app import create_application
-from ar_fake_llm.background import BackgroundServer
-from ar_fake_llm.scripts import Script
+from ar_testing.model_server.app import create_application
+from ar_testing.model_server.background import BackgroundServer
+from ar_testing.model_server.scripts import Script
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

@@ -35,7 +35,7 @@ ignore = ["PLR0913", "TRY003", "PLR2004", "FBT003"]
 "logging.getLogger".msg = "use ar_common.logging.get_logger (structlog)"
 
 [tool.ruff.lint.isort]
-known-first-party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_fake_llm"]
+known-first-party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels"]
 ```
 
 mypy: `strict = true`, plugins `pydantic.mypy`; `disallow_any_explicit` for `ar_contracts`; `# type: ignore[code]` must carry a code and a reason comment.
@@ -44,7 +44,7 @@ mypy: `strict = true`, plugins `pydantic.mypy`; `disallow_any_explicit` for `ar_
 
 ```ini
 [importlinter]
-root_packages = ar_common ar_contracts ar_domain ar_connector_sdk ar_api ar_runtime ar_system ar_ingest ar_model_gateway ar_mcp_gateway ar_sandbox_manager ar_sandbox_agent ar_channels ar_fake_llm
+root_packages = ar_common ar_contracts ar_domain ar_connector_sdk ar_api ar_runtime ar_system ar_ingest ar_model_gateway ar_mcp_gateway ar_sandbox_manager ar_sandbox_agent ar_channels
 
 [importlinter:contract:layers]
 name = Library layering
@@ -58,7 +58,7 @@ layers =
 [importlinter:contract:services-independent]
 name = Services never import each other
 type = independence
-modules = ar_api ar_runtime ar_system ar_ingest ar_model_gateway ar_mcp_gateway ar_sandbox_manager ar_sandbox_agent ar_channels ar_fake_llm
+modules = ar_api ar_runtime ar_system ar_ingest ar_model_gateway ar_mcp_gateway ar_sandbox_manager ar_sandbox_agent ar_channels
 
 [importlinter:contract:no-db-in-edge]
 name = Channels, sandbox agent and connectors have no DB access

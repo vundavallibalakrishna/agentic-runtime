@@ -9,7 +9,7 @@ import pytest
 from ar_domain.approvals.logic import can_decide, is_approver, requester_blocked
 from ar_domain.approvals.service import ApprovalBook
 from ar_domain.tools.agent_loop import run_agent_loop
-from ar_testing.demo import demo_store
+from ar_testing.demo import demo_store, disconnect_chat
 
 if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService
@@ -65,9 +65,9 @@ def test_blocked_requester_notifies_role_holders_who_can_decide() -> None:
 
 
 @pytest.mark.asyncio
-async def test_fake_alias_fails_the_run_when_fake_models_are_not_allowed() -> None:
+async def test_an_alias_with_no_model_fails_the_run() -> None:
     store = demo_store()
-    store.fake_models_allowed = False
+    disconnect_chat(store)
     tenant_id = next(iter(store.agents.values()))["tenant_id"]
     agent = next(row for row in store.agents.values() if row.get("slug") == "assistant")
     version = store.versions[agent["published_version_id"]]
@@ -90,7 +90,4 @@ async def test_fake_alias_fails_the_run_when_fake_models_are_not_allowed() -> No
     assert handled is True
     assert run["status"] == "failed"
     assert run["error"]["code"] == "model_unavailable"
-    assert "fake:" not in str(assistant.get("text"))
-    store.fake_models_allowed = True
-    run["status"] = "running"
-    assert await run_agent_loop(store, run, assistant, "hello") is False
+    assert "not connected to a registered model" in str(assistant.get("text"))

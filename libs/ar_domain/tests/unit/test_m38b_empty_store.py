@@ -51,10 +51,10 @@ def test_the_test_library_builds_the_demo_tenant() -> None:
     assert {"assistant", "builder", "helpdesk", "desk", "revenue-analyst"} <= slugs
     assert store.user_roles[demo_id("approver")] == {"approver"}
     assert "tickets" in {str(row["slug"]) for row in store.tool_servers.values()}
-    # The demo's scripted chat provider, the stand-in providers for embeddings and for
-    # deciding what to remember, and the aliases that point at them are test data too.
+    # The demo's chat provider (the test model server), the stand-in providers for
+    # embeddings and for deciding what to remember, and their aliases are test data too.
     assert [row["name"] for row in store.providers.values()] == [
-        "fake-llm",
+        "stand-in",
         "stand-in-embeddings",
         "stand-in-memory",
     ]

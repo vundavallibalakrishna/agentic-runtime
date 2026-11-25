@@ -38,7 +38,7 @@ Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-sep
 | CNPG pooler pods | Instance pods on 5432 | |
 | CNPG instance pods | Other instance pods on 5432 and 8000, the API server on 443 and 6443, object storage on 8333 | |
 | CNPG operator (`cnpg-system`) | Instance pods on 8000 (ingress) | |
-| `web`, `channels`, `model-gateway`, `opa`, `squid`, `fake-llm` | Their existing in-cluster traffic | The platform database |
+| `web`, `channels`, `model-gateway`, `opa`, `squid` | Their existing in-cluster traffic | The platform database |
 
 Application calls that must stay open while isolation is on:
 

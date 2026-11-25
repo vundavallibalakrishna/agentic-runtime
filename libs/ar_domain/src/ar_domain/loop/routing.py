@@ -315,7 +315,6 @@ async def routed_completion(  # noqa: PLR0912, PLR0915
             continue
         breaker.success(key)
         parsed = completion_message(payload, strip_thinking="preserve_thinking" not in capabilities)
-        parsed["real"] = True
         parsed["endpoint_id"] = route["id"]
         from ar_domain.models.logic import resolved_model_label  # noqa: PLC0415
 
@@ -331,7 +330,6 @@ async def routed_completion(  # noqa: PLR0912, PLR0915
         "text": last,
         "tool_calls": [],
         "usage": {"tokens_in": 0, "tokens_out": 0, "usage_source": "unknown"},
-        "real": True,
     }
 
 

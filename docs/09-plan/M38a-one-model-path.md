@@ -159,8 +159,32 @@ script or fixture.
 
 **Tests:** `test_m38a_one_model_path.py`; migration tested up and down.
 
+**Done** (25 November 2026), in one pull request. What was removed and where it went:
+
+- The provider kind `fake`. `ChatService.create_provider` refuses it, the table check allows three kinds, and
+  revision 0065 deletes every stored `fake` provider with its models and aliases.
+- The `real` value. `_completion_call` returns the model, headers and timeout, or `None` when no model is
+  connected to the alias. `_complete_reported`, the path a test used to mark a call real without a registry
+  row, is deleted: `complete_turn` calls the registered model or says that none is connected.
+- `fake_models_allowed`: the setting, the `ChatService` field, the read-model option and the argument every
+  service passed.
+- `ToolTurnWorkflow`, `tool_turn.py` and the `execute_tool_call` activity body: a scripted turn nothing started.
+- The browser screenshot drawn in process (a chart of three numbers). Without the Chromium sandbox the tool
+  answers `sandbox_unavailable`.
+- `SandboxBook.seed_chart`, a conversation with a made-up revenue chart. It is `ar_testing.showcase.chart`.
+- `services/fake_llm` is `ar_testing.model_server`. No image, Compose file, Procfile or import rule names it.
+  The Compose smoke check builds it from the test library (`tests/compose/ci-model.yaml`).
+- The eval gym (`ar_domain/evals/gym`: a scripted model, a fixture world, the runner and its CLI) is
+  `ar_testing.gym`. The switch to a real model, `live.py`, stays in the product as `ar_domain/evals/live.py`,
+  because `ar_system.evals.cli` uses it.
+
+The guard is `scripts/check_no_fake_models.py`, tightened to refuse the kind, the flag and the stand-in's
+package name anywhere outside the test library and the migrations. The exit line about `make dev` starting
+the stand-in is withdrawn: `make dev` starts no model stand-in (strict rule 2). A developer names an endpoint
+in `AR_DEV_MODEL_BASE_URL` or connects one on the Models screen. What this pass found and left is OQ-197.
+
 ## Exit
 
-`make check` and `make test` pass. `make dev` starts with the stand-in registered by the dev script, and chat
-answers without an external key. A store built for `prod` has no provider, and a turn says that a model must
+`make check` and `make test` pass. `make dev` starts no stand-in: chat answers once a model endpoint is connected,
+and says that none is until then. A store built for `prod` has no provider, and a turn says that a model must
 be connected.

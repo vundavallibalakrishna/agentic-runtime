@@ -8,14 +8,14 @@ from typing import Any
 import pytest
 
 from ar_domain.chat.service import ChatService
-from ar_domain.evals.gym.cli import main
-from ar_domain.evals.gym.live import LIVE_KEY, LiveConfigError, install_live, live_requested
-from ar_domain.evals.gym.policy import choose
-from ar_domain.evals.gym.runner import run_suite
-from ar_domain.evals.gym.score import ObservedCall, Report, render_scorecard, score_observation
-from ar_domain.evals.gym.tasks import ArgRule, Expectation, Task, load_tasks, tasks_path
+from ar_domain.evals.live import LIVE_KEY, LiveConfigError, install_live, live_requested
 from ar_testing.demo import connect_embeddings, demo_store
 from ar_testing.demo_tenant import seed_demo_tenant
+from ar_testing.gym.cli import main
+from ar_testing.gym.policy import choose
+from ar_testing.gym.runner import run_suite
+from ar_testing.gym.score import ObservedCall, Report, render_scorecard, score_observation
+from ar_testing.gym.tasks import ArgRule, Expectation, Task, load_tasks, tasks_path
 from ar_testing.objects import MemoryObjectStore
 
 

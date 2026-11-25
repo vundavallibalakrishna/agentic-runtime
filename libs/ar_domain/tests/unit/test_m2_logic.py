@@ -22,7 +22,7 @@ from ar_testing.factories.chat import agent_factory, provider_factory
 def test_factories_and_resolution_order() -> None:
     provider = provider_factory()
     agent = agent_factory(visibility="private", owner_user_id="user-1")
-    assert provider["kind"] == "fake"
+    assert provider["kind"] == "openai_compatible"
     assert agent["slug"] == "assistant"
     rows = [
         AliasRef(None, "reasoning", "chat", "platform", (), "active", {}),

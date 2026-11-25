@@ -24,7 +24,7 @@ def test_provision_defaults_declares_the_bootstrap_writer_in_staging(monkeypatch
 
     # The guard is active: a bare ChatService is refused in staging.
     with pytest.raises(MemoryStoreRefusedError):
-        ChatService(fake_models_allowed=False)
+        ChatService()
 
     # bind_store is where the database would be reached; return None so the call fails
     # *after* the guard, proving provision_defaults got past it.

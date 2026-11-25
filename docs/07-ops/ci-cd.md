@@ -28,7 +28,7 @@ A pull request whose every changed file is Markdown under `docs/` runs `pr-title
 | `codegen-drift` | PR, main | yes | `make gen` then `git diff --exit-code` | 3 min |
 | `opa-test` | PR, main | yes | `opa fmt --diff`, `opa check --strict --ignore fixtures`, `opa test --ignore fixtures policies/ --coverage` (≥ 90 %). Fixture JSON is cross-check input, not Rego data. | 1 min |
 | `migrations` | PR, main | yes | `alembic upgrade head` on empty DB → `alembic check` (no autogenerate diff) → downgrade one → upgrade; RLS coverage test (every tenant table has RLS + policy, [rls](../04-data/rls.md)); squawk lint for locking migrations | 3 min |
-| `compose-smoke` | PR, main | yes | `scripts/compose_install.sh`: production profile from scratch, migrate, `/readyz`, one fake-llm chat turn, restart Temporal and the runtime worker, workflow still present, then reconcile a main-style volume | 45 min |
+| `compose-smoke` | PR, main | yes | `scripts/compose_install.sh`: production profile from scratch, migrate, `/readyz`, one chat turn on the test model server (`tests/compose/ci-model.yaml`), restart Temporal and the runtime worker, workflow still present, then reconcile a main-style volume | 45 min |
 | `conformance-qdrant` | PR touching `libs/ar_domain/src/ar_domain/knowledge/store*`, nightly | yes when triggered | `RetrievalStore` conformance suite with the `qdrant` param (Qdrant testcontainer) plus the pgvector → qdrant → pgvector migration round trip ([spec 10 §10](../03-specs/10-knowledge.md#10-retrievalstore-conformance-suite)) | 10 min |
 | `e2e` | PR (label `e2e`), main, nightly | main: yes | Playwright + axe against compose stack ([testing-strategy §6](../08-quality/testing-strategy.md#6-end-to-end-tests)) | 15 min |
 | `security` | PR, main | yes | §5 scanners | 4 min |
@@ -44,7 +44,7 @@ PR wall-clock target: < 15 minutes (jobs run in parallel). Caches: uv cache keye
 
 | Image | Dockerfile | Contents |
 |---|---|---|
-| `ar-api`, `ar-runtime`, `ar-system`, `ar-model-gateway`, `ar-mcp-gateway`, `ar-sandbox-manager`, `ar-channels`, `ar-fake-llm`, `ar-migrate` | `images/python-service.Dockerfile` (`--build-arg SERVICE=…`) | Python 3.14 slim base, uv-installed wheel set from `uv.lock` (`uv sync --frozen --no-dev --package <svc>`), non-root UID 10001, `tini`, read-only root FS, no shell utilities beyond base |
+| `ar-api`, `ar-runtime`, `ar-system`, `ar-model-gateway`, `ar-mcp-gateway`, `ar-sandbox-manager`, `ar-channels`, `ar-migrate` | `images/python-service.Dockerfile` (`--build-arg SERVICE=…`) | Python 3.14 slim base, uv-installed wheel set from `uv.lock` (`uv sync --frozen --no-dev --package <svc>`), non-root UID 10001, `tini`, read-only root FS, no shell utilities beyond base |
 | `ar-ingest` | `images/ingest/Dockerfile` | Python service + LibreOffice headless, Tesseract/OCR models, Docling models baked in |
 | `ar-web` | `images/web.Dockerfile` | Node 24 slim, Next standalone output, UID 10001 |
 | `ar-sandbox` | `images/sandbox/Dockerfile` | Debian 13 slim with Python 3.14, Node 24, data libraries, Chromium + Playwright, LibreOffice and `sandbox-agent` ([spec 12 §7.1](../03-specs/12-sandbox-manager.md#71-image-ar-sandbox-imagessandboxdockerfile)) |

@@ -83,11 +83,11 @@ async def _model_answer(
 
     owner = uuid.UUID(str(run["tenant_id"]))
     alias = model_alias_for(store, run)
-    _model, _headers, _timeout_s, real = store._completion_call(owner, alias)
-    if not real:
+    call = store._completion_call(owner, alias)
+    if call is None:
         return None
     await store._ensure_provider_key(owner, alias)
-    model, headers, timeout_s, real = store._completion_call(owner, alias)
+    model, headers, timeout_s = call
     url = store._completion_url_for(owner, alias, headers)
     sources = wrap_untrusted(source="knowledge", content="\n".join(passages))
     system = f"{_GROUNDED_INSTRUCTION}\n\n{sources}"
@@ -97,7 +97,6 @@ async def _model_answer(
         model=model,
         headers=headers,
         timeout_s=timeout_s,
-        real=real,
         options=store.request_options(owner, alias),
         url=url,
         supplied=callable(getattr(store, "_alias_target", None))

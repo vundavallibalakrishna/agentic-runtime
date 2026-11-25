@@ -35,7 +35,7 @@ def test_request_options_round_trip_keeps_provider_keys() -> None:
     client = _client()
     provider = client.post(
         "/api/v1/model-providers",
-        json={"name": "deep", "kind": "fake", "baseUrl": "http://127.0.0.1:8099/v1"},
+        json={"name": "deep", "kind": "openai_compatible", "baseUrl": "http://127.0.0.1:8099/v1"},
     )
     assert provider.status_code == 200, provider.text
     options = {"chat_template_kwargs": {"enable_thinking": False}}

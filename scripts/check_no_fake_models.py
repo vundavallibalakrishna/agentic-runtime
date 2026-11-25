@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Fail if a fake or stub model is wired into the install or product code.
 
-The recorded model server lives under services/fake_llm and is imported by
-tests. It must not appear in compose.yaml, image definitions, or any other
-non-test source.
+The model stand-in lives in the test library (``ar_testing.model_server``) and is
+used by tests only. Nothing like it may appear in compose.yaml, image definitions
+or any other non-test source, and no product code may know a ``fake`` provider.
 """
 
 from __future__ import annotations
@@ -31,13 +31,15 @@ SKIP_PARTS = {
     "__pycache__",
     ".venv",
     "node_modules",
-    "fake_llm",
     "e2e",
     "ar_testing",
+    # A migration names what it removes.
+    "versions",
 }
 SKIP_NAMES = {"check_no_fake_models.py", "pyproject.toml"}
 PATTERN = re.compile(
     r"fake-llm|fake_llm|fake-chat|ar_fake_llm|AR_FAKE_LLM|fixture provider|"
+    r"fake_models_allowed|['\"]fake['\"]|fake provider|fake model|model_server|"
     r"stub model|stub_reply|OpenAI-compatible stub|\bfaker\b",
     re.IGNORECASE,
 )

@@ -396,9 +396,9 @@ def test_tools_cover_ingest_paths_and_model_call(monkeypatch: pytest.MonkeyPatch
     class Live:
         def _completion_call(
             self, tenant_id: uuid.UUID, alias: str
-        ) -> tuple[str, dict[str, str], float, bool]:
+        ) -> tuple[str, dict[str, str], float]:
             del tenant_id, alias
-            return "Qwen/Qwen3-32B", {}, 1.0, True
+            return "Qwen/Qwen3-32B", {}, 1.0
 
         def _completion_url_for(
             self, tenant_id: uuid.UUID, alias: str, headers: dict[str, str]

@@ -322,7 +322,7 @@ CREATE TABLE model_providers (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
   tenant_id       uuid REFERENCES tenants(id) ON DELETE CASCADE,  -- NULL = platform-provided
   name            text NOT NULL,
-  kind            text NOT NULL CHECK (kind IN ('openai_compatible','vllm','tei','fake')),
+  kind            text NOT NULL CHECK (kind IN ('openai_compatible','vllm','tei')),
   base_url        text NOT NULL,                      -- e.g. http://vllm-reasoning.inference.svc:8000/v1
   api_key_ref_id  uuid REFERENCES secret_refs(id) ON DELETE SET NULL,
   headers         jsonb NOT NULL DEFAULT '{}',        -- non-secret static headers

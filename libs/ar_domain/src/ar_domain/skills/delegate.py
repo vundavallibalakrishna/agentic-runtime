@@ -271,12 +271,11 @@ _NO_MODEL = "This agent has no model connected, so the delegated task could not 
 async def _run_child(
     store: Any, child: dict[str, object], task: str
 ) -> tuple[str, dict[str, int], str]:
-    """Run one child through the real agent loop. Return its text, usage and status."""
+    """Run one child through the agent loop. Return its text, usage and status."""
     from ar_domain.tools.agent_loop import model_alias_for, run_agent_loop  # noqa: PLC0415
 
     tenant = uuid.UUID(str(child["tenant_id"]))
-    _model, _headers, _timeout, real = store._completion_call(tenant, model_alias_for(store, child))
-    if not real:
+    if store._completion_call(tenant, model_alias_for(store, child)) is None:
         _finish_child(store, child, "failed", _NO_MODEL)
         return _NO_MODEL, {"tokens_in": 0, "tokens_out": 0}, "failed"
     assistant = _assistant_message(store, child)

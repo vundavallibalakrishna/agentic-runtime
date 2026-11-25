@@ -151,5 +151,5 @@ Body `{model: alias, messages}` → `{count}`; 404 when unsupported.
 ## 9. Test plan
 
 - Unit: alias resolution precedence; traffic-split stickiness; param stripping; circuit breaker state machine (time-machine); token estimator bounds.
-- Integration with `fake-llm` (two instances, one scripted to fail): fallback before first byte; no fallback mid-stream; usage metering rows with dedupe; quota block → 429; kill switch takes effect after invalidation message.
-- Load (locust, nightly): 200 concurrent streaming requests against `fake-llm` with 50 ms token delay; gateway overhead p95 < 15 ms added latency to TTFT ([performance budgets](../08-quality/performance-budgets.md)).
+- Integration with the test model server (two instances, one scripted to fail): fallback before first byte; no fallback mid-stream; usage metering rows with dedupe; quota block → 429; kill switch takes effect after invalidation message.
+- Load (locust, nightly): 200 concurrent streaming requests against the test model server with 50 ms token delay; gateway overhead p95 < 15 ms added latency to TTFT ([performance budgets](../08-quality/performance-budgets.md)).

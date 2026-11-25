@@ -14,7 +14,7 @@ Docker Compose is the install. One node, one `compose.yaml`, for development and
 | Squid allowlist | `deploy/compose/squid/allowlist.txt` |
 | Passwords and keys | `.env`, written by `scripts/dev_keys.py` |
 
-`scripts/dev_keys.py` fills `AR_DB_OWNER_PASSWORD`, `AR_DB_PLATFORM_PASSWORD`, `AR_DB_APP_PASSWORD`, `AR_DB_READONLY_PASSWORD`, `AR_DB_TEMPORAL_PASSWORD` and `POSTGRES_PASSWORD`. Staging and production refuse a placeholder or a role name. `AR_ENV=prod` with password sign-in needs `AR_AUTH_MODE=password` and `AR_PASSWORD_LOGIN=true`. OIDC needs `AR_OIDC_ISSUER` and `AR_OIDC_CLIENT_ID`. A model is whatever provider the tenant registers. `services/fake_llm` is a test double and is not a Compose service. Loopback and wildcard egress default off; a local checkout sets them in `.env`. Telemetry is off until `AR_OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+`scripts/dev_keys.py` fills `AR_DB_OWNER_PASSWORD`, `AR_DB_PLATFORM_PASSWORD`, `AR_DB_APP_PASSWORD`, `AR_DB_READONLY_PASSWORD`, `AR_DB_TEMPORAL_PASSWORD` and `POSTGRES_PASSWORD`. Staging and production refuse a placeholder or a role name. `AR_ENV=prod` with password sign-in needs `AR_AUTH_MODE=password` and `AR_PASSWORD_LOGIN=true`. OIDC needs `AR_OIDC_ISSUER` and `AR_OIDC_CLIENT_ID`. A model is whatever provider the tenant registers. `ar_testing.model_server` is a test double and is not a Compose service. Loopback and wildcard egress default off; a local checkout sets them in `.env`. Telemetry is off until `AR_OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ## 2. Startup order
 

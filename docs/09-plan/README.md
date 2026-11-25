@@ -19,7 +19,7 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 
 | # | File | Name | Outcome (exit criteria) | Tasks |
 |---|---|---|---|---|
-| M0 | [M00-scaffold.md](M00-scaffold.md) | Scaffold & tooling | Monorepo builds, CI green, `make dev` brings up the local stack, fake-llm works, codegen pipeline in place | 12 |
+| M0 | [M00-scaffold.md](M00-scaffold.md) | Scaffold & tooling | Monorepo builds, CI green, `make dev` brings up the local stack, the test model server works, codegen pipeline in place | 12 |
 | M1 | [M01-foundation.md](M01-foundation.md) | Data, identity, tenancy, audit, events | Users log in via Keycloak; tenants, users, teams, roles, API keys, secrets, SSO/SCIM; RLS; audit chain; outbox; notifications/webhooks base; admin pages | 16 |
 | M2 | [M02-first-chat.md](M02-first-chat.md) | Secrets, model gateway & first chat | A user chats with the default `assistant` agent with streaming over SSE through `model-gateway`; files upload; runs API; usage metered | 13 |
 | M2.5 | [M02.5-design-polish.md](M02.5-design-polish.md) | Design polish | The shell, sign-in, chat and admin pages use the design system; Keycloak and a fresh clone work on a laptop whose default ports are taken | 4 |
@@ -128,7 +128,7 @@ The graph allows parallel work after M5 (M6/M7/M8 can proceed in parallel by dif
 
 Every milestone must be visually testable before merge. The pull request body includes **How to test visually**:
 
-1. **Start the stack.** Exact commands, usually `make bootstrap && make dev`. When compose is enough, say which profiles. Say which processes must be up (api, web, fake-llm).
+1. **Start the stack.** Exact commands, usually `make bootstrap && make dev`. When compose is enough, say which profiles. Say which processes must be up (api, web) and which model endpoint is connected.
 2. **Seeded demo.** What `make seed` inserts, how to sign in (**Continue with SSO** as a seeded person; the product has no other way in), and the tenant, agent and model the click-through uses. Chat must work without an external API key.
 3. **Checklist.** Numbered steps for every user-visible feature delivered by this milestone and earlier milestones. Each step says what to click or type and what the user should see, including empty, loading and error states.
 4. **Host ports.** When the default ports are taken, say which variables to set. `make ports-check` names each busy port and the `.env` assignment that frees it. `make dev AUTO_PORTS=1` picks free ports and rewrites the localhost URLs (`AR_PG_HOST_PORT` updates `AR_DATABASE_URL`, `AR_PORT` updates the API listen port and `API_PROXY_URL`). Defaults stay 5432, 6379, 7233, 8000 and the rest of the [local port table](../07-ops/local-dev.md#5-host-ports).
@@ -147,5 +147,5 @@ Alembic revisions are created by the tasks listed in [migrations §3](../04-data
 4. Every new workflow/activity: deterministic workflow code, idempotent activities, Temporal test-env test.
 5. Every new UI page: loading/empty/error states, permission gating, Vitest component test, Playwright happy path, axe check.
 6. Every new metric, alert, env var or audit action: add it to the owning spec **and** to the catalogues ([environments §3](../07-ops/environments.md#3-variable-catalogue), [audit §3](../06-security/audit.md#3-catalogue)); CI `docs` job checks this.
-7. Dev seed data grows with the product: `scripts/seed.py` (created in M1-T03; idempotent; runs `ar_domain.seed.apply()`) seeds tenant `dev` and the four `@dev.local` users; M2 adds the `fake-llm` provider, aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`, team `everyone` and the published `assistant`; M3 adds the sample agent `Helpdesk` and the built-in `builder`; M4-T06 adds the `mcp-openapi` petstore tool server; M7-T01 adds a sample collection with three markdown documents. Each addition is part of that task's Done-when ([local-dev §2](../07-ops/local-dev.md#2-make-targets-the-only-entry-points)).
+7. Dev seed data grows with the product: `scripts/seed.py` (created in M1-T03; idempotent; runs `ar_domain.seed.apply()`) seeds tenant `dev` and the four `@dev.local` users; M2 adds aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`, team `everyone` and the published `assistant`; M3 adds the sample agent `Helpdesk` and the built-in `builder`; M4-T06 adds the `mcp-openapi` petstore tool server; M7-T01 adds a sample collection with three markdown documents. Each addition is part of that task's Done-when ([local-dev §2](../07-ops/local-dev.md#2-make-targets-the-only-entry-points)).
 8. **Visual test.** Every milestone pull request includes a **How to test visually** section: exact local start commands, seeded demo login and data, and a numbered click-through of every user-visible feature so far. See [Visual test](#visual-test).

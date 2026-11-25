@@ -39,7 +39,7 @@ _ACTORS = frozenset({"user", "service_account", "agent", "system", "platform_adm
 
 @dataclass(frozen=True, slots=True)
 class UpstreamTarget:
-    """One registered non-fake model the gateway can call."""
+    """One registered model the gateway can call."""
 
     base_url: str
     api_key: str
@@ -561,8 +561,8 @@ def _replace(
 
 
 async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
-    """Find a non-fake provider for ``model_name``. Fake names never touch the database."""
-    if not model_name or model_name.startswith("fake"):
+    """Find the active provider of ``model_name``."""
+    if not model_name:
         return None
     engine = _shared_engine()
     if engine is None:
@@ -585,7 +585,6 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
                         WHERE m.upstream_model = :name
                           AND m.status = 'active'
                           AND p.status = 'active'
-                          AND p.kind <> 'fake'
                         ORDER BY p.tenant_id NULLS LAST
                         LIMIT 1
                         """

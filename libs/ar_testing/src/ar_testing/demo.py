@@ -18,8 +18,11 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-def demo_store(**options: Any) -> Any:
-    """A product store holding the demo tenant. ``options`` go to ``ChatService``."""
+def demo_store(*, stand_in_tools: bool = True, **options: Any) -> Any:
+    """A product store holding the demo tenant. ``options`` go to ``ChatService``.
+
+    ``stand_in_tools`` off gives a tenant without the stand-in tool servers.
+    """
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
 
     # Tests reach stand-ins on loopback addresses. A product store refuses them by default.
@@ -27,9 +30,15 @@ def demo_store(**options: Any) -> Any:
     # File bytes go to a store in memory; the product's own is the configured S3 bucket.
     options.setdefault("objects", MemoryObjectStore())
     store = ChatService(**options)
-    seed_demo_tenant(store)
+    seed_demo_tenant(store, stand_in_tools=stand_in_tools)
     connect_embeddings(store)
     return store
+
+
+def disconnect_chat(store: Any) -> None:
+    """Leave the store with no chat model, as an install is before a person connects one."""
+    for alias_id in [key for key, row in store.aliases.items() if row.get("kind") == "chat"]:
+        del store.aliases[alias_id]
 
 
 def connect_embeddings(store: Any) -> None:

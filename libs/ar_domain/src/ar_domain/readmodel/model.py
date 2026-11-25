@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 _CONFIG = (
     "allow_loopback",
     "scanner",
-    "fake_models_allowed",
     "event_bus",
     "shared_idempotency",
     "temporal_client",
@@ -67,7 +66,6 @@ class RepositoryReadModel:
         self.engine: AsyncEngine | None = None
         self.allow_loopback = bool(options.get("allow_loopback", False))
         self.scanner = str(options.get("scanner", "none"))
-        self.fake_models_allowed = bool(options.get("fake_models_allowed", False))
         self.event_bus: object | None = None
         self.shared_idempotency: object | None = None
         self.temporal_client: object | None = None
@@ -306,7 +304,6 @@ class RepositoryReadModel:
         unit = RequestUnit(
             allow_loopback=self.allow_loopback,
             scanner=self.scanner,
-            fake_models_allowed=self.fake_models_allowed,
         )
         for name in _CONFIG:
             if hasattr(self, name):

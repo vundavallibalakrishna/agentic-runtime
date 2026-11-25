@@ -30,9 +30,10 @@ def _connected(stand_in: StandIn) -> ChatService:
 
 def test_the_stand_in_is_a_provider_like_any_other(stand_in: StandIn) -> None:
     store = _connected(stand_in)
-    model, headers, _timeout, real = store._completion_call(demo_id("tenant"), "reasoning")
+    call = store._completion_call(demo_id("tenant"), "reasoning")
+    assert call is not None, "the alias is connected like any other"
+    model, headers, _timeout = call
     assert model == MODEL
-    assert real is True, "the product must not treat the stand-in as a fake"
     assert headers == {}, "no special header reaches the endpoint"
     provider = next(
         row for row in store.providers.values() if row["name"] == f"stand-in-{SCRIPT_SET}"

@@ -25,7 +25,7 @@ from ar_domain.agents.access import Actor
 from ar_domain.agents.assist import draft_from_description
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.chat.service import demo_id
-from ar_domain.evals.gym.live import install_live, live_settings
+from ar_domain.evals.live import install_live, live_settings
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_testing.demo import demo_store

@@ -7,11 +7,11 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ar_domain.evals.gym.live import install_live, live_settings
-from ar_domain.evals.gym.policy import DryRunCompleter
-from ar_domain.evals.gym.score import ObservedCall, Report, TaskScore, score_observation
-from ar_domain.evals.gym.tasks import Task, load_tasks
-from ar_domain.evals.gym.world import GymWorld, build_world
+from ar_domain.evals.live import install_live, live_settings
+from ar_testing.gym.policy import DryRunCompleter
+from ar_testing.gym.score import ObservedCall, Report, TaskScore, score_observation
+from ar_testing.gym.tasks import Task, load_tasks
+from ar_testing.gym.world import GymWorld, build_world
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -128,9 +128,9 @@ def _install_dry_run(store: ChatService) -> None:
 
     def completion_call(
         tenant_id: uuid.UUID, alias: str = "reasoning"
-    ) -> tuple[str, dict[str, str], float, bool]:
+    ) -> tuple[str, dict[str, str], float]:
         del tenant_id, alias
-        return "gym-dry-run", {}, 1.0, True
+        return "gym-dry-run", {}, 1.0
 
     def url_for(tenant_id: uuid.UUID, alias: str, headers: dict[str, str]) -> str:
         del tenant_id, alias, headers

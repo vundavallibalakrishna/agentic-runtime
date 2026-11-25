@@ -120,7 +120,7 @@ Items `EvalResult {case: {id, name, tags}, passed, scores, output_text, latency_
 Eval runs carry the case's mocks and simulated principal in `runs.eval_context jsonb` (NULL for non-eval runs, [schema §5](../04-data/schema.md#5-conversations-messages-runs-ar_domainconversations-ar_domainruns)). `mcp-gateway` reads it when `trigger='eval'` to apply mocks and the W2/W3 never-execute rule; `ar_domain.policy` and knowledge retrieval use `as_user` attributes/groups (layered on the triggering user's real principals, never broadening them) for the synthetic principal.
 
 ### 4.5 Platform suites
-`evals/redteam/` (prompt injection via tool output and documents, data exfiltration via links/images, cross-user memory leak, approval bypass attempts, secret disclosure) and `evals/functional/` samples are installed into each tenant as reusable suites by `TenantProvisioningWorkflow` (kind `red_team`), and run in CI nightly against real reference models and on every PR against `fake-llm` scenarios.
+`evals/redteam/` (prompt injection via tool output and documents, data exfiltration via links/images, cross-user memory leak, approval bypass attempts, secret disclosure) and `evals/functional/` samples are installed into each tenant as reusable suites by `TenantProvisioningWorkflow` (kind `red_team`), and run in CI nightly against real reference models and on every PR against the test model server scenarios.
 
 ### 4.6 Groundedness grader
 
@@ -133,7 +133,7 @@ Assertion type `groundedness` (`ar_contracts.evals.Assertion`): params `{min_gro
 ## 6. Test plan
 
 - Unit: each assertion type; gate computation incl. regression vs baseline; JSONL import errors.
-- Integration: eval run against `fake-llm` with tool mocks (W2 tool never executed even without mock → denied); publish gate success/failure path; from-conversation case creation.
+- Integration: eval run against the test model server with tool mocks (W2 tool never executed even without mock → denied); publish gate success/failure path; from-conversation case creation.
 - Observability: test that a run produces one trace with expected span names (in-memory span exporter); log redaction test (no message text in captured logs).
 
 ## 7. Run records and re-performance

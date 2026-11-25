@@ -1,16 +1,16 @@
 # Testing strategy
 
-Principles: test behaviour at the cheapest level that proves it; real dependencies (Postgres + pgvector, Valkey, OPA, Temporal test server; Qdrant for the optional adapter's conformance run) in integration tests — no SQLite or in-memory stand-ins for Postgres; deterministic models via `fake-llm`; every bug fix adds a regression test.
+Principles: test behaviour at the cheapest level that proves it; real dependencies (Postgres + pgvector, Valkey, OPA, Temporal test server; Qdrant for the optional adapter's conformance run) in integration tests — no SQLite or in-memory stand-ins for Postgres; deterministic models via the test model server; every bug fix adds a regression test.
 
 ## 1. Test pyramid
 
 | Level | Tool | Location | Runs | What |
 |---|---|---|---|---|
 | Unit | pytest (+ `pytest-asyncio`, `respx`, `hypothesis`), Vitest | `*/tests/unit`, `apps/web/src/**/*.test.tsx` | every PR (< 5 min) | Pure logic: services with fake repositories, policy input building, context assembly, wrapping, validators, React components with msw |
-| Integration | pytest + testcontainers + Temporal `WorkflowEnvironment` | `*/tests/integration` (marker `integration`) | every PR (sharded, < 10 min) | Repositories with RLS, API endpoints via `httpx.AsyncClient(app=…)`, workflows with real activities against containers, gateways with `fake-llm` and test MCP servers |
+| Integration | pytest + testcontainers + Temporal `WorkflowEnvironment` | `*/tests/integration` (marker `integration`) | every PR (sharded, < 10 min) | Repositories with RLS, API endpoints via `httpx.AsyncClient(app=…)`, workflows with real activities against containers, gateways with the test model server and test MCP servers |
 | Contract | schemathesis, generated-client tests, JSON Schema snapshot | `services/api/tests/contract` | every PR + nightly fuzz | OpenAPI conforms to implementation; stream events match `ar_contracts`; MCP servers conform to the MCP revision |
 | Policy | `opa test` | `policies/rego/ar/*_test.rego` | every PR | Every rule branch of policy.rego; coverage ≥ 90 % |
-| End-to-end | Playwright + axe | `apps/web/e2e` | main, nightly, PR label `e2e` | User journeys across web, api, workers, gateways with `fake-llm` |
+| End-to-end | Playwright + axe | `apps/web/e2e` | main, nightly, PR label `e2e` | User journeys across web, api, workers, gateways with the test model server |
 | Evaluation | eval harness ([eval-strategy](eval-strategy.md)) | `evals/` | prompt/model changes, nightly | Agent quality and safety with real company models |
 | Performance | Locust | `tests/load` | nightly (short), pre-release (24 h soak) | [performance-budgets](performance-budgets.md) |
 
@@ -28,9 +28,9 @@ Principles: test behaviour at the cheapest level that proves it; real dependenci
 - Workflow tests use the time-skipping environment for timers (approval expiry, routine schedules) and assert history determinism with replay tests (`Replayer` over recorded histories in `tests/replay/*.json`, updated deliberately).
 - Test MCP servers: `ar_testing.mcp_servers` provides `echo`, `slow`, `huge_result`, `malicious` (returns injection payloads and oversize output), `drifting` (changes its manifest) servers.
 
-## 4. fake-llm
+## 4. Model stand-in
 
-`services/fake_llm` (M0-T07) is a deterministic OpenAI-compatible server used in dev, CI and e2e.
+`ar_testing.model_server` is a deterministic OpenAI-compatible server used by unit tests, the browser-test harness and the Compose smoke check. A test registers it as an ordinary `openai_compatible` provider. It is not part of the product, an image an install uses, or `make dev`.
 
 | Endpoint | Behaviour |
 |---|---|
@@ -46,7 +46,7 @@ The script set can also come from the URL path: `http://host:port/s/<set>/v1` an
 
 Embeddings follow the same rule. Product code has no vector of its own: knowledge and memory call the model the `embed` alias names. `ar_testing.demo.demo_store()` and `serve_demo_tenant()` register the stand-in's embedding and rerank models (`StandIn.connect_embeddings`) on one server shared by the process (`ar_testing.stand_in.shared()`), and a test against a real database saves them with `save_embeddings`, as the Models screen would. The stand-in's vectors are stable for a text and carry no meaning, so a test that needs a passage found relies on shared words or on the stand-in rerank model. A test that mocks HTTP with `respx` lets loopback through (`respx.route(host="127.0.0.1").pass_through()`), and a test that replaces `asyncio.sleep`, `asyncio.wait_for` or `time.sleep` wraps the replacement in `ar_testing.sleeping.in_this_thread`, because the stand-in serves from another thread of the same process and a process-wide replacement stops it or makes its idle loop spin (a guard test fails on an unwrapped one) ([M38b-T07b](../09-plan/M38b-real-tenant.md)).
 
-Script format (also used in YAML scenario files `services/fake_llm/scenarios/*.yaml`, loaded at startup, each file = one script set named after the file):
+Script format (also used in YAML scenario files `libs/ar_testing/src/ar_testing/model_server/scenarios/*.yaml`, loaded at startup, each file = one script set named after the file):
 
 ```yaml
 - match: {contains: "weather"}            # or {regex: "..."} or {last_tool_result: {tool: "x", contains: "..."}} or {system_contains: "..."}
@@ -70,7 +70,7 @@ Rules: first matching script wins; `respond.text` supports `{{last_user}}` and `
 
 The browser tests start the API through a harness, `services/api/tests/support/e2e_server.py`: the product's own application with no database, given the demo tenant (its people, agents, fixtures and example conversations). The demo tenant is test data, so the harness puts it in, and unit tests build it with `ar_testing.demo` (`demo_store()` for a store, `demo_application()` for the API application). A product store starts with no tenant. The specs sign in with `signInAs(page, email)` (`apps/web/e2e/support/sign-in.ts`), which uses `/api/v1/test/sign-in`; that path exists only in the harness. Unit tests get the demo tenant's identity from `ar_testing` (`demo_application()` plugs it in); scripts that run against a real stack sign in through the identity provider with `scripts/sign_in.py`. A product process never creates it: an API or a worker that cannot reach its database, or finds no tenant in it, serves nobody and tries again ([OQ-99](../open-questions.md)). The run on real services with a real model is the fresh run ([report](../testing/fresh-tenant-2026-11-06/report.md), M38b-T11). It is a repeatable pre-release gate, not a CI job (CI has no model): [`scripts/fresh_run/`](../../scripts/fresh_run/README.md) drives a seeded tenant through sign-in, model setup, a chat answer, a knowledge search, memory recall and a second user, writing a pass/fail and a screenshot for each; the release checklist is [m38b-checklist.md](../testing/m38b-checklist.md).
 
-Playwright projects: `chromium` (required), `firefox` (nightly). In CI a failed test is retried up to twice and a test that then passes is listed as flaky, so one slow page does not fail the job ([OQ-95](../open-questions.md)); there is no retry on a laptop. The default wait for an element is ten seconds. Stack: `make dev` (compose + host processes) in CI, `fake-llm` default script set plus `e2e` set. Journeys (each with axe check on visited pages):
+Playwright projects: `chromium` (required), `firefox` (nightly). In CI a failed test is retried up to twice and a test that then passes is listed as flaky, so one slow page does not fail the job ([OQ-95](../open-questions.md)); there is no retry on a laptop. The default wait for an element is ten seconds. Stack: `make dev` (compose + host processes) in CI, the test model server default script set plus `e2e` set. Journeys (each with axe check on visited pages):
 1. Login (Keycloak test realm) → select tenant → chat with default agent → streaming answer → feedback.
 2. Builder creates agent from template → adds tool and knowledge → test chat (preview) → publish → member uses it.
 3. Tool call requiring approval → approver approves from inbox → run resumes; reject path.

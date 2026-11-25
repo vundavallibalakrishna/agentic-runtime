@@ -168,9 +168,10 @@ async def _complete(
     ensure_key = getattr(store, "_ensure_provider_key", None)
     if ensure_key is not None:
         await ensure_key(actor.tenant_id, "reasoning")
-    model, headers, timeout_s, real = completion(actor.tenant_id, "reasoning")
-    if not real:
+    call = completion(actor.tenant_id, "reasoning")
+    if call is None:
         raise model_unavailable
+    model, headers, timeout_s = call
     return await _ask_model(
         store,
         actor,

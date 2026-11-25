@@ -74,10 +74,10 @@ def test_staging_refuses_a_process_local_book(monkeypatch: pytest.MonkeyPatch) -
         # Without the manager's address the install has no computers. The process still
         # boots, and a tool that needs a computer is refused; nothing runs on the host.
         monkeypatch.delenv("AR_SANDBOX_MANAGER_URL", raising=False)
-        without = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
+        without = build_product_store(settings, allow_loopback=False)
         assert isinstance(without.sandbox_launcher, ComputersOff)
         monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
-        store = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
+        store = build_product_store(settings, allow_loopback=False)
         assert isinstance(store.sandbox_launcher, SandboxManagerLauncher)
         # Building the store attaches the Valkey books, so no entry point can forget them.
         require_shared_request_state(store, settings)
@@ -97,8 +97,8 @@ def test_two_stores_share_a_valkey_session_and_window(monkeypatch: pytest.Monkey
     settings = _staging()
     set_settings(settings)
     try:
-        first = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
-        second = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
+        first = build_product_store(settings, allow_loopback=False)
+        second = build_product_store(settings, allow_loopback=False)
         install_shared_state(first, settings)
         install_shared_state(second, settings)
     finally:
@@ -142,7 +142,7 @@ def test_a_down_valkey_refuses_boot(monkeypatch: pytest.MonkeyPatch) -> None:
     set_settings(settings)
     try:
         with pytest.raises(ProcessLocalStateRefusedError):
-            build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
+            build_product_store(settings, allow_loopback=False)
     finally:
         set_settings(previous)
 

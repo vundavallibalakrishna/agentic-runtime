@@ -24,14 +24,16 @@ if TYPE_CHECKING:
     import uuid
 
 
-def seed_demo_tools(store: Any) -> None:
-    """Add the demo tenant's tool rows to ``store``. A second call adds nothing."""
+def seed_demo_tools(store: Any, *, stand_ins: bool = True) -> None:
+    """Add the demo tenant's tool rows to ``store``. A second call adds nothing.
+
+    ``stand_ins`` off leaves out the stand-in servers, the desk agent bound to them and the
+    approval tool: the tenant then has its settings, the review and the analyst only.
+    """
     tenant = demo_id("tenant")
     admin = demo_id("admin")
     _settings(store, tenant)
-    # A test that builds its store the way staging does asks for a tenant with no
-    # stand-in servers: it has the settings, the review and the analyst only.
-    if getattr(store, "fake_models_allowed", True):
+    if stand_ins:
         provider = _provider(store, tenant, admin)
         _tickets(store, tenant, admin, provider)
         _petstore(store, tenant, admin)

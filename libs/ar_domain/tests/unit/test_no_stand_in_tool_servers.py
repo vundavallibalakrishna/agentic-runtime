@@ -100,7 +100,6 @@ def test_the_product_catalogue_is_the_same_in_every_environment() -> None:
     def names(store: ChatService) -> set[str]:
         return {str(row["qualified_name"]) for row in store.tool_versions.values()}
 
-    assert names(ChatService()) == names(ChatService(fake_models_allowed=False))
     assert "session.propose_change" not in names(ChatService())
     for name in ("seed_tools.py", "handlers.py"):
         source = (_TOOLS / name).read_text(encoding="utf-8")
