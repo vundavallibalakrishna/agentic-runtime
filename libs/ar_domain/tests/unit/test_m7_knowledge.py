@@ -67,11 +67,27 @@ from ar_runtime.activities.auto_retrieve_knowledge import bind_store as bind_run
 from ar_testing.demo import demo_store
 from ar_testing.demo_tenant import seed_demo
 from ar_testing.showcase_build import seed_showcase
+from ar_testing.stand_in import shared
 
 if TYPE_CHECKING:
     from ar_testing.stand_in import StandIn
 
 pytestmark = pytest.mark.unit
+
+_GUIDE_ROW: dict[str, object] = {
+    "id": "guide",
+    "title": "Visitor guide",
+    "webUrl": "sharepoint://guide",
+    "text": "The visitor desk opens at 08:30. Token ZX-4471.",
+    "acl": [{"type": "anyone"}],
+}
+_PAY_ROW: dict[str, object] = {
+    "id": "pay",
+    "title": "Payroll calendar",
+    "webUrl": "sharepoint://pay",
+    "text": "Payroll is released on the 28th.",
+    "acl": [{"type": "user", "email": "admin@dev.local"}],
+}
 
 
 def _admin(tenant: uuid.UUID | None = None) -> Actor:
@@ -269,24 +285,7 @@ def test_collection_acl_search_and_delete_at_source() -> None:
         {
             "name": "SharePoint",
             "kind": "sharepoint",
-            "config": {
-                "items": [
-                    {
-                        "external_id": "guide",
-                        "title": "Visitor guide",
-                        "uri": "sharepoint://guide",
-                        "text": "The visitor desk opens at 08:30. Token ZX-4471.",
-                        "acl": [{"type": "anyone"}],
-                    },
-                    {
-                        "external_id": "pay",
-                        "title": "Payroll calendar",
-                        "uri": "sharepoint://pay",
-                        "text": "Payroll is released on the 28th.",
-                        "acl": [{"type": "user", "email": "admin@dev.local"}],
-                    },
-                ]
-            },
+            "config": {"url": shared().serve_json("m7-library", {"value": [_GUIDE_ROW, _PAY_ROW]})},
         },
     )
     admin_hits = book.search(
@@ -321,7 +320,8 @@ def test_collection_acl_search_and_delete_at_source() -> None:
     listed = book.list_documents(admin, collection_id, query="Visitor")
     assert any(row["title"] == "Visitor guide" for row in listed)
     source_row = store.knowledge_sources[uuid.UUID(str(source["id"]))]
-    source_row["config"] = {"items": [], "deleted_external_ids": ["guide"]}
+    # The source now reports the guide as deleted.
+    shared().serve_json("m7-library", {"value": [{"id": "guide", "deleted": True}, _PAY_ROW]})
     sync_source(store, source_row, mode="incremental", actor_id=admin.user_id)
     after = book.search(
         admin, {"query": "ZX-4471", "collection_ids": [collection_id], "debug": True}
@@ -339,19 +339,16 @@ def test_collection_acl_search_and_delete_at_source() -> None:
 
 
 def test_connectors_and_activities(monkeypatch: pytest.MonkeyPatch) -> None:
-    page = list_changes(
-        {"kind": "database", "config": {"rows": [{"id": "1", "title": "Row", "text": "hello"}]}},
-        mode="full",
-    )
-    assert page["items"][0]["external_id"] == "1"
-    web = list_changes(
-        {"kind": "web", "config": {"items": [{"external_id": "p", "title": "Page"}]}},
-        mode="incremental",
-    )
-    assert web["items"][0]["external_id"] == "p"
-    assert check({"kind": "web", "config": {"items": [{"external_id": "p", "title": "Page"}]}})[
-        "ok"
-    ]
+    # A source never answers from rows written into its configuration (OQ-197).
+    for kind, written in (
+        ("database", {"rows": [{"id": "1", "title": "Row", "text": "hello"}]}),
+        ("web", {"items": [{"external_id": "p", "title": "Page"}]}),
+        ("s3", {"objects": [{"key": "a.txt", "text": "hello"}]}),
+        ("mcp_resource", {"resources": [{"name": "r", "text": "hello"}]}),
+    ):
+        page = list_changes({"kind": kind, "config": written}, mode="full")
+        assert page["items"] == [], kind
+        assert check({"kind": kind, "config": written})["sample"] == [], kind
     raw, mime = fetch_bytes({"text": "hello", "mime_type": "text/plain"})
     assert raw == b"hello" and mime == "text/plain"
     name = physical_name(
@@ -449,34 +446,24 @@ def test_acl_sync_does_not_require_reembed() -> None:
     store.company_domains = {"dev.local"}
     book = KnowledgeBook(store)
     created = book.create_collection(admin, {"slug": "acl", "name": "ACL", "sensitivity": "high"})
+    roster = {
+        "id": "doc",
+        "title": "Roster",
+        "text": "Dev Member is on call.",
+        "acl": [{"type": "user", "email": "admin@dev.local"}],
+    }
     source = book.create_source(
         admin,
         uuid.UUID(str(created["id"])),
         {
             "name": "Drive",
             "kind": "google_drive",
-            "config": {
-                "items": [
-                    {
-                        "external_id": "doc",
-                        "title": "Roster",
-                        "text": "Dev Member is on call.",
-                        "acl": [{"type": "user", "email": "admin@dev.local"}],
-                    }
-                ]
-            },
+            "config": {"url": shared().serve_json("m7-acl", {"value": [roster]})},
         },
     )
     row = store.knowledge_sources[uuid.UUID(str(source["id"]))]
-    row["config"] = {
-        "items": [
-            {
-                "external_id": "doc",
-                "title": "Roster",
-                "acl": [{"type": "anyone"}],
-            }
-        ]
-    }
+    # The source now lets anyone read the roster.
+    shared().serve_json("m7-acl", {"value": [{**roster, "acl": [{"type": "anyone"}]}]})
     job = acl_sync(store, row, actor_id=admin.user_id)
     assert job["status"] in {"succeeded", "partially_failed"}
     document = next(iter(store.knowledge_documents.values()))

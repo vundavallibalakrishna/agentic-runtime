@@ -277,6 +277,18 @@ spec:
 | `database` | `data_connection`, `query` (SELECT returning `id, title, body, updated_at, acl?`) |
 | `mcp_resource` | `tool_server`, `resource_uri_prefix` (ingests MCP resources) |
 
+**As built (2026-11-25).** A source's `config` says where to read and names a saved connection; it never holds a key, a password or the documents themselves. The keys the product reads today:
+
+| kind | Config read today | Credential |
+|---|---|---|
+| `web` | `url`, `allowlist[]` | none |
+| `s3` | `bucket` (required), `prefix`, `endpoint`, `region`, `connection` (required) | saved connection of kind `basic`: username is the access key, secret is the secret key |
+| `sharepoint`, `confluence`, `google_drive` | `url` (an address that returns the listing as JSON: `value[]` or `results[]`), `connection?` | saved connection, sent as its headers |
+| `database` | `query` (required), `idColumn` (`id`), `titleColumn` (`title`), `textColumn` (`text`), `aclColumn?`, `versionColumn?`; the source's `dataConnectionId` (or `connection`, a data connection's name) | the data connection |
+| `mcp_resource` | `server` (required: the short name of an approved remote tool server in the tenant), `connection?` | saved connection, or none when the server needs no sign-in |
+
+A source that lacks what its kind needs is created, and its sync fails with a message that names what is missing.
+
 ## 6. Routine (`kind: Routine`)
 
 ```yaml

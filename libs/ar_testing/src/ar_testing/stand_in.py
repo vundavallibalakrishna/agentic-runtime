@@ -56,8 +56,71 @@ class StandIn:
 
     def __init__(self) -> None:
         self.app = create_application()
+        self._pages: dict[str, object] = {}
+        self.app.add_api_route("/pages/{name}", self._page, methods=["GET"])
+        self._resources: dict[str, dict[str, dict[str, object]]] = {}
+        self.app.add_api_route("/mcp/{name}", self._mcp, methods=["POST"])
         self._server = BackgroundServer(self.app)
         self.port = self._server.start()
+
+    async def _page(self, name: str) -> Any:
+        from fastapi.responses import JSONResponse  # noqa: PLC0415
+
+        if name not in self._pages:
+            return JSONResponse({"error": "no such page"}, status_code=404)
+        return JSONResponse(self._pages[name])
+
+    async def _mcp(self, name: str, body: dict[str, Any]) -> Any:
+        """A small MCP endpoint: ``initialize``, ``resources/list`` and ``resources/read``."""
+        from fastapi.responses import JSONResponse, Response  # noqa: PLC0415
+
+        held = self._resources.get(name, {})
+        method = str(body.get("method") or "")
+        if "id" not in body:
+            return Response(status_code=202)
+        if method == "resources/list":
+            result: dict[str, object] = {
+                "resources": [
+                    {"uri": uri, "name": uri.rsplit("/", 1)[-1], "mimeType": row.get("mimeType")}
+                    for uri, row in sorted(held.items())
+                ]
+            }
+        elif method == "resources/read":
+            uri = str((body.get("params") or {}).get("uri") or "")
+            if uri not in held:
+                return JSONResponse(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": body["id"],
+                        "error": {"code": -32002, "message": "resource not found"},
+                    }
+                )
+            result = {"contents": [{"uri": uri, **held[uri]}]}
+        else:
+            result = {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {"resources": {}},
+                "serverInfo": {"name": name, "version": "1"},
+            }
+        return JSONResponse({"jsonrpc": "2.0", "id": body["id"], "result": result})
+
+    def serve_resources(self, name: str, resources: dict[str, dict[str, object]]) -> str:
+        """Serve ``resources`` from an MCP endpoint on loopback and return its address.
+
+        ``resources`` maps a URI to its content: ``{"mimeType": ..., "text": ...}`` or
+        ``{"mimeType": ..., "blob": <base64>}``. Serving a name again replaces them.
+        """
+        self._resources[name] = resources
+        return f"http://127.0.0.1:{self.port}/mcp/{name}"
+
+    def serve_json(self, name: str, body: object) -> str:
+        """Serve ``body`` as JSON at a loopback address and return the address.
+
+        A test's knowledge source reads its listing from here over HTTP, the way it reads
+        one from the system it would connect to. Serving a name again replaces its body.
+        """
+        self._pages[name] = body
+        return f"http://127.0.0.1:{self.port}/pages/{name}"
 
     def base_url(self, script_set: str = "default") -> str:
         """The OpenAI-compatible base URL that answers from ``script_set``."""
