@@ -44,6 +44,20 @@ def verify_signature(public_pem: str, signature: str, digest: bytes) -> bool:
     return True
 
 
+def _refusal(payload: dict[str, object]) -> str:
+    """One line per resource the bundle refused. Empty when every resource was accepted."""
+    lines: list[str] = []
+    for item in _result_rows(payload):
+        if not isinstance(item, dict) or item.get("action") != "error":
+            continue
+        errors = item.get("errors")
+        detail = ""
+        if isinstance(errors, list) and errors and isinstance(errors[0], dict):
+            detail = str(errors[0].get("msg") or "")
+        lines.append(f"{item.get('kind')} {item.get('key')}: {detail}".strip())
+    return "; ".join(lines)
+
+
 def _result_rows(payload: dict[str, object]) -> list[object]:
     rows = payload.get("results")
     return list(rows) if isinstance(rows, list) else []
@@ -173,16 +187,24 @@ class PackService:
             for item in parsed.spec.resources
             if not (isinstance(item, dict) and item.get("kind") == "Policy")
         ]
+        bundle = {
+            "apiVersion": "agentic-runtime.dev/v1",
+            "kind": "Bundle",
+            "spec": {"resources": bundle_resources},
+        }
+        preview = import_bundle(self.store, actor, bundle, dry_run=True)
+        refused = _refusal(preview)
+        if refused:
+            raise ArError(ErrorCode.VALIDATION_FAILED, refused)
         imported = import_bundle(
             self.store,
             actor,
-            {
-                "apiVersion": "agentic-runtime.dev/v1",
-                "kind": "Bundle",
-                "spec": {"resources": bundle_resources},
-            },
+            bundle,
             dry_run=False,
         )
+        refused = _refusal(imported)
+        if refused:
+            raise ArError(ErrorCode.VALIDATION_FAILED, refused)
         now = utcnow()
         row_id = new_id()
         row = {
