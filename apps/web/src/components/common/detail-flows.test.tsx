@@ -177,7 +177,9 @@ describe("detail flow failures", () => {
       ),
     );
     render(wrap(<ApprovalDetail approvalId="approval" />));
-    expect(await screen.findByText("You own this agent, so you cannot approve this request.")).toBeTruthy();
+    expect(
+      await screen.findByText("You own this agent, so you cannot approve this request."),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Reject" })).toBeNull();
   });
