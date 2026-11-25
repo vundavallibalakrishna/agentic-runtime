@@ -323,7 +323,7 @@ def _builtin_rows() -> list[tuple[str, str, str, str, str]]:
     from ar_domain.tools import seed_tools  # noqa: PLC0415
 
     store = ChatService()
-    seed_tools.seed(store, tenant=False)
+    seed_tools.seed(store)
     rows: list[tuple[str, str, str, str, str]] = []
     for version in store.tool_versions.values():
         if not isinstance(version, dict):

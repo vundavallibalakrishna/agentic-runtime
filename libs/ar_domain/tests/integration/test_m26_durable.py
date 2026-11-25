@@ -17,6 +17,7 @@ from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.identity.seed import apply
 from ar_domain.tools.credentials import CredentialBook
 from ar_domain.tools.named_secrets import read_named_secret, write_named_secret
+from ar_testing.tool_stand_ins import token_endpoint
 
 pytestmark = pytest.mark.integration
 
@@ -65,7 +66,7 @@ async def test_connector_records_survive_a_new_process(database_url: str) -> Non
             "name": "M26",
             "kind": "oauth2",
             "authorize_url": "https://example.com/authorize",
-            "token_url": "memory://oauth",
+            "token_url": "https://example.com/oauth/token",
             "client_id": "m26",
             "default_scopes": ["read"],
         },
@@ -94,6 +95,8 @@ async def test_connector_records_survive_a_new_process(database_url: str) -> Non
         for key, row in restarted.oauth_states.items()
         if isinstance(row, dict) and row.get("tenant_id") == binding.tenant_id
     )
+    # The provider is not real, so its token endpoint is the test library's stand-in.
+    restarted.oauth_transport = token_endpoint()  # type: ignore[attr-defined]
     await CredentialBook(restarted).callback("code-from-the-provider", str(state))
     await flush_store(restarted)
     third = ChatService()

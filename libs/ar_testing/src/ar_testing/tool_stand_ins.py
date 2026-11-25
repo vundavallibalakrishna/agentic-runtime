@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import uuid
 from typing import TYPE_CHECKING
+from urllib.parse import parse_qsl
+
+import httpx
 
 from ar_domain.tools.database import register_source
 from ar_domain.tools.handlers import register_endpoint
@@ -24,6 +27,9 @@ TICKETS = "memory://tickets"
 ECHO = "memory://echo"
 PETSTORE = "memory://petstore"
 WAREHOUSE = "memory://warehouse"
+# The address the demo tenant's OAuth provider names. No call leaves the process:
+# ``token_endpoint`` answers it.
+TOKEN_URL = "https://example.com/oauth/token"  # noqa: S105
 
 _ORDERS = (
     {"id": 1, "sku": "paper", "quantity": 4},
@@ -51,6 +57,40 @@ ECHO_TOOLS: list[dict[str, object]] = [
         "annotations": {"readOnlyHint": True},
     }
 ]
+
+
+def token_endpoint() -> httpx.MockTransport:
+    """An OAuth token endpoint that answers every grant without a network.
+
+    A test sets it as the store's ``oauth_transport``, so the product's own token code
+    runs: it builds the form, posts it and reads the answer. The code ``invalid`` and an
+    empty refresh token are refused the way a provider refuses them.
+    """
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        form = dict(parse_qsl(request.content.decode()))
+        grant = form.get("grant_type", "")
+        if grant == "client_credentials":
+            return _tokens(f"access-{form.get('client_id', '')}", "")
+        if grant == "refresh_token":
+            refresh = form.get("refresh_token", "")
+            if not refresh:
+                return httpx.Response(400, json={"error": "invalid_grant"})
+            rotated = f"refresh-rotated-{refresh[-6:]}"
+            return _tokens(f"access-{rotated}", rotated)
+        code = form.get("code") or form.get("subject_token") or ""
+        if not code or code == "invalid":
+            return httpx.Response(400, json={"error": "invalid_grant"})
+        return _tokens(f"access-{code}", f"refresh-{code}")
+
+    return httpx.MockTransport(answer)
+
+
+def _tokens(access: str, refresh: str) -> httpx.Response:
+    body: dict[str, object] = {"access_token": access, "expires_in": 3600}
+    if refresh:
+        body["refresh_token"] = refresh
+    return httpx.Response(200, json=body)
 
 
 def register_stand_ins() -> None:

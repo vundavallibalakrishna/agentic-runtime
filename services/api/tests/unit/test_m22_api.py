@@ -91,7 +91,7 @@ def test_connection_lifecycle_and_openapi_import() -> None:
         json={
             "name": "userlogin",
             "kind": "oauth_authorization_code",
-            "tokenUrl": "memory://tokens",
+            "tokenUrl": "https://example.com/oauth/token",
             "authorizeUrl": "https://example.com/authorize",
             "clientId": "ar",
         },

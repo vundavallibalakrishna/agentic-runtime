@@ -430,7 +430,6 @@ class ChatBehaviour:
     pets: list[dict[str, object]] = field(default_factory=lambda: [{"id": 1, "name": "doggie"}])
     rate_buckets: dict[str, list[float]] = field(default_factory=dict)
     tools_seeded: bool = False
-    tenant_tools_seeded: bool = False
     notifications: list[dict[str, object]] = field(default_factory=list)
     policies: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     policy_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -527,7 +526,7 @@ class ChatBehaviour:
         # tenant and its scripted provider with ``ar_testing.demo``.
         from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
 
-        ToolRegistry(self).ensure_seed(tenant=False)
+        ToolRegistry(self).ensure_seed()
 
     def ensure_assistant(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> dict[str, object]:
         """Create the published ``assistant`` agent for a tenant once.

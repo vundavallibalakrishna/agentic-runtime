@@ -57,7 +57,6 @@ from ar_domain.tools.service_connections import (
     _headers,
     _iso,
     _open,
-    _refresh_token,
     _scrub,
     _seal,
     _store_tokens,
@@ -104,7 +103,7 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
                 "name": "userlogin",
                 "kind": "oauth_authorization_code",
                 "secret": "",
-                "token_url": "memory://tokens",
+                "token_url": "https://example.com/oauth/token",
             },
         )
     created = book.create(
@@ -184,7 +183,7 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
             "name": "userlogin",
             "kind": "oauth_authorization_code",
             "secret": "client-secret",
-            "token_url": "memory://tokens",
+            "token_url": "https://example.com/oauth/token",
             "authorize_url": "https://example.com/authorize",
             "client_id": "ar",
         },
@@ -200,7 +199,7 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
     saved = next(item for item in store.service_connections.values() if item["name"] == "userlogin")
     saved["expires_at"] = (utcnow() - timedelta(minutes=1)).isoformat()
     headers, secret = headers_for(store, actor.tenant_id, actor.user_id, "userlogin")
-    assert secret.startswith("refreshed-")
+    assert secret.startswith("access-refresh-rotated-")
     assert headers["Authorization"].startswith("Bearer ")
     saved["token_url"] = "http://127.0.0.1/token"
     saved["expires_at"] = (utcnow() - timedelta(minutes=1)).isoformat()
@@ -257,17 +256,6 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
     )
     with pytest.raises(ArError):
         asyncio.run(_exchange(store, saved, "auth-code", "verifier"))
-    refreshed = _refresh_token(
-        store,
-        {
-            "name": "userlogin",
-            "token_url": "memory://tokens",
-            "refresh_token": saved["refresh_token"],
-            "client_id": "ar",
-            "secret": saved["secret"],
-        },
-    )
-    assert refreshed["access_token"].startswith("refreshed-")
 
 
 def test_http_operation_limits_and_parsers() -> None:
