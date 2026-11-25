@@ -409,6 +409,24 @@ class KnowledgeBook:
         for document in list(self.store.knowledge_documents.values()):
             if document.get("source_id") == source_id and document.get("status") != "deleted":
                 delete_document(self.store, document, actor_id=actor.user_id)
+        # The database removes a source's documents with the source. The copies here go
+        # too: one left behind, marked deleted, was saved again after its source was gone,
+        # which the database refused, so a source could not be deleted at all.
+        gone = {
+            key
+            for key, document in self.store.knowledge_documents.items()
+            if document.get("source_id") == source_id
+        }
+        for bucket, owner in (
+            ("document_chunks", "document_id"),
+            ("document_revisions", "document_id"),
+        ):
+            held = getattr(self.store, bucket, None)
+            if isinstance(held, dict):
+                for key in [key for key, row in held.items() if row.get(owner) in gone]:
+                    held.pop(key, None)
+        for key in gone:
+            self.store.knowledge_documents.pop(key, None)
         self.store.knowledge_sources.pop(source_id, None)
         remember(
             self.store,

@@ -256,10 +256,20 @@ def reindex(store: Any, collection: dict[str, object], *, actor_id: object) -> d
 
 
 def _delete_index(store: Any, collection: dict[str, object] | None) -> Any:
-    """The index that holds this collection's vectors. Memory when the process has no database."""
+    """The index that holds this collection's vectors. Memory when the process has no database.
+
+    A pgvector collection is in the database this process is bound to, and the index
+    that reaches it is the one a search and an ingest use (``active_index``). The adapter
+    taken by name alone has no address for it, so on a database-backed install a document
+    could be indexed and never deleted.
+    """
     if not getattr(store, "durable", False) or not isinstance(collection, dict):
         return memory_index(store)
     backend = str(collection.get("store_backend") or "pgvector")
+    if backend == "pgvector":
+        from ar_domain.knowledge.store import active_index  # noqa: PLC0415
+
+        return active_index(store)
     from ar_domain.knowledge.store import get_retrieval_store  # noqa: PLC0415
 
     try:
