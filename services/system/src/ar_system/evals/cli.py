@@ -1,8 +1,8 @@
 """Run repository suites. ``uv run python scripts/run_suites.py run evals/golden`` (make eval).
 
 A suite is scored by running the agent, so the command needs a model. It reads the
-certification variables: ``AR_CERT_LLM_API_KEY``, and optionally ``AR_CERT_LLM_BASE_URL``
-and ``AR_CERT_LLM_MODEL``. Without a key it exits 2 and scores nothing.
+certification variables: ``AR_CERT_LLM_API_KEY``, ``AR_CERT_LLM_BASE_URL`` and
+``AR_CERT_LLM_MODEL``. Without all three it exits 2 and scores nothing.
 """
 
 from __future__ import annotations
@@ -47,8 +47,8 @@ def main(
     del args.agent_template, args.model_alias
     try:
         key, base_url, model = live_settings()
-    except LiveConfigError:
-        _log.error("model_required", detail="set AR_CERT_LLM_API_KEY to score a suite")
+    except LiveConfigError as exc:
+        _log.error("model_required", detail=str(exc))
         return 2
     if make_store is None:
         _log.error("store_required", detail="run through scripts/run_suites.py (make eval)")

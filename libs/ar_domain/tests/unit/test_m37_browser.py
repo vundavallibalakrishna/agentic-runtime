@@ -1,84 +1,39 @@
-"""Controlled browser: local fixture, approval, and session isolation.
+"""Controlled browser: it runs in the sandbox, navigation is gated, and nothing stands in.
 
-Spec: docs/03-specs/12-sandbox-manager.md. Chromium is optional (OQ-87).
+Spec: docs/03-specs/12-sandbox-manager.md. The browser tools drive Chromium on the agent's
+computer. Until 25 November 2026 a second, in-process HTML engine answered them in dev
+and CI when no computer was running (OQ-197). It is removed: with no computer there is no
+browser, in any environment. What stays the same wherever the browser runs is the gate
+on a navigation, which these tests cover with the call to the computer replaced.
 """
 
 from __future__ import annotations
 
-import threading
 import uuid
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs
-
-import httpx
-import pytest
+from typing import TYPE_CHECKING
 
 from ar_domain.chat.service import ChatService, demo_id
-from ar_domain.sandboxes.browser import chromium_canary, navigation_class
+from ar_domain.sandboxes import runtime
+from ar_domain.sandboxes.browser import navigation_class
 from ar_domain.sandboxes.runtime import run_tool
-from ar_domain.sandboxes.service import SandboxBook
 from ar_domain.tools.logic import call_args_hash
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_testing.demo import demo_store
 
-pytestmark = pytest.mark.dns_fallback
-_PAGE = """<!DOCTYPE html>
-<html><head><title>Fixture desk</title></head>
-<body>
-<h1>Fixture desk</h1>
-<p>Ticket queue for the local site.</p>
-<a href="/next">Open the next page</a>
-<form action="/submit" method="post">
-<input name="note" type="text">
-<button type="submit">Send</button>
-</form>
-</body></html>
-"""
+if TYPE_CHECKING:
+    import pytest
 
-
-class _Handler(BaseHTTPRequestHandler):
-    def do_GET(self) -> None:
-        cookie = self.headers.get("Cookie") or ""
-        if self.path.startswith("/next"):
-            shown = cookie or "none"
-            body = (
-                "<html><head><title>Next</title></head><body>"
-                f"<h1>Second page</h1><p>cookie {shown}</p></body></html>"
-            )
-        else:
-            body = _PAGE
-        self._send(body, cookie=None)
-
-    def do_POST(self) -> None:
-        length = int(self.headers.get("Content-Length") or "0")
-        raw = self.rfile.read(length).decode("utf-8", errors="replace")
-        note = parse_qs(raw).get("note", [""])[0]
-        body = (
-            "<html><head><title>Saved</title></head><body>"
-            f"<h1>Saved note</h1><p>{note}</p></body></html>"
-        )
-        self._send(body, cookie="desk=armed; Path=/")
-
-    def _send(self, body: str, *, cookie: str | None) -> None:
-        data = body.encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(data)))
-        if cookie:
-            self.send_header("Set-Cookie", cookie)
-        self.end_headers()
-        self.wfile.write(data)
-
-    def log_message(self, fmt: str, *args: object) -> None:
-        del fmt, args
-
-
-def _site() -> tuple[ThreadingHTTPServer, str]:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    host, port = server.server_address[:2]
-    return server, f"http://{host}:{port}"
+_NAMES = (
+    "navigate",
+    "snapshot",
+    "click",
+    "type",
+    "press",
+    "scroll",
+    "submit_form",
+    "screenshot",
+    "new_tab",
+)
 
 
 def _arm(store: ChatService) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
@@ -130,252 +85,98 @@ def _call(
     return run_tool(store, name, arguments)
 
 
-def test_fixture_case_reads_types_and_submits() -> None:
+def _computer(
+    monkeypatch: pytest.MonkeyPatch, store: ChatService
+) -> list[tuple[str, dict[str, object]]]:
+    """Give every sandbox of ``store`` an address and record what is sent to it."""
+    sent: list[tuple[str, dict[str, object]]] = []
+    real = runtime._ensure_for_call
+
+    def ensure(store_: object, arguments: dict[str, object]) -> dict[str, object]:
+        book = real(store_, arguments)
+        sandbox = book.get("sandbox")
+        if isinstance(sandbox, dict):
+            sandbox["endpoint_url"] = "http://computer.invalid:8090"
+        return book
+
+    def proxy(sandbox: dict[str, object], name: str, arguments: dict[str, object]) -> object:
+        del sandbox
+        public = {key: value for key, value in arguments.items() if not key.startswith("_")}
+        sent.append((name, public))
+        return {"text": f"{name} done", "structured": {"engine": "chromium"}, "is_error": False}
+
+    monkeypatch.setattr(runtime, "_ensure_for_call", ensure)
+    monkeypatch.setattr(runtime, "_proxy", proxy)
+    return sent
+
+
+def test_with_no_computer_every_browser_tool_says_so() -> None:
     store = demo_store()
     tenant, user, agent = _arm(store)
-    server, base = _site()
     conversation = uuid.uuid4()
-    run = uuid.uuid4()
-    store.events[run] = []
-    store.runs[run] = {
-        "id": run,
-        "conversation_id": conversation,
-        "tenant_id": tenant,
-    }
-    try:
-        opened = _call(
+    for name in _NAMES:
+        answer = _call(
             store,
-            "navigate",
+            name,
             tenant=tenant,
             user=user,
             agent=agent,
             conversation=conversation,
-            run=run,
-            url=f"{base}/",
-        )
-        assert opened["is_error"] is False
-        assert "Fixture desk" in str(opened["text"])
-        assert "[ref=e" in str(opened["text"])
-        assert opened["structured"]["untrusted"] is True
-        assert opened["structured"]["engine"] == "fixture"
-        snapshot = _call(
-            store,
-            "snapshot",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=run,
-        )
-        assert "Ticket queue" in str(snapshot["text"])
-        clicked = _call(
-            store,
-            "click",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=run,
-            ref="e3",
-        )
-        assert "Second page" in str(clicked["text"])
-        assert "cookie none" in str(clicked["text"])
-        _call(
-            store,
-            "navigate",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=run,
-            url=f"{base}/",
-        )
-        typed = _call(
-            store,
-            "type",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=run,
-            ref="e4",
+            run=None,
+            url="https://example.com",
+            ref="e1",
             text="hello",
         )
-        assert typed["is_error"] is False
-        submitted = _call(
-            store,
-            "submit_form",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=run,
-            ref="e5",
-            _browser_cleared=True,
-        )
-        assert "Saved note" in str(submitted["text"])
-        assert "hello" in str(submitted["text"])
-        again = _call(
-            store,
-            "navigate",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=run,
-            url=f"{base}/next",
-        )
-        assert "desk=armed" in str(again["text"])
-        pressed = _call(
-            store,
-            "press",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=run,
-            key="Enter",
-        )
-        assert pressed["is_error"] is False
-        scrolled = _call(
-            store,
-            "scroll",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=run,
-            direction="down",
-            amount=1,
-        )
-        assert scrolled["structured"]["scroll"] == 1
-        shot = _call(
-            store,
-            "screenshot",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=run,
-            _tool_call_id=str(uuid.uuid4()),
-        )
-        # A picture of a page is taken by Chromium in the sandbox. Without one the tool
-        # says so; no picture is made up in its place.
-        assert shot["code"] == "sandbox_unavailable"
-        assert not any(event["type"] == "browser.screenshot" for event in store.events[run])
-        sandbox = next(
-            row for row in store.sandboxes.values() if row.get("conversation_id") == conversation
-        )
-        view = SandboxBook(store)._sandbox_out(sandbox)
-        assert "browser" not in view
-        assert "browser_sessions" not in view
-        assert "desk=armed" not in str(view)
-        probe = chromium_canary(f"{base}/")
-        assert probe["status"] in {"live", "not_live"}
-        if probe["status"] == "live":
-            assert "Fixture desk" in probe["excerpt"]
-        else:
-            assert probe["reason"]
-    finally:
-        server.shutdown()
+        assert answer["is_error"] is True, name
+        assert answer["code"] == "sandbox_unavailable", name
+        assert "no computer is running" in str(answer["text"]), name
+    assert "engine" not in str(store.sandboxes), "no page was read in this process"
 
 
-def test_sessions_do_not_share_cookies() -> None:
+def test_an_allowed_page_goes_to_the_computer_and_a_private_one_does_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     store = demo_store()
     tenant, user, agent = _arm(store)
-    server, base = _site()
+    sent = _computer(monkeypatch, store)
     conversation = uuid.uuid4()
-    first = uuid.uuid4()
-    second = uuid.uuid4()
-    other_tenant = uuid.uuid4()
-    other_conversation = uuid.uuid4()
-    try:
-        _call(
-            store,
-            "navigate",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=first,
-            url=f"{base}/",
-        )
-        _call(
-            store,
-            "type",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=first,
-            ref="e4",
-            text="hello",
-        )
-        saved = _call(
-            store,
-            "submit_form",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=first,
-            ref="e5",
-            _browser_cleared=True,
-        )
-        assert "Saved note" in str(saved["text"])
-        other_run = _call(
-            store,
-            "navigate",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=conversation,
-            run=second,
-            url=f"{base}/next",
-        )
-        assert "cookie none" in str(other_run["text"])
-        assert "desk=armed" not in str(other_run["text"])
-        other_conversation_page = _call(
-            store,
-            "navigate",
-            tenant=tenant,
-            user=user,
-            agent=agent,
-            conversation=other_conversation,
-            run=first,
-            url=f"{base}/next",
-        )
-        assert "cookie none" in str(other_conversation_page["text"])
-        foreign = _call(
-            store,
-            "navigate",
-            tenant=other_tenant,
-            user=user,
-            agent=agent,
-            conversation=uuid.uuid4(),
-            run=uuid.uuid4(),
-            url=f"{base}/next",
-        )
-        assert foreign["is_error"] is False
-        assert "desk=armed" not in str(foreign["text"])
-        jars = []
-        for row in store.sandboxes.values():
-            sessions = row.get("browser_sessions")
-            if not isinstance(sessions, dict):
-                continue
-            for context in sessions.values():
-                if isinstance(context, dict):
-                    jars.append(context.get("cookies"))
-                    assert str(context.get("tenant_id")) == str(row.get("tenant_id"))
-        assert len(jars) >= 2
-        assert jars[0] is not jars[1]
-    finally:
-        server.shutdown()
+    opened = _call(
+        store,
+        "navigate",
+        tenant=tenant,
+        user=user,
+        agent=agent,
+        conversation=conversation,
+        run=None,
+        url="https://example.com/desk",
+    )
+    assert opened["is_error"] is False
+    assert sent == [("navigate", {"url": "https://example.com/desk"})]
+    blocked = _call(
+        store,
+        "navigate",
+        tenant=tenant,
+        user=user,
+        agent=agent,
+        conversation=conversation,
+        run=None,
+        _browser_cleared=True,
+        url="http://169.254.169.254/latest/meta-data",
+    )
+    assert blocked["code"] == "egress_denied"
+    unnamed = _call(
+        store, "click", tenant=tenant, user=user, agent=agent, conversation=conversation, run=None
+    )
+    assert unnamed["code"] == "validation_failed"
+    assert len(sent) == 1, "neither refusal reached the computer"
 
 
-def test_off_list_navigation_waits_and_private_hosts_stay_denied() -> None:
+def test_off_list_navigation_waits_and_private_hosts_stay_denied(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     store = demo_store()
     tenant, user, agent = _arm(store)
+    sent = _computer(monkeypatch, store)
     version_id = next(
         row["published_version_id"] for row in store.agents.values() if row.get("id") == agent
     )
@@ -384,82 +185,33 @@ def test_off_list_navigation_waits_and_private_hosts_stay_denied() -> None:
         for row in store.tool_versions.values()
         if row.get("qualified_name") == "browser.navigate"
     )
-    seen: list[str] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen.append(str(request.url))
-        html = (
-            "<html><head><title>Off list</title></head><body><h1>Off list desk</h1></body></html>"
-        )
-        return httpx.Response(200, text=html)
-
-    store.browser_transport = httpx.MockTransport(handler)  # type: ignore[attr-defined]
     store.browser_resolve = lambda host: ["93.184.216.34"]  # type: ignore[attr-defined]
     arguments = {"url": "https://off-list.example/desk"}
     digest = call_args_hash(str(tool_id), arguments)
-    held = ToolPipeline(store).execute(
-        {
-            "tenant_id": tenant,
-            "user_id": user,
-            "agent_id": agent,
-            "agent_version_id": version_id,
-            "tool_version_id": tool_id,
-            "arguments": arguments,
-            "args_hash": digest,
-            "run_id": uuid.uuid4(),
-        }
-    )
+    request = {
+        "tenant_id": tenant,
+        "user_id": user,
+        "agent_id": agent,
+        "agent_version_id": version_id,
+        "tool_version_id": tool_id,
+        "arguments": arguments,
+        "args_hash": digest,
+    }
+    held = ToolPipeline(store).execute({**request, "run_id": uuid.uuid4()})
     assert held["status"] == "awaiting_approval"
     assert held["risk_class"] == "W2"
-    assert seen == []
+    assert sent == []
     approval_id = uuid.UUID(str(held["approval_id"]))
     store.approvals[approval_id]["status"] = "approved"
     opened = ToolPipeline(store).execute(
-        {
-            "tenant_id": tenant,
-            "user_id": user,
-            "agent_id": agent,
-            "agent_version_id": version_id,
-            "tool_version_id": tool_id,
-            "arguments": arguments,
-            "args_hash": digest,
-            "approval_id": approval_id,
-            "run_id": uuid.uuid4(),
-        }
+        {**request, "approval_id": approval_id, "run_id": uuid.uuid4()}
     )
     assert opened["status"] == "succeeded"
-    assert "Off list desk" in str(opened["result_preview"])
-    assert seen == ["https://off-list.example/desk"]
-    blocked = run_tool(
-        store,
-        "navigate",
-        {
-            "_tenant_id": tenant,
-            "_user_id": user,
-            "_agent_id": agent,
-            "_agent_version_id": version_id,
-            "_conversation_id": uuid.uuid4(),
-            "_browser_cleared": True,
-            "url": "http://169.254.169.254/latest/meta-data",
-        },
-    )
-    assert blocked["code"] == "egress_denied"
-    assert (
-        navigation_class(
-            store,
-            {"tenant_id": tenant, "agent_id": agent, "agent_version_id": version_id},
-            "http://169.254.169.254/",
-        )
-        == "deny"
-    )
-    assert (
-        navigation_class(
-            store,
-            {"tenant_id": tenant, "agent_id": agent, "agent_version_id": version_id},
-            "https://off-list.example/desk",
-        )
-        == "approve"
-    )
+    assert sent == [("navigate", {"url": "https://off-list.example/desk"})]
+    context = {"tenant_id": tenant, "agent_id": agent, "agent_version_id": version_id}
+    assert navigation_class(store, context, "http://169.254.169.254/") == "deny"
+    assert navigation_class(store, context, "https://off-list.example/desk") == "approve"
+    # Without the approval the same address is refused before the computer is asked.
     direct = run_tool(
         store,
         "navigate",
@@ -473,13 +225,4 @@ def test_off_list_navigation_waits_and_private_hosts_stay_denied() -> None:
         },
     )
     assert direct["code"] == "egress_denied"
-    assert seen == ["https://off-list.example/desk"]
-
-
-def test_a_tab_tool_with_no_computer_says_what_is_missing() -> None:
-    from ar_domain.sandboxes.browser import apply_browser
-
-    answered = apply_browser(demo_store(), {"id": uuid.uuid4()}, "new_tab", {})
-    assert answered["is_error"] is True
-    assert answered["code"] == "sandbox_unavailable"
-    assert "running computer" in str(answered["text"])
+    assert len(sent) == 1

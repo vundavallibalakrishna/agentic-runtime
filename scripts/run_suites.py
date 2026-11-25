@@ -2,8 +2,8 @@
 
 The suites run on the demo tenant, which this tooling builds through ``ar_testing`` (the
 eval command holds no demo-tenant building, M38b-T04d). A suite is scored by running the
-agent, so it needs a model: set ``AR_CERT_LLM_API_KEY`` (and optionally
-``AR_CERT_LLM_BASE_URL`` / ``AR_CERT_LLM_MODEL``). Without a key it scores nothing.
+agent, so it needs a model: set ``AR_CERT_LLM_API_KEY``, ``AR_CERT_LLM_BASE_URL`` and
+``AR_CERT_LLM_MODEL``. Without all three it scores nothing.
 
     uv run python scripts/run_suites.py run evals/golden evals/redteam
 """

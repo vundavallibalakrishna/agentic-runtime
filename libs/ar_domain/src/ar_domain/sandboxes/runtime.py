@@ -1065,18 +1065,15 @@ def _browser(
         return _error("validation_failed", "this computer does not include a browser")
     if name in {"use_connection", "save_session"}:
         return _use_connection(store, sandbox, name, arguments)
-    # When a container is running, its real Chromium drives the page; the same egress gate
-    # applies before a navigation. Otherwise the in-process engine answers (M40-T04c).
+    # Chromium in the sandbox drives the page, and nothing else does: with no computer
+    # running there is no browser, in any environment.
     if bool(sandbox.get("endpoint_url")):
         return _browser_remote(store, sandbox, name, arguments)
-    if not host_exec_allowed():
-        return _error("sandbox_unavailable", "the browser runs in the sandbox")
-    if name == "screenshot":
-        # A picture of a page is taken by Chromium in the sandbox, and only there.
-        return _error("sandbox_unavailable", "a screenshot needs the Chromium sandbox")
-    from ar_domain.sandboxes.browser import apply_browser  # noqa: PLC0415
-
-    return apply_browser(store, sandbox, name, arguments)
+    return _error(
+        "sandbox_unavailable",
+        "The browser runs on the agent's computer, and no computer is running. "
+        "An administrator starts computers in Settings.",
+    )
 
 
 def _use_connection(

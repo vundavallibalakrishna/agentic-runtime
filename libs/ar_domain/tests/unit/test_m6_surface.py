@@ -144,6 +144,7 @@ def test_browser_attach_export_and_reap() -> None:
         "conversation_id": conversation,
         "tenant_id": demo_id("tenant"),
     }
+    # No computer is running for this conversation, so there is no browser.
     page = _call(
         store,
         "navigate",
@@ -152,18 +153,9 @@ def test_browser_attach_export_and_reap() -> None:
         _run_id=run_id,
         _tool_call_id=str(uuid.uuid4()),
     )
-    assert page["is_error"] is False
-    snapshot = _call(store, "snapshot", conversation_id=conversation)
-    assert "Example Domain" in str(snapshot["text"])
-    clicked = _call(store, "click", conversation_id=conversation, ref="e1")
-    assert clicked["is_error"] is False
-    typed = _call(store, "type", conversation_id=conversation, ref="e1", text="12")
-    assert typed["is_error"] is False
-    assert _call(store, "press", conversation_id=conversation)["is_error"] is False
-    assert _call(store, "scroll", conversation_id=conversation)["is_error"] is False
+    assert page["code"] == "sandbox_unavailable"
     shot = _call(store, "screenshot", conversation_id=conversation, _run_id=run_id)
     assert shot["code"] == "sandbox_unavailable"
-    assert _call(store, "submit_form", conversation_id=conversation, ref="e1")["is_error"] is False
     missing = _call(store, "attach_to_sandbox", file_id=str(uuid.uuid4()))
     assert missing["code"] == "not_found"
     file_id = uuid.uuid4()

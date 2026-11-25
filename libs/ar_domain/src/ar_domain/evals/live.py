@@ -15,12 +15,10 @@ LIVE_FLAG = "AR_EVAL_GYM_LIVE"
 LIVE_KEY = "AR_CERT_LLM_API_KEY"
 LIVE_URL = "AR_CERT_LLM_BASE_URL"
 LIVE_MODEL = "AR_CERT_LLM_MODEL"
-DEFAULT_URL = "https://api.deepinfra.com/v1/openai"
-DEFAULT_MODEL = "Qwen/Qwen3.8-27B"
 
 
 class LiveConfigError(RuntimeError):
-    """The live switch is on and the cert key is missing."""
+    """The live switch is on and the key, the address or the model name is missing."""
 
 
 def live_requested(environ: Mapping[str, str] | None = None) -> bool:
@@ -40,12 +38,17 @@ def install_live(
     tenant_id: uuid.UUID,
     *,
     key: str,
-    base_url: str = DEFAULT_URL,
-    model: str = DEFAULT_MODEL,
+    base_url: str,
+    model: str,
 ) -> None:
-    """Point the tenant reasoning alias at an OpenAI-compatible chat endpoint."""
+    """Point the tenant reasoning alias at an OpenAI-compatible chat endpoint.
+
+    The endpoint and the model are the caller's: nothing here names a vendor.
+    """
     if not key:
         raise LiveConfigError(f"{LIVE_FLAG}=1 requires {LIVE_KEY}")
+    if not base_url.strip() or not model.strip():
+        raise LiveConfigError(f"set {LIVE_URL} and {LIVE_MODEL}: the endpoint and the model")
     provider_id = uuid.uuid4()
     model_id = uuid.uuid4()
     alias_id = uuid.uuid4()
@@ -76,11 +79,16 @@ def install_live(
 
 
 def live_settings(environ: Mapping[str, str] | None = None) -> tuple[str, str, str]:
-    """Key, base URL, and model name. Raises when the flag is on and the key is empty."""
+    """Key, base URL and model name. Raises when any of the three is not set."""
     env = os.environ if environ is None else environ
     key = cert_key(env)
     if not key:
         raise LiveConfigError(f"{LIVE_FLAG}=1 requires {LIVE_KEY}")
-    url = env.get(LIVE_URL, "").strip() or DEFAULT_URL
-    model = env.get(LIVE_MODEL, "").strip() or DEFAULT_MODEL
+    url = env.get(LIVE_URL, "").strip()
+    model = env.get(LIVE_MODEL, "").strip()
+    if not url or not model:
+        raise LiveConfigError(
+            f"set {LIVE_URL} and {LIVE_MODEL}: the address of an OpenAI-compatible endpoint "
+            "and the name of the model to ask"
+        )
     return key, url, model
