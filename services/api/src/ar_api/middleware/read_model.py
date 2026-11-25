@@ -1,5 +1,8 @@
 """Open one Postgres unit per authenticated request and commit it with the response."""
 
+from typing import Any  # noqa: TC003
+
+import orjson
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ar_common.errors import InternalError
@@ -9,6 +12,10 @@ from ar_domain.readmodel.model import RepositoryReadModel, commit_unit
 
 _PROBE_PATHS = frozenset({"/healthz", "/readyz", "/metrics"})
 _HOOK_PREFIX = "/api/v1/hooks/routines/"
+_WIDGET_FRAME_PREFIX = "/api/v1/widget/integrations/"
+_WIDGET_SESSIONS = "/api/v1/widget/sessions"
+# A session request is an id and a token. Anything larger is not one.
+_SESSION_BODY_MAX = 32_768
 _log = get_logger(__name__)
 
 
@@ -18,6 +25,40 @@ class _CommitFailedError(Exception):
     def __init__(self, cause: Exception) -> None:
         super().__init__(type(cause).__name__)
         self.cause = cause
+
+
+async def _named_widget(receive: Receive) -> tuple[str, Receive]:
+    """The widget a session request names, and a ``receive`` that gives the body again.
+
+    The body is read here to find whose data to load, and the route reads it after.
+    """
+    chunks: list[Any] = []
+    body = b""
+    while True:
+        message = await receive()
+        chunks.append(message)
+        if message["type"] != "http.request":
+            break
+        part = message.get("body", b"")
+        body += part if isinstance(part, bytes) else b""
+        if not message.get("more_body") or len(body) > _SESSION_BODY_MAX:
+            break
+    size = len(body)
+    named = ""
+    try:
+        parsed = orjson.loads(body) if body and size <= _SESSION_BODY_MAX else {}
+    except orjson.JSONDecodeError:
+        parsed = {}
+    if isinstance(parsed, dict):
+        named = str(parsed.get("integrationId") or parsed.get("integration_id") or "")
+    pending = list(chunks)
+
+    async def again() -> Any:
+        if pending:
+            return pending.pop(0)
+        return await receive()
+
+    return named, again
 
 
 class ReadModelMiddleware:
@@ -45,6 +86,13 @@ class ReadModelMiddleware:
         if tenant_id is None and path.startswith(_HOOK_PREFIX):
             # A routine's webhook has no sign-in. Its address says whose routine it is.
             tenant_id = await chat.tenant_of_hook(path.removeprefix(_HOOK_PREFIX))
+        if tenant_id is None and path.startswith(_WIDGET_FRAME_PREFIX):
+            # A page framing a widget is not signed in. The widget's id says whose it is.
+            tenant_id = await chat.tenant_of_widget(path.removeprefix(_WIDGET_FRAME_PREFIX))
+        if tenant_id is None and path == _WIDGET_SESSIONS:
+            # Nor is a visitor starting a session. The widget is named in the request.
+            named, receive = await _named_widget(receive)
+            tenant_id = await chat.tenant_of_widget(named)
         if tenant_id is None:
             await self.app(scope, receive, send)
             return

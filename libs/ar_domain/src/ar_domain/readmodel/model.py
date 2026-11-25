@@ -49,6 +49,7 @@ _TENANT_SQL = {
     "users": "SELECT tenant_id FROM users WHERE id = :id",
     "eval_runs": "SELECT tenant_id FROM eval_runs WHERE id = :id",
     "sandboxes": "SELECT tenant_id FROM sandboxes WHERE id = :id",
+    "channel_integrations": "SELECT tenant_id FROM channel_integrations WHERE id = :id",
 }
 
 _HOOK_TENANT_SQL = "SELECT tenant_id FROM routines WHERE webhook_path_token = :token"
@@ -251,6 +252,18 @@ class RepositoryReadModel:
         if row is None or row[0] is None:
             return None
         return row[0] if isinstance(row[0], uuid.UUID) else uuid.UUID(str(row[0]))
+
+    async def tenant_of_widget(self, integration_id: object) -> uuid.UUID | None:
+        """The tenant whose widget this is, or none.
+
+        A page that frames a widget, and a visitor starting a session in it, are not
+        signed in. The widget's id says whose data to load; whether the widget may be
+        used at all is checked against that data afterwards.
+        """
+        found = _as_uuid(str(integration_id or ""))
+        if found is None:
+            return None
+        return await self._tenant_of("channel_integrations", found)
 
     async def _tenant_of(self, table: str, row_id: uuid.UUID) -> uuid.UUID | None:
         statement = _TENANT_SQL.get(table)
