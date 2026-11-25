@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
+from ar_api.auth.mode import AuthMode, resolve_auth_mode
 from ar_api.deps import expose
 from ar_common.errors import UnauthenticatedError
 from ar_contracts.api_model import ApiModel
@@ -23,9 +24,14 @@ class ReviewDecision(ApiModel):
     arguments: dict[str, Any] | None = None
 
 
-def _session_user(request: Request) -> uuid.UUID | None:
+def _principal(request: Request) -> Principal | None:
     principal = getattr(request.state, "principal", None)
-    if not isinstance(principal, Principal) or principal.tenant_id is None:
+    return principal if isinstance(principal, Principal) else None
+
+
+def _session_user(request: Request) -> uuid.UUID | None:
+    principal = _principal(request)
+    if principal is None or principal.tenant_id is None:
         return None
     try:
         return uuid.UUID(str(principal.id))
@@ -33,18 +39,16 @@ def _session_user(request: Request) -> uuid.UUID | None:
         return None
 
 
+def _session_tenant(request: Request) -> uuid.UUID | None:
+    principal = _principal(request)
+    if principal is None:
+        return None
+    return principal.tenant_id if isinstance(principal.tenant_id, uuid.UUID) else None
+
+
 def _require_session(request: Request) -> bool:
-    settings = request.app.state.settings
-    return str(getattr(settings, "auth_mode", "") or "").strip().lower() == "oidc"
-
-
-def _stepped_up(request: Request, *, require_session: bool) -> bool:
-    if not require_session:
-        return True
-    principal = getattr(request.state, "principal", None)
-    if not isinstance(principal, Principal):
-        return False
-    return principal.step_up_at is not None
+    """Production defaults to OIDC, so a token alone is not a credential there."""
+    return resolve_auth_mode(request.app.state.settings) is AuthMode.OIDC
 
 
 @router.get("/api/v1/review/{token}")
@@ -52,9 +56,15 @@ def _stepped_up(request: Request, *, require_session: bool) -> bool:
 async def read_review(token: str, request: Request) -> dict[str, object]:
     """The one approval this link names. Other approvals are not returned."""
     require = _require_session(request)
-    if require and _session_user(request) is None:
+    if require and (_session_user(request) is None or _session_tenant(request) is None):
         raise UnauthenticatedError()
-    return view_approval(request.app.state.chat, token)
+    return view_approval(
+        request.app.state.chat,
+        token,
+        require_session=require,
+        session_user_id=_session_user(request),
+        session_tenant_id=_session_tenant(request),
+    )
 
 
 @router.post("/api/v1/review/{token}:decide")
@@ -68,5 +78,5 @@ async def submit_review(token: str, body: ReviewDecision, request: Request) -> d
         body.model_dump(by_alias=False),
         require_session=require,
         session_user_id=_session_user(request),
-        stepped_up=_stepped_up(request, require_session=require),
+        session_tenant_id=_session_tenant(request),
     )

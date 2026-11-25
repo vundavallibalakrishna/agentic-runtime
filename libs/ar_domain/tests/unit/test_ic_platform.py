@@ -16,9 +16,11 @@ from typing import TYPE_CHECKING
 import orjson
 import pytest
 
+from ar_common.errors import ForbiddenError, NotFoundError, UnauthenticatedError
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.approvals.announce import approver_emails
+from ar_domain.approvals.errors import StepUpRequiredError
 from ar_domain.approvals.review_link import (
     decide_review,
     issue_review_token,
@@ -48,7 +50,10 @@ def _actor() -> Actor:
 
 
 def _pending(
-    store: ChatService, *, arguments: dict[str, object] | None = None
+    store: ChatService,
+    *,
+    arguments: dict[str, object] | None = None,
+    requirement: dict[str, object] | None = None,
 ) -> dict[str, object]:
     actor = _actor()
     run_id = uuid.uuid4()
@@ -70,7 +75,8 @@ def _pending(
         risk_class="W2",
         args_hash="hash-1",
         arguments=arguments or {"name": "Ada", "count": 2},
-        requirement={"approvers": {"mode": "requester"}, "ttl_s": 3600},
+        requirement=requirement
+        or {"approvers": {"mode": "requester"}, "ttl_s": 3600},
         reasons=["ask"],
         preview={"title": "Send", "summary": "A request"},
     )
@@ -96,7 +102,6 @@ def test_review_link_shows_one_item_and_keeps_an_edit() -> None:
         },
         require_session=False,
         session_user_id=None,
-        stepped_up=True,
     )
     assert decided["status"] == "pending"
     assert decided["arguments"]["name"] == "Grace"
@@ -108,8 +113,84 @@ def test_review_link_shows_one_item_and_keeps_an_edit() -> None:
 def test_a_bad_review_token_is_not_an_approval() -> None:
     store = demo_store()
     _pending(store)
-    with pytest.raises(Exception, match="review link"):
+    with pytest.raises(NotFoundError):
         view_approval(store, "not-a-token")
+
+
+def test_an_expired_or_tampered_review_token_is_refused() -> None:
+    store = demo_store()
+    row = _pending(store)
+    approver = demo_id("admin")
+    expired = issue_review_token(
+        row["id"], row["tenant_id"], approver, utcnow() - timedelta(minutes=1)
+    )
+    with pytest.raises(NotFoundError):
+        view_approval(store, expired)
+    fresh = issue_review_token(row["id"], row["tenant_id"], approver, utcnow() + timedelta(hours=1))
+    flipped = ("0" if fresh[0] != "0" else "1") + fresh[1:]
+    with pytest.raises(NotFoundError):
+        view_approval(store, flipped)
+
+
+def test_oidc_review_refuses_the_wrong_user_or_tenant() -> None:
+    store = demo_store()
+    row = _pending(store)
+    approver = demo_id("admin")
+    token = issue_review_token(row["id"], row["tenant_id"], approver, utcnow() + timedelta(hours=1))
+    with pytest.raises(UnauthenticatedError):
+        view_approval(store, token, require_session=True)
+    with pytest.raises(ForbiddenError):
+        decide_review(
+            store,
+            token,
+            {"decision": "approve"},
+            require_session=True,
+            session_user_id=demo_id("member"),
+            session_tenant_id=row["tenant_id"],
+        )
+    with pytest.raises(ForbiddenError):
+        decide_review(
+            store,
+            token,
+            {"decision": "approve"},
+            require_session=True,
+            session_user_id=approver,
+            session_tenant_id=uuid.uuid4(),
+        )
+
+
+def test_an_inactive_approver_cannot_use_the_link() -> None:
+    store = demo_store()
+    row = _pending(store)
+    approver = demo_id("admin")
+    store.user_statuses[approver] = "suspended"
+    token = issue_review_token(row["id"], row["tenant_id"], approver, utcnow() + timedelta(hours=1))
+    with pytest.raises(ForbiddenError):
+        decide_review(
+            store,
+            token,
+            {"decision": "approve", "args_hash": row["args_hash"]},
+            require_session=False,
+            session_user_id=None,
+        )
+
+
+def test_a_review_link_does_not_satisfy_step_up() -> None:
+    store = demo_store()
+    row = _pending(
+        store, requirement={"approvers": {"mode": "requester"}, "ttl_s": 3600, "step_up": True}
+    )
+    token = issue_review_token(
+        row["id"], row["tenant_id"], demo_id("admin"), utcnow() + timedelta(hours=1)
+    )
+    with pytest.raises(StepUpRequiredError):
+        decide_review(
+            store,
+            token,
+            {"decision": "approve", "args_hash": row["args_hash"]},
+            require_session=False,
+            session_user_id=None,
+        )
 
 
 def test_approval_email_uses_the_approver_not_a_fixed_address() -> None:
