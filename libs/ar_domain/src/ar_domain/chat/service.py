@@ -2301,7 +2301,8 @@ class ChatBehaviour:
         from ar_domain.tools.agent_loop import _one_text, keep_one_reply  # noqa: PLC0415
 
         assistant["content"] = _one_text(
-            [part for part in parts if isinstance(part, dict)], answer
+            [part for part in parts if isinstance(part, dict)],
+            answer,
         )
         assistant["text"] = answer
         keep_one_reply(self, run, assistant)

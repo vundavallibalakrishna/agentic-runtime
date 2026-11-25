@@ -1697,11 +1697,7 @@ def keep_one_reply(store: Any, run: dict[str, object], assistant: dict[str, obje
 
 def _one_text(content: list[dict[str, object]], text: str) -> list[dict[str, object]]:
     """The answer is one text part. Citations and files stay beside it."""
-    rest = [
-        part
-        for part in content
-        if not isinstance(part, dict) or part.get("type") != "text"
-    ]
+    rest = [part for part in content if not isinstance(part, dict) or part.get("type") != "text"]
     return [{"type": "text", "text": text}, *rest]
 
 
