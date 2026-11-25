@@ -194,6 +194,7 @@ class AuditAction(StrEnum):
     LIBRARY_DOCUMENT_INGESTED = "library_document.ingested"
     EXTRACTION_RECORDED = "extraction.recorded"
     EXTRACTION_CORRECTED = "extraction.corrected"
+    EXTENSIONS_PUT = "extensions.put"
     RESOURCE_SETTINGS_UPDATED = "resource_settings.updated"
     LIBRARY_DOCUMENT_REJECTED = "library_document.rejected"
     LIBRARY_DOCUMENT_DELETED = "library_document.deleted"

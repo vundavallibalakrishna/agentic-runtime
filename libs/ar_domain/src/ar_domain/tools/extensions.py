@@ -47,6 +47,17 @@ def _put(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         "updated_at": utcnow(),
     }
     book[row_id] = row
+    from ar_domain.audit.memory import remember  # noqa: PLC0415
+
+    remember(
+        store,
+        tenant_id=row.get("tenant_id"),
+        actor_id=arguments.get("_user_id") or "tool",
+        action="extensions.put",
+        target_type="extension_row",
+        target_id=row_id,
+        detail={"version": version, "bucket": bucket, "reason": row["reason"]},
+    )
     saved = _ok({"id": str(row_id), "version": version, "bucket": bucket})
     saved["text"] = f"saved {row_id}"
     return saved

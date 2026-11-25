@@ -14,14 +14,27 @@ from sqlalchemy.ext.asyncio import AsyncSession  # noqa: TC002
 _UPSERT = text(
     """
     INSERT INTO extension_rows (
-        id, tenant_id, pack_id, bucket, payload, created_at, updated_at
+        id, tenant_id, pack_id, bucket, payload, version, reason, created_at, updated_at
     ) VALUES (
-        :id, :tenant_id, :pack_id, :bucket, CAST(:payload AS jsonb), now(), now()
+        :id, :tenant_id, :pack_id, :bucket, CAST(:payload AS jsonb),
+        :version, :reason, now(), now()
     )
     ON CONFLICT (id) DO UPDATE SET
         payload = EXCLUDED.payload,
         bucket = EXCLUDED.bucket,
+        version = EXCLUDED.version,
+        reason = EXCLUDED.reason,
         updated_at = now()
+    """
+)
+
+_HISTORY = text(
+    """
+    INSERT INTO extension_row_versions (
+        id, tenant_id, row_id, version, payload, reason, created_at
+    ) VALUES (
+        :id, :tenant_id, :row_id, :version, CAST(:payload AS jsonb), :reason, now()
+    )
     """
 )
 
@@ -44,6 +57,9 @@ async def save_extension_rows(session: AsyncSession, rows: list[dict[str, Any]])
         if row.get("_deleted"):
             continue
         payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+        encoded = orjson.dumps(payload, default=_json).decode()
+        version = int(row.get("version") or 1)
+        reason = str(row.get("reason") or "")
         await session.execute(
             _UPSERT,
             {
@@ -51,7 +67,20 @@ async def save_extension_rows(session: AsyncSession, rows: list[dict[str, Any]])
                 "tenant_id": row.get("tenant_id"),
                 "pack_id": str(row.get("pack_id") or ""),
                 "bucket": str(row.get("bucket") or ""),
-                "payload": orjson.dumps(payload, default=_json).decode(),
+                "payload": encoded,
+                "version": version,
+                "reason": reason,
+            },
+        )
+        await session.execute(
+            _HISTORY,
+            {
+                "id": uuid.uuid4(),
+                "tenant_id": row.get("tenant_id"),
+                "row_id": row.get("id"),
+                "version": version,
+                "payload": encoded,
+                "reason": reason,
             },
         )
 

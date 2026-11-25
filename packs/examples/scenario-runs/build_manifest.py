@@ -61,7 +61,65 @@ def manifest() -> dict[str, object]:
                             "maxParallelToolCalls": 1,
                         },
                     },
-                }
+                },
+                {
+                    "kind": "Policy",
+                    "metadata": {"name": "Scenario approvals"},
+                    "spec": {
+                        "document": {
+                            "rules": [
+                                {
+                                    "id": "scenario-agreed",
+                                    "effect": "require_approval",
+                                    "message": "Agreeing a scenario needs more than one approver.",
+                                    "match": {"tools": ["extensions.put"]},
+                                    "approval": {
+                                        "approvers": {
+                                            "mode": "group",
+                                            "groups": ["{{approvalGroup}}"],
+                                        },
+                                        "required_approvals": 2,
+                                        "four_eyes": False,
+                                        "step_up": False,
+                                        "ttl_s": 86400,
+                                    },
+                                },
+                                {
+                                    "id": "results-four-eyes",
+                                    "effect": "require_approval",
+                                    "message": "Results need a second person. The preparer cannot approve.",
+                                    "match": {"tools": ["extensions.compare"]},
+                                    "approval": {
+                                        "approvers": {
+                                            "mode": "group",
+                                            "groups": ["{{approvalGroup}}"],
+                                        },
+                                        "required_approvals": 1,
+                                        "four_eyes": True,
+                                        "step_up": False,
+                                        "ttl_s": 86400,
+                                    },
+                                },
+                                {
+                                    "id": "report-issued",
+                                    "effect": "require_approval",
+                                    "message": "A report is issued through document creation after approval.",
+                                    "match": {"tools": ["documents.create"]},
+                                    "approval": {
+                                        "approvers": {
+                                            "mode": "group",
+                                            "groups": ["{{approvalGroup}}"],
+                                        },
+                                        "required_approvals": 1,
+                                        "four_eyes": False,
+                                        "step_up": False,
+                                        "ttl_s": 86400,
+                                    },
+                                },
+                            ]
+                        }
+                    },
+                },
             ]
         },
     }

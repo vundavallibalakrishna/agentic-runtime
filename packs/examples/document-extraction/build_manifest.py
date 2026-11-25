@@ -124,6 +124,32 @@ def manifest() -> dict[str, object]:
                         },
                     },
                 },
+                {
+                    "kind": "Policy",
+                    "metadata": {"name": "Extraction push"},
+                    "spec": {
+                        "document": {
+                            "rules": [
+                                {
+                                    "id": "extraction-push",
+                                    "effect": "require_approval",
+                                    "message": "Pushing extracted values needs the approver group.",
+                                    "match": {"tools": ["documents.extract"]},
+                                    "approval": {
+                                        "approvers": {
+                                            "mode": "group",
+                                            "groups": ["{{approvalGroup}}"],
+                                        },
+                                        "required_approvals": 1,
+                                        "four_eyes": False,
+                                        "step_up": False,
+                                        "ttl_s": 86400,
+                                    },
+                                }
+                            ]
+                        }
+                    },
+                },
             ]
         },
     }

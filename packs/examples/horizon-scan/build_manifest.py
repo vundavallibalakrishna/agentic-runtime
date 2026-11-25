@@ -102,6 +102,32 @@ def manifest() -> dict[str, object]:
                         },
                     },
                 },
+                {
+                    "kind": "Policy",
+                    "metadata": {"name": "Register write"},
+                    "spec": {
+                        "document": {
+                            "rules": [
+                                {
+                                    "id": "register-write",
+                                    "effect": "require_approval",
+                                    "message": "Writing the register needs the approver group.",
+                                    "match": {"tools": ["extensions.put"]},
+                                    "approval": {
+                                        "approvers": {
+                                            "mode": "group",
+                                            "groups": ["{{approvalGroup}}"],
+                                        },
+                                        "required_approvals": 1,
+                                        "four_eyes": False,
+                                        "step_up": False,
+                                        "ttl_s": 86400,
+                                    },
+                                }
+                            ]
+                        }
+                    },
+                },
             ]
         },
     }
