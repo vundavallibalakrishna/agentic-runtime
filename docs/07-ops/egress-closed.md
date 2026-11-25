@@ -38,7 +38,7 @@ Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-sep
 | CNPG pooler pods | Instance pods on 5432 | |
 | CNPG instance pods | Other instance pods on 5432 and 8000, the API server on 443 and 6443, object storage on 8333 | |
 | CNPG operator (`cnpg-system`) | Instance pods on 8000 (ingress) | |
-| `web`, `channels`, `model-gateway`, `mcp-sql`, `mcp-openapi`, `opa`, `squid`, `fake-llm` | Their existing in-cluster traffic | The platform database |
+| `web`, `channels`, `model-gateway`, `opa`, `squid`, `fake-llm` | Their existing in-cluster traffic | The platform database |
 
 Application calls that must stay open while isolation is on:
 
@@ -46,10 +46,10 @@ Application calls that must stay open while isolation is on:
 | --- | --- | --- |
 | `api` | `mcp-gateway`, model-gateway, Temporal, sandbox-manager, OPA, Valkey, OpenBao, SeaweedFS, the OTEL collector | 8002, 8001, 7233, 8003, 8181, 6379, 8200, 8333, 4317 |
 | `runtime-worker` | `mcp-gateway`, sandbox-manager, OPA, model-gateway, Temporal, Valkey, OpenBao, SeaweedFS, the OTEL collector | 8002, 8003, 8181, 8001, 7233, 6379, 8200, 8333, 4317 |
-| `mcp-gateway` | model-gateway, Temporal, sandbox-manager, `mcp-sql`, `mcp-openapi`, OPA, Squid, OpenBao, Valkey, SeaweedFS, the OTEL collector | 8001, 7233, 8003, 8010, 8011, 8181, 3128, 8200, 6379, 8333, 4317 |
+| `mcp-gateway` | model-gateway, Temporal, sandbox-manager, OPA, Squid, OpenBao, Valkey, SeaweedFS, the OTEL collector | 8001, 7233, 8003, 8181, 3128, 8200, 6379, 8333, 4317 |
 | `sandbox-manager` | OpenBao, Valkey, the Kubernetes API, sandbox pods, the OTEL collector | 8200, 6379, 6443, 8080, 4317 |
 
-`mcp-sql` in this tree does not open a database socket. Customer SQL from the product runs in `mcp-gateway` and in the API.
+Customer SQL from the product runs in `mcp-gateway` and in the API.
 
 `cluster.podCIDR` is excluded from an `airgap.egressCIDRs` or `airgap.tenantDbCidrs` entry only when that entry contains the pod CIDR. An entry that does not contain it is left unchanged, because Kubernetes rejects an `except` outside its CIDR. The same rule applies to `cluster.serviceCIDR` and `postgres.denyCidrs`. A CIDR equal to the pod CIDR fails the render. A database port in `airgap.egressPorts`, or any `airgap.tenantDbCidrs` entry, fails the render when `cluster.podCIDR` is empty. The chart copies `cluster.podCIDR` and `cluster.serviceCIDR` into `AR_PLATFORM_DB_DENY_CIDRS`. It cannot discover either range.
 

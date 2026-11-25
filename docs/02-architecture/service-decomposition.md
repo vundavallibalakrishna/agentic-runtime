@@ -18,8 +18,6 @@ Architecture style: a **modular monolith with several deployables** ([ADR-0001](
 | `sandbox-manager` | `ar_sandbox_manager` | `services/sandbox_manager` | FastAPI (HTTP, internal) | Allocates, resumes, suspends and destroys sandboxes ("computers"); warm pools; drivers `docker` and `kubernetes`; workspace volumes and snapshots; egress allowlists. | Postgres, Kubernetes API or Docker, S3 |
 | `sandbox-agent` | `ar_sandbox_agent` | `services/sandbox_agent` | MCP server inside every sandbox (port 8080) | Executes code (python, bash, node), file operations, headless browser (Playwright) inside the sandbox. Ships in the image `ar-sandbox`. | Local filesystem, egress proxy |
 | `channels` | `ar_channels` | `services/channels` | Async process (+ small HTTP server) | Slack (Socket Mode), Microsoft Teams (HTTP endpoint), email (IMAP poll + SMTP); maps external users and threads to conversations; renders approval cards; delivers routine outputs. | `api` (internal endpoints), Valkey, Slack/Teams/mail servers |
-| `mcp-sql` | `ar_mcp_sql` | `connectors/mcp_sql` | MCP server (connector runtime) | Read-only text-to-SQL tools over registered `data_connections` with the sqlglot safety core. | Target databases, secrets backend (via injected credentials) |
-| `mcp-openapi` | `ar_mcp_openapi` | `connectors/mcp_openapi` | MCP server (connector runtime) | Exposes operations of a registered OpenAPI document as MCP tools. | Target internal APIs |
 | `fake-llm` | `ar_fake_llm` | `services/fake_llm` | FastAPI (dev/test only) | Deterministic OpenAI-compatible chat/embeddings/rerank server driven by scripts, used by tests, CI and local development without GPUs. Never deployed to production. | none |
 | `migrate` (Job) | `ar_domain.migrations` | `libs/ar_domain` | One-shot job | Runs `alembic upgrade head` and seeds system roles/plans before a release rolls out. | Postgres |
 | `opa` | (upstream image) | `policies/` (Rego) | OPA server | Evaluates the `ar.policy` Rego package (`policies/rego/ar/policy.rego`, decision `data.ar.policy.decision`); pulls bundle `GET /internal/v1/opa/bundles/ar.tar.gz` from `api`. | `api` |
@@ -60,8 +58,6 @@ flowchart BT
   domain --> sbm[ar_sandbox_manager]
   contracts --> channels[ar_channels]
   contracts --> sba[ar_sandbox_agent]
-  sdk[ar_connector_sdk] --> mcpsql[ar_mcp_sql]
-  sdk --> mcpoa[ar_mcp_openapi]
 ```
 
 Arrows point from dependency to dependant. Services never import other services. `ar_channels` and `ar_sandbox_agent` do **not** import `ar_domain` (they have no DB access); they talk to `api` / are called over HTTP.
@@ -102,7 +98,7 @@ agentic_runtime/
 ├── README.md, AGENTS.md, CLAUDE.md   # CLAUDE.md is generated from AGENTS.md
 ├── .claude/settings.json             # keeps instructions from parent folders out of Claude Code
 ├── docs/                         # this specification set
-├── pyproject.toml                # uv workspace root (members: libs/*, services/*, connectors/*)
+├── pyproject.toml                # uv workspace root (members: libs/*, services/*, three packs)
 ├── uv.lock
 ├── package.json, pnpm-workspace.yaml, pnpm-lock.yaml, turbo.json, biome.json
 ├── compose.yaml                  # local stack (see docs/07-ops/local-dev.md)
@@ -116,7 +112,6 @@ agentic_runtime/
 ├── services/api/  services/runtime/  services/system/  services/ingest/
 ├── services/model_gateway/  services/mcp_gateway/  services/sandbox_manager/  services/sandbox_agent/
 ├── services/channels/  services/fake_llm/
-├── connectors/mcp_sql/  connectors/mcp_openapi/
 ├── policies/rego/ar/             # Rego: policy.rego, jsonpath.rego + *_test.rego (opa test policies/)
 ├── images/                       # Dockerfiles: python-service.Dockerfile, web.Dockerfile, sandbox/Dockerfile, squid/ (egress proxy + ar-egress-helper), ingest/ (adds LibreOffice, OCR models)
 ├── deploy/helm/agentic-runtime/  # umbrella chart
@@ -125,7 +120,7 @@ agentic_runtime/
 └── scripts/                      # dev scripts (gen-openapi, seed, reset-db)
 ```
 
-Each Python project under `libs/`, `services/`, `connectors/` uses a `src/` layout: `services/api/src/ar_api/...`, tests in `services/api/tests/{unit,integration}`.
+Each Python project under `libs/` and `services/` uses a `src/` layout: `services/api/src/ar_api/...`, tests in `services/api/tests/{unit,integration}`.
 
 ## 5. Process ↔ Temporal task queues
 
@@ -148,8 +143,6 @@ Workflow ids are deterministic (see each spec), which gives idempotent starts.
 | mcp-gateway | 8002 |
 | sandbox-manager | 8003 |
 | channels | 8004 |
-| mcp-sql | 8010 |
-| mcp-openapi | 8011 |
 | fake-llm | 8099 |
 | sandbox-agent (inside sandbox) | 8080 |
 | runtime-worker (health) | 8012 |

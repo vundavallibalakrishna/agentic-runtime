@@ -44,8 +44,8 @@ Read from the code at `a1319771` on 21 November 2026. Nothing in this section ha
 | Service | Finding | Evidence |
 |---|---|---|
 | `model-gateway` | Models are called at the provider's own address. The gateway is used only when a provider has no address. In run 6 it received no request at all. | `libs/ar_domain/src/ar_domain/chat/service.py:1955-1974`, `docs/03-specs/04-model-gateway.md:84` |
-| `mcp-openapi` | Serves no product route, and no code reads `AR_MCP_OPENAPI_URL`. | `connectors/mcp_openapi/src/ar_mcp_openapi/main.py:17` |
-| `mcp-sql` | No code reads `AR_MCP_SQL_URL`. Whether a SQL connection a tenant installs reaches it another way is not confirmed. | `connectors/mcp_sql/src/ar_mcp_sql/main.py:27-57` |
+| `mcp-openapi` | Served no product route, and no code read `AR_MCP_OPENAPI_URL`. Removed on 2026-11-25 (OQ-196). | the removed `connectors/mcp_openapi` |
+| `mcp-sql` | No code read `AR_MCP_SQL_URL`, and it answered from a fixed table. Removed on 2026-11-25 (OQ-196). | the removed `connectors/mcp_sql` |
 | `channels` | Only Slack, Teams and email use it. Its state is in memory. | `services/channels/src/ar_channels/main.py:34-127` |
 | `sandbox-agent` (the standalone container) | A computer is a container the sandbox manager starts from the sandbox image. No caller of this standalone container was found. | `compose.yaml` service `sandbox-agent` |
 | `sandbox-manager` | Needed only when agents use a computer. It runs as root with the Docker socket, so it stays its own container and is never merged. Staging and production refuse to start without its address today. | `compose.yaml:395,404`, `libs/ar_domain/src/ar_domain/sandboxes/manager_launch.py:145-150` |
@@ -96,7 +96,7 @@ As built in stage 1, a feature is a file, `compose.<feature>.yaml`, not a profil
 |---|---|---|
 | `computers` | `sandbox-manager`, `squid` | Agents that use a computer or a browser |
 | `channels` | `channels` | Slack, Teams or email |
-| `connectors` | `mcp-sql`, and `mcp-openapi` if stage 1 shows it has a use | SQL or OpenAPI connections |
+| `connectors` | none: both services were removed on 2026-11-25, and there is no `compose.connectors.yaml` | SQL and OpenAPI connections need no extra service |
 | `policy-opa` | `opa` | A tenant's own Rego rules |
 | `vault` | `openbao` | Secrets in a vault instead of the encrypted database column |
 | `scan` | `clamav` | Virus scanning of uploads (exists today) |

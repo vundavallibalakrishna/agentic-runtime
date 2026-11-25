@@ -1,6 +1,6 @@
 # Spec 03: Secrets and delegated credentials (`ar_domain.secrets`)
 
-Hosted in `api` (CRUD, OAuth connect flow) and used by `mcp-gateway`, `ingest-worker`, `model-gateway`, `channels` (via `api` internal endpoint), `mcp-sql`/`mcp-openapi` (via connector config). Owns tables `secret_refs`, `encrypted_secrets`, `credential_providers`, `credential_grants` ([schema §2](../04-data/schema.md#2-secrets-and-credentials-ar_domainsecrets)). Security: [secrets.md](../06-security/secrets.md).
+Hosted in `api` (CRUD, OAuth connect flow) and used by `mcp-gateway`, `ingest-worker`, `model-gateway`, `channels` (via `api` internal endpoint). Owns tables `secret_refs`, `encrypted_secrets`, `credential_providers`, `credential_grants` ([schema §2](../04-data/schema.md#2-secrets-and-credentials-ar_domainsecrets)). Security: [secrets.md](../06-security/secrets.md).
 
 ## 1. Responsibilities
 

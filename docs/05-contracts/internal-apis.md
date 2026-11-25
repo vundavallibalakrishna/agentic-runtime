@@ -115,12 +115,7 @@ Allowed caller: `mcp-gateway` and `sandbox-manager` only (NetworkPolicy + per-sa
 
 ## 7. `mcp-sql` and `mcp-openapi` connector runtimes
 
-They are MCP servers (`POST /mcp`). They are multi-tenant: every call must include `X-AR-Context` (internal JWT, `aud` = `mcp-sql` / `mcp-openapi`) with an extra claim `connector` = `{tool_server_version_id, config_hash}`; the runtime fetches the connector config from `api` `GET /internal/v1/connectors/{tool_server_version_id}/config` (cached 60 s, returns data connection DSN reference resolved to credentials for the configured identity mode). This keeps credentials out of the gateway request body.
-
-| Method | Path | Caller | Purpose |
-|---|---|---|---|
-| GET | `/internal/v1/connectors/{tool_server_version_id}/config` | `mcp-sql`, `mcp-openapi` | Connector config incl. resolved credentials (short-lived) |
-| POST | `/internal/v1/connections:test` (on `mcp-sql`) | `api` | Test a data connection: connectivity, read-only enforcement, allowlisted objects |
+Removed on 2026-11-25. Neither service was called by the product: `mcp-sql` answered from a fixed table and `mcp-openapi` served a health check only (OQ-196). A customer's database is read by the `data.*` tools and an imported OpenAPI operation is called by the tool gateway, both inside `ar_domain`. The section number is kept so the numbering of the sections after it does not change.
 
 ## 8. `channels` internal endpoints (base `http://channels:8004`)
 

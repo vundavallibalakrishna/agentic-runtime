@@ -1,6 +1,6 @@
 # Python coding standards
 
-Applies to `libs/*`, `services/*`, `connectors/*`. Versions: [stack](../stack.md). Enforced by `make lint typecheck` and CI ([ci-cd §2](../07-ops/ci-cd.md#2-jobs)).
+Applies to `libs/*`, `services/*`. Versions: [stack](../stack.md). Enforced by `make lint typecheck` and CI ([ci-cd §2](../07-ops/ci-cd.md#2-jobs)).
 
 ## 1. Baseline
 
@@ -18,7 +18,7 @@ Root `pyproject.toml`:
 [tool.ruff]
 target-version = "py314"
 line-length = 100
-src = ["libs/*/src", "services/*/src", "connectors/*/src"]
+src = ["libs/*/src", "services/*/src"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "A", "C4", "SIM", "RET", "PTH", "N", "S", "ASYNC", "DTZ", "T20", "PT", "PL", "RUF", "TRY", "PERF", "FBT", "ARG", "ERA", "LOG", "G", "BLE", "TID", "TC", "FAST"]
@@ -35,7 +35,7 @@ ignore = ["PLR0913", "TRY003", "PLR2004", "FBT003"]
 "logging.getLogger".msg = "use ar_common.logging.get_logger (structlog)"
 
 [tool.ruff.lint.isort]
-known-first-party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
+known-first-party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_fake_llm"]
 ```
 
 mypy: `strict = true`, plugins `pydantic.mypy`; `disallow_any_explicit` for `ar_contracts`; `# type: ignore[code]` must carry a code and a reason comment.
@@ -44,7 +44,7 @@ mypy: `strict = true`, plugins `pydantic.mypy`; `disallow_any_explicit` for `ar_
 
 ```ini
 [importlinter]
-root_packages = ar_common ar_contracts ar_domain ar_connector_sdk ar_api ar_runtime ar_system ar_ingest ar_model_gateway ar_mcp_gateway ar_sandbox_manager ar_sandbox_agent ar_channels ar_mcp_sql ar_mcp_openapi ar_fake_llm
+root_packages = ar_common ar_contracts ar_domain ar_connector_sdk ar_api ar_runtime ar_system ar_ingest ar_model_gateway ar_mcp_gateway ar_sandbox_manager ar_sandbox_agent ar_channels ar_fake_llm
 
 [importlinter:contract:layers]
 name = Library layering
@@ -58,12 +58,12 @@ layers =
 [importlinter:contract:services-independent]
 name = Services never import each other
 type = independence
-modules = ar_api ar_runtime ar_system ar_ingest ar_model_gateway ar_mcp_gateway ar_sandbox_manager ar_sandbox_agent ar_channels ar_mcp_sql ar_mcp_openapi ar_fake_llm
+modules = ar_api ar_runtime ar_system ar_ingest ar_model_gateway ar_mcp_gateway ar_sandbox_manager ar_sandbox_agent ar_channels ar_fake_llm
 
 [importlinter:contract:no-db-in-edge]
 name = Channels, sandbox agent and connectors have no DB access
 type = forbidden
-source_modules = ar_channels ar_sandbox_agent ar_mcp_sql ar_mcp_openapi
+source_modules = ar_channels ar_sandbox_agent
 forbidden_modules = ar_domain sqlalchemy
 
 [importlinter:contract:domain-modules]

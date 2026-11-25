@@ -32,7 +32,7 @@ Canonical terms. Code, API fields, tables and UI copy use these names. Deployabl
 | **Tool server** | A registered MCP server (remote, OpenAPI-generated, SQL, or built-in) with versions. | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | **Tool** | One callable operation of a tool server; qualified name `server.tool`, model-facing name `server__tool`. | spec 08 |
 | **Built-in server** | Platform-provided MCP server served by `mcp-gateway` (knowledge, memory, files, skills, conversations, web, sandbox, browser, delivery) or control tools (agents, plan, tools.search). | [mcp-integration](../05-contracts/mcp-integration.md) |
-| **Data connection** | A registered database (`data_connections`) exposed through `mcp-sql`. | spec 08 |
+| **Data connection** | A registered database (`data_connections`) that the `data.*` tools read. | spec 08 |
 | **Risk class** | `R0` read public/own, `R1` read sensitive, `W1` reversible write to own scope, `W2` write visible to others, `W3` irreversible/production/financial. | [spec 09](../03-specs/09-policy-approvals.md) |
 | **Policy** | Rego rules (package `ar.policy`) evaluated by OPA per tool call; outcome allow / deny / require_approval. | spec 09 |
 | **Approval** | Human decision on one tool call, bound to its `args_hash`, single use. | spec 09, [ADR-0015](../02-architecture/adr/ADR-0015-approval-args-hash.md) |

@@ -65,7 +65,6 @@ COMPOSE_FILE=compose.yaml:compose.computers.yaml:compose.channels.yaml
 |---|---|---|
 | `compose.computers.yaml` | `sandbox-manager`, `squid` | Agents run code, a shell or a browser in their own container. Build the image first: `docker build -f images/sandbox/Dockerfile -t ar-sandbox:dev .` |
 | `compose.channels.yaml` | `channels` | People reach agents from Slack, Teams or email |
-| `compose.connectors.yaml` | `mcp-sql`, `mcp-openapi` | The tenant uses SQL or OpenAPI connections |
 | `compose.opa.yaml` | `opa` | A tenant writes its own Rego rules. Without it the product's own evaluator decides every tool call, with the same rules |
 | `compose.vault.yaml` | `openbao` | Secrets are kept in a vault (`AR_SECRETS_BACKEND=vault`). The default keeps them encrypted in the database |
 | `compose.model-gateway.yaml` | `model-gateway` | A model provider has no address of its own. A provider registered with its address is called there directly |
@@ -97,8 +96,6 @@ Run apart (`compose.split-workers.yaml`), `runtime-worker` measured 275 MiB and 
 |---|---|
 | `channels` | 123 MiB |
 | `model-gateway` | 120 MiB |
-| `mcp-sql` | 119 MiB |
-| `mcp-openapi` | 101 MiB |
 | `openbao` | 19 MiB |
 | `opa` | 14 MiB |
 | `clamav` (profile `scan`, measured on a laptop) | about 1 GiB |

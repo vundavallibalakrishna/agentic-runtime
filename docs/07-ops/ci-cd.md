@@ -42,7 +42,7 @@ PR wall-clock target: < 15 minutes (jobs run in parallel). Caches: uv cache keye
 
 | Image | Dockerfile | Contents |
 |---|---|---|
-| `ar-api`, `ar-runtime`, `ar-system`, `ar-model-gateway`, `ar-mcp-gateway`, `ar-sandbox-manager`, `ar-channels`, `ar-mcp-sql`, `ar-mcp-openapi`, `ar-fake-llm`, `ar-migrate` | `images/python-service.Dockerfile` (`--build-arg SERVICE=…`) | Python 3.14 slim base, uv-installed wheel set from `uv.lock` (`uv sync --frozen --no-dev --package <svc>`), non-root UID 10001, `tini`, read-only root FS, no shell utilities beyond base |
+| `ar-api`, `ar-runtime`, `ar-system`, `ar-model-gateway`, `ar-mcp-gateway`, `ar-sandbox-manager`, `ar-channels`, `ar-fake-llm`, `ar-migrate` | `images/python-service.Dockerfile` (`--build-arg SERVICE=…`) | Python 3.14 slim base, uv-installed wheel set from `uv.lock` (`uv sync --frozen --no-dev --package <svc>`), non-root UID 10001, `tini`, read-only root FS, no shell utilities beyond base |
 | `ar-ingest` | `images/ingest/Dockerfile` | Python service + LibreOffice headless, Tesseract/OCR models, Docling models baked in |
 | `ar-web` | `images/web.Dockerfile` | Node 24 slim, Next standalone output, UID 10001 |
 | `ar-sandbox` | `images/sandbox/Dockerfile` | Debian 13 slim with Python 3.14, Node 24, data libraries, Chromium + Playwright, LibreOffice and `sandbox-agent` ([spec 12 §7.1](../03-specs/12-sandbox-manager.md#71-image-ar-sandbox-imagessandboxdockerfile)) |
