@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Request
 from pydantic import Field
 
+from ar_common.offload import CallTimedOutError, run_sync
 from ar_contracts.api_model import ApiModel
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import ChatBehaviour
@@ -79,9 +80,34 @@ async def _run(
         if not isinstance(tenant, uuid.UUID):
             raise TypeError("tool call has no tenant")
         async with service.open(tenant) as unit:
-            return execute(unit, open_console_run(unit, payload) if console else payload)
+            target = open_console_run(unit, payload) if console else payload
+            return await _offloaded(unit, target)
     store = _store(request)
-    return execute(store, open_console_run(store, payload) if console else payload)
+    target = open_console_run(store, payload) if console else payload
+    return await _offloaded(store, target)
+
+
+async def _offloaded(store: object, payload: dict[str, object]) -> dict[str, object]:
+    """Run the pipeline under ``run_sync`` so a waiting tool does not stall the loop.
+
+    ``blocking`` only leaves the loop when the caller is inside ``run_sync``. Calling
+    the pipeline directly from this handler ran those waits on the loop thread, so one
+    long extract froze health checks and every other agent.
+    """
+    from ar_mcp_gateway.pipeline import _timeout_s  # noqa: PLC0415
+
+    limit = float(_timeout_s(store, payload))
+    try:
+        found = await run_sync(execute, store, payload, limit_s=limit)
+    except CallTimedOutError as exc:
+        message = f"The tool did not finish within {exc.seconds:g} seconds."
+        return {
+            "status": "failed",
+            "is_error": True,
+            "result_preview": message,
+            "error": {"code": "upstream_timeout", "message": message},
+        }
+    return found if isinstance(found, dict) else {"status": "failed", "is_error": True}
 
 
 def _actor(tenant_id: uuid.UUID, user_id: uuid.UUID) -> Actor:
