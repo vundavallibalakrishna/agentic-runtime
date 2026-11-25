@@ -12,7 +12,12 @@ import uuid
 from typing import TYPE_CHECKING
 
 from ar_common.approval_cards import slack_blocks, teams_card
-from ar_domain.approvals.review_link import issue_review_token, link_deadline, review_url
+from ar_domain.approvals.review_link import (
+    approvals_url,
+    issue_review_token,
+    link_deadline,
+    review_url,
+)
 from ar_domain.channels.posts import load_credentials, record_channel_post
 
 if TYPE_CHECKING:
@@ -53,7 +58,9 @@ def post_cards(
         user_id = ""
         if isinstance(identity, dict):
             user_id = str(identity.get("user_id") or "")
-        link = links.get(user_id) or next(iter(links.values()), "")
+        link = links.get(user_id) if user_id else ""
+        if not link:
+            link = approvals_url()
         text = f"Approval requested for {row.get('qualified_name') or 'a tool'}"
         card = _card(row, kind, link, text)
         detail = {

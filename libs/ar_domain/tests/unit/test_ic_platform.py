@@ -200,6 +200,26 @@ def test_approval_email_uses_the_approver_not_a_fixed_address() -> None:
     assert "approvals@dev.local" not in emails
 
 
+def test_the_extra_notify_address_gets_no_personal_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[str, str]] = []
+
+    def capture(email: str, subject: str, body: str) -> dict[str, str]:
+        del subject
+        sent.append((email, body))
+        return {"status": "sent"}
+
+    monkeypatch.setattr("ar_domain.approvals.announce.send_install_mail", capture)
+    monkeypatch.setenv("AR_APPROVAL_NOTIFY_EMAIL", "desk@example.com")
+    store = demo_store()
+    store.user_emails[demo_id("admin")] = "ada@example.com"
+    _pending(store)
+    extra = next(body for email, body in sent if email == "desk@example.com")
+    personal = next(body for email, body in sent if email == "ada@example.com")
+    assert "/review/" not in extra
+    assert extra.endswith("/approvals") or "/approvals" in extra
+    assert "/review/" in personal
+
+
 def test_a_channel_binding_records_an_interactive_card() -> None:
     store = demo_store()
     integration_id = uuid.uuid4()
@@ -217,7 +237,8 @@ def test_a_channel_binding_records_an_interactive_card() -> None:
     blocks = detail["card"]["blocks"]
     actions = {block["action_id"] for block in blocks}
     assert {"approve", "reject", "review"} <= actions
-    assert str(detail["review_url"]).startswith("http")
+    assert str(detail["review_url"]).endswith("/approvals")
+    assert "/review/" not in str(detail["review_url"])
     assert str(row["id"]) in blocks[0]["value"]
 
 

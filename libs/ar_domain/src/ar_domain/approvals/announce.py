@@ -10,6 +10,7 @@ import os
 import uuid
 from typing import TYPE_CHECKING
 
+from ar_domain.approvals.review_link import approvals_url
 from ar_domain.channels.cards import links_for, post_cards
 from ar_domain.notifications.smtp_mail import send_install_mail
 from ar_domain.webhooks.delivery import dispatch_public_event
@@ -62,10 +63,11 @@ def _mail(
     store: Any, row: dict[str, object], approver_ids: list[str], links: dict[str, str]
 ) -> None:
     name = str(row.get("qualified_name") or "a tool")
-    shared = next(iter(links.values()), "")
     for email in approver_emails(store, approver_ids):
         user_id = _user_for_email(store, email)
-        link = links.get(user_id, shared)
+        link = links.get(user_id) if user_id else ""
+        if not link:
+            link = approvals_url()
         body = f"A run is waiting on {name}."
         if link:
             body = f"{body}\n\nReview: {link}"

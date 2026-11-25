@@ -38,6 +38,11 @@ def review_url(token: str) -> str:
     return f"{public_base()}/review/{token}"
 
 
+def approvals_url() -> str:
+    """The signed-in queue. It carries no one's token."""
+    return f"{public_base()}/approvals"
+
+
 def link_deadline(approval_expires: datetime) -> datetime:
     """The earlier of the approval expiry and ``AR_REVIEW_LINK_TTL_S``."""
     raw = os.environ.get("AR_REVIEW_LINK_TTL_S", "86400").strip() or "86400"
