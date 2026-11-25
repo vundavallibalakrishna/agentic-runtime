@@ -144,7 +144,6 @@ def test_browser_attach_export_and_reap() -> None:
         "conversation_id": conversation,
         "tenant_id": demo_id("tenant"),
     }
-    # No computer is running for this conversation, so there is no browser.
     page = _call(
         store,
         "navigate",
@@ -153,9 +152,10 @@ def test_browser_attach_export_and_reap() -> None:
         _run_id=run_id,
         _tool_call_id=str(uuid.uuid4()),
     )
-    assert page["code"] == "sandbox_unavailable"
+    # The test's computer has no Chromium, and nothing in the product stands in for one.
+    assert page["is_error"] is True
     shot = _call(store, "screenshot", conversation_id=conversation, _run_id=run_id)
-    assert shot["code"] == "sandbox_unavailable"
+    assert shot["is_error"] is True
     missing = _call(store, "attach_to_sandbox", file_id=str(uuid.uuid4()))
     assert missing["code"] == "not_found"
     file_id = uuid.uuid4()

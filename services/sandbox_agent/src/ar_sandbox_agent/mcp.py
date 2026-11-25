@@ -297,9 +297,23 @@ def _list(root: Path, target: Path, arguments: dict[str, object]) -> dict[str, o
         return {"text": "", "structured": {"entries": []}, "is_error": False}
     cap = max(1, min(_as_int(arguments.get("max_entries"), 1000), 1000))
     walker = target.rglob("*") if arguments.get("recursive") is True else target.iterdir()
-    entries = [virtual_path(root, path) for path in sorted(walker) if not path.name.startswith("_")]
-    entries = entries[:cap]
-    return {"text": "\n".join(entries), "structured": {"entries": entries}, "is_error": False}
+    listed = [path for path in sorted(walker) if not path.name.startswith("_")][:cap]
+    entries = [virtual_path(root, path) for path in listed]
+    # ``entries`` is the list a model reads. ``items`` adds what a file browser shows.
+    items = [
+        {
+            "path": virtual_path(root, path),
+            "name": path.name,
+            "type": "dir" if path.is_dir() else "file",
+            "size_bytes": 0 if path.is_dir() else path.stat().st_size,
+        }
+        for path in listed
+    ]
+    return {
+        "text": "\n".join(entries),
+        "structured": {"entries": entries, "items": items},
+        "is_error": False,
+    }
 
 
 def _stamp(workspace: Path) -> dict[str, int]:

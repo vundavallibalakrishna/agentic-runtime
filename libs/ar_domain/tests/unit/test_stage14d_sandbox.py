@@ -115,13 +115,10 @@ def test_a_shell_command_runs_in_the_computer(computer: Path) -> None:
     assert str(computer) in result["text"] or "/workspace" in result["text"]
 
 
-def test_without_a_computer_code_does_not_run_on_a_host_that_forbids_it(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from ar_domain.tools import general
-
-    monkeypatch.setattr(general, "host_exec_allowed", lambda: False)
-    result = _call(demo_store(), "code", source="print(1)")
+def test_without_a_computer_code_does_not_run() -> None:
+    store = demo_store()
+    store.sandbox_launcher = None
+    result = _call(store, "code", source="print(1)")
     assert result["is_error"] is True
     assert result["code"] == "sandbox_unavailable"
 

@@ -624,12 +624,6 @@ def wildcard_egress_allowed(settings: BaseServiceSettings | None = None) -> bool
 DEV_CURSOR_SECRET = "dev-cursor-secret"  # noqa: S105 - the value that must be refused
 
 
-def host_exec_allowed(settings: BaseServiceSettings | None = None) -> bool:
-    """Host bash is a development driver. Staging and production never run it."""
-    current = get_settings() if settings is None else settings
-    return current.env in {EnvName.DEV, EnvName.CI}
-
-
 def uses_shared_process_state(env: EnvName) -> bool:
     """Sessions, idempotency and run events leave the process outside dev and CI."""
     return env not in {EnvName.DEV, EnvName.CI}

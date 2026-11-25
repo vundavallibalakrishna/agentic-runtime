@@ -112,6 +112,7 @@ def _computer(
 
 def test_with_no_computer_every_browser_tool_says_so() -> None:
     store = demo_store()
+    store.sandbox_launcher = None
     tenant, user, agent = _arm(store)
     conversation = uuid.uuid4()
     for name in _NAMES:
