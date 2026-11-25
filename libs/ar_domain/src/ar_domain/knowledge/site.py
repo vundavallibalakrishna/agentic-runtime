@@ -56,6 +56,7 @@ def walk(source: dict[str, object], config: dict[str, object], *, mode: str) -> 
     from ar_common.egress_http import sync_client  # noqa: PLC0415
     from ar_domain.knowledge.fetchers import _hosts  # noqa: PLC0415
 
+    config = _plain(config)
     starts = _many(config.get("start_urls")) or _many(config.get("url"))
     if not starts:
         return _page([], {}, complete=False)
@@ -345,6 +346,19 @@ class _Walk:
             return response.content, mime
 
         return read
+
+
+_NAMES = {
+    "startUrls": "start_urls",
+    "allowedDomains": "allowed_domains",
+    "maxPages": "max_pages",
+    "maxDepth": "max_depth",
+}
+
+
+def _plain(config: dict[str, object]) -> dict[str, object]:
+    """The settings under one spelling: a definition file and the API may each use either."""
+    return {_NAMES.get(key, key): value for key, value in config.items()}
 
 
 def _looks_listed(url: str) -> bool:

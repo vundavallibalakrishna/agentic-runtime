@@ -47,6 +47,8 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
   const [name, setName] = useState("");
   const [kind, setKind] = useState("web");
   const [url, setUrl] = useState("");
+  const [maxPages, setMaxPages] = useState("200");
+  const [maxDepth, setMaxDepth] = useState("0");
   const [error, setError] = useState("");
 
   async function save() {
@@ -55,7 +57,14 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
     setError("");
     try {
       const configuration =
-        kind === "web" ? { url, allowlist: [new URL(url).host] } : JSON.parse(config);
+        kind === "web"
+          ? {
+              start_urls: [url],
+              allowed_domains: [new URL(url).hostname],
+              max_pages: Math.max(1, Number(maxPages) || 1),
+              max_depth: Math.max(0, Number(maxDepth) || 0),
+            }
+          : JSON.parse(config);
       if (!configuration || typeof configuration !== "object" || Array.isArray(configuration))
         throw new Error(detail("invalidConfig"));
       await api(`/api/v1/knowledge/collections/${collectionId}/sources`, {
@@ -129,17 +138,47 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
             </select>
           </label>
           {kind === "web" ? (
-            <label htmlFor="source-url">
-              {t("url")}
-              <Input
-                id="source-url"
-                required
-                type="url"
-                placeholder="https://example.com"
-                onChange={(event) => setUrl(event.target.value)}
-                value={url}
-              />
-            </label>
+            <>
+              <label htmlFor="source-url">
+                {t("url")}
+                <Input
+                  id="source-url"
+                  required
+                  type="url"
+                  placeholder="https://example.com"
+                  onChange={(event) => setUrl(event.target.value)}
+                  value={url}
+                />
+              </label>
+              <p className="-mt-2 text-xs text-[var(--muted-foreground)]">{t("urlHelp")}</p>
+              <div className="flex flex-wrap gap-4">
+                <label htmlFor="source-max-pages">
+                  {t("maxPages")}
+                  <Input
+                    className="mt-1 w-28"
+                    id="source-max-pages"
+                    max={10000}
+                    min={1}
+                    onChange={(event) => setMaxPages(event.target.value)}
+                    type="number"
+                    value={maxPages}
+                  />
+                </label>
+                <label htmlFor="source-max-depth">
+                  {t("linkDepth")}
+                  <Input
+                    className="mt-1 w-28"
+                    id="source-max-depth"
+                    max={5}
+                    min={0}
+                    onChange={(event) => setMaxDepth(event.target.value)}
+                    type="number"
+                    value={maxDepth}
+                  />
+                </label>
+              </div>
+              <p className="-mt-2 text-xs text-[var(--muted-foreground)]">{t("crawlHelp")}</p>
+            </>
           ) : (
             <>
               <label htmlFor="source-config">

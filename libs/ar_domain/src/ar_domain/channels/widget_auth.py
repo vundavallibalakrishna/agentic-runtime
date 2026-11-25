@@ -57,6 +57,51 @@ def allowed_origins(config: object) -> list[str]:
     return list(dict.fromkeys(found))
 
 
+_SESSION_DEFAULT_S = 1800
+_SESSION_MAX_S = 86_400
+_MESSAGES_DEFAULT = 30
+_SESSIONS_PER_MINUTE_DEFAULT = 60
+_SESSIONS_PER_CLIENT_DEFAULT = 10
+_NOTICE_MAX = 2000
+
+
+def public_access(config: object) -> dict[str, Any] | None:
+    """A public widget's settings, or None for one whose host signs its visitors in.
+
+    A public widget is for a website anyone may visit. Nobody is signed in, so every
+    visitor acts as one account the tenant names (``visitorEmail``), with only the right
+    to chat, to the agents the integration lists. Each visitor has a session of their
+    own and reaches only the conversation made in it. The settings bound what a visitor,
+    or a script posing as many, can use.
+    """
+    if not isinstance(config, dict) or str(config.get("access") or "") != "public":
+        return None
+
+    def number(names: tuple[str, str], default: int, most: int) -> int:
+        raw = config.get(names[0], config.get(names[1]))
+        value = raw if isinstance(raw, int) and not isinstance(raw, bool) else default
+        return max(1, min(value, most))
+
+    return {
+        "visitor_email": str(config.get("visitorEmail") or config.get("visitor_email") or "")
+        .strip()
+        .lower(),
+        "session_s": number(
+            ("sessionSeconds", "session_seconds"), _SESSION_DEFAULT_S, _SESSION_MAX_S
+        ),
+        "max_messages": number(("maxMessages", "max_messages"), _MESSAGES_DEFAULT, 1000),
+        "sessions_per_minute": number(
+            ("sessionsPerMinute", "sessions_per_minute"), _SESSIONS_PER_MINUTE_DEFAULT, 6000
+        ),
+        "sessions_per_client": number(
+            ("sessionsPerClientPerMinute", "sessions_per_client_per_minute"),
+            _SESSIONS_PER_CLIENT_DEFAULT,
+            600,
+        ),
+        "notice": str(config.get("notice") or "")[:_NOTICE_MAX],
+    }
+
+
 def _claims(  # noqa: PLR0911 - each malformed claim fails closed
     token: str, audience: str, algorithm: str
 ) -> tuple[dict[str, Any], bytes, bytes] | None:

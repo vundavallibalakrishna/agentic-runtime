@@ -119,7 +119,15 @@ class ChannelBook:
     def test(self, actor: Actor, integration_id: uuid.UUID) -> dict[str, object]:
         row = self._owned(actor, integration_id)
         credentials = load_credentials(self.store, row)
-        ok, detail = _probe(str(row.get("kind")), credentials)
+        from ar_domain.channels.widget_auth import public_access  # noqa: PLC0415
+
+        public = public_access(row.get("config")) if row.get("kind") == "widget" else None
+        if public is not None:
+            # A public widget has no host secret. It needs the account its visitors act as.
+            ok = bool(public["visitor_email"])
+            detail = "the visitor account is set" if ok else "the visitor account is missing"
+        else:
+            ok, detail = _probe(str(row.get("kind")), credentials)
         row["status"] = "active" if ok else "error"
         row["status_detail"] = detail
         row["updated_at"] = utcnow()

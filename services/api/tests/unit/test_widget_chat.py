@@ -166,3 +166,189 @@ async def test_session_updates_preserve_expiry(monkeypatch: pytest.MonkeyPatch) 
     assert await store.get(key) is None
     await store.update(key, data)
     assert await store.get(key) is None
+
+
+@pytest.fixture
+def public_widget(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, str, str]:
+    """A widget anyone may open: visitors act as one account the tenant names."""
+    monkeypatch.setenv("AR_PUBLIC_URL", "https://localhost:3000")
+    app = demo_application()
+    app.state.await_runs = True
+    store = app.state.chat
+    tenant = demo_id("tenant")
+    store.tenant_settings[tenant] = {"features": {"widget": True}}
+    actor = Actor(tenant, demo_id("admin"), PERMISSION_KEYS)
+    agent_id = next(
+        str(agent["id"]) for agent in store.agents.values() if agent["slug"] == "assistant"
+    )
+    row = ChannelBook(store).create(
+        actor,
+        {
+            "kind": "widget",
+            "name": "Website",
+            "default_agent_id": agent_id,
+            "config": {
+                "access": "public",
+                "visitorEmail": "admin@dev.local",
+                "allowedOrigins": ["https://site.example"],
+                "maxMessages": 2,
+                "sessionsPerClientPerMinute": 3,
+                "notice": "Messages are kept to improve answers.",
+            },
+        },
+    )
+    with TestClient(app, base_url="https://localhost:3000") as client:
+        yield client, str(row["id"]), agent_id
+
+
+def _visit(client: TestClient, integration_id: str) -> dict[str, str]:
+    started = client.post("/api/v1/widget/sessions", json={"integrationId": integration_id})
+    assert started.status_code == 204, started.text
+    return _headers(client)
+
+
+def test_a_public_widget_lets_a_visitor_chat_without_signing_in(
+    public_widget: tuple[TestClient, str, str],
+) -> None:
+    client, integration_id, agent_id = public_widget
+    frame = client.get(f"/api/v1/widget/integrations/{integration_id}").json()
+    assert (frame["access"], frame["notice"]) == ("public", "Messages are kept to improve answers.")
+    headers = _visit(client, integration_id)
+    context = client.get("/api/v1/widget/session").json()
+    assert context["public"] is True
+    assert context["agents"] == [{"id": agent_id, "name": "Assistant"}]
+    # The session can chat and nothing else: no workspace endpoint takes it.
+    assert client.get("/api/v1/agents").status_code == 401
+    assert client.get("/api/v1/conversations").status_code == 401
+    created = client.post(
+        "/api/v1/widget/conversations", json={"agentId": agent_id}, headers=headers
+    )
+    conversation_id = created.json()["id"]
+    sent = client.post(
+        f"/api/v1/widget/conversations/{conversation_id}/messages",
+        json={"text": "What do you sell?"},
+        headers=headers,
+    )
+    assert sent.status_code == 202, sent.text
+    events = client.get(f"/api/v1/widget/runs/{sent.json()['run']['id']}/events")
+    assert "event: run.completed" in events.text
+
+
+def test_one_visitor_cannot_reach_another_visitors_conversation(
+    public_widget: tuple[TestClient, str, str],
+) -> None:
+    """Every visitor acts as the same account. The session is what keeps them apart."""
+    client, integration_id, agent_id = public_widget
+    first = _visit(client, integration_id)
+    theirs = client.post(
+        "/api/v1/widget/conversations", json={"agentId": agent_id}, headers=first
+    ).json()["id"]
+    client.post(
+        f"/api/v1/widget/conversations/{theirs}/messages",
+        json={"text": "My name is Ada and my number is 555 0100."},
+        headers=first,
+    )
+    # A second visitor: a new session on the same widget.
+    client.cookies.clear()
+    second = _visit(client, integration_id)
+    assert client.get("/api/v1/widget/session").json()["conversationId"] is None
+    assert client.get(f"/api/v1/widget/conversations/{theirs}").status_code == 404
+    assert (
+        client.post(
+            f"/api/v1/widget/conversations/{theirs}/messages",
+            json={"text": "What did the last person say?"},
+            headers=second,
+        ).status_code
+        == 404
+    )
+
+
+def test_a_public_session_is_bounded_in_what_it_can_send_and_store(
+    public_widget: tuple[TestClient, str, str],
+) -> None:
+    client, integration_id, agent_id = public_widget
+    headers = _visit(client, integration_id)
+    conversation_id = client.post(
+        "/api/v1/widget/conversations", json={"agentId": agent_id}, headers=headers
+    ).json()["id"]
+    path = f"/api/v1/widget/conversations/{conversation_id}/messages"
+    for text in ("one", "two"):
+        assert client.post(path, json={"text": text}, headers=headers).status_code == 202
+    third = client.post(path, json={"text": "three"}, headers=headers)
+    assert third.status_code == 429
+    assert "reached its limit" in third.json()["detail"]
+    # A new conversation in the same session does not start the count again.
+    again = client.post(
+        "/api/v1/widget/conversations", json={"agentId": agent_id}, headers=headers
+    ).json()["id"]
+    assert (
+        client.post(
+            f"/api/v1/widget/conversations/{again}/messages", json={"text": "four"}, headers=headers
+        ).status_code
+        == 429
+    )
+    upload = client.post(
+        "/api/v1/widget/files",
+        files={"upload": ("note.txt", b"hello", "text/plain")},
+        headers={key: value for key, value in headers.items() if key != "content-type"},
+    )
+    assert upload.status_code == 403
+
+
+def test_one_address_can_start_only_so_many_public_chats_in_a_minute(
+    public_widget: tuple[TestClient, str, str],
+) -> None:
+    client, integration_id, _agent = public_widget
+    answers = []
+    for _ in range(4):
+        client.cookies.clear()
+        answers.append(
+            client.post("/api/v1/widget/sessions", json={"integrationId": integration_id})
+        )
+    assert [item.status_code for item in answers] == [204, 204, 204, 429]
+    assert answers[-1].headers.get("retry-after")
+
+
+def test_a_public_widget_needs_an_active_account_for_its_visitors(
+    public_widget: tuple[TestClient, str, str],
+) -> None:
+    client, integration_id, _agent = public_widget
+    store = client.app.state.chat
+    row = ChannelBook(store)._integrations()[uuid.UUID(integration_id)]
+    row["config"] = {**row["config"], "visitorEmail": "nobody@dev.local"}
+    assert (
+        client.post("/api/v1/widget/sessions", json={"integrationId": integration_id}).status_code
+        == 401
+    )
+    row["config"] = {**row["config"], "visitorEmail": ""}
+    assert (
+        client.post("/api/v1/widget/sessions", json={"integrationId": integration_id}).status_code
+        == 401
+    )
+
+
+def test_testing_a_public_widget_does_not_ask_for_a_host_secret(
+    public_widget: tuple[TestClient, str, str],
+) -> None:
+    client, integration_id, _agent = public_widget
+    store = client.app.state.chat
+    actor = Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS)
+    answer = ChannelBook(store).test(actor, uuid.UUID(integration_id))
+    assert answer == {"ok": True, "detail": "the visitor account is set"}
+    # It is still open to visitors after the test.
+    assert (
+        client.post("/api/v1/widget/sessions", json={"integrationId": integration_id}).status_code
+        == 204
+    )
+
+
+def test_a_widget_that_is_not_public_still_needs_the_hosts_token(
+    widget_client: tuple[TestClient, str, str],
+) -> None:
+    client, integration_id, _agent = widget_client
+    frame = client.get(f"/api/v1/widget/integrations/{integration_id}").json()
+    assert (frame["access"], frame["notice"]) == ("signed", "")
+    assert (
+        client.post("/api/v1/widget/sessions", json={"integrationId": integration_id}).status_code
+        == 401
+    )
