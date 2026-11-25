@@ -88,7 +88,10 @@ def _message(
         (["__nameid_version1.0", "__substg1.0_00030102"], b""),
         (["__nameid_version1.0", "__substg1.0_00040102"], b""),
         (["__substg1.0_001A001F"], _utf("IPM.Note")),
-        (["__substg1.0_007D001F"], _utf(f"From: {sender}\r\nTo: {recipient}\r\nSubject: {subject}\r\n")),
+        (
+            ["__substg1.0_007D001F"],
+            _utf(f"From: {sender}\r\nTo: {recipient}\r\nSubject: {subject}\r\n"),
+        ),
         (["__substg1.0_0037001F"], _utf(subject)),
         (["__substg1.0_0C1A001F"], _utf(sender)),
         (["__substg1.0_0E04001F"], _utf(recipient)),
@@ -98,12 +101,39 @@ def _message(
         folder = f"__attach_version1.0_#{index:08d}"
         if name.endswith(".msg"):
             streams.append(([folder, "__properties_version1.0"], b"\x00" * 8))
-            streams.append(([folder, "__substg1.0_3701000D", "__properties_version1.0"], b"\x00" * 32))
-            streams.append(([folder, "__substg1.0_3701000D", "__substg1.0_0037001F"], _stream(payload, "__substg1.0_0037001F")))
-            streams.append(([folder, "__substg1.0_3701000D", "__substg1.0_1000001F"], _stream(payload, "__substg1.0_1000001F")))
-            streams.append(([folder, "__substg1.0_3701000D", "__substg1.0_0C1A001F"], _stream(payload, "__substg1.0_0C1A001F")))
-            streams.append(([folder, "__substg1.0_3701000D", "__substg1.0_0E04001F"], _stream(payload, "__substg1.0_0E04001F")))
-            streams.append(([folder, "__substg1.0_3701000D", "__substg1.0_001A001F"], _stream(payload, "__substg1.0_001A001F")))
+            streams.append(
+                ([folder, "__substg1.0_3701000D", "__properties_version1.0"], b"\x00" * 32)
+            )
+            streams.append(
+                (
+                    [folder, "__substg1.0_3701000D", "__substg1.0_0037001F"],
+                    _stream(payload, "__substg1.0_0037001F"),
+                )
+            )
+            streams.append(
+                (
+                    [folder, "__substg1.0_3701000D", "__substg1.0_1000001F"],
+                    _stream(payload, "__substg1.0_1000001F"),
+                )
+            )
+            streams.append(
+                (
+                    [folder, "__substg1.0_3701000D", "__substg1.0_0C1A001F"],
+                    _stream(payload, "__substg1.0_0C1A001F"),
+                )
+            )
+            streams.append(
+                (
+                    [folder, "__substg1.0_3701000D", "__substg1.0_0E04001F"],
+                    _stream(payload, "__substg1.0_0E04001F"),
+                )
+            )
+            streams.append(
+                (
+                    [folder, "__substg1.0_3701000D", "__substg1.0_001A001F"],
+                    _stream(payload, "__substg1.0_001A001F"),
+                )
+            )
         else:
             streams.append(([folder, "__substg1.0_37010102"], payload))
             streams.append(([folder, "__substg1.0_3707001F"], _utf(name)))
@@ -219,7 +249,9 @@ class _Ole:
         struct.pack_into("<I", header, 76, fat_start)
         body = bytearray()
         body.extend(mini_data.ljust(mini_sectors * 512, b"\x00"))
-        mini_fat_bytes = b"".join(struct.pack("<I", item) for item in mini_fat).ljust(mini_fat_sectors * 512, b"\xff")
+        mini_fat_bytes = b"".join(struct.pack("<I", item) for item in mini_fat).ljust(
+            mini_fat_sectors * 512, b"\xff"
+        )
         body.extend(mini_fat_bytes)
         body.extend(directory.ljust(directory_sectors * 512, b"\x00"))
         body.extend(b"".join(struct.pack("<I", item) for item in fat))
@@ -237,7 +269,14 @@ def _nodes(streams: list[tuple[list[str], bytes]]) -> list[dict[str, object]]:
 
 def _link(streams: list[tuple[list[str], bytes]]) -> list[dict[str, object]]:
     nodes: list[dict[str, object]] = [
-        {"name": "Root Entry", "data": b"", "storage": True, "child": _NONE, "left": _NONE, "right": _NONE}
+        {
+            "name": "Root Entry",
+            "data": b"",
+            "storage": True,
+            "child": _NONE,
+            "left": _NONE,
+            "right": _NONE,
+        }
     ]
     index_of: dict[tuple[str, ...], int] = {(): 0}
 
