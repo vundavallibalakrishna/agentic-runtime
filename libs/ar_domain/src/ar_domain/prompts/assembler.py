@@ -33,6 +33,7 @@ def build_prompt(run: dict[str, object]) -> PromptBundle:
         read_prompt("platform.md"),
         read_prompt("tool_use.md") if uses_tools(definition) else "",
         f"You are {display}.\n\n{instructions}".strip(),
+        str(run.get("agent_settings") or ""),
         output_block(definition),
         str(run.get("capabilities") or ""),
         str(run.get("skills") or ""),

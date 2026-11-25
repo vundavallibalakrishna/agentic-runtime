@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import orjson
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 
@@ -88,6 +89,38 @@ class SettingsBook:
         ]
         found.sort(key=_version)
         return found
+
+
+def agent_settings_block(store: Any, run: dict[str, object]) -> str:
+    """The latest settings document for the run's agent, for its system prompt."""
+    import uuid  # noqa: PLC0415
+
+    tenant = run.get("tenant_id")
+    if not isinstance(tenant, uuid.UUID):
+        return ""
+    agent_id = run.get("agent_id")
+    slug = ""
+    agents = getattr(store, "agents", {})
+    agent = agents.get(agent_id) if isinstance(agents, dict) else None
+    if isinstance(agent, dict):
+        slug = str(agent.get("slug") or "")
+    book = SettingsBook(store)
+    for resource_id in (slug, "" if agent_id is None else str(agent_id)):
+        if not resource_id:
+            continue
+        try:
+            found = book.latest(tenant, "agent", resource_id)
+        except NotFoundError:
+            continue
+        document = found.get("document")
+        if not isinstance(document, dict):
+            continue
+        return (
+            f"Agent settings, version {found.get('version')}. "
+            "These values are configuration for this agent.\n"
+            + orjson.dumps(document).decode()
+        )
+    return ""
 
 
 def _version(item: dict[str, object]) -> int:

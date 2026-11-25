@@ -218,6 +218,10 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         failed_open = resumed_loop["failed_open"]
         usage_source = str(resumed_loop.get("usage_source") or "")
     elif restored is None:
+        if not str(run.get("agent_settings") or ""):
+            from ar_domain.config_docs.book import agent_settings_block  # noqa: PLC0415
+
+            run["agent_settings"] = agent_settings_block(store, run)
         messages = opening_messages(run, definition, user_text)
         steps = 0
         used_calls = 0

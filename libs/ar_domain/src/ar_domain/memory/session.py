@@ -73,10 +73,14 @@ def prepare_prompt(
         store, definition, tenant_id=tenant if isinstance(tenant, uuid.UUID) else None
     )
     run["skills"] = loaded_skills_block(store, conversation, run)
+    from ar_domain.config_docs.book import agent_settings_block  # noqa: PLC0415
+
+    run["agent_settings"] = agent_settings_block(store, run)
     bundle = build_prompt(
         {
             "definition": definition,
             "user_text": text,
+            "agent_settings": run["agent_settings"],
             "channel": str(conversation.get("channel") or ""),
             "files": _files_block(store, run, definition, attached),
             "history": prompt_history,

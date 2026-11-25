@@ -5,6 +5,8 @@ Label: unit
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
 from ar_common.errors import ArError
@@ -13,6 +15,9 @@ from ar_domain.agents.packs import PackService, _apply_policies
 from ar_domain.approvals.errors import StepUpRequiredError
 from ar_domain.bundles.import_ import import_bundle
 from ar_domain.chat.service import demo_id
+from ar_domain.config_docs.book import SettingsBook, agent_settings_block
+from ar_domain.memory.session import prepare_prompt
+from ar_domain.workspace.turn import opening_messages
 from ar_testing.demo import demo_store
 
 _POLICY_MANIFEST: dict[str, object] = {
@@ -87,27 +92,21 @@ def _pack(resources: list[dict[str, object]]) -> dict[str, object]:
 def test_an_agent_resource_keeps_settings_that_match_its_schema() -> None:
     store = demo_store()
     tenant = demo_id("tenant")
-    actor = Actor(
-        tenant, demo_id("admin"), frozenset({"packs:manage", "agents:create"})
-    )
+    actor = Actor(tenant, demo_id("admin"), frozenset({"packs:manage", "agents:create"}))
     schema = {
         "type": "object",
         "required": ["sources"],
         "properties": {"sources": {"type": "array"}},
     }
     resource = _agent({"sources": ["https://example.test/feed"]}, schema)
-    imported = import_bundle(
-        store, actor, {"spec": {"resources": [resource]}}, dry_run=False
-    )
+    imported = import_bundle(store, actor, {"spec": {"resources": [resource]}}, dry_run=False)
     assert imported["results"][0]["action"] == "create"
     agent = next(row for row in store.agents.values() if row.get("slug") == "scanner")
     version = store.versions[agent["draft_version_id"]]
     definition = version["definition"]
     assert "settings" not in definition
     assert "settingsSchema" not in definition
-    installed = PackService(store).install(
-        actor, _pack([resource]), signature=None, key_id=None
-    )
+    installed = PackService(store).install(actor, _pack([resource]), signature=None, key_id=None)
     assert installed["status"] == "installed"
 
 
@@ -126,3 +125,39 @@ def test_pack_install_fails_when_agent_settings_do_not_match() -> None:
         PackService(store).install(actor, _pack([resource]), signature=None, key_id=None)
     assert store.packs == {}
     assert not any(row.get("slug") == "scanner" for row in store.agents.values())
+
+
+def test_versioned_agent_settings_are_injected_into_the_run_prompt() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    user = demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    posted = store.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "Scan", schedule=False
+    )
+    run = store.runs[uuid.UUID(str(posted["run"]["id"]))]
+    row = store.conversations[run["conversation_id"]]
+    agent = store.agents[row["agent_id"]]
+    SettingsBook(store).save(
+        tenant,
+        user,
+        "agent",
+        str(agent["slug"]),
+        {"type": "object", "properties": {"sources": {"type": "array"}}},
+        {"sources": ["https://example.test/feed"]},
+    )
+    version = store.versions[agent["published_version_id"]]
+    definition = version["definition"]
+    prepare_prompt(store, run, row, definition, "Scan")
+    system = run["prompt_messages"][0]["content"]
+    assert "Agent settings, version 1" in system
+    assert "https://example.test/feed" in system
+    child = {
+        "tenant_id": tenant,
+        "agent_id": agent["id"],
+        "agent_settings": agent_settings_block(
+            store, {"tenant_id": tenant, "agent_id": agent["id"]}
+        ),
+    }
+    opened = opening_messages(child, definition, "Scan")
+    assert "https://example.test/feed" in opened[0]["content"]
