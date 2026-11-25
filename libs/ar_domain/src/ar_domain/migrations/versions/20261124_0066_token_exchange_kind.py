@@ -27,10 +27,7 @@ _NEW = (
     "kind IN ('api_key','bearer','basic','oauth_authorization_code',"
     "'oauth_client_credentials','token_exchange')"
 )
-_OLD = (
-    "kind IN ('api_key','bearer','basic','oauth_authorization_code',"
-    "'oauth_client_credentials')"
-)
+_OLD = "kind IN ('api_key','bearer','basic','oauth_authorization_code','oauth_client_credentials')"
 
 
 def upgrade() -> None:
@@ -39,10 +36,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        sa.text(
-            "DELETE FROM service_connections WHERE kind = 'token_exchange'"
-        )
-    )
+    op.execute(sa.text("DELETE FROM service_connections WHERE kind = 'token_exchange'"))
     op.drop_constraint("ck_service_connections_kind", "service_connections", type_="check")
     op.create_check_constraint("ck_service_connections_kind", "service_connections", _OLD)

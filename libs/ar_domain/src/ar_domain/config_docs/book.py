@@ -21,13 +21,17 @@ class SettingsBook:
     def __init__(self, store: Any) -> None:
         self.store = store
 
-    def latest(self, tenant_id: uuid.UUID, resource_type: str, resource_id: str) -> dict[str, object]:
+    def latest(
+        self, tenant_id: uuid.UUID, resource_type: str, resource_id: str
+    ) -> dict[str, object]:
         rows = self._rows(tenant_id, resource_type, resource_id)
         if not rows:
             raise NotFoundError("settings not found")
         return _public(rows[-1])
 
-    def versions(self, tenant_id: uuid.UUID, resource_type: str, resource_id: str) -> list[dict[str, object]]:
+    def versions(
+        self, tenant_id: uuid.UUID, resource_type: str, resource_id: str
+    ) -> list[dict[str, object]]:
         return [_public(row) for row in self._rows(tenant_id, resource_type, resource_id)]
 
     def save(  # noqa: PLR0917
@@ -68,7 +72,9 @@ class SettingsBook:
         )
         return _public(row)
 
-    def _rows(self, tenant_id: uuid.UUID, resource_type: str, resource_id: str) -> list[dict[str, object]]:
+    def _rows(
+        self, tenant_id: uuid.UUID, resource_type: str, resource_id: str
+    ) -> list[dict[str, object]]:
         found = [
             row
             for row in _book(self.store).values()
@@ -83,7 +89,9 @@ class SettingsBook:
 def _check(schema: dict[str, object], document: dict[str, object]) -> None:
     try:
         Draft202012Validator.check_schema(schema)
-        errors = sorted(Draft202012Validator(schema).iter_errors(document), key=lambda item: item.message)
+        errors = sorted(
+            Draft202012Validator(schema).iter_errors(document), key=lambda item: item.message
+        )
     except SchemaError as exc:
         raise ValidationFailedError("settings schema is not a JSON Schema") from exc
     if errors:

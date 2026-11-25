@@ -107,7 +107,7 @@ def exchange(store: Any, row: dict[str, object], secret: str) -> str:
         raw_life = payload.get("expires_in") or payload.get("expiresIn") or 86400
         try:
             life = int(raw_life)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             life = 86400
         remember(store, row, token, life)
         return token

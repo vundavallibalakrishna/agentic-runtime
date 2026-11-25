@@ -11,7 +11,7 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_untrusted
 from ar_domain.routines.metrics import DELIVERY, EVENTS, RUNS
 from ar_domain.routines.schedule import next_fire
-from ar_domain.runs.logic import DEFAULT_RUN_BUDGET, configured_run_budget
+from ar_domain.runs.logic import configured_run_budget
 from ar_domain.tools.logic import redact
 
 if TYPE_CHECKING:
