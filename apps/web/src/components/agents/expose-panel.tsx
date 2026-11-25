@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { CodeSample } from "@/components/common/code-sample";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError, api } from "@/lib/api";
@@ -44,7 +45,6 @@ export function ExposePanel({
   const [rate, setRate] = useState("60");
   const [quota, setQuota] = useState("10000");
   const [secret, setSecret] = useState("");
-  const [copied, setCopied] = useState("");
   const [message, setMessage] = useState("");
   const [raw, setRaw] = useState("");
   const [busy, setBusy] = useState(false);
@@ -109,11 +109,6 @@ export function ExposePanel({
     );
     return { curl, javascript, mcp };
   }, [keyText, origin, slug]);
-
-  async function copy(name: string, value: string) {
-    await navigator.clipboard.writeText(value);
-    setCopied(name);
-  }
 
   async function createKey() {
     setBusy(true);
@@ -262,12 +257,7 @@ export function ExposePanel({
           {secret ? (
             <div className="space-y-2">
               <p className="text-sm">{t("exposeSecret")}</p>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-3 text-xs">
-                {secret}
-              </pre>
-              <Button onClick={() => void copy("secret", secret)} type="button" variant="outline">
-                {copied === "secret" ? t("exposeCopied") : t("exposeCopy")}
-              </Button>
+              <CodeSample title={t("exposeKey")} value={secret} />
             </div>
           ) : null}
         </section>
@@ -305,24 +295,9 @@ export function ExposePanel({
         )}
       </section>
       <section className="detail-panel space-y-4">
-        <Example
-          title={t("exposeCurl")}
-          value={examples.curl}
-          onCopy={copy}
-          copied={copied === "curl"}
-        />
-        <Example
-          title={t("exposeJavaScript")}
-          value={examples.javascript}
-          onCopy={copy}
-          copied={copied === "javascript"}
-        />
-        <Example
-          title={t("exposeMcp")}
-          value={examples.mcp}
-          onCopy={copy}
-          copied={copied === "mcp"}
-        />
+        <CodeSample title={t("exposeCurl")} value={examples.curl} />
+        <CodeSample title={t("exposeJavaScript")} value={examples.javascript} />
+        <CodeSample title={t("exposeMcp")} value={examples.mcp} />
         <div>
           <h2 className="text-sm font-medium">{t("exposeA2a")}</h2>
           <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-3 text-xs">
@@ -360,37 +335,6 @@ export function ExposePanel({
           </section>
         ) : null}
       </section>
-    </div>
-  );
-}
-
-function Example({
-  title,
-  value,
-  copied,
-  onCopy,
-}: {
-  title: string;
-  value: string;
-  copied: boolean;
-  onCopy: (name: string, value: string) => Promise<void>;
-}) {
-  const t = useTranslations("agents");
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium">{title}</h2>
-        <Button
-          onClick={() => void onCopy(title.toLowerCase(), value)}
-          type="button"
-          variant="outline"
-        >
-          {copied ? t("exposeCopied") : t("exposeCopy")}
-        </Button>
-      </div>
-      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-3 text-xs">
-        {value}
-      </pre>
     </div>
   );
 }
