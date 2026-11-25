@@ -884,7 +884,6 @@ class DocumentLibrary:
             return
         if not isinstance(getattr(self.store, "approvals", None), dict):
             return
-        from ar_common.ids import new_id  # noqa: PLC0415
         from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
         from ar_domain.tools.logic import call_args_hash  # noqa: PLC0415
 

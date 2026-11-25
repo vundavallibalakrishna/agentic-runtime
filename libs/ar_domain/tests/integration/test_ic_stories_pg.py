@@ -238,7 +238,7 @@ async def test_an_extraction_correction_reloads(database_url: str) -> None:
     assert approval["agent_id"] == agent_id
     approval["status"] = "approved"
     approval["arguments"] = {"report_date": "new"}
-    from ar_domain.documents.library import note_extraction_decision  # noqa: PLC0415
+    from ar_domain.documents.library import note_extraction_decision
 
     note_extraction_decision(store, approval)
     await flush_store(store)
