@@ -4,13 +4,10 @@ Spec: docs/03-specs/14-skills.md §4. Instructions are trusted author content.
 """
 
 import uuid
-import zipfile
-from io import BytesIO
 from typing import TYPE_CHECKING
-from xml.sax.saxutils import escape
 
 from ar_common.sandboxkit import confine
-from ar_domain.sandboxes.runtime import ensure_scope, run_tool, workspace_root
+from ar_domain.sandboxes.runtime import ensure_scope, workspace_root
 from ar_domain.skills.book import SkillBook
 from ar_domain.skills.logic import as_int, highest_match, split_skill_ref
 from ar_domain.skills.metrics import SKILL_LOADS
@@ -53,64 +50,6 @@ def load_skill(store: Any, run: dict[str, object], raw_slug: str) -> dict[str, o
         },
         "is_error": False,
     }
-
-
-def write_docx(store: Any, run: dict[str, object], *, title: str, body: str) -> dict[str, object]:
-    """Write a DOCX into the computer and export it as an artifact."""
-    sandbox = _ensure(store, run)
-    if sandbox is None:
-        return _error("sandbox_unavailable", "the computer is not ready")
-    root = workspace_root(uuid.UUID(str(sandbox["id"])))
-    target = confine(root, "/workspace/outputs/brand-brief.docx")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(docx_bytes(title, body))
-    return run_tool(
-        store,
-        "export_file",
-        {
-            "path": "/workspace/outputs/brand-brief.docx",
-            "_tenant_id": run.get("tenant_id"),
-            "_user_id": run.get("user_id"),
-            "_agent_id": run.get("agent_id"),
-            "_run_id": run.get("id"),
-            "_conversation_id": run.get("conversation_id"),
-        },
-    )
-
-
-def docx_bytes(title: str, body: str) -> bytes:
-    """A small Office Open XML document. No extra wheel is required."""
-    document = (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        f"<w:body><w:p><w:r><w:t>{escape(title)}</w:t></w:r></w:p>"
-        f"<w:p><w:r><w:t>{escape(body)}</w:t></w:r></w:p></w:body></w:document>"
-    )
-    content_types = (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-        '<Default Extension="rels" '
-        'ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-        '<Default Extension="xml" ContentType="application/xml"/>'
-        '<Override PartName="/word/document.xml" '
-        'ContentType="application/vnd.openxmlformats-officedocument.'
-        'wordprocessingml.document.main+xml"/>'
-        "</Types>"
-    )
-    rels = (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-        '<Relationship Id="rId1" '
-        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
-        'Target="word/document.xml"/>'
-        "</Relationships>"
-    )
-    buffer = BytesIO()
-    with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("[Content_Types].xml", content_types)
-        archive.writestr("_rels/.rels", rels)
-        archive.writestr("word/document.xml", document)
-    return buffer.getvalue()
 
 
 def _resolve(store: Any, skill: dict[str, object], constraint: str) -> dict[str, object] | None:

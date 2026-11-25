@@ -2474,15 +2474,10 @@ class ChatBehaviour:
             "message.started",
             {"message_id": str(assistant_id), "role": "assistant", "model_alias": "reasoning"},
         )
-        from ar_domain.skills.turn import maybe_compose  # noqa: PLC0415
         from ar_domain.tools.agent_loop import model_alias_for, read_budget, run_agent_loop  # noqa: PLC0415
 
-        # A scripted composition exists for the offline demo and the unit suite; it never
-        # runs where fake models are not allowed. The keyword tool turn is gone (M38a-T04):
-        # the model decides every tool call through the agent loop.
-        scripted = self.fake_models_allowed
-        if scripted and await maybe_compose(self, run, assistant, text):
-            return
+        # Nothing but the agent loop decides the answer: the model chooses every tool
+        # call, a delegation and a skill included (M38a-T04, T04a).
         from ar_domain.workspace.turn import ground_run  # noqa: PLC0415
 
         await ground_run(self, run, text)

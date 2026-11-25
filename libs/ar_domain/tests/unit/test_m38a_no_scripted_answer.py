@@ -73,3 +73,21 @@ async def test_auto_retrieve_refuses_without_a_model() -> None:
     assert "no model connected" in text
     # It never falls back to joining the retrieved snippets into an answer.
     assert _MODEL_ANSWER not in text
+
+
+def test_the_turn_has_no_keyword_path() -> None:
+    """``generate`` used to answer a research lead or a writer from a fixed path. M38a-T04a.
+
+    ``skills/turn.py`` matched the agent's slug and a word in the message, and wrote the
+    answer itself. The agent loop is now the only thing that decides a turn.
+    """
+    import inspect
+    from pathlib import Path
+
+    import ar_domain.skills as skills
+    from ar_domain.chat.service import ChatService
+
+    assert not (Path(skills.__file__).parent / "turn.py").exists()
+    source = inspect.getsource(ChatService.generate)
+    assert "maybe_compose" not in source
+    assert "fake_models_allowed" not in source

@@ -387,11 +387,7 @@ async def test_skill_edits_republish_and_runtime_wrappers(stand_in: StandIn) -> 
 
 @pytest.mark.asyncio
 async def test_compose_covers_the_edges() -> None:
-    from ar_domain.skills.load import write_docx
-    from ar_domain.skills.turn import maybe_compose
-
     store = demo_store()
-    assert await maybe_compose(store, {}, {}, "hello") is False
     seed_composition(store, demo_id("tenant"), demo_id("admin"))
     actor = _actor(store)
     created = SkillBook(store).create(
@@ -411,4 +407,3 @@ async def test_compose_covers_the_edges() -> None:
         "brand-guidelines",
     )
     assert denied["is_error"] is True
-    assert write_docx(store, {}, title="Brand brief", body="Hello")["is_error"] is True

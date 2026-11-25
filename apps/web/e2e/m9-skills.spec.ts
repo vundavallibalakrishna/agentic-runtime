@@ -83,9 +83,9 @@ test("skills publish, research delegates, and the writer produces a brief", asyn
   await page.goto("/chat?agent=research-lead");
   await expect(page.locator("#agent-picker option:checked")).toHaveText("Research lead");
   await send(page, "Research the launch notes and the rollout plan");
-  await expect(page.getByText("Merged findings")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("the checklist is complete")).toBeVisible();
-  await expect(page.getByText("start with the pilot team")).toBeVisible();
+  await expect(page.getByText("Merged findings").first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("the checklist is complete").first()).toBeVisible();
+  await expect(page.getByText("start with the pilot team").first()).toBeVisible();
   await capture(page, "research");
   await page.getByRole("link", { name: "View trace" }).last().click();
   await expect(page.getByRole("heading", { name: "Run trace" })).toBeVisible();
@@ -97,7 +97,7 @@ test("skills publish, research delegates, and the writer produces a brief", asyn
   await page.goto("/chat?agent=writer");
   await expect(page.locator("#agent-picker option:checked")).toHaveText("Writer");
   await send(page, "Write a one-page brand brief as a docx");
-  await expect(page.getByText("brand-brief.docx")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("brand-brief.docx").first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("sentence case").first()).toBeVisible();
   await capture(page, "brief");
 
