@@ -30,6 +30,14 @@ OPAQUE_JSON_KEYS = frozenset(
         "inputSchema",
         "output_schema",
         "outputSchema",
+        # Tool arguments, JSON Schema, extraction fields and settings documents are
+        # the caller's data. Renaming a key would store targetDate for target_date.
+        "arguments",
+        "schema",
+        "preview",
+        "fields",
+        "result",
+        "document",
     }
 )
 

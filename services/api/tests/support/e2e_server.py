@@ -38,8 +38,21 @@ from ar_testing.demo_people import catalogue
 SIGN_IN_PATH = "/api/v1/test/sign-in"
 RESET_PATH = "/api/v1/test/reset"
 TRAFFIC_PATH = "/api/v1/test/traffic"
+REVIEW_PATH = "/api/v1/test/review-link"
+REVIEW_RESULT_PATH = "/api/v1/test/review-result"
 # Probes the harness and the product do not bill to a person.
-_UNCOUNTED = frozenset({"/healthz", "/readyz", "/metrics", SIGN_IN_PATH, RESET_PATH, TRAFFIC_PATH})
+_UNCOUNTED = frozenset(
+    {
+        "/healthz",
+        "/readyz",
+        "/metrics",
+        SIGN_IN_PATH,
+        RESET_PATH,
+        TRAFFIC_PATH,
+        REVIEW_PATH,
+        REVIEW_RESULT_PATH,
+    }
+)
 _WINDOW_S = 60.0
 
 
@@ -103,6 +116,12 @@ class DemoSignIn:
             rebuild_demo_store(self.product)
             await JSONResponse({"reset": True})(scope, receive, send)
             return
+        if scope["type"] == "http" and scope["path"] == REVIEW_RESULT_PATH:
+            await self._review_result()(scope, receive, send)
+            return
+        if scope["type"] == "http" and scope["path"] == REVIEW_PATH:
+            await self._review_link()(scope, receive, send)
+            return
         if scope["type"] == "http" and scope["path"] == TRAFFIC_PATH:
             response = self._traffic(Request(scope, receive))
             await response(scope, receive, send)
@@ -110,6 +129,53 @@ class DemoSignIn:
         if scope["type"] == "http" and scope["path"] not in _UNCOUNTED:
             self.traffic.record(str(scope["path"]))
         await self.app(scope, receive, send)
+
+    def _review_link(self) -> JSONResponse:
+        """One pending approval whose argument spelling the browser must not rename."""
+        import uuid
+
+        from ar_domain.approvals.review_link import issue_review_token, link_deadline
+        from ar_domain.approvals.service import ApprovalBook
+        from ar_domain.chat.service import demo_id
+
+        store = self.product.state.chat
+        tenant = demo_id("tenant")
+        user = demo_id("admin")
+        run_id = uuid.uuid4()
+        store.runs[run_id] = {
+            "id": run_id,
+            "tenant_id": tenant,
+            "user_id": user,
+            "status": "waiting_approval",
+            "conversation_id": None,
+        }
+        row = ApprovalBook(store).create_pending(
+            tenant_id=tenant,
+            user_id=user,
+            run_id=run_id,
+            agent_id=None,
+            tool_call_id=uuid.uuid4(),
+            qualified_name="pack.example",
+            risk_class="W2",
+            args_hash="hash-1",
+            arguments={"target_date": "2026-01-02"},
+            requirement={"approvers": {"mode": "requester"}, "ttl_s": 3600},
+            reasons=["ask"],
+            preview={"title": "Send", "summary": "Round trip"},
+        )
+        token = issue_review_token(row["id"], tenant, user, link_deadline(row["expires_at"]))
+        return JSONResponse({"token": token, "approvalId": str(row["id"])})
+
+    def _review_result(self) -> JSONResponse:
+        rows = [
+            row
+            for row in self.product.state.chat.approvals.values()
+            if isinstance(row, dict) and row.get("status") == "pending"
+        ]
+        rows.sort(key=lambda item: str(item.get("created_at") or ""))
+        latest = rows[-1] if rows else {}
+        arguments = latest.get("arguments") if isinstance(latest.get("arguments"), dict) else {}
+        return JSONResponse({"arguments": arguments})
 
     def _traffic(self, request: Request) -> Response:
         if request.method == "POST":
