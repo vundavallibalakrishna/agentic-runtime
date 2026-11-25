@@ -69,7 +69,9 @@ def _post_json(url: str, payload: dict[str, object]) -> str:
     try:
         with sync_client(timeout=5.0) as client:
             response = client.post(url, json=payload)
-    except (httpx.HTTPError, EgressDenied):
+    except httpx.HTTPError:
+        return "failed"
+    except EgressDenied:
         return "failed"
     return "sent" if response.status_code < 300 else "failed"
 
