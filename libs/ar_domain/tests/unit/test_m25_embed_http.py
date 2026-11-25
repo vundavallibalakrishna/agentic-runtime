@@ -221,3 +221,29 @@ def test_grounding_records_a_skill_and_citation_cards() -> None:
     assert [item["role"] for item in opened] == ["system", "user"]
     asyncio.run(ground_run(store, {"id": uuid.uuid4()}, "Hello"))
     assert imported["slug"] == "weekly-status"
+
+
+def test_a_passage_read_from_an_address_is_cited_by_that_address() -> None:
+    """A page of a website is cited by its own URL, so a reader can open it."""
+    cards = citation_parts(
+        {
+            "hits": [
+                {
+                    "document_id": "d1",
+                    "title": "Deployment options",
+                    "uri": "https://site.example/platform/deployment-options/",
+                    "snippet": "Cloud or on-premises.",
+                },
+                {
+                    "document_id": "d2",
+                    "library_document_id": "lib-1",
+                    "anchor": "p1-s0",
+                    "uri": "library://lib-1",
+                    "title": "Policy",
+                },
+            ]
+        }
+    )
+    assert cards[0]["citation"]["uri"] == "https://site.example/platform/deployment-options/"
+    # A library document still opens in the library, at its passage.
+    assert cards[1]["citation"]["uri"] == "/documents/lib-1#p1-s0"

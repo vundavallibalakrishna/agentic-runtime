@@ -93,7 +93,10 @@ def citation_parts(retrieval: object) -> list[dict[str, object]]:
         document_id = str(hit.get("document_id") or "")
         anchor = str(hit.get("anchor") or "")
         library_id = str(hit.get("library_document_id") or "")
+        # A passage of a library document opens in the library. One read from an address,
+        # such as a page of a website, opens at that address.
         uri = f"/documents/{library_id}#{anchor}" if library_id and anchor else ""
+        uri = uri or str(hit.get("uri") or "")
         parts.append(
             {
                 "type": "citation_ref",
