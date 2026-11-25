@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -223,9 +224,31 @@ def test_dry_run_does_not_store_the_cert_key(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_live_install_keeps_the_key_on_the_provider_row() -> None:
     store = demo_store()
-    install_live(store, uuid.uuid4(), key="secret-value")
+    endpoint = {"base_url": "https://models.example/v1", "model": "a-model"}
+    install_live(store, uuid.uuid4(), key="secret-value", **endpoint)
     assert any(row.get("api_key") == "secret-value" for row in store.providers.values())
     assert "secret-value" not in render_scorecard(Report(mode="dry-run", scores=()))
+
+
+def test_the_live_switch_names_no_vendor_and_asks_for_the_endpoint() -> None:
+    """The address and the model are the operator's. Neither has a built-in value. OQ-197."""
+    from ar_domain.evals import live
+    from ar_domain.evals.live import live_settings
+
+    with pytest.raises(LiveConfigError, match="AR_CERT_LLM_BASE_URL"):
+        live_settings({LIVE_KEY: "k"})
+    with pytest.raises(LiveConfigError, match="AR_CERT_LLM_MODEL"):
+        live_settings({LIVE_KEY: "k", "AR_CERT_LLM_BASE_URL": "https://models.example/v1"})
+    with pytest.raises(LiveConfigError):
+        install_live(demo_store(), uuid.uuid4(), key="k", base_url="", model="")
+    given = {
+        LIVE_KEY: "k",
+        "AR_CERT_LLM_BASE_URL": "https://models.example/v1",
+        "AR_CERT_LLM_MODEL": "a-model",
+    }
+    assert live_settings(given) == ("k", "https://models.example/v1", "a-model")
+    source = Path(live.__file__).read_text(encoding="utf-8").lower()
+    assert "deepinfra" not in source and "qwen" not in source
 
 
 def test_dry_run_gym_passes_and_matches_the_committed_scorecard() -> None:

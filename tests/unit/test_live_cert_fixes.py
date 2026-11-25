@@ -14,7 +14,7 @@ from ar_common.egress_http import EgressDenied, http_post
 from ar_common.internal_auth import sign_request
 from ar_common.internal_http import internal_post
 from ar_domain.knowledge.retrieval import _env_int
-from ar_domain.sandboxes.browser import _gesture
+from ar_domain.sandboxes.browser import click_without_target
 from ar_domain.tools.gateway_client import execute_tool
 
 
@@ -78,7 +78,8 @@ def test_a_tool_call_reaches_the_gateway_and_names_the_cause(
 
 
 def test_click_without_a_target_is_refused() -> None:
-    result = _gesture({}, {"browser_sessions": {}}, {}, "click", {})
+    result = click_without_target("click", {})
+    assert result is not None
     assert result["is_error"] is True
     assert result["text"] == "ref or text is required"
 
