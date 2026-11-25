@@ -41,6 +41,18 @@ async def list_service_accounts(identity: IdentityDep) -> dict[str, object]:
     return {"data": [_row(item) for item in await identity.store.list_service_accounts()]}
 
 
+@router.get(
+    "/api/v1/service-accounts:capabilities",
+    dependencies=[Depends(require_permission("service_accounts:manage"))],
+)
+@expose(public=False, permission="service_accounts:manage")
+async def list_capabilities() -> dict[str, object]:
+    """What a service account can be made for: the role and the permissions for each."""
+    from ar_domain.identity.capabilities import capabilities  # noqa: PLC0415
+
+    return {"data": capabilities()}
+
+
 @router.post(
     "/api/v1/service-accounts",
     dependencies=[Depends(require_permission("service_accounts:manage"))],

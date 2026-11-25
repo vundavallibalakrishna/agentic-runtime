@@ -18,6 +18,10 @@ class ApiKeyCreate(ApiModel):
     expires_in_days: int = 90
 
 
+def _when(value: object) -> str | None:
+    return value.isoformat() if hasattr(value, "isoformat") else None
+
+
 def _row(item: object, secret: str | None = None) -> dict[str, object]:
     body: dict[str, object] = {
         "id": str(item.id),  # type: ignore[attr-defined]
@@ -26,6 +30,8 @@ def _row(item: object, secret: str | None = None) -> dict[str, object]:
         "keyFormat": getattr(item, "key_format", "legacy"),
         "scopes": list(item.scopes),  # type: ignore[attr-defined]
         "expires_at": None if item.expires_at is None else item.expires_at.isoformat(),  # type: ignore[attr-defined]
+        "last_used_at": _when(getattr(item, "last_used_at", None)),
+        "revoked_at": _when(getattr(item, "revoked_at", None)),
     }
     if secret is not None:
         body["key"] = secret
