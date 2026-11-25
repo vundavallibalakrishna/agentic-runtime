@@ -221,8 +221,6 @@ def _session(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         if isinstance(conversation_id, uuid.UUID) and conversation_id in store.conversations:
             store.conversations[conversation_id]["plan"] = items
         return {"text": "Plan updated.", "structured": {"plan": items}, "is_error": False}
-    if name == "propose_change":
-        return _propose_change(store, arguments)
     if name == "a2a_call":
         from ar_domain.exposure.a2a import call_remote  # noqa: PLC0415
 
@@ -237,19 +235,6 @@ def _session(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         "structured": {"tools": ranked[:DEFAULT_TOP_K], "ranked_by": how},
         "is_error": False,
     }
-
-
-def _propose_change(store: Any, arguments: dict[str, object]) -> dict[str, object]:
-    """Persist a change. The policy gate runs this only after approval."""
-    summary = str(arguments.get("summary") or "").strip()
-    if not summary:
-        return _error("validation_failed", "summary is required")
-    conversation_id = arguments.get("_conversation_id")
-    if isinstance(conversation_id, uuid.UUID):
-        conversation = store.conversations.get(conversation_id)
-        if isinstance(conversation, dict):
-            conversation["accepted_change"] = True
-    return {"text": "Change saved.", "structured": {"saved": True}, "is_error": False}
 
 
 def searchable_tools(store: Any, tenant: str) -> list[dict[str, object]]:

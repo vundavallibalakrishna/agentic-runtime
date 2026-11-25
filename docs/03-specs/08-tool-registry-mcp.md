@@ -186,7 +186,7 @@ Temporal Schedule `tool-drift-check` hourly (`AR_TOOL_DRIFT_INTERVAL`, default `
 
 Every built-in reads only the calling tenant's rows, and a call that names no caller returns nothing. `files.list` and `files.read` apply the file API's read rule: the file's owner, or the owner of the conversation it belongs to. A file id that fails the rule is `not_found`. `conversations.search_history` reads the caller's own conversations with the calling agent. `tools.search` ranks platform tools and the calling tenant's tools, on the current version of an approved server.
 
-Demo fixtures are not part of a production catalogue. The `tickets`, `petstore` and `warehouse` servers, the `desk` agent, and the approval fixture `session.propose_change` are seeded only when `AR_ENV` is `dev` or `ci` (`ar_common.settings.fake_models_allowed`).
+Demo fixtures are not part of the product. **As built (2026-11-25):** the `tickets`, `petstore` and `warehouse` servers, the `desk` agent and the approval test tool `proposals.propose_change` are built by the test library (`ar_testing.demo_tools`, `ar_testing.approval_tool`) for the demo tenant of a test. The built-in catalogue is the same in every environment and holds none of them.
 
 **Reading public sites.** `general.fetch`, `web.discover` and `documents.ingest` with a `url` read a public address the same way (`ar_domain.tools.general.polite_get`, `ar_domain.tools.web`), for any site and any purpose:
 

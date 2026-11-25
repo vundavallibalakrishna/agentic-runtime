@@ -353,12 +353,10 @@ def test_an_install_seeded_earlier_describes_its_tools_as_this_release_does() ->
         if row.get("tenant_id") is None and str(row.get("qualified_name")) in shipped
     ]
     # Every built-in tool the product seeds is one the release can describe again. The
-    # demo store also seeds session tools that exist only where a scripted model is allowed.
-    from ar_domain.tools.seed_tools import _session_tools
+    # demo store also holds the approval tool the test library registers.
+    from ar_testing.approval_tool import QUALIFIED_NAME
 
-    scripted = {f"session.{row['name']}" for row in _session_tools(fixtures=True)} - {
-        f"session.{row['name']}" for row in _session_tools(fixtures=False)
-    }
+    scripted = {QUALIFIED_NAME}
     seeded = {
         str(row["qualified_name"])
         for row in store.tool_versions.values()

@@ -8,6 +8,8 @@ from ar_domain.agents.logic import assistant_definition
 from ar_domain.demo_ids import demo_id
 from ar_domain.models.logic import completion_message
 from ar_domain.tools.agent_loop import run_agent_loop
+from ar_testing.approval_tool import BINDING as APPROVAL_BINDING
+from ar_testing.approval_tool import ENDPOINT as APPROVAL_ENDPOINT
 from ar_testing.demo import demo_store
 from ar_testing.retry_tool import ENDPOINT, MODEL_NAME, TOOL, offer_retry_tool
 
@@ -57,11 +59,11 @@ def test_builtin_handlers_cover_control_memory_and_skills() -> None:
     assert unconfirmed["code"] == "validation_failed"
     assert dispatch(store, ENDPOINT, TOOL, {"note": "x", "confirm": True}, "")["is_error"] is False
     assert dispatch(store, ENDPOINT, "nope", {}, "")["code"] == "unknown_tool"
-    assert dispatch(store, "builtin://session", "propose_change", {}, "")["is_error"] is True
+    assert dispatch(store, APPROVAL_ENDPOINT, "propose_change", {}, "")["is_error"] is True
     conversation = store.create_conversation(tenant, user, None)
     saved = dispatch(
         store,
-        "builtin://session",
+        APPROVAL_ENDPOINT,
         "propose_change",
         {"summary": "rename", "_conversation_id": uuid.UUID(str(conversation["id"]))},
         "",
@@ -221,7 +223,7 @@ def test_change_waits_for_approval() -> None:
             if isinstance(tools, list) and tools and isinstance(tools[0], dict):
                 include = tools[0].get("include")
                 if isinstance(include, list) and "search" in include:
-                    include.append("propose_change")
+                    tools.append(dict(APPROVAL_BINDING))
     _script(
         store,
         [
@@ -230,7 +232,7 @@ def test_change_waits_for_approval() -> None:
                 "tool_calls": [
                     {
                         "id": "c1",
-                        "name": "session__propose_change",
+                        "name": "proposals__propose_change",
                         "arguments": {"summary": "rename the folder"},
                     }
                 ],

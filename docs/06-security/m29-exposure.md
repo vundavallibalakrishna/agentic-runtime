@@ -32,7 +32,7 @@ Streaming reads the grant for that key and that run before any event is written.
 
 ## Writes
 
-MCP `tools/call` may pass `write.tool` and `write.arguments`. The call goes through the same policy gate as a model tool call. A W2 write such as `control.propose_change` returns `Approval required` and `structuredContent.status = approval_required`. It does not run the write and it does not return an empty error.
+MCP `tools/call` may pass `write.tool` and `write.arguments`. The call goes through the same policy gate as a model tool call. A W2 write such as `browser.submit_form` returns `Approval required` and `structuredContent.status = approval_required`. It does not run the write and it does not return an empty error.
 
 ## Egress
 

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.approval_tool import BINDING
 from ar_testing.demo import demo_application
 
 if TYPE_CHECKING:
@@ -52,7 +53,8 @@ def _client() -> tuple[TestClient, dict[str, Principal | None]]:
     version = app.state.chat.versions[agent["published_version_id"]]
     definition = dict(version["definition"])
     definition["tools"] = [
-        {"server": "session", "version": "*", "include": ["propose_change", "a2a_call"]}
+        {"server": "session", "version": "*", "include": ["a2a_call"]},
+        dict(BINDING),
     ]
     version["definition"] = definition
     return TestClient(app), holder
@@ -207,7 +209,7 @@ def test_rate_limit_mcp_and_a2a_card() -> None:
                 "name": "agent_assistant",
                 "arguments": {
                     "write": {
-                        "tool": "session.propose_change",
+                        "tool": "proposals.propose_change",
                         "arguments": {"summary": "rename the record"},
                     }
                 },

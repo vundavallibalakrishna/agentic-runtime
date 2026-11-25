@@ -5,8 +5,8 @@ from ar_domain.agents.logic import assistant_definition
 from ar_domain.chat.service import ChatService, demo_id
 from ar_testing.demo import demo_store
 
-FIXTURE_SERVERS = {"tickets", "petstore", "warehouse"}
-FIXTURE_TOOLS = {"session.propose_change"}
+FIXTURE_SERVERS = {"tickets", "petstore", "warehouse", "proposals"}
+FIXTURE_TOOLS = {"proposals.propose_change"}
 
 
 def _servers(store: ChatService) -> set[str]:
@@ -109,7 +109,7 @@ def test_a_built_in_tool_this_release_no_longer_ships_is_retired() -> None:
     offered = ToolPipeline(store)._bound("session", ["*"], user, tenant)
     names = {str(row["qualified_name"]) for row in offered}
     assert "session.checkpoint" not in names
-    assert {"session.plan_update", "session.search", "session.propose_change"} <= names
+    assert {"session.plan_update", "session.search"} <= names
     version = next(
         row for row in store.tool_versions.values() if row["qualified_name"] == "session.checkpoint"
     )
@@ -122,7 +122,7 @@ def test_a_built_in_tool_this_release_no_longer_ships_is_retired() -> None:
         }
     )
     assert refused["error"]["code"] == "tool_disabled"  # type: ignore[index]
-    # Nothing else is touched: shipped tools, the approval fixture, the demo servers and a
+    # Nothing else is touched: shipped tools, the demo servers and a
     # server registered from outside the product stay as they were.
     disabled = {
         str(row["qualified_name"])
@@ -133,10 +133,11 @@ def test_a_built_in_tool_this_release_no_longer_ships_is_retired() -> None:
     assert QUALIFIED_NAME in _tools(store)
 
 
-def test_a_store_without_fixtures_retires_a_stale_approval_fixture() -> None:
+def test_an_install_seeded_earlier_retires_the_approval_test_tool() -> None:
+    """``session.propose_change`` was in the catalogue of a dev or CI install. OQ-196."""
     from ar_domain.tools.seed_tools import refresh_builtins
 
-    store = demo_store(fake_models_allowed=False)
+    store = demo_store()
     stale = _stale_session_tool(store, "propose_change")
     refresh_builtins(store)
     assert stale["disabled_at"] is not None

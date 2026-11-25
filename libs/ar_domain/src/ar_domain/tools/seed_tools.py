@@ -21,17 +21,17 @@ def seed(store: Any) -> None:
 
     SandboxBook(store).ensure_platform()
     if not getattr(store, "tools_seeded", False):
-        _core_servers(store, fixtures=bool(getattr(store, "fake_models_allowed", True)))
+        _core_servers(store)
         _platform_servers(store)
         store.tools_seeded = True
     ensure_m33b(store)
     ensure_m34b(store)
 
 
-def _core_servers(store: Any, *, fixtures: bool) -> None:
+def _core_servers(store: Any) -> None:
     _builtin(store, "files", "Files", "builtin://files", _file_tools())
     _builtin(store, "conversations", "Conversations", "builtin://conversations", _history_tools())
-    _builtin(store, "session", "Session", "builtin://session", _session_tools(fixtures=fixtures))
+    _builtin(store, "session", "Session", "builtin://session", _session_tools())
 
 
 def _platform_servers(store: Any) -> None:
@@ -65,7 +65,7 @@ class _Shelf:
 def shipped_tools() -> dict[str, dict[str, object]]:
     """Every built-in tool as this release defines it, by qualified name."""
     shelf = _Shelf()
-    _core_servers(shelf, fixtures=False)
+    _core_servers(shelf)
     _platform_servers(shelf)
     _append_tools(shelf, "documents", [_ocr_tool()])
     _append_tools(shelf, "general", [_pivot_tool()])
@@ -115,16 +115,13 @@ def _retire_unshipped(store: Any, shipped: dict[str, dict[str, object]]) -> None
     stored catalogue of an install seeded before the removal. Such a tool is marked
     disabled on the loaded row: it is not offered to a model and a call to it is
     refused. Only the servers this release ships are looked at, so a server a pack or a
-    test registered is left alone, and so are the approval fixture and the demo servers
-    of a store that allows them. Like the refreshed text, this is not written back.
+    test registered is left alone. Like the refreshed text, this is not written back.
     """
     tools = getattr(store, "tool_defs", None)
     if not isinstance(tools, dict):
         return
     servers = {name.split(".", 1)[0] for name in shipped}
     kept = set(shipped)
-    if getattr(store, "fake_models_allowed", True):
-        kept |= {f"session.{name}" for name in _TEST_CONTROL_TOOLS}
     for row in tools.values():
         if not isinstance(row, dict) or row.get("tenant_id") is not None:
             continue
@@ -2736,18 +2733,8 @@ def _web_tools() -> list[dict[str, object]]:
     ]
 
 
-_TEST_CONTROL_TOOLS = frozenset({"propose_change"})
-
-
-def _session_tools(*, fixtures: bool = True) -> list[dict[str, object]]:
-    """Control tools. `propose_change` exists to exercise approval."""
-    tools = _all_control_tools()
-    if fixtures:
-        return tools
-    return [tool for tool in tools if tool["name"] not in _TEST_CONTROL_TOOLS]
-
-
-def _all_control_tools() -> list[dict[str, object]]:
+def _session_tools() -> list[dict[str, object]]:
+    """Control tools: the plan, tool search and a call to a remote agent."""
     return [
         tool_row(
             "plan_update",
@@ -2797,22 +2784,6 @@ def _all_control_tools() -> list[dict[str, object]]:
                 "required": ["query"],
             },
             "R0",
-        ),
-        tool_row(
-            "propose_change",
-            "Propose a change",
-            "Record a change to stored data. This waits for approval before it is saved.",
-            {
-                "type": "object",
-                "properties": {
-                    "summary": {
-                        "type": "string",
-                        "description": "A short description of the change to be approved.",
-                    }
-                },
-                "required": ["summary"],
-            },
-            "W2",
         ),
         tool_row(
             "a2a_call",
