@@ -160,6 +160,8 @@ Exposed by `sandbox-agent` at `POST /mcp` (MCP 2026-07-28, stateless) to `mcp-ga
 
 `browser.navigate` stays registered as R0. At call time a public host that is not on the egress allow list is treated as W2 and waits for approval, the same elevation as a non-GET `general.http`. After approval the navigation runs. Private and metadata addresses stay `egress_denied` and approval does not override them. A click that would leave the allow list does not fetch; the agent calls `browser.navigate` so the approval shows the URL. `browser.type` stays W1. `browser.submit_form` stays W2. The page context and its cookie jar belong to one sandbox and, when the call names a run, to that run. A cookie is not copied to another run, conversation or tenant. The dev and CI engine is in-process HTML (OQ-87). Headless Chromium is a canary, not a unit-job dependency.
 
+**As built (2026-11-25, [OQ-197](../open-questions.md)).** The browser tools run only on the agent's computer, by Chromium in the sandbox image. With no computer running, every browser tool answers `sandbox_unavailable` in every environment. The in-process HTML engine that answered them in `dev` and `ci` is removed, and so is the screenshot it drew.
+
 Paths are confined to `/workspace` and `/tmp` (realpath check; symlinks escaping are rejected). Files under `/workspace/outputs/` that are new or modified after `sandbox.exec` are exported automatically as artifacts (≤ 20 files, ≤ 100 MiB each per call).
 
 Admin endpoints on the agent (manager only, bootstrap/sandbox token): `POST /admin/claim`, `POST /admin/snapshot`, `PUT /admin/restore`, `GET /healthz`, `GET /files`, `GET /files/content`, `PUT /files/content`.
