@@ -85,16 +85,16 @@ export async function proxy(request: NextRequest) {
 // password-reset pages, the invitation page and one review link (a person who cannot sign in
 // must reach it). The exclusion is review/ so /reviews stays signed-in. A bare /review
 // is not a link.
-// The public guest page and the health check are also open. The widget is matched
+// The public guest page, the developer guide and the health check are also open. The widget is matched
 // for its own headers above.
 export const PUBLIC_PATH =
-  "/((?!api|_next|favicon.ico|login|forgot-password|reset-password|invite|review(?:/|$)|guest|healthz|widget|.*\\.).*)";
+  "/((?!api|_next|favicon.ico|login|forgot-password|reset-password|invite|developer-guide|review(?:/|$)|guest|healthz|widget|.*\\.).*)";
 
 // The matcher has to be a string literal. A variable here is ignored and the
 // gate would run on every path, including sign-in and the health check.
 export const config = {
   matcher: [
     "/widget/:path*",
-    "/((?!api|_next|favicon.ico|login|forgot-password|reset-password|invite|review(?:/|$)|guest|healthz|widget|.*\\.).*)",
+    "/((?!api|_next|favicon.ico|login|forgot-password|reset-password|invite|developer-guide|review(?:/|$)|guest|healthz|widget|.*\\.).*)",
   ],
 };

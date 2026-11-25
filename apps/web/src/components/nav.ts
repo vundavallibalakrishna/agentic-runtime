@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   BarChart3,
+  BookOpen,
   Bot,
   Brain,
   CalendarClock,
@@ -214,6 +215,13 @@ export const primaryNav: NavItem[] = [
     labelKey: "navComputers",
     permission: "sandboxes:manage",
     icon: Monitor,
+  },
+  {
+    href: "/developers",
+    section: "build",
+    labelKey: "navDevelopers",
+    permission: "chat:use",
+    icon: BookOpen,
   },
   {
     href: "/admin/developers/keys",

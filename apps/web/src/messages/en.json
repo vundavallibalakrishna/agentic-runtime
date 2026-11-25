@@ -1372,6 +1372,18 @@
     "advanced": "Advanced"
   },
   "developers": {
+    "notesTitle": "Developer notes",
+    "notesBody": "How to connect another system: keys, files, knowledge bases and chat. The samples use this workspace's address.",
+    "publicBody": "How to connect another system to a workspace. Ask the workspace owner for its address and a key.",
+    "notesList": "Notes",
+    "search": "Search the notes",
+    "noMatch": "No note has those words.",
+    "download": "Download as one file",
+    "sampleAgent": "Agent used in the samples",
+    "toKeys": "Create a service account and key",
+    "openapiManagement": "OpenAPI: /api/v1",
+    "openapiAgent": "OpenAPI: /v1",
+    "publicCopy": "Copy without sign-in",
     "keysTitle": "Service accounts and keys",
     "keysBody": "An account for a program, not a person, and the key it signs in with.",
     "accounts": "Service accounts",

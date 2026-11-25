@@ -1,5 +1,8 @@
 # Integrating over the API — getting started
 
+For a walk-through from first key to a working chat, start with
+[Connect your platform](connect-your-platform.md).
+
 This is the developer guide for calling the platform from another system. There are two
 surfaces, each with its own credential:
 
@@ -18,8 +21,10 @@ contracts are the root [`openapi.json`](../../openapi.json) (management) and
 
 ### Create a service account and a key + secret
 
-A tenant admin creates a service account (Settings → Service accounts, or
-`POST /api/v1/service-accounts`), then mints a key:
+A tenant admin creates a service account on **Settings → Service accounts**, which also
+gives it a role and a key in one step. Over the API it is three calls: create the account
+(`POST /api/v1/service-accounts`), give it a role (`POST /api/v1/role-assignments` with
+`principalType: "service_account"`), then mint a key:
 
 ```bash
 curl -s https://runtime.example/api/v1/api-keys \

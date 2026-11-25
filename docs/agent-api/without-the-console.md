@@ -4,7 +4,7 @@ People who approve work, and systems that start work, do not need an account in 
 
 ## Call an agent
 
-`POST /v1/agents/{slug}:run` with `Authorization: Bearer <agent key>`. Send `wait: false` and `callbackUrl` to get the result as a signed POST (`X-Signature`, the tenant run-callback secret) instead of holding the connection. Upload a file first with `POST /v1/agents/{slug}/files`. The same key opens MCP (`POST /v1/agents/{slug}/mcp`) and A2A (`POST /v1/a2a`).
+`POST /v1/agents/{slug}:run` with `Authorization: Bearer <agent key>`. Send `wait: false` and `callbackUrl` to be told when the run ends, by a signed POST (`X-Signature`, the tenant run-callback secret), instead of holding the connection. The POST carries `{runId, status}`; fetch the reply with `GET /v1/agents/{slug}/runs/{runId}`. Upload a file first with `POST /v1/agents/{slug}/files`. The same key opens MCP (`POST /v1/agents/{slug}/mcp`) and A2A (`POST /v1/a2a`).
 
 Keys are created in the console, or by someone who already has `agents:edit`, and are shown once.
 

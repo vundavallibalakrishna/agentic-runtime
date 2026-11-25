@@ -27,7 +27,7 @@ curl -s https://runtime.example/v1/agents/assistant/conversations/$CONVERSATION_
   -d '{"text":"What is 2 + 2?"}'
 ```
 
-Stream the same call with `"stream": true`. The response is `text/event-stream` with `delta` events and a final `done` event.
+Stream the same call with `"stream": true`. The response is `text/event-stream` with the run's events (`message.delta` carries the text) and a final `done` event. The events are sent once the turn has finished.
 
 ```javascript
 const base = "https://runtime.example/v1/agents/assistant";
