@@ -50,6 +50,21 @@ describe("tool screens", () => {
     );
     expect(screen.getByText("Create Ticket")).toBeTruthy();
     expect(screen.getByText("Done")).toBeTruthy();
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "documents.extract",
+            status: "succeeded",
+            error: { message: "The extraction was not JSON." },
+            presentation: { kind: "error", message: "The extraction was not JSON." },
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(screen.getByText("Didn't finish")).toBeTruthy();
+    expect(screen.getByText("The extraction was not JSON.")).toBeTruthy();
     expect(screen.getByText("TCK-1001")).toBeTruthy();
     render(
       wrap(

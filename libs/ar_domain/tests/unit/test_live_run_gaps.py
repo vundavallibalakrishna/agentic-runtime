@@ -246,9 +246,7 @@ _PASSAGES = [{"anchor": "p1", "page": 1, "text": "The total is 42."}]
 
 
 def test_extraction_reads_fenced_and_prefixed_json_and_retries_once() -> None:
-    payload = (
-        '{"fields": {"total": {"value": 42, "quote": "The total is 42.", "confidence": 0.9}}}'
-    )
+    payload = '{"fields": {"total": {"value": 42, "quote": "The total is 42.", "confidence": 0.9}}}'
     fenced = "Here is the object:\n```json\n" + payload + "\n```"
     body = interpret(fenced, _SCHEMA, _PASSAGES, threshold=0.5)
     assert body["result"]["total"] == 42
