@@ -11,11 +11,8 @@ import csv
 import io
 import ipaddress
 import re
-import struct
 import xml.etree.ElementTree as ET
 import zipfile
-import zlib
-from html.parser import HTMLParser
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -348,125 +345,6 @@ def _shared_strings(book: zipfile.ZipFile) -> list[str]:
         return []
     root = ET.fromstring(payload)  # noqa: S314
     return ["".join(node.itertext()) for node in root.findall(f"{_XLSX}si")]
-
-
-def png_chart(values: list[int], *, labels: list[str] | None = None) -> bytes:
-    """A small bar chart PNG with no third-party library."""
-    del labels
-    width, height = 480, 240
-    series = values or [0]
-    peak = max(series) or 1
-    margin = 16
-    slot = max(1, (width - margin * 2) // len(series))
-    rows: list[bytes] = []
-    for y in range(height):
-        pixel = bytearray()
-        for x in range(width):
-            ink = _bar(x, y, series, peak=peak, slot=slot, margin=margin, height=height)
-            pixel.extend(ink)
-        rows.append(b"\x00" + bytes(pixel))
-    return _png(width, height, b"".join(rows))
-
-
-def _bar(
-    x: int,
-    y: int,
-    series: list[int],
-    *,
-    peak: int,
-    slot: int,
-    margin: int,
-    height: int,
-) -> bytes:
-    if x < margin or x >= margin + slot * len(series) or y > height - margin:
-        return b"\xf4\xf1\xec"
-    index = min((x - margin) // slot, len(series) - 1)
-    local = (x - margin) % slot
-    bar_height = int(series[index] / peak * (height - margin * 3))
-    top = height - margin - bar_height
-    if 4 < local < slot - 4 and top <= y <= height - margin:
-        return b"\x1f\x6f\x68"
-    return b"\xf4\xf1\xec"
-
-
-def _png(width: int, height: int, raw: bytes) -> bytes:
-    def chunk(tag: bytes, data: bytes) -> bytes:
-        body = tag + data
-        return (
-            struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
-        )
-
-    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", header)
-        + chunk(b"IDAT", zlib.compress(raw, 9))
-        + chunk(b"IEND", b"")
-    )
-
-
-class _Tree(HTMLParser):
-    """Collect interactive elements in document order."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.items: list[dict[str, str]] = []
-        self._buffer: list[str] = []
-        self.title = ""
-        self._in_title = False
-        self._text_for: int | None = None
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        data = {key: value or "" for key, value in attrs}
-        if tag == "title":
-            self._in_title = True
-            self._buffer = []
-        if tag in {"a", "button", "input", "textarea", "select", "h1", "h2", "p"}:
-            self.items.append(
-                {
-                    "tag": tag,
-                    "name": data.get("name") or data.get("aria-label") or data.get("id") or tag,
-                    "href": data.get("href", ""),
-                    "type": data.get("type", ""),
-                    "value": data.get("value", ""),
-                }
-            )
-            if tag in {"a", "button", "textarea", "h1", "h2", "p"}:
-                self._text_for = len(self.items) - 1
-                self._buffer = []
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "title" and self._in_title:
-            self.title = "".join(self._buffer).strip()
-            self._in_title = False
-        if self._text_for is not None and tag == self.items[self._text_for]["tag"]:
-            text = " ".join("".join(self._buffer).split())
-            if text:
-                self.items[self._text_for]["name"] = text
-            self._text_for = None
-
-    def handle_data(self, data: str) -> None:
-        if self._in_title or self._text_for is not None:
-            self._buffer.append(data)
-
-
-def accessibility_tree(
-    html: str, *, max_chars: int = 40000
-) -> tuple[str, str, list[dict[str, str]]]:
-    """Return text with ``[ref=eN]`` markers, the title, and the element list."""
-    parser = _Tree()
-    parser.feed(html)
-    lines = [f"title: {parser.title or 'page'}"]
-    elements: list[dict[str, str]] = []
-    for index, item in enumerate(parser.items, start=1):
-        ref = f"e{index}"
-        label = item["name"] or item["tag"]
-        lines.append(f"[ref={ref}] {item['tag']} {label}".strip())
-        elements.append({**item, "ref": ref})
-    text = "\n".join(lines)
-    if len(text) > max_chars:
-        text = text[:max_chars]
-    return text, parser.title, elements
 
 
 def helper_verdict(status: int) -> str:
