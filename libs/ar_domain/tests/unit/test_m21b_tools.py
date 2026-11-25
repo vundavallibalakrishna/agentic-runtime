@@ -247,7 +247,6 @@ def test_the_loop_retries_a_failed_script() -> None:
         "Qwen/Qwen3-32B",
         {},
         5.0,
-        True,
     )
     steps = [
         {

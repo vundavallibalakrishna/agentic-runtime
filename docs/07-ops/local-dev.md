@@ -1,6 +1,6 @@
 # Local development
 
-Goal: a fresh clone runs the whole product on a laptop in under 15 minutes with `make bootstrap && make dev`, using `fake-llm` so no model access is needed.
+Goal: a fresh clone runs the whole product on a laptop in under 15 minutes with `make bootstrap && make dev`, with a model endpoint you name (`AR_DEV_MODEL_BASE_URL`) or connect on the Models screen. The product holds no model stand-in: until a model is connected, chat says so.
 
 ## 1. Prerequisites
 
@@ -22,11 +22,11 @@ Exact versions: [stack.md](../stack.md).
 | `make bootstrap` | `uv sync --all-packages`, `pnpm install`, `lefthook install`, copies `.env.example` → `.env` if missing, generates dev keys into `.env` (`AR_SESSION_ENCRYPTION_KEY`, `AR_CURSOR_SECRET`, `AR_DB_ENCRYPTION_KEYS`, the four `AR_DB_*_PASSWORD` values, `POSTGRES_PASSWORD`, `AR_TOKEN_CACHE_KEY`, internal JWT key pair) with `scripts/dev_keys.py` |
 | `make up` / `make down` | Start/stop dependency containers from `compose.yaml` (profile `deps`; add `OBS=1`, `SCAN=1`, `QDRANT=1` for the optional `obs`, `scan`, `qdrant` profiles). `make up` waits until the health checks pass before it returns, so `make migrate` does not race Postgres |
 | `make migrate` | `uv run alembic -c libs/ar_domain/alembic.ini upgrade head` |
-| `make seed` | `uv run python scripts/seed.py`: tenant `dev` (plan `enterprise`), users `admin@dev.local` (tenant_admin), `builder@dev.local` (builder, tool_owner, knowledge_manager), `member@dev.local` (member), `approver@dev.local` (approver), all with password `dev-password`; model provider `fake-llm` with aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`; team `everyone`; published agent `assistant`. Sample knowledge and the Helpdesk agent arrive with later milestones. |
+| `make seed` | `uv run python scripts/seed.py`: tenant `dev` (plan `enterprise`), users `admin@dev.local` (tenant_admin), `builder@dev.local` (builder, tool_owner, knowledge_manager), `member@dev.local` (member), `approver@dev.local` (approver), all with password `dev-password`; the model endpoint named in `AR_DEV_MODEL_BASE_URL`, when set, with aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`; team `everyone`; published agent `assistant`. Sample knowledge and the Helpdesk agent arrive with later milestones. |
 | `uv run python scripts/seed_tenant.py --slug <slug> --name <name> --admin-email <address> --admin-name <full name>` | Creates the plans, the system roles, one tenant on plan `self_hosted`, its tenant admin, and the two agents every tenant has (`assistant` and `builder`, owned by that admin), and nothing else: no model provider, no example data. The same run writes the built-in tool catalogue, which belongs to no tenant. The admin's password is read from standard input or asked for on a terminal. Sign-in is the in-app password form. Safe to run twice. The product then serves that tenant: with one tenant in the database nothing else needs setting, and `AR_BOOTSTRAP_TENANT_SLUG` chooses when there are several ([fresh tenant run](../testing/fresh-tenant-2026-11-06/report.md)). |
 | `make ports-check` | Reads `.env` host ports, rewrites localhost URLs so they use the same ports, and exits non-zero when a port is already taken. The message names the variable to change. |
-| `make dev` | `make ports-check`, then `make up migrate seed` (idempotent), then all app processes via `honcho` (`Procfile.dev`): api, runtime-worker, system-worker, ingest-worker, model-gateway, mcp-gateway, sandbox-manager (Docker driver), channels, fake-llm, web (`pnpm --filter @ar/web dev`). `make dev AUTO_PORTS=1` moves busy host ports onto free ports and updates the URLs before compose starts. |
-| `make dev-min` | Same preflight, then only api, runtime-worker, system-worker, model-gateway, mcp-gateway, fake-llm, web (enough for chat + tools) |
+| `make dev` | `make ports-check`, then `make up migrate seed` (idempotent), then all app processes via `honcho` (`Procfile.dev`): api, runtime-worker, system-worker, ingest-worker, model-gateway, mcp-gateway, sandbox-manager (Docker driver), channels, web (`pnpm --filter @ar/web dev`). `make dev AUTO_PORTS=1` moves busy host ports onto free ports and updates the URLs before compose starts. |
+| `make dev-min` | Same preflight, then only api, runtime-worker, system-worker, model-gateway, mcp-gateway, web (enough for chat + tools) |
 | `make fmt` | `ruff format`, `ruff check --fix`, `biome check --write` |
 | `make test-integration` | Only integration tests (testcontainers) |
 | `make check` | `make lint typecheck test-unit` for Python and TS |
@@ -60,10 +60,10 @@ The OPA service loads `deploy/compose/opa/config.yaml`. It polls `http://api:$AR
 - Web: http://localhost:3000. The sign-in page is an email and password form (`POST /api/v1/auth/login`). For the seeded dev tenant the password is `dev-password`. Scripts use `scripts/sign_in.py`. There is no bundled identity provider and no self-serve signup route.
 - API docs: http://localhost:8000/api/docs (only `AR_ENV != prod`).
 - Temporal UI: http://localhost:8233; Grafana: http://localhost:3001 and Langfuse: http://localhost:3100 (profile `obs`); Mailpit: http://localhost:8025.
-- Using a real model: in **Admin → Models**, switch to Advanced, choose OpenAI-compatible, set the base URL and upstream model, and paste the API key. The key is stored as a secret (`hasApiKey` on the provider; the value is not returned). Point the tenant `reasoning` alias at that model. The gateway then calls it. `fake-chat` stays on fake-llm. Setting `AR_DEV_MODEL_BASE_URL`/`AR_DEV_MODEL_API_KEY` before `make seed` still seeds a provider instead of `fake-llm`.
+- Using a real model: in **Admin → Models**, switch to Advanced, choose OpenAI-compatible, set the base URL and upstream model, and paste the API key. The key is stored as a secret (`hasApiKey` on the provider; the value is not returned). Point the tenant `reasoning` alias at that model. The gateway then calls it. Setting `AR_DEV_MODEL_BASE_URL`/`AR_DEV_MODEL_API_KEY` before `make seed` still seeds a provider instead of the test model server.
 - Running code in a container: by default `general.shell`, `general.code` and the file tools run on the dev host. To run them inside a real per-conversation `ar-sandbox` container, build the image (`docker build -f images/sandbox/Dockerfile -t ar-sandbox:dev .`, also built by `./scripts/build_images.sh`) and start the stack with `AR_SANDBOX_IMAGE=ar-sandbox:dev AR_SANDBOX_ALLOW_UNISOLATED=1 make dev`. A process that has a place to start computers runs `general.code` and `general.shell` there: the run's folder is copied into the container, the script runs, and the files it wrote are copied back. The container is unisolated (`runc`) and its network is not confined, which is why it is off unless the install allows it. Leave `AR_SANDBOX_IMAGE` unset to keep the host path.
 - A staging-mode stack on one machine: set `AR_SANDBOX_DRIVER=docker`, `AR_SANDBOX_IMAGE=ar-sandbox:dev` and `AR_SANDBOX_ALLOW_UNISOLATED=true` for the sandbox manager. Every other process asks the manager for a computer (`AR_SANDBOX_MANAGER_URL`), and the manager starts the container. Without an image, starting a computer fails and names the setting.
-- Scripted fake-llm behaviour: `fake-llm` reads scenario files from `services/fake_llm/scenarios/*.yaml` (see [testing-strategy §4](../08-quality/testing-strategy.md#4-fake-llm)); default scenario echoes and calls tools when the message starts with `/tool <name> <json>`.
+- The model stand-in is for tests only. It lives in `ar_testing.model_server`, and its script format is in [testing-strategy §4](../08-quality/testing-strategy.md#4-model-stand-in).
 - New migration: `uv run alembic -c libs/ar_domain/alembic.ini revision --autogenerate -m "<area>_<change>"`, then hand-edit (RLS policies, grants) per [migrations](../04-data/migrations.md).
 - Resetting state: `make reset-db`; `docker compose down -v` wipes everything.
 
@@ -78,7 +78,6 @@ The OPA service loads `deploy/compose/opa/config.yaml`. It polls `http://api:$AR
 | `AR_TEMPORAL_HOST_PORT` | `AR_TEMPORAL_ADDRESS` |
 | `AR_PORT` | API listen port, `AR_API_INTERNAL_URL`, and `API_PROXY_URL` (the web dev rewrite) |
 | `AR_WEB_HOST_PORT` | `AR_PUBLIC_URL` and `next dev --port` |
-| `AR_FAKE_LLM_HOST_PORT` | fake-llm listen port and the seeded base URL |
 | `AR_KEYCLOAK_HOST_PORT` | `AR_OIDC_ISSUER` when it points at localhost |
 | `AR_S3_HOST_PORT` | `AR_S3_ENDPOINT` and `AR_S3_PUBLIC_ENDPOINT` |
 | `AR_VAULT_HOST_PORT` | `AR_VAULT_ADDR` |

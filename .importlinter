@@ -14,7 +14,6 @@ root_packages =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_fake_llm
 
 [importlinter:contract:layers]
 name = Library layering
@@ -38,7 +37,6 @@ modules =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_fake_llm
 
 [importlinter:contract:no-db-in-edge]
 name = Channels and the sandbox agent have no DB access
@@ -76,7 +74,6 @@ source_modules =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_fake_llm
 forbidden_modules =
     ar_pack_fixture
     records_pack
@@ -115,7 +112,6 @@ source_modules =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_fake_llm
 forbidden_modules =
     kubernetes
     kubernetes_asyncio
@@ -135,7 +131,6 @@ source_modules =
     ar_sandbox_manager
     ar_sandbox_agent
     ar_channels
-    ar_fake_llm
 forbidden_modules =
     requests
     aiohttp

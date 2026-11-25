@@ -96,7 +96,7 @@ def test_models_and_files(monkeypatch: pytest.MonkeyPatch) -> None:
     assert denied.status_code == 400
     created = client.post(
         "/api/v1/model-providers",
-        json={"name": "local", "kind": "fake", "baseUrl": "http://127.0.0.1:8099/v1"},
+        json={"name": "local", "kind": "openai_compatible", "baseUrl": "http://127.0.0.1:8099/v1"},
     )
     assert created.status_code == 200
     tested = client.post(f"/api/v1/model-providers/{created.json()['id']}:test")
@@ -176,7 +176,7 @@ def test_catalogue_and_run_surface(monkeypatch: pytest.MonkeyPatch) -> None:
     assert providers.status_code == 200
     created = client.post(
         "/api/v1/model-providers",
-        json={"name": "desk", "kind": "fake", "baseUrl": "http://127.0.0.1:8099/v1"},
+        json={"name": "desk", "kind": "openai_compatible", "baseUrl": "http://127.0.0.1:8099/v1"},
     )
     provider_id = created.json()["id"]
     renamed = client.patch(f"/api/v1/model-providers/{provider_id}", json={"name": "desk-2"})
@@ -302,7 +302,11 @@ def test_catalogue_and_run_surface(monkeypatch: pytest.MonkeyPatch) -> None:
     assert admin.get("/api/v1/platform/model-providers").status_code == 200
     added = admin.post(
         "/api/v1/platform/model-providers",
-        json={"name": "platform-fake", "kind": "fake", "baseUrl": "http://127.0.0.1:8099/v1"},
+        json={
+            "name": "platform-fake",
+            "kind": "openai_compatible",
+            "baseUrl": "http://127.0.0.1:8099/v1",
+        },
     )
     assert added.status_code == 200
     denied = client.get("/api/v1/platform/model-providers")

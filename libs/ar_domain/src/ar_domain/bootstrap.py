@@ -88,7 +88,7 @@ async def provision_defaults(tenant_slug: str, owner_email: str) -> None:
     previous_writer = os.environ.get("AR_BOOTSTRAP_WRITER")
     os.environ["AR_BOOTSTRAP_WRITER"] = "1"
     try:
-        store = ChatService(fake_models_allowed=False)
+        store = ChatService()
         binding = await bind_store(store, app_database_url(), tenant_slug=tenant_slug)
         if binding is None:
             raise SystemExit("The database stopped answering before the default agents were made.")

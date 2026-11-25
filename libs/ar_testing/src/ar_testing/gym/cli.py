@@ -7,11 +7,11 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ar_domain.evals.gym.live import LIVE_FLAG, LIVE_KEY, LiveConfigError, live_requested
-from ar_domain.evals.gym.runner import run_suite
-from ar_domain.evals.gym.score import render_scorecard
-from ar_domain.evals.gym.tasks import load_tasks
+from ar_domain.evals.live import LIVE_FLAG, LIVE_KEY, LiveConfigError, live_requested
 from ar_domain.models.embedding import EmbeddingUnconfiguredError
+from ar_testing.gym.runner import run_suite
+from ar_testing.gym.score import render_scorecard
+from ar_testing.gym.tasks import load_tasks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,7 +31,7 @@ def main(
     gym provides it (M38b-T04d). ``prepare`` registers an embedding model in that store.
     Without an embedding model the handbook cannot be indexed and the run stops.
     """
-    parser = argparse.ArgumentParser(prog="ar_domain.evals.gym")
+    parser = argparse.ArgumentParser(prog="ar_testing.gym")
     parser.add_argument(
         "--live",
         action="store_true",

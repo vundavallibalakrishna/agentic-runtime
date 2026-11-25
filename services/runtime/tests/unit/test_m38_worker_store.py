@@ -67,7 +67,7 @@ async def test_a_worker_with_a_database_holds_no_demo_tenant(
         assert store.holds_tenant_state() is False
         assert store.allow_loopback is False
         return
-    assert store.fake_models_allowed is (env is EnvName.DEV)
+    assert not hasattr(store, "fake_models_allowed")
     # A tool call runs in this process. Whether it may reach a loopback address is the
     # install's setting, off unless set, whatever the environment is called.
     assert store.allow_loopback is False

@@ -153,7 +153,6 @@ def _real_store() -> ChatService:
         "stand-in-chat",
         {},
         5.0,
-        True,
     )
     return store
 
@@ -171,13 +170,11 @@ def test_the_loop_shows_a_tool_image_to_a_vision_model() -> None:
             "text": "",
             "tool_calls": [{"id": "c1", "name": MODEL_NAME, "arguments": {"note": "x"}}],
             "usage": {"tokens_in": 2, "tokens_out": 2},
-            "real": True,
         },
         {
             "text": "I can see the chart: revenue rose each quarter.",
             "tool_calls": [],
             "usage": {"tokens_in": 2, "tokens_out": 4},
-            "real": True,
         },
     ]
     pending = list(turns)

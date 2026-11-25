@@ -6,7 +6,6 @@ from fastapi import FastAPI
 from ar_common.host_ports import listen_port
 from ar_common.settings import (
     BaseServiceSettings,
-    fake_models_allowed,
     loopback_allowed,
     unisolated_sandbox_allowed,
 )
@@ -36,7 +35,6 @@ def create_application() -> FastAPI:
         settings,
         starts_sandboxes=True,
         allow_loopback=loopback_allowed(settings),
-        fake_models_allowed=fake_models_allowed(settings.env),
     )
     if driver == "docker":
         from ar_domain.sandboxes.manager_launch import docker_launcher  # noqa: PLC0415

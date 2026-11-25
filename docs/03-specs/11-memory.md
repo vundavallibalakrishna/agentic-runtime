@@ -104,5 +104,5 @@ When the `embed` alias is pointed at another model, the product embeds again eve
 ## 8. Test plan
 
 - Unit: scoring function, rule 5 filters (table of sensitive examples), dedupe/supersede logic.
-- Integration: recall respects scope and RLS (user A cannot recall user B's facts even with same agent); extraction against `fake-llm` scripted outputs (add/update/delete/noop); low-trust labelling after a tool call; disabled at each of tenant/user/agent level → no recall, no extraction; delete-all.
+- Integration: recall respects scope and RLS (user A cannot recall user B's facts even with same agent); extraction against the test model server scripted outputs (add/update/delete/noop); low-trust labelling after a tool call; disabled at each of tenant/user/agent level → no recall, no extraction; delete-all.
 - Eval (M13): memory suite: preference remembered across conversations; injection attempt via tool output does not create a fact.

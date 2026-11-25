@@ -447,13 +447,12 @@ async def test_a_model_that_omits_usage_is_marked_estimated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = demo_store()
-    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)  # type: ignore[method-assign]
+    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0)  # type: ignore[method-assign]
     pending = [
         {
             "text": "pong",
             "tool_calls": [],
             "usage": {"tokens_in": 0, "tokens_out": 0, "usage_source": "unknown"},
-            "real": True,
         }
     ]
 
@@ -522,7 +521,7 @@ def test_fallback_and_context_policy_read_their_settings(monkeypatch: pytest.Mon
 
 def test_an_empty_reply_is_sent_back_once() -> None:
     store = demo_store()
-    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)  # type: ignore[method-assign]
+    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0)  # type: ignore[method-assign]
     steps = [
         {"text": "   ", "tool_calls": [], "usage": {"tokens_in": 1, "tokens_out": 1}},
         {"text": "now", "tool_calls": [], "usage": {"tokens_in": 1, "tokens_out": 1}},
@@ -551,7 +550,7 @@ def _scripted(store: object, steps: list[dict[str, object]]) -> None:
         return pending.pop(0)
 
     store.complete_turn = complete  # type: ignore[attr-defined]
-    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)  # type: ignore[attr-defined]
+    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0)  # type: ignore[attr-defined]
 
 
 def _posted(store: object) -> tuple[dict[str, object], dict[str, object]]:

@@ -46,9 +46,9 @@ The owner set these on 6 November 2026 after a run on an empty database showed h
 | `services/runtime`, `services/system`, `services/ingest` | Temporal workers: agent runs; routines and housekeeping; knowledge ingestion |
 | `services/model_gateway`, `services/mcp_gateway` | The model endpoint behind aliases; the tool-call choke point |
 | `services/sandbox_manager`, `services/sandbox_agent` | Sandbox allocation; the process inside a sandbox |
-| `services/channels`, `services/fake_llm` | Slack, Teams and email; the scripted model for development and tests |
+| `services/channels` | Slack, Teams and email |
 | `libs/ar_domain` | All business logic and the Alembic migrations |
-| `libs/ar_common`, `ar_contracts`, `ar_connector_sdk`, `ar_testing`, `ar_client` | Shared basics; cross-process models; connector SDK; test fixtures; generated Python client |
+| `libs/ar_common`, `ar_contracts`, `ar_connector_sdk`, `ar_testing`, `ar_client` | Shared basics; cross-process models; connector SDK; test fixtures and the model stand-in tests use; generated Python client |
 | `policies/`, `deploy/`, `evals/` | OPA Rego; Compose and Helm; golden and red-team suites |
 | `docs/` | Specs, plan, decisions and test evidence |
 

@@ -16,7 +16,6 @@ def _priced_store() -> ChatService:
         "Qwen/Qwen3-32B",
         {},
         5.0,
-        True,
     )
     model = store.models[demo_id("model-chat")]
     model["price_input_micros_per_mtok"] = 150_000
@@ -62,7 +61,6 @@ def test_loop_prices_every_model_call_and_keeps_tokens_apart() -> None:
                 "text": "",
                 "tool_calls": [{"id": "c1", "name": MODEL_NAME, "arguments": {"note": "ready"}}],
                 "usage": {"tokens_in": 1000, "tokens_out": 100},
-                "real": True,
             },
             {
                 "text": "",
@@ -74,13 +72,11 @@ def test_loop_prices_every_model_call_and_keeps_tokens_apart() -> None:
                     }
                 ],
                 "usage": {"tokens_in": 2000, "tokens_out": 200},
-                "real": True,
             },
             {
                 "text": "Note saved: ready",
                 "tool_calls": [],
                 "usage": {"tokens_in": 3000, "tokens_out": 300},
-                "real": True,
             },
         ],
     )
@@ -143,7 +139,6 @@ def test_budget_stop_keeps_the_usage_spent_so_far() -> None:
         "text": "",
         "tool_calls": [{"id": "c1", "name": MODEL_NAME, "arguments": {"note": "x"}}],
         "usage": {"tokens_in": 7000, "tokens_out": 100},
-        "real": True,
     }
     _script(store, [tool_turn, dict(tool_turn), dict(tool_turn), dict(tool_turn)])
     tenant, user = demo_id("tenant"), demo_id("admin")
@@ -178,7 +173,6 @@ def test_six_step_turn_does_not_recount_the_prompt() -> None:
                     }
                 ],
                 "usage": {"tokens_in": tokens_in, "tokens_out": 100},
-                "real": True,
             }
         )
     steps.append(
@@ -186,7 +180,6 @@ def test_six_step_turn_does_not_recount_the_prompt() -> None:
             "text": "Done.",
             "tool_calls": [],
             "usage": {"tokens_in": 12000, "tokens_out": 100},
-            "real": True,
         }
     )
     _script(store, steps)

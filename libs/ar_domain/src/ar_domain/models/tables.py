@@ -17,7 +17,7 @@ class ModelProvider(Base):
     __tablename__ = "model_providers"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('openai_compatible','vllm','tei','fake')",
+            "kind IN ('openai_compatible','vllm','tei')",
             name="kind",
         ),
         CheckConstraint("timeout_s BETWEEN 1 AND 900", name="timeout_s"),

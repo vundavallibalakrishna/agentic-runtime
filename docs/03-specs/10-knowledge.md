@@ -294,7 +294,7 @@ Location `libs/ar_domain/tests/conformance/retrieval_store/`; every test is para
 | C05 | Classification filter excludes chunks outside the allowed set |
 | C06 | Only the listed `index_version` per collection is returned (blue/green) |
 | C07 | Lexical recall: a query containing a rare exact token (`ZX-4471`) returns the chunk containing it in the top 3 even when that chunk's dense vector is random |
-| C08 | Dense recall: with `fake-llm` deterministic embeddings, a query in the same embedding cluster and with no shared tokens returns the target chunk in the top 3 |
+| C08 | Dense recall: with the test model server deterministic embeddings, a query in the same embedding cluster and with no shared tokens returns the target chunk in the top 3 |
 | C09 | RRF: scores equal `Σ 1/(rrf_k+rank)`; ties broken by `chunk_id`; length ≤ `fused_k` |
 | C10 | Filter inside the query: 10,000 chunks of which the user can read 25 scattered ones; `search` with `dense_k=10` returns 10 readable chunks |
 | C11 | `set_acl` revocation is visible to the next search |
@@ -338,5 +338,5 @@ Per plan: `max_knowledge_documents` (default 100k), `max_knowledge_bytes` (defau
 
 - Unit: chunker (tables/code not split, overlap, page ranges), principal mapping, pgvector SQL builder and Qdrant filter builder (tenant, ACL, classification present), RRF merge across groups, rerank fallback, answerability threshold.
 - Conformance: §10 for every adapter.
-- Integration (testcontainers Postgres+pgvector, `fake-llm` embeddings with deterministic hashing vectors): upload → indexed → searchable; **mandatory ACL leak test** through the API (two users, three docs with different ACLs, 50 random queries; zero leaks); ACL change propagates within one `AclSyncWorkflow` run; reindex switch is atomic; delete removes `chunk_embeddings` rows. Job `conformance-qdrant` additionally runs a pgvector → qdrant → pgvector migration round trip that must pass the parity check.
+- Integration (testcontainers Postgres+pgvector, the test model server embeddings with deterministic hashing vectors): upload → indexed → searchable; **mandatory ACL leak test** through the API (two users, three docs with different ACLs, 50 random queries; zero leaks); ACL change propagates within one `AclSyncWorkflow` run; reindex switch is atomic; delete removes `chunk_embeddings` rows. Job `conformance-qdrant` additionally runs a pgvector → qdrant → pgvector migration round trip that must pass the parity check.
 - Retrieval quality eval (M13): golden Q/A set per sample collection (`evals/knowledge/*.yaml`): recall@8 ≥ 0.85, MRR ≥ 0.6 against the reference models, gated on the pgvector adapter (reported, not gated, for qdrant).

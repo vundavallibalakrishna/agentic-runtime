@@ -23,7 +23,6 @@ def _store() -> ChatService:
         "Qwen/Qwen3-32B",
         {},
         5.0,
-        True,
     )
     offer_retry_tool(store, demo_id("tenant"))
     return store
@@ -139,8 +138,9 @@ def test_completion_message_reads_tool_calls() -> None:
     assert calls[0]["arguments"] == {"query": "ready"}  # type: ignore[index]
 
 
-def test_fake_provider_leaves_the_turn_alone() -> None:
+def test_an_alias_with_no_model_stops_the_turn_with_an_error() -> None:
     store = demo_store()
+    store.aliases.clear()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     conversation = store.create_conversation(tenant, user, None)
@@ -150,7 +150,9 @@ def test_fake_provider_leaves_the_turn_alone() -> None:
     run_id = uuid.UUID(str(posted["run"]["id"]))
     run = store.runs[run_id]
     assistant = store.messages[uuid.UUID(str(run["assistant_message_id"]))]
-    assert asyncio.run(run_agent_loop(store, run, assistant, "hello")) is False
+    assert asyncio.run(run_agent_loop(store, run, assistant, "hello")) is True
+    assert run["status"] == "failed"
+    assert "not connected to a registered model" in str(assistant["text"])
 
 
 def test_loop_retries_a_tool_that_fails_once_and_checks() -> None:
@@ -162,7 +164,6 @@ def test_loop_retries_a_tool_that_fails_once_and_checks() -> None:
                 "text": "",
                 "tool_calls": [{"id": "c1", "name": MODEL_NAME, "arguments": {"note": "ready"}}],
                 "usage": {"tokens_in": 2, "tokens_out": 2},
-                "real": True,
             },
             {
                 "text": "",
@@ -174,13 +175,11 @@ def test_loop_retries_a_tool_that_fails_once_and_checks() -> None:
                     }
                 ],
                 "usage": {"tokens_in": 2, "tokens_out": 2},
-                "real": True,
             },
             {
                 "text": "Note saved: ready",
                 "tool_calls": [],
                 "usage": {"tokens_in": 2, "tokens_out": 4},
-                "real": True,
             },
         ],
     )
@@ -237,7 +236,6 @@ def test_change_waits_for_approval() -> None:
                     }
                 ],
                 "usage": {"tokens_in": 1, "tokens_out": 1},
-                "real": True,
             }
         ],
     )

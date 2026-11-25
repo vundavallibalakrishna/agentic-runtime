@@ -14,7 +14,7 @@ from temporalio.worker import Worker
 
 from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
-from ar_common.settings import fake_models_allowed, get_settings, loopback_allowed
+from ar_common.settings import get_settings, loopback_allowed
 from ar_common.temporal_worker import temporal_unavailable_fields, temporal_worker_kwargs
 from ar_runtime.activities.advance_chat_step import advance_chat_step
 from ar_runtime.activities.document_section import document_section
@@ -29,7 +29,6 @@ from ar_runtime.activities.research_step import (
 from ar_runtime.activities.start_run import start_run
 from ar_runtime.main import TASK_QUEUE
 from ar_runtime.workflows.research import ResearchSubtaskWorkflow, ResearchWorkflow
-from ar_runtime.workflows.tool_turn import ToolTurnWorkflow
 from ar_runtime.workflows.turn import TurnWorkflow
 
 _log = get_logger(__name__)
@@ -39,7 +38,6 @@ def runtime_workflows() -> list[type]:
     """Workflows the runtime worker polls. Tests register this same list."""
     return [
         TurnWorkflow,
-        ToolTurnWorkflow,
         ResearchWorkflow,
         ResearchSubtaskWorkflow,
     ]
@@ -80,7 +78,6 @@ async def _prepare_store() -> object:
     store = build_product_store(
         settings,
         allow_loopback=loopback_allowed(settings),
-        fake_models_allowed=fake_models_allowed(settings.env),
     )
     store.model_gateway_url = str(getattr(settings, "model_gateway_url", "") or "")
     from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415

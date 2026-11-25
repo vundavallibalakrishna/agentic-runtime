@@ -511,3 +511,73 @@ async def test_seed_is_idempotent(migrated: str) -> None:
     assert mode == "users"
     assert groups == 1
     assert members == 1
+
+
+async def test_fake_providers_are_deleted_and_the_kind_is_refused(migrated: str) -> None:
+    """Revision 0065 removes every provider of kind ``fake`` and narrows the kind check."""
+    from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(migrated)
+    _alembic(migrated, "downgrade", "0064")
+    provider_sql = (
+        "INSERT INTO model_providers (name, kind, base_url) "
+        "VALUES (:name, :kind, 'http://127.0.0.1:8099/v1') RETURNING id"
+    )
+    model_sql = (
+        "INSERT INTO models (provider_id, name, upstream_model, kind) "
+        "VALUES (:provider, :name, :name, 'chat') RETURNING id"
+    )
+    async with engine.begin() as connection:
+        gone = await connection.scalar(text(provider_sql), {"name": "m0065-gone", "kind": "fake"})
+        kept = await connection.scalar(
+            text(provider_sql), {"name": "m0065-kept", "kind": "openai_compatible"}
+        )
+        gone_model = await connection.scalar(
+            text(model_sql), {"provider": gone, "name": "m0065-gone-model"}
+        )
+        kept_model = await connection.scalar(
+            text(model_sql), {"provider": kept, "name": "m0065-kept-model"}
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO model_aliases (alias, kind, primary_model_id) "
+                "VALUES ('m0065-gone', 'chat', :model)"
+            ),
+            {"model": gone_model},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO model_aliases (alias, kind, primary_model_id, fallback_model_ids) "
+                "VALUES ('m0065-kept', 'chat', :model, ARRAY[CAST(:fallback AS uuid)])"
+            ),
+            {"model": kept_model, "fallback": gone_model},
+        )
+    _alembic(migrated, "upgrade", "head")
+    async with engine.begin() as connection:
+        providers = (
+            await connection.execute(
+                text("SELECT name FROM model_providers WHERE name LIKE 'm0065-%'")
+            )
+        ).scalars()
+        aliases = {
+            str(row[0]): list(row[1])
+            for row in await connection.execute(
+                text(
+                    "SELECT alias, fallback_model_ids FROM model_aliases WHERE alias LIKE 'm0065-%'"
+                )
+            )
+        }
+        models = await connection.scalar(
+            text("SELECT count(*) FROM models WHERE name = 'm0065-gone-model'")
+        )
+        assert list(providers) == ["m0065-kept"]
+    assert aliases == {"m0065-kept": []}, "the alias on a fake model goes; a fallback is dropped"
+    assert models == 0
+    with pytest.raises(IntegrityError):
+        async with engine.begin() as connection:
+            await connection.execute(text(provider_sql), {"name": "m0065-again", "kind": "fake"})
+    async with engine.begin() as connection:
+        await connection.execute(text("DELETE FROM model_aliases WHERE alias = 'm0065-kept'"))
+        await connection.execute(text("DELETE FROM model_providers WHERE name = 'm0065-kept'"))
+    await engine.dispose()

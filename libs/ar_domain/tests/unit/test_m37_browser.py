@@ -259,10 +259,10 @@ def test_fixture_case_reads_types_and_submits() -> None:
             run=run,
             _tool_call_id=str(uuid.uuid4()),
         )
-        assert shot["is_error"] is False
-        file_id = uuid.UUID(str(shot["structured"]["file_id"]))
-        assert store.blobs[file_id].startswith(b"\x89PNG")
-        assert any(event["type"] == "browser.screenshot" for event in store.events[run])
+        # A picture of a page is taken by Chromium in the sandbox. Without one the tool
+        # says so; no picture is made up in its place.
+        assert shot["code"] == "sandbox_unavailable"
+        assert not any(event["type"] == "browser.screenshot" for event in store.events[run])
         sandbox = next(
             row for row in store.sandboxes.values() if row.get("conversation_id") == conversation
         )

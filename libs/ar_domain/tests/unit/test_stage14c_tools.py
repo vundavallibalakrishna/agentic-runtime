@@ -91,7 +91,7 @@ def test_an_assistant_asked_for_a_chart_is_offered_the_chart_tool() -> None:
     from ar_domain.chat.service import demo_id
 
     store = demo_store()
-    store._completion_call = lambda _t, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)
+    store._completion_call = lambda _t, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0)
 
     class _Search:
         def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
@@ -117,7 +117,6 @@ def test_an_assistant_asked_for_a_chart_is_offered_the_chart_tool() -> None:
             "text": "Done.",
             "tool_calls": [],
             "usage": {"tokens_in": 2, "tokens_out": 2},
-            "real": True,
         }
 
     store.complete_turn = complete  # type: ignore[method-assign]

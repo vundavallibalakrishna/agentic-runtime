@@ -54,9 +54,9 @@ class _Store:
 
     def _completion_call(
         self, tenant_id: uuid.UUID, alias: str = "reasoning"
-    ) -> tuple[str, dict[str, str], float, bool]:
+    ) -> tuple[str, dict[str, str], float]:
         del tenant_id, alias
-        return MODEL, {"Authorization": f"Bearer {self._key}"}, 120.0, True
+        return MODEL, {"Authorization": f"Bearer {self._key}"}, 120.0
 
     def _completion_url_for(self, tenant_id: uuid.UUID, alias: str, headers: dict[str, str]) -> str:
         del tenant_id, alias

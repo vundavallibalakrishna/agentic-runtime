@@ -177,5 +177,5 @@ Exceeding concurrency → 429 `rate_limited` with `Retry-After: 5`.
 ## 9. Test plan
 
 - Unit: branch activation algorithm (tree property tests), budget merge, access predicate table.
-- Integration: post → 202 → run row + outbox in same transaction (fault injection: Temporal down → relay starts later); idempotent post with same key returns same response; second post while active → 409; interrupt cancels; regenerate/edit produce siblings; share read-only (viewer post → 403); privileged read writes audit; `/runs` with `wait=true` against `fake-llm`.
+- Integration: post → 202 → run row + outbox in same transaction (fault injection: Temporal down → relay starts later); idempotent post with same key returns same response; second post while active → 409; interrupt cancels; regenerate/edit produce siblings; share read-only (viewer post → 403); privileged read writes audit; `/runs` with `wait=true` against the test model server.
 - E2E (Playwright): send message, observe streaming tokens, cancel mid-stream, regenerate, switch branch, thumbs-down with reason.

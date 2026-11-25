@@ -31,11 +31,16 @@ async def test_catalogue_agents_and_chat_ops(monkeypatch: pytest.MonkeyPatch) ->
 
     denied = pytest.raises(ArError)
     with denied:
-        service.create_provider(tenant, "blocked", "fake", "http://10.1.1.1/v1", platform=False)
+        service.create_provider(
+            tenant, "blocked", "openai_compatible", "http://10.1.1.1/v1", platform=False
+        )
     with pytest.raises(ArError):
         service.create_provider(tenant, "odd", "nope", "http://127.0.0.1:8099/v1", platform=False)
+    # The kind that stood in for a model is gone: a provider is one that is called.
+    with pytest.raises(ArError, match="unknown provider kind"):
+        service.create_provider(tenant, "gone", "fake", "http://127.0.0.1:8099/v1", platform=False)
     created = service.create_provider(
-        tenant, "desk", "fake", "http://127.0.0.1:8099/v1", platform=False
+        tenant, "desk", "openai_compatible", "http://127.0.0.1:8099/v1", platform=False
     )
     provider_id = uuid.UUID(str(created["id"]))
     renamed = service.update_provider(tenant, provider_id, platform=False, name="desk-2")

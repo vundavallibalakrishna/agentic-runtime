@@ -17,7 +17,6 @@ members = [
     "ar-connector-sdk",
     "ar-contracts",
     "ar-domain",
-    "ar-fake-llm",
     "ar-ingest",
     "ar-mcp-gateway",
     "ar-model-gateway",
@@ -565,31 +564,6 @@ requires-dist = [
 provides-extras = ["ingest", "qdrant"]
 
 [[package]]
-name = "ar-fake-llm"
-version = "0.1.0"
-source = { editable = "services/fake_llm" }
-dependencies = [
-    { name = "ar-common" },
-    { name = "fastapi" },
-    { name = "openai" },
-    { name = "orjson" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "ar-common", editable = "libs/ar_common" },
-    { name = "fastapi", specifier = "==0.151.0" },
-    { name = "openai", specifier = "==3.35.1" },
-    { name = "orjson", specifier = "==3.13.0" },
-    { name = "pydantic", specifier = "==2.14.1" },
-    { name = "pyyaml", specifier = "==6.0.3" },
-    { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },
-]
-
-[[package]]
 name = "ar-ingest"
 version = "0.1.0"
 source = { editable = "services/ingest" }
@@ -751,27 +725,33 @@ version = "0.1.0"
 source = { editable = "libs/ar_testing" }
 dependencies = [
     { name = "ar-common" },
-    { name = "ar-fake-llm" },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "openai" },
+    { name = "orjson" },
     { name = "polyfactory" },
     { name = "pydantic" },
     { name = "pytest" },
+    { name = "pyyaml" },
     { name = "temporalio" },
     { name = "testcontainers" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "ar-common", editable = "libs/ar_common" },
-    { name = "ar-fake-llm", editable = "services/fake_llm" },
     { name = "fastapi", specifier = "==0.151.0" },
     { name = "httpx", specifier = "==0.28.1" },
+    { name = "openai", specifier = "==3.35.1" },
+    { name = "orjson", specifier = "==3.13.0" },
     { name = "polyfactory", specifier = "==3.3.0" },
     { name = "pydantic", specifier = "==2.14.1" },
     { name = "pytest", specifier = "==9.1.1" },
+    { name = "pyyaml", specifier = "==6.0.3" },
     { name = "temporalio", specifier = "==1.34.0" },
     { name = "testcontainers", specifier = "==4.15.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },
 ]
 
 [[package]]

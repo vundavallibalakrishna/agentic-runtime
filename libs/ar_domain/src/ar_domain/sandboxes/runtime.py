@@ -47,7 +47,6 @@ from ar_common.sandboxkit import (
     curl_host,
     host_denied,
     package_install,
-    png_chart,
     sanitise_name,
     truncate_output,
     virtual_path,
@@ -1073,16 +1072,8 @@ def _browser(
     if not host_exec_allowed():
         return _error("sandbox_unavailable", "the browser runs in the sandbox")
     if name == "screenshot":
-        if getattr(store, "fake_models_allowed", True):
-            from ar_domain.sandboxes.browser import open_context  # noqa: PLC0415
-
-            shot = _screenshot(store, sandbox, open_context(sandbox, arguments))
-        else:
-            shot = _error(
-                "sandbox_unavailable",
-                "a screenshot needs the Chromium sandbox",
-            )
-        return shot
+        # A picture of a page is taken by Chromium in the sandbox, and only there.
+        return _error("sandbox_unavailable", "a screenshot needs the Chromium sandbox")
     from ar_domain.sandboxes.browser import apply_browser  # noqa: PLC0415
 
     return apply_browser(store, sandbox, name, arguments)
@@ -1171,34 +1162,6 @@ def _remote_capture(
     return {
         "text": f"{_CAPTURE_VERB[name]} {fname} ({saved})",
         "structured": result,
-        "is_error": False,
-    }
-
-
-def _screenshot(
-    store: Any, sandbox: dict[str, object], session: dict[str, object]
-) -> dict[str, object]:
-    png = png_chart([1, 2, 3])
-    saved = _store_blob(
-        store,
-        sandbox,
-        name="browser.png",
-        mime="image/png",
-        data=png,
-        kind="artifact",
-    )
-    _emit_artifact(
-        store, sandbox, file_id=saved, name="browser.png", mime="image/png", size=len(png)
-    )
-    return {
-        "text": f"screenshot {saved}",
-        "structured": {
-            "file_id": str(saved),
-            "url": session.get("url") or "",
-            "title": session.get("title") or "",
-            "untrusted": True,
-            "engine": "fixture",
-        },
         "is_error": False,
     }
 

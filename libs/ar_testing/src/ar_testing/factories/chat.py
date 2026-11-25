@@ -15,7 +15,7 @@ def provider_factory(**overrides: Any) -> dict[str, Any]:
         "id": new_id(),
         "tenant_id": uuid.uuid4(),
         "name": "local",
-        "kind": "fake",
+        "kind": "openai_compatible",
         "base_url": "http://127.0.0.1:8099/v1",
         "status": "active",
     }

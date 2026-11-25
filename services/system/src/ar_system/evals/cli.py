@@ -17,7 +17,7 @@ from ar_common.logging import get_logger
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.evals.book import EvalBook
-from ar_domain.evals.gym.live import LiveConfigError, install_live, live_settings
+from ar_domain.evals.live import LiveConfigError, install_live, live_settings
 from ar_domain.evals.seed_suites import suite_name
 from ar_domain.identity.permissions import PERMISSION_KEYS
 

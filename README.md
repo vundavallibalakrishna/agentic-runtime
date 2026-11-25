@@ -47,7 +47,7 @@ make dev         # Postgres, Valkey, Temporal, API, workers, and the web app
 open http://localhost:3000
 ```
 
-Sign in on the password form as `admin@dev.local` with password `dev-password`. Chat is the first screen. `make seed` inserts the dev tenant, four users (`admin@`, `builder@`, `member@`, `approver@dev.local`, all `dev-password`), a local `fake-llm` provider, and the built-in assistants. It does not insert sample conversations. There is no self-serve signup route.
+Sign in on the password form as `admin@dev.local` with password `dev-password`. Chat is the first screen. `make seed` inserts the dev tenant, four users (`admin@`, `builder@`, `member@`, `approver@dev.local`, all `dev-password`), and the built-in assistants. It registers a model only when `AR_DEV_MODEL_BASE_URL` names an OpenAI-compatible endpoint; otherwise connect one on the Models screen, and until then chat says that no model is connected. It does not insert sample conversations. There is no self-serve signup route.
 
 Connect the model you actually want to use:
 

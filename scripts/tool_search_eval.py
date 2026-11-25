@@ -62,7 +62,7 @@ CASES: list[tuple[str, set[str]]] = [
 
 async def run(tenant_slug: str, agent_slug: str | None, within: int) -> int:
     """Rank the tools for every case; the number of cases that missed."""
-    store = ChatService(fake_models_allowed=False)
+    store = ChatService()
     binding = await bind_store(store, app_database_url(), tenant_slug=tenant_slug)
     if binding is None:
         raise SystemExit("The database did not answer.")

@@ -1,7 +1,8 @@
 """Exercise the local durable stack; retain a paused routine and its reviewable runs.
 
 Run after ``make dev``: ``uv run python scripts/full_stack_smoke.py``.
-Uses the seeded administrator and fake model; it never resets the database.
+Uses the seeded administrator and the model the install is connected to; it never resets
+the database.
 """
 
 import argparse

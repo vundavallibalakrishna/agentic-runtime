@@ -65,7 +65,7 @@ packages = ["src/ar_domain"]
 "../../policies/rego/ar/jsonpath.rego" = "ar_domain/policy/rego/jsonpath.rego"
 
 [tool.deptry]
-known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
+known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels"]
 
 [tool.deptry.package_module_name_map]
 ar-common = "ar_common"
@@ -83,9 +83,6 @@ ar-mcp-gateway = "ar_mcp_gateway"
 ar-sandbox-manager = "ar_sandbox_manager"
 ar-sandbox-agent = "ar_sandbox_agent"
 ar-channels = "ar_channels"
-ar-mcp-sql = "ar_mcp_sql"
-ar-mcp-openapi = "ar_mcp_openapi"
-ar-fake-llm = "ar_fake_llm"
 
 [tool.deptry.per_rule_ignores]
 DEP002 = ["sqlglot", "pyyaml", "jsonschema", "jmespath", "jinja2", "nh3", "croniter", "langfuse", "hvac", "asyncpg", "pgvector", "docling", "tiktoken", "pillow", "filetype", "presidio-analyzer", "en-core-web-sm", "qdrant-client", "fastembed", 'ar-common', 'ar-contracts', 'psycopg', "pymysql"]

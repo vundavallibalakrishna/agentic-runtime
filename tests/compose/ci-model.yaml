@@ -1,5 +1,5 @@
 # Test-only model for compose-smoke. Not a production profile and not part of
-# compose.yaml. The service is the recorded OpenAI-compatible double used by tests.
+# compose.yaml. The service is the test library's OpenAI-compatible model stand-in.
 services:
   ci-model:
     restart: unless-stopped
@@ -9,9 +9,9 @@ services:
       context: .
       dockerfile: images/python-service.Dockerfile
       args:
-        SERVICE: fake_llm
+        SERVICE: testing
     environment:
-      AR_APP_MODULE: ar_fake_llm.app
+      AR_APP_MODULE: ar_testing.model_server.app
       AR_PORT: "8099"
       AR_ENV: dev
     healthcheck:

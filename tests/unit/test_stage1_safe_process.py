@@ -314,7 +314,7 @@ def _queued(service: ChatService) -> uuid.UUID:
 
 @pytest.mark.unit
 async def test_required_temporal_does_not_generate_in_process() -> None:
-    service = ChatService(fake_models_allowed=False)
+    service = ChatService()
     service.temporal_client = None
     run_id = _queued(service)
     await service._start_turn(run_id, "hello", [])
@@ -648,7 +648,7 @@ class _Workflow:
 
 @pytest.mark.unit
 async def test_temporal_start_paths_do_not_run_in_process() -> None:
-    service = ChatService(fake_models_allowed=False)
+    service = ChatService()
     service.watch_polls = 0
     started = _Workflow()
     service.temporal_client = started
@@ -682,7 +682,7 @@ async def test_temporal_start_paths_do_not_run_in_process() -> None:
 
 @pytest.mark.unit
 async def test_a_finished_workflow_and_the_event_bus() -> None:
-    service = ChatService(fake_models_allowed=False)
+    service = ChatService()
     service.temporal_client = None
     run_id = _queued(service)
     assert await service._workflow_gone(run_id) is False
@@ -740,7 +740,7 @@ async def test_a_finished_workflow_and_the_event_bus() -> None:
 
 @pytest.mark.unit
 async def test_a_lost_workflow_is_marked_not_resumed() -> None:
-    service = ChatService(fake_models_allowed=False)
+    service = ChatService()
     service.temporal_client = _MissingWorkflow()
     service.watch_polls = 1
     run_id = _queued(service)

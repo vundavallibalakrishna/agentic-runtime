@@ -142,7 +142,6 @@ def test_one_activity_is_one_step() -> None:
         "Qwen/Qwen3-32B",
         {},
         5.0,
-        True,
     )
     pending = [
         {
@@ -201,7 +200,6 @@ def test_only_the_sandbox_manager_starts_a_confined_container() -> None:
 
 def test_production_screenshot_needs_chromium() -> None:
     store = demo_store()
-    store.fake_models_allowed = False
     SandboxBook(store).ensure_platform()
     conversation = store.create_conversation(demo_id("tenant"), demo_id("admin"), None)
     posted = store.post_message(

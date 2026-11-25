@@ -18,7 +18,7 @@ import uuid
 from typing import Any  # noqa: TC003 - runtime use in annotations
 
 from ar_domain.chat.service import demo_id
-from ar_domain.evals.gym.live import install_live, live_settings
+from ar_domain.evals.live import install_live, live_settings
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_testing.demo import demo_store
 
