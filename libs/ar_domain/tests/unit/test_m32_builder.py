@@ -11,7 +11,7 @@ from ar_domain.agents.access import Actor
 from ar_domain.agents.assist import draft_from_description
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
-from ar_testing.demo import demo_store
+from ar_testing.demo import demo_store, disconnect_chat
 
 GOOD = {
     "persona": {"display_name": "Vendor reviewer", "greeting": "Send me the report."},
@@ -32,7 +32,6 @@ def _real_store() -> ChatService:
         "Qwen/Qwen3-32B",
         {},
         5.0,
-        True,
     )
     return store
 
@@ -109,8 +108,8 @@ async def test_invalid_output_after_the_repair_is_an_error(monkeypatch: pytest.M
 
 @pytest.mark.asyncio
 async def test_no_real_model_cannot_draft(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The demo store's reasoning alias is the fake one, so no real model is connected.
     store = demo_store()
+    disconnect_chat(store)
     seen = _responses(monkeypatch, [])
     with pytest.raises(ArError) as caught:
         await draft_from_description(store, _actor(), "Answer HR questions")

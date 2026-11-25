@@ -1,6 +1,6 @@
 # Performance budgets
 
-Budgets are **platform overhead** unless stated: model generation time and upstream tool latency are excluded (measured against `fake-llm` with fixed latency and test MCP servers). Measured in load tests (M15-T04, Locust) and continuously via metrics ([spec 18](../03-specs/18-observability-eval.md)). A budget breach blocks release (see [testing-strategy §8](testing-strategy.md#8-coverage-and-gates)).
+Budgets are **platform overhead** unless stated: model generation time and upstream tool latency are excluded (measured against the test model server with fixed latency and test MCP servers). Measured in load tests (M15-T04, Locust) and continuously via metrics ([spec 18](../03-specs/18-observability-eval.md)). A budget breach blocks release (see [testing-strategy §8](testing-strategy.md#8-coverage-and-gates)).
 
 ## 1. Service-level objectives (production)
 
@@ -44,7 +44,7 @@ The release load test runs `values-loadtest.yaml` (based on `values-large.yaml`)
 | Provisioned users | 10,000 (single tenant) and 200 tenants × 50 users (SaaS run) |
 | Concurrently active users | 1,000 |
 | Chat turns | 10 run starts/s sustained, 50/s burst for 60 s |
-| Concurrent active runs | 300 (each with 1–5 model steps, 0–3 tool calls; fake-llm 40 ms/chunk, 30 chunks) |
+| Concurrent active runs | 300 (each with 1–5 model steps, 0–3 tool calls; the test model server 40 ms/chunk, 30 chunks) |
 | Open SSE streams | 2,000 |
 | Tool calls | 30/s (mix: 60 % R0, 30 % W1, 10 % requiring approval auto-approved by a bot user) |
 | Knowledge searches | 20/s over 5 M chunks |

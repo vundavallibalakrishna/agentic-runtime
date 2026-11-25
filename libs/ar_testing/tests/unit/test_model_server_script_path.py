@@ -4,9 +4,9 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from ar_fake_llm.app import ChatMessage, create_application, turn_from
-from ar_fake_llm.background import BackgroundServer
-from ar_fake_llm.scripts import Script
+from ar_testing.model_server.app import ChatMessage, create_application, turn_from
+from ar_testing.model_server.background import BackgroundServer
+from ar_testing.model_server.scripts import Script
 
 SCRIPTS = [{"match": {"contains": "ping"}, "respond": {"text": "pong from billing"}}]
 

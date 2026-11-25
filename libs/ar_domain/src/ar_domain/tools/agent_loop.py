@@ -1,8 +1,7 @@
 """Plan, act, check and retry. Spec: docs/03-specs/07-agent-runtime.md.
 
-A fake provider leaves the turn on the existing path. A real provider, or a
-test that marks the call real, owns the turn: the model sees tool results,
-a failed call is sent back for another attempt, and every step is traced.
+The model owns the turn: it sees tool results, a failed call is sent back for
+another attempt, and every step is traced.
 """
 
 from __future__ import annotations
@@ -100,7 +99,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     *,
     one_step: bool = False,
 ) -> bool:
-    """Run the model loop. Return false when a fake provider should answer alone."""
+    """Run the model loop. Return false when the agent has no tools and makes one model call."""
     definition = _definition(store, run)
     if definition is None:
         return False
@@ -108,14 +107,8 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     if limits["max_tool_calls"] <= 0 and not asked(run, "orchestration_child"):
         return False
     alias = model_alias_for(store, run)
-    _model, _headers, _timeout, real = store._completion_call(
-        uuid.UUID(str(run["tenant_id"])), alias
-    )
-    if not real:
-        if getattr(store, "fake_models_allowed", True):
-            return False
-        # Outside dev and CI an alias that resolves to the local fake must not echo
-        # the prompt back as an answer (fresh-pass defect 5).
+    if store._completion_call(uuid.UUID(str(run["tenant_id"])), alias) is None:
+        # No model is connected to the alias. The turn says so; nothing answers in its place.
         _stop_error(
             store,
             run,

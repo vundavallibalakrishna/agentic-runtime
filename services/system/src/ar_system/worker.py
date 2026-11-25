@@ -6,7 +6,7 @@ from temporalio.client import Client
 
 from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
-from ar_common.settings import fake_models_allowed, get_settings, loopback_allowed
+from ar_common.settings import get_settings, loopback_allowed
 from ar_common.temporal_worker import temporal_unavailable_fields, temporal_worker_kwargs
 
 _log = get_logger(__name__)
@@ -32,7 +32,6 @@ async def _prepare_store() -> object:
     store = build_product_store(
         settings,
         allow_loopback=loopback_allowed(settings),
-        fake_models_allowed=fake_models_allowed(settings.env),
     )
     # A routine's tool calls run here. The engine that masks their results is built now.
     warm_up()

@@ -1,7 +1,7 @@
 """Allow a service connection to exchange a stored secret for a short-lived token.
 
-Revision ID: 0066
-Revises: 0065
+Revision ID: 0067
+Revises: 0066
 Create Date: 2026-11-24
 
 The kind check listed the auth kinds a connection can store. ``token_exchange``
@@ -18,8 +18,8 @@ from alembic import op
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-revision: str = "0066"
-down_revision: str | None = "0065"
+revision: str = "0067"
+down_revision: str | None = "0066"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

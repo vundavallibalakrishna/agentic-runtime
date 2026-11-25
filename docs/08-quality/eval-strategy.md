@@ -1,6 +1,6 @@
 # Evaluation strategy
 
-Evaluations measure agent quality and safety with **real company models**, complementing deterministic tests that use `fake-llm` ([testing-strategy](testing-strategy.md)). The product feature (suites, cases, assertions, `EvalRunWorkflow`, publish gates) is specified in [spec 18 §4](../03-specs/18-observability-eval.md#4-evaluation); this document defines how the platform team and tenants use it.
+Evaluations measure agent quality and safety with **real company models**, complementing deterministic tests that use the test model server ([testing-strategy](testing-strategy.md)). The product feature (suites, cases, assertions, `EvalRunWorkflow`, publish gates) is specified in [spec 18 §4](../03-specs/18-observability-eval.md#4-evaluation); this document defines how the platform team and tenants use it.
 
 ## 1. Two audiences
 

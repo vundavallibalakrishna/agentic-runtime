@@ -57,7 +57,7 @@ Exit criteria: `make bootstrap && make dev` starts the local stack; `make check`
 ### M0-T07 · `fake-llm` service
 - **Depends on:** M0-T05
 - **Areas:** `services/fake_llm/**`, `libs/ar_testing/src/ar_testing/fake_llm.py`
-- **Spec:** [testing-strategy §4](../08-quality/testing-strategy.md#4-fake-llm), [spec 04](../03-specs/04-model-gateway.md)
+- **Spec:** [testing-strategy §4](../08-quality/testing-strategy.md#4-model-stand-in), [spec 04](../03-specs/04-model-gateway.md)
 - **Do:** OpenAI-compatible `/v1/chat/completions` (streaming and non-streaming, tool calls, usage), `/v1/embeddings` (deterministic: sha256-seeded unit vectors, any dimension), `/v1/rerank` (lexical overlap score), `/v1/tokenize`, `/v1/models`. Behaviour driven by scripts: `POST /_scripts` registers a script `{match: {contains|regex|last_tool_result}, respond: {text|tool_calls|error|delay_ms}}`; default reply echoes `fake: <last user text>`. Scripts scoped by header `X-Fake-Script-Set` so parallel tests do not collide.
 - **Done when:** the openai Python client streams from it; tool-call scripts produce valid tool_call deltas.
 - **Tests:** unit tests for each endpoint and script matching.

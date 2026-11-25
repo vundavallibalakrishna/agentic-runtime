@@ -1,6 +1,6 @@
 """Production-cert defect 5: file bytes are stored durably, not in process memory.
 
-`identity/data_rights.export_user` and `sandboxes/service.seed_chart` used to write
+`identity/data_rights.export_user` and the demo chart seed used to write
 their bytes into ``store.blobs`` (a bounded in-process cache), so in production the
 bytes were gone after the request. Both now write through the object store. The proof
 clears the cache and reads the bytes back, which forces a read from the store. Unit.
@@ -14,8 +14,8 @@ from ar_domain.agents.access import Actor
 from ar_domain.chat.service import demo_id
 from ar_domain.durability.store import read_blob
 from ar_domain.identity.data_rights import export_user
-from ar_domain.sandboxes.service import SandboxBook
 from ar_testing.demo import demo_store
+from ar_testing.showcase.chart import seed_chart
 
 
 def test_export_user_stores_the_zip_durably() -> None:
@@ -48,7 +48,7 @@ def test_seed_chart_stores_the_png_durably() -> None:
         "published_version_id": None,
     }
 
-    SandboxBook(store).seed_chart(tenant, user)
+    seed_chart(store, tenant, user)
     file_id = demo_id("showcase-revenue-png")
     assert file_id in store.files
 

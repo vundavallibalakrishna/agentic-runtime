@@ -260,7 +260,7 @@ async def step(store: Any, run: dict[str, object]) -> None:
     source = store.messages.get(run.get("input_message_id"))
     task = str(source.get("text") or "") if isinstance(source, dict) else ""
     ready = store._completion_call(uuid.UUID(str(run["tenant_id"])), model_alias_for(store, run))
-    if not isinstance(assistant, dict) or not ready[3]:
+    if not isinstance(assistant, dict) or ready is None:
         finish_failed(store, run, "model_unavailable", "This agent has no model to run.")
         return
     if str(run.get("status")) == "queued":

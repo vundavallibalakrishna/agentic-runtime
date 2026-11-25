@@ -84,7 +84,6 @@ from ar_common.host_ports import api_listen_port
 from ar_common.settings import (
     BaseServiceSettings,
     EnvName,
-    fake_models_allowed,
     files_scanner_name,
     loopback_allowed,
 )
@@ -237,8 +236,7 @@ async def _product_view(app: FastAPI, tenant_id: uuid.UUID) -> ChatBehaviour:
 
 
 def _configure_chat(chat: Any, settings: Settings) -> None:
-    """Pack trust follows the environment. Dev and CI accept unsigned packs and fake models."""
-    chat.fake_models_allowed = fake_models_allowed(settings.env)
+    """Pack trust follows the environment. Dev and CI accept unsigned packs."""
     from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
 
     configure_gateway(chat, env=str(settings.env.value))
@@ -388,8 +386,6 @@ def create_application() -> FastAPI:
         settings,
         allow_loopback=loopback_allowed(settings),
         scanner=files_scanner_name(settings),
-        # Read when the store seeds itself, so it is passed here and not set afterwards.
-        fake_models_allowed=fake_models_allowed(settings.env),
     )
     _configure_chat(app.state.chat, settings)
     _configure_policy(app.state.chat, settings)

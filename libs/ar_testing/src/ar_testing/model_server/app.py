@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from ar_common.settings import BaseServiceSettings
 from ar_common.vectors import lexical_score, unit_vector
 from ar_common.web import create_app
-from ar_fake_llm.scripts import ChatTurn, Script, ScriptResponse, select, token_count
+from ar_testing.model_server.scripts import ChatTurn, Script, ScriptResponse, select, token_count
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping
@@ -190,7 +190,7 @@ def create_application() -> FastAPI:
     """Build the fake-llm ASGI app."""
     settings = FakeLlmSettings()
     store = ScriptStore()
-    scenarios = Path(__file__).resolve().parents[2] / "scenarios"
+    scenarios = Path(__file__).resolve().parent / "scenarios"
     load_scenarios(scenarios, store)
     models = [item.strip() for item in settings.fake_llm_models.split(",") if item.strip()]
     app = create_app("fake-llm", settings)
@@ -382,7 +382,7 @@ def _sse(payload: Mapping[str, object]) -> str:
 
 
 def main() -> None:
-    """Run fake-llm on ``AR_FAKE_LLM_HOST_PORT`` (default 8099)."""
+    """Run the stand-in on ``AR_PORT`` (default 8099)."""
     from ar_common.host_ports import listen_port  # noqa: PLC0415
 
     uvicorn.run(create_application(), host="0.0.0.0", port=listen_port("AR_PORT", 8099))  # noqa: S104

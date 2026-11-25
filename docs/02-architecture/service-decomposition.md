@@ -18,7 +18,6 @@ Architecture style: a **modular monolith with several deployables** ([ADR-0001](
 | `sandbox-manager` | `ar_sandbox_manager` | `services/sandbox_manager` | FastAPI (HTTP, internal) | Allocates, resumes, suspends and destroys sandboxes ("computers"); warm pools; drivers `docker` and `kubernetes`; workspace volumes and snapshots; egress allowlists. | Postgres, Kubernetes API or Docker, S3 |
 | `sandbox-agent` | `ar_sandbox_agent` | `services/sandbox_agent` | MCP server inside every sandbox (port 8080) | Executes code (python, bash, node), file operations, headless browser (Playwright) inside the sandbox. Ships in the image `ar-sandbox`. | Local filesystem, egress proxy |
 | `channels` | `ar_channels` | `services/channels` | Async process (+ small HTTP server) | Slack (Socket Mode), Microsoft Teams (HTTP endpoint), email (IMAP poll + SMTP); maps external users and threads to conversations; renders approval cards; delivers routine outputs. | `api` (internal endpoints), Valkey, Slack/Teams/mail servers |
-| `fake-llm` | `ar_fake_llm` | `services/fake_llm` | FastAPI (dev/test only) | Deterministic OpenAI-compatible chat/embeddings/rerank server driven by scripts, used by tests, CI and local development without GPUs. Never deployed to production. | none |
 | `migrate` (Job) | `ar_domain.migrations` | `libs/ar_domain` | One-shot job | Runs `alembic upgrade head` and seeds system roles/plans before a release rolls out. | Postgres |
 | `opa` | (upstream image) | `policies/` (Rego) | OPA server | Evaluates the `ar.policy` Rego package (`policies/rego/ar/policy.rego`, decision `data.ar.policy.decision`); pulls bundle `GET /internal/v1/opa/bundles/ar.tar.gz` from `api`. | `api` |
 
@@ -33,7 +32,7 @@ Third-party runtime dependencies (not built by us): Postgres (+ pgvector), Valke
 | `ar_domain` | `libs/ar_domain` | All SQLAlchemy models, repositories and domain services, organised by module (section 3). Owns Alembic migrations. | `ar_common`, `ar_contracts` |
 | `ar_connector_sdk` | `libs/ar_connector_sdk` | Public SDK for customers to build MCP tool servers and knowledge connectors that plug into the platform (auth helpers, context headers, ACL-aware document emission, test harness). | `mcp`, `pydantic` |
 | `ar_client` | `libs/ar_client` | Generated public Python SDK for `/api/v1` (openapi-python-client). Generated code only. | generated |
-| `ar_testing` | `libs/ar_testing` | Shared pytest fixtures: testcontainers (Postgres, Valkey, Qdrant for the optional adapter's conformance run), the `retrieval_store` conformance fixture, tenant/user factories, Temporal test env, fake-llm scripts, auth helpers. Dev dependency only. | all of the above |
+| `ar_testing` | `libs/ar_testing` | Shared pytest fixtures: testcontainers (Postgres, Valkey, Qdrant for the optional adapter's conformance run), the `retrieval_store` conformance fixture, tenant/user factories, Temporal test env, the model stand-in (`ar_testing.model_server`, an OpenAI-compatible server driven by scripts, never deployed), auth helpers. Dev dependency only. | all of the above |
 
 TypeScript packages:
 
@@ -111,7 +110,7 @@ agentic_runtime/
 ├── libs/ar_common/  libs/ar_contracts/  libs/ar_domain/  libs/ar_connector_sdk/  libs/ar_client/  libs/ar_testing/
 ├── services/api/  services/runtime/  services/system/  services/ingest/
 ├── services/model_gateway/  services/mcp_gateway/  services/sandbox_manager/  services/sandbox_agent/
-├── services/channels/  services/fake_llm/
+├── services/channels/
 ├── policies/rego/ar/             # Rego: policy.rego, jsonpath.rego + *_test.rego (opa test policies/)
 ├── images/                       # Dockerfiles: python-service.Dockerfile, web.Dockerfile, sandbox/Dockerfile, squid/ (egress proxy + ar-egress-helper), ingest/ (adds LibreOffice, OCR models)
 ├── deploy/helm/agentic-runtime/  # umbrella chart
@@ -143,7 +142,6 @@ Workflow ids are deterministic (see each spec), which gives idempotent starts.
 | mcp-gateway | 8002 |
 | sandbox-manager | 8003 |
 | channels | 8004 |
-| fake-llm | 8099 |
 | sandbox-agent (inside sandbox) | 8080 |
 | runtime-worker (health) | 8012 |
 | system-worker (health) | 8013 |

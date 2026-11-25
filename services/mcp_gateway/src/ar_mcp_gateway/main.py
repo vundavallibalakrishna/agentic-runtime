@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from ar_common.host_ports import listen_port
-from ar_common.settings import BaseServiceSettings, fake_models_allowed, loopback_allowed
+from ar_common.settings import BaseServiceSettings, loopback_allowed
 from ar_common.web import create_app
 from ar_common.web.internal import InternalAuthMiddleware
 from ar_domain.readmodel.boot import build_product_store
@@ -26,7 +26,6 @@ def create_application() -> FastAPI:
     app.state.chat = build_product_store(
         settings,
         allow_loopback=loopback_allowed(settings),
-        fake_models_allowed=fake_models_allowed(settings.env),
     )
     from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
 

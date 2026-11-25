@@ -1,4 +1,4 @@
-"""One grounded model call. A fake provider returns nothing and the caller cites anyway."""
+"""One grounded model call. With no model connected the caller cites anyway."""
 
 from __future__ import annotations
 
@@ -54,16 +54,14 @@ def model_id_for(store: Any, tenant_id: uuid.UUID, alias: str) -> str:
     if not callable(complete):
         return ""
     try:
-        name, _headers, _timeout, real = complete(tenant_id, alias)
+        call = complete(tenant_id, alias)
     except TypeError, ValueError:
         return ""
-    if real and name:
-        return str(name)
-    return ""
+    return str(call[0]) if call else ""
 
 
 def ask_model(store: Any, tenant_id: uuid.UUID, alias: str, task: str, evidence: str) -> str | None:
-    """Call the tenant's chat model. None when the alias is fake or the call fails."""
+    """Call the tenant's chat model. None when the alias has no model or the call fails."""
     return ask_model_many(store, tenant_id, alias, [(task, evidence)])[0]
 
 
@@ -72,16 +70,17 @@ def ask_model_many(
 ) -> list[str | None]:
     """Ask the tenant's chat model each prompt, all at the same time. One answer a prompt.
 
-    An answer is None when the alias is fake or that call fails.
+    An answer is None when the alias has no model or that call fails.
     """
     nothing: list[str | None] = [None for _ in prompts]
     complete = getattr(store, "_completion_call", None)
     url_for = getattr(store, "_completion_url_for", None)
     if not prompts or not callable(complete) or not callable(url_for):
         return nothing
-    model, headers, timeout_s, real = complete(tenant_id, alias or "reasoning")
-    if not real:
+    call = complete(tenant_id, alias or "reasoning")
+    if call is None:
         return nothing
+    model, headers, timeout_s = call
     url = url_for(tenant_id, alias or "reasoning", headers)
     from ar_domain.loop.routing import retryable_status  # noqa: PLC0415
     from ar_domain.models.logic import completion_text  # noqa: PLC0415

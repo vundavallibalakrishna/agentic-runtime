@@ -30,7 +30,7 @@ def _agent(store: Any, servers: list[str]) -> uuid.UUID:
 
 def _real_store() -> Any:
     store = demo_store()
-    store._completion_call = lambda _t, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)
+    store._completion_call = lambda _t, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0)
     return store
 
 
@@ -48,13 +48,11 @@ def test_many_tools_offer_the_search_tool_then_add_a_found_one() -> None:
                 {"id": "c1", "name": "session__search", "arguments": {"query": "read a file"}}
             ],
             "usage": {"tokens_in": 2, "tokens_out": 2},
-            "real": True,
         },
         {
             "text": "Found it.",
             "tool_calls": [],
             "usage": {"tokens_in": 2, "tokens_out": 2},
-            "real": True,
         },
     ]
 
@@ -107,7 +105,6 @@ def test_not_live_connector_tools_stay_hidden_from_the_model() -> None:
             "text": "done",
             "tool_calls": [],
             "usage": {"tokens_in": 1, "tokens_out": 1},
-            "real": True,
         }
 
     store.complete_turn = complete  # type: ignore[method-assign]
@@ -162,7 +159,6 @@ def test_a_small_agent_is_not_deferred() -> None:
             "text": "done",
             "tool_calls": [],
             "usage": {"tokens_in": 1, "tokens_out": 1},
-            "real": True,
         }
 
     store.complete_turn = complete  # type: ignore[method-assign]

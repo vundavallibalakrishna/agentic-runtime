@@ -1,7 +1,7 @@
 """Ask a vision model about one image. The provider key stays in the request header.
 
 The call uses the same alias resolution and sealed key as chat
-(``_completion_call`` and ``_completion_url_for``). A fake alias, or a real
+(``_completion_call`` and ``_completion_url_for``). An alias with no model, or a
 model that is not vision-capable, fails with ``vision_unavailable`` and does
 not send the image. The key is never written into the tool result.
 """
@@ -58,8 +58,10 @@ def vision_capable(capabilities: list[str]) -> bool:
 
 def vision_ready(store: Any, tenant_id: Any, alias: str = "vision") -> bool:
     """Whether this alias points at a registered model the tenant marked as reading images."""
-    _name, _headers, _timeout, real, capabilities = _target(store, tenant_id, alias or "vision")
-    return bool(real) and vision_capable(capabilities)
+    _name, _headers, _timeout, connected, capabilities = _target(
+        store, tenant_id, alias or "vision"
+    )
+    return connected and vision_capable(capabilities)
 
 
 def media_type_for(data: bytes, stated: str = "") -> str:
@@ -104,10 +106,10 @@ def ask_image(
             "image.ask reads a PNG, JPEG, GIF or WebP. For a scanned PDF, use documents.ocr.",
         )
     chosen = alias.strip() or "vision"
-    model_name, headers, timeout_s, real, capabilities = _target(store, tenant_id, chosen)
-    if not real or not vision_capable(capabilities):
+    model_name, headers, timeout_s, connected, capabilities = _target(store, tenant_id, chosen)
+    if not connected or not vision_capable(capabilities):
         detail = _SETUP
-        if real and model_name:
+        if connected and model_name:
             detail = (
                 f"The alias {chosen} points at {model_name}, which is not marked as able to "
                 "read images. Mark it on the Models screen if it can, or choose another model."
@@ -192,7 +194,10 @@ def _target(
     complete = getattr(store, "_completion_call", None)
     if not callable(complete):
         return "", {}, 30.0, False, []
-    model_name, headers, timeout_s, real = complete(tenant_id, alias)
+    call = complete(tenant_id, alias)
+    if call is None:
+        return "", {}, 30.0, False, []
+    model_name, headers, timeout_s = call
     capabilities: list[str] = []
     finder = getattr(store, "_alias_target", None)
     if callable(finder):
@@ -204,7 +209,7 @@ def _target(
                 capabilities = [str(item) for item in raw]
             if isinstance(model, dict) and model.get("upstream_model"):
                 model_name = str(model.get("upstream_model"))
-    return str(model_name), dict(headers), float(timeout_s), bool(real), capabilities
+    return str(model_name), dict(headers), float(timeout_s), True, capabilities
 
 
 def _load_key(store: Any, tenant_id: Any, alias: str) -> None:

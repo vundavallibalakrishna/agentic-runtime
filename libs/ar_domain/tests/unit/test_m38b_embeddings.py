@@ -501,7 +501,7 @@ def test_no_product_code_names_an_embedding_model_or_makes_a_vector_itself() -> 
         ROOT / "libs/ar_common/src/ar_common/vectors.py",
     }
     roots = [ROOT / "libs/ar_domain/src", ROOT / "libs/ar_common/src"]
-    roots += [path / "src" for path in (ROOT / "services").iterdir() if path.name != "fake_llm"]
+    roots += [path / "src" for path in (ROOT / "services").iterdir()]
     found: list[str] = []
     for root in roots:
         for path in root.rglob("*.py"):

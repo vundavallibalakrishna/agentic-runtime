@@ -264,7 +264,7 @@ def test_no_product_code_makes_a_vector_for_a_tool() -> None:
     store = demo_store()
     assert all("embedding" not in row for row in store.tool_versions.values())
     roots = [ROOT / "libs/ar_domain/src", ROOT / "libs/ar_common/src"]
-    roots += [path / "src" for path in (ROOT / "services").iterdir() if path.name != "fake_llm"]
+    roots += [path / "src" for path in (ROOT / "services").iterdir()]
     found = [
         str(path.relative_to(ROOT))
         for root in roots

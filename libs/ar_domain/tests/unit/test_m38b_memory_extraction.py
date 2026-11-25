@@ -212,7 +212,7 @@ def _actor() -> object:
 def test_no_product_code_decides_what_to_remember_by_matching_words() -> None:
     banned = ("heuristic_ops", "remember that", "i prefer", "MemoryExtractionWorkflow")
     roots = [ROOT / "libs/ar_domain/src", ROOT / "libs/ar_common/src"]
-    roots += [path / "src" for path in (ROOT / "services").iterdir() if path.name != "fake_llm"]
+    roots += [path / "src" for path in (ROOT / "services").iterdir()]
     found: list[str] = []
     for root in roots:
         for path in root.rglob("*.py"):

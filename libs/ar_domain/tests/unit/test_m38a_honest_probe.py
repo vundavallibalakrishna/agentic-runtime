@@ -34,7 +34,7 @@ def _alias_on(store: ChatService, base_url: str, kind: str = "openai_compatible"
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["openai_compatible", "fake"])
+@pytest.mark.parametrize("kind", ["openai_compatible", "vllm"])
 async def test_an_alias_test_on_a_dead_endpoint_is_a_failure(kind: str) -> None:
     store = demo_store(allow_loopback=True)
     alias_id = _alias_on(store, UNREACHABLE, kind)
@@ -47,7 +47,7 @@ async def test_an_alias_test_on_a_dead_endpoint_is_a_failure(kind: str) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["openai_compatible", "fake"])
+@pytest.mark.parametrize("kind", ["openai_compatible", "vllm"])
 async def test_a_provider_test_on_a_dead_endpoint_is_a_failure(kind: str) -> None:
     store = demo_store(allow_loopback=True)
     provider = store.create_provider(

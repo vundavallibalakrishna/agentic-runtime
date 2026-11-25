@@ -14,7 +14,7 @@ import pytest
 
 from ar_domain.chat.service import demo_id
 from ar_domain.knowledge.answer import compose
-from ar_testing.demo import demo_store
+from ar_testing.demo import demo_store, disconnect_chat
 from ar_testing.demo_tenant import seed_demo
 from ar_testing.showcase_build import seed_showcase
 
@@ -61,10 +61,10 @@ async def test_auto_retrieve_answer_is_written_by_the_model(stand_in: StandIn) -
 
 @pytest.mark.asyncio
 async def test_auto_retrieve_refuses_without_a_model() -> None:
-    # The demo tenant's only provider is the fake alias, so no real model is connected.
     store = demo_store(allow_loopback=True)
     seed_demo(store)
     seed_showcase(store)
+    disconnect_chat(store)
 
     composed = await compose(store, _librarian_run(store), "When is payroll released?")
 

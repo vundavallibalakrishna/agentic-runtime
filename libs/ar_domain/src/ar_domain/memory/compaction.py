@@ -131,7 +131,7 @@ def _join(messages: Sequence[Mapping[str, object]]) -> str:
 
 def _remote_count(url: str, text: str, model: str = "") -> int | None:
     """Ask a configured tokenizer. An unnamed model is counted locally."""
-    if not model or model.startswith("fake"):
+    if not model:
         return None
     if tenant_supplied_url_denied(url) is not None or tenant_loopback_denied(url) is not None:
         return None

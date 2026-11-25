@@ -1,7 +1,7 @@
 """Versioned settings documents checked against a JSON Schema.
 
-Revision ID: 0067
-Revises: 0066
+Revision ID: 0068
+Revises: 0067
 Create Date: 2026-11-24
 
 A pack or an agent may declare a JSON Schema for a settings document. Each save
@@ -21,8 +21,8 @@ from ar_domain.migrations.helpers import enable_tenant_rls, grant_table
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-revision: str = "0067"
-down_revision: str | None = "0066"
+revision: str = "0068"
+down_revision: str | None = "0067"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

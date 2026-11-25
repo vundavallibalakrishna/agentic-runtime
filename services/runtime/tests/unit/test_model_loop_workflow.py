@@ -23,7 +23,7 @@ async def test_malformed_tool_arguments_retry_on_the_workflow(
     temporal_env: WorkflowEnvironment,
 ) -> None:
     store = demo_store()
-    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)  # type: ignore[method-assign]
+    store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0)  # type: ignore[method-assign]
     steps = [
         {
             "text": "",
@@ -36,13 +36,11 @@ async def test_malformed_tool_arguments_retry_on_the_workflow(
                 }
             ],
             "usage": {"tokens_in": 2, "tokens_out": 1, "usage_source": "provider"},
-            "real": True,
         },
         {
             "text": "saved nothing",
             "tool_calls": [],
             "usage": {"tokens_in": 3, "tokens_out": 2, "usage_source": "provider"},
-            "real": True,
         },
     ]
 

@@ -36,9 +36,9 @@ class _VisionStore:
 
     def _completion_call(
         self, tenant_id: uuid.UUID, alias: str = "vision"
-    ) -> tuple[str, dict[str, str], float, bool]:
+    ) -> tuple[str, dict[str, str], float]:
         del tenant_id, alias
-        return _MODEL, {}, 90.0, True
+        return _MODEL, {}, 90.0
 
     def _completion_url_for(self, tenant_id: uuid.UUID, alias: str, headers: dict[str, str]) -> str:
         del tenant_id, alias

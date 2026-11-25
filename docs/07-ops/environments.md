@@ -4,8 +4,8 @@
 
 | Environment | Purpose | Deployment | Data | Models |
 |---|---|---|---|---|
-| `dev` (local) | Developer laptops | Docker Compose (`make up`) + services via `uv run`/`pnpm dev` ([local-dev](local-dev.md)) | Seed data (`make seed`) | `fake-llm` or a local OpenAI-compatible endpoint |
-| `ci` | Pull-request checks | Testcontainers + Temporal test server; `kind` cluster for e2e/Helm ([ci-cd](ci-cd.md)) | Ephemeral | `fake-llm` |
+| `dev` (local) | Developer laptops | Docker Compose (`make up`) + services via `uv run`/`pnpm dev` ([local-dev](local-dev.md)) | Seed data (`make seed`) | An OpenAI-compatible endpoint the developer names (`AR_DEV_MODEL_BASE_URL`) or connects on the Models screen |
+| `ci` | Pull-request checks | Testcontainers + Temporal test server; `kind` cluster for e2e/Helm ([ci-cd](ci-cd.md)) | Ephemeral | The test library's model stand-in (`ar_testing.model_server`), registered by the tests as an ordinary provider |
 | `staging` | Release candidates, eval gates, load tests | Helm, preset `small` (single-tenant) and `saas` (multi-tenant) | Synthetic tenants; anonymised copies never used | Company staging model endpoints |
 | `prod` | Customers | Helm, preset `large` or `saas` ([helm-k8s](compose.md)) | Real | Company model endpoints |
 
@@ -65,7 +65,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DELTA_COALESCE_MS` | `50` | Token delta coalescing window for stream events | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_DEPLOYMENT_MODE` | `single_tenant` | `saas` or `single_tenant` | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_DEV_MODEL_API_KEY` | (empty) | Dev only: API key for `AR_DEV_MODEL_BASE_URL` | [local-dev](local-dev.md) |
-| `AR_DEV_MODEL_BASE_URL` | (empty) | Dev only: `make seed` registers this OpenAI-compatible endpoint instead of `fake-llm` | [local-dev](local-dev.md) |
+| `AR_DEV_MODEL_BASE_URL` | (empty) | Dev only: `make seed` registers this OpenAI-compatible endpoint. With none, no model is registered | [local-dev](local-dev.md) |
 | `AR_DOCUMENT_ALIGN_COSINE` | `0.75` | Minimum cosine before two headings are paired when both have vectors. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_ALIGN_LEXICAL` | `0.5` | Minimum word overlap before two headings are paired. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_ASK_MAX_TOKENS` | `1800` | Output tokens one document model call may ask for. | [document tasks](../09-plan/document-tasks.md) |
@@ -120,7 +120,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_EGRESS_PROXY_URL` | `http://squid:3128` | For the page tools and remote MCP outside the cluster | [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 10](../03-specs/10-knowledge.md) |
 | `AR_EMBEDDING_RETRIES` | `2` | How often an embedding or rerank request is sent again after the provider answered 429 or 503. The wait is the provider's `Retry-After`, or 1, 2 and 4 seconds, and never more than 10. `0` turns it off; the most is `5` | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_EMBEDDING_TIMEOUT_S` | unset | HTTP timeout for one embedding or rerank request. Unset takes the provider's own timeout, and `60` when that is not set | [spec 10](../03-specs/10-knowledge.md) |
-| `AR_ENV` | `dev` | `dev`, `ci`, `staging`, `prod`; dev-only features (Docker sandbox driver, API docs UI, fake-llm provider) are refused when `prod`. Scripted turns, the demo tool servers (`tickets`, `petstore`, `warehouse`, `web`), the `desk` agent and the approval fixture `session.propose_change` exist only when `dev` or `ci`, in every process that builds a store | [local-dev](local-dev.md) |
+| `AR_ENV` | `dev` | `dev`, `ci`, `staging`, `prod`; dev-only features (Docker sandbox driver, API docs UI) are refused when `prod`. The product holds no scripted turn, demo tool server or model stand-in in any environment (M38a) | [local-dev](local-dev.md) |
 | `AR_EVAL_CONCURRENCY` | `4` | Parallel cases per eval run | [spec 18](../03-specs/18-observability-eval.md) |
 | `AR_FASTEMBED_CACHE_DIR` | `/var/cache/fastembed` | BM25 model cache for the optional qdrant adapter (pre-baked in image for air-gapped) | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_FETCH_PER_HOST_PER_MINUTE` | `30` | The most requests a minute the page tools (`general.fetch`, `web.discover`, `documents.ingest` by URL) send to one host, for the whole install. A site's `Crawl-delay` lowers it for that site | [spec 08](../03-specs/08-tool-registry-mcp.md) |

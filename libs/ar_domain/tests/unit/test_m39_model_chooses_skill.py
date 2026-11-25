@@ -72,7 +72,7 @@ def test_skills_load_is_entitled_by_default() -> None:
 
 def test_a_skilled_agent_is_offered_skills_load() -> None:
     store = demo_store()
-    store._completion_call = lambda _t, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)
+    store._completion_call = lambda _t, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0)
     _skill(store)
     agent_id, _version = _agent_with_skill(store)
     tenant, user = demo_id("tenant"), demo_id("admin")
@@ -92,7 +92,6 @@ def test_a_skilled_agent_is_offered_skills_load() -> None:
             "text": "ok",
             "tool_calls": [],
             "usage": {"tokens_in": 1, "tokens_out": 1},
-            "real": True,
         }
 
     store.complete_turn = complete  # type: ignore[method-assign]

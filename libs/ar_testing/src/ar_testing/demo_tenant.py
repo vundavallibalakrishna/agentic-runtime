@@ -21,30 +21,35 @@ if TYPE_CHECKING:
 
 
 def seed_demo(store: ChatService) -> None:
-    """The demo tenant and its scripted provider. Safe to call twice."""
+    """The demo tenant. Safe to call twice."""
     seed_demo_tenant(store)
 
 
-def _seed_scripted_provider(store: ChatService) -> None:
-    """The demo's chat provider: a scripted model server and the chat aliases.
+def _seed_chat_model(store: ChatService) -> None:
+    """The demo's chat model: the test library's model server, registered as a provider.
 
-    An embedding model is not part of it. A test registers one the way a person
-    does, as a model of kind embedding on a provider that answers.
+    It is an ordinary ``openai_compatible`` provider reached over HTTP, and the chat
+    aliases point at its one model, so a turn runs the product's own model call. An
+    embedding model is not part of it. A test registers one the way a person does.
     """
     if demo_id("provider") in store.providers:
         return
+    from ar_testing.stand_in import MODEL, shared  # noqa: PLC0415
+
+    # The server listens on loopback, which a product store refuses by default.
+    store.allow_loopback = True
     provider_id = demo_id("provider")
     chat_model = demo_id("model-chat")
     store.providers[provider_id] = store._provider(
-        provider_id, None, "fake-llm", "fake", "http://127.0.0.1:8099/v1"
+        provider_id, None, "stand-in", "openai_compatible", shared().base_url()
     )
-    store.models[chat_model] = store._model(chat_model, None, provider_id, "fake-chat", "chat")
+    store.models[chat_model] = store._model(chat_model, None, provider_id, MODEL, "chat")
     for alias in ("reasoning", "fast", "vision"):
         alias_id = demo_id(f"alias-{alias}")
         store.aliases[alias_id] = store._alias(alias_id, None, alias, "chat", chat_model)
 
 
-def seed_demo_tenant(store: ChatService) -> None:
+def seed_demo_tenant(store: ChatService, *, stand_in_tools: bool = True) -> None:
     """A demo tenant with fixed ids, for a store that has no database behind it.
 
     Only test setup calls this (``ar_testing.demo``, the browser-test harness and the
@@ -58,14 +63,14 @@ def seed_demo_tenant(store: ChatService) -> None:
     if store.demo_tenant_seeded:
         return
     store.demo_tenant_seeded = True
-    _seed_scripted_provider(store)
+    _seed_chat_model(store)
     store.ensure_assistant(demo_id("tenant"), demo_id("admin"))
     AgentLifecycle(store).ensure_example(demo_id("tenant"), demo_id("admin"))
     AgentLifecycle(store).ensure_builtins(demo_id("tenant"), demo_id("admin"))
     from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
 
     ToolRegistry(store).ensure_seed()
-    seed_demo_tools(store)
+    seed_demo_tools(store, stand_ins=stand_in_tools)
     from ar_domain.agents.access import Actor  # noqa: PLC0415
     from ar_domain.evals.book import EvalBook  # noqa: PLC0415
     from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415

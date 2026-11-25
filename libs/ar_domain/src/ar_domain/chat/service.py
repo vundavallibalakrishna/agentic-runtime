@@ -145,7 +145,6 @@ def _provider_failure(text: str, *, retryable: bool) -> dict[str, object]:
         "text": text,
         "tool_calls": [],
         "usage": {"tokens_in": 0, "tokens_out": 0, "usage_source": "unknown"},
-        "real": True,
         "retryable": retryable,
     }
 
@@ -397,7 +396,6 @@ class ChatBehaviour:
     catalogue: dict[tuple[str, str, str], dict[str, object]] = field(default_factory=dict)
     favourites: dict[tuple[uuid.UUID, uuid.UUID], set[uuid.UUID]] = field(default_factory=dict)
     builder_sessions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
-    fake_models_allowed: bool = True
     demo_tenant_seeded: bool = False
     last_remote_usage: dict[str, int] | None = None
     pack_signature_required: bool = False
@@ -528,7 +526,7 @@ class ChatBehaviour:
         # A store starts with the built-in tool catalogue, which belongs to no tenant, and
         # nothing else: no tenant, no model provider, no model and no alias. Those are rows
         # in its database, put there by the people who run it. A test builds the demo
-        # tenant and its scripted provider with ``ar_testing.demo``.
+        # tenant and its model with ``ar_testing.demo``.
         from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
 
         ToolRegistry(self).ensure_seed()
@@ -705,7 +703,7 @@ class ChatBehaviour:
         api_key: str | None = None,
     ) -> dict[str, object]:
         self._refuse_model_url(tenant_id, base_url)
-        if kind not in {"openai_compatible", "vllm", "tei", "fake"}:
+        if kind not in {"openai_compatible", "vllm", "tei"}:
             raise ArError(ErrorCode.VALIDATION_FAILED, "unknown provider kind")
         provider_id = new_id()
         owner = None if platform else tenant_id
@@ -2042,23 +2040,23 @@ class ChatBehaviour:
 
     def _completion_call(
         self, tenant_id: uuid.UUID, alias: str = "reasoning"
-    ) -> tuple[str, dict[str, str], float, bool]:
-        """Model name, headers, timeout, and whether the provider is real."""
+    ) -> tuple[str, dict[str, str], float] | None:
+        """Model name, headers and timeout for ``alias``. None when no model is connected to it."""
         found = self._alias_target(tenant_id, alias)
-        if found is None or str(found[0].get("kind")) == "fake":
-            return "", {}, 30.0, False
+        if found is None:
+            return None
         provider, model = found
         raw_timeout = provider.get("timeout_s")
         timeout = 120.0
         if isinstance(raw_timeout, int | float) and not isinstance(raw_timeout, bool):
             timeout = float(raw_timeout)
-        return str(model.get("upstream_model") or "reasoning"), {}, max(timeout, 30.0), True
+        return str(model.get("upstream_model") or "reasoning"), {}, max(timeout, 30.0)
 
     def _alias_target(
         self, tenant_id: uuid.UUID, alias: str
     ) -> tuple[dict[str, object], dict[str, object]] | None:
-        """Prefer a tenant non-fake alias over the platform fake."""
-        ranked: list[tuple[int, int, dict[str, object], dict[str, object]]] = []
+        """The provider and model ``alias`` points at: the tenant's own, then the platform's."""
+        ranked: list[tuple[int, dict[str, object], dict[str, object]]] = []
         for row in self.aliases.values():
             if row.get("alias") != alias or row.get("status") != "active":
                 continue
@@ -2071,13 +2069,12 @@ class ChatBehaviour:
             provider = self.providers.get(uuid.UUID(str(model["provider_id"])))
             if not isinstance(provider, dict):
                 continue
-            fake_rank = 1 if str(provider.get("kind")) == "fake" else 0
             tenant_rank = 0 if owner == tenant_id else 1
-            ranked.append((fake_rank, tenant_rank, provider, model))
+            ranked.append((tenant_rank, provider, model))
         if not ranked:
             return None
-        ranked.sort(key=lambda item: (item[0], item[1]))
-        return ranked[0][2], ranked[0][3]
+        ranked.sort(key=lambda item: item[0])
+        return ranked[0][1], ranked[0][2]
 
     async def _ensure_provider_key(self, tenant_id: uuid.UUID, alias: str) -> None:
         """Load a persisted provider key. The value stays off API responses."""
@@ -2599,20 +2596,20 @@ class ChatBehaviour:
     ) -> list[str]:
         """The single model call a tool-less agent makes. A missing model is an error.
 
-        There is no scripted or ``fake:`` answer (M38a-T02e): when the alias is not connected
-        to a real provider the run fails, the way the agent loop already fails it.
+        There is no scripted answer: when the alias is not connected to a model the run
+        fails, the way the agent loop already fails it.
         """
         prefix = f"Attached {', '.join(names)}. " if names else ""
         owner = tenant_id or demo_id("tenant")
-        model, headers, timeout_s, real = self._completion_call(owner, alias)
-        if not real:
+        call = self._completion_call(owner, alias)
+        if call is None:
             raise ArError(
                 ErrorCode.UPSTREAM_ERROR,
                 f"The model alias '{alias}' is not connected to a registered model. "
                 "Open Models and point the alias at a provider.",
             )
         await self._ensure_provider_key(owner, alias)
-        model, headers, timeout_s, real = self._completion_call(owner, alias)
+        model, headers, timeout_s = call
         # The same endpoint and key the agent loop uses for this alias.
         url = self._completion_url_for(owner, alias, headers)
         remote = await self._remote_completion(
@@ -2621,7 +2618,6 @@ class ChatBehaviour:
             model=model,
             headers=headers,
             timeout_s=timeout_s,
-            real=real,
             options=self.request_options(owner, alias),
             url=url,
             allow=self._dial_allow(owner),
@@ -2637,7 +2633,6 @@ class ChatBehaviour:
         model: str = "",
         headers: dict[str, str] | None = None,
         timeout_s: float = 3.0,
-        real: bool = False,
         options: dict[str, object] | None = None,
         url: str | None = None,
         allow: list[str] | None = None,
@@ -2649,19 +2644,16 @@ class ChatBehaviour:
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": text})
-        if real:
-            found = self._model_by_upstream(model)
-            body: dict[str, object] = chat_completion_body(
-                model=model,
-                messages=messages,
-                model_limit=self._output_limit(model),
-                context_window=_positive_int(
-                    found.get("context_window") if isinstance(found, dict) else None
-                ),
-                options=options or {},
-            )
-        else:
-            body = {"model": model, "messages": messages}
+        found = self._model_by_upstream(model)
+        body: dict[str, object] = chat_completion_body(
+            model=model,
+            messages=messages,
+            model_limit=self._output_limit(model),
+            context_window=_positive_int(
+                found.get("context_window") if isinstance(found, dict) else None
+            ),
+            options=options or {},
+        )
         from ar_common.internal_http import async_post  # noqa: PLC0415
 
         target = url
@@ -2669,9 +2661,7 @@ class ChatBehaviour:
             try:
                 target = self.completion_url()
             except ArError:
-                # A scripted turn asks the model when one is configured and
-                # keeps its own prose when this install has no gateway.
-                return "The model provider did not answer." if real else None
+                return "The model provider did not answer."
         try:
             response = await async_post(
                 target,
@@ -2682,20 +2672,19 @@ class ChatBehaviour:
                 supplied=supplied,
             )
             if response.status_code >= 300:
-                return "The model provider returned an error." if real else None
+                return "The model provider returned an error."
             payload = response.json()
             text_out = completion_text(payload)
-            if real:
-                from ar_domain.models.logic import completion_message  # noqa: PLC0415
+            from ar_domain.models.logic import completion_message  # noqa: PLC0415
 
-                parsed_usage = completion_message(payload)["usage"]
-                self.last_remote_usage = _token_usage(parsed_usage)
+            parsed_usage = completion_message(payload)["usage"]
+            self.last_remote_usage = _token_usage(parsed_usage)
             if text_out:
                 return text_out
         except httpx.HTTPError:
-            return "The model provider did not answer." if real else None
+            return "The model provider did not answer."
         else:
-            return "The model provider returned an empty answer." if real else None
+            return "The model provider returned an empty answer."
 
     async def complete_turn(
         self,
@@ -2708,9 +2697,9 @@ class ChatBehaviour:
         max_tokens: int | None = None,
         response_format: dict[str, object] | None = None,
     ) -> dict[str, object] | None:
-        """One model round, including tool calls. None when a fake provider is silent.
+        """One model round, including tool calls.
 
-        A real alias tries its primary model, then ``fallback_model_ids``, on a
+        An alias tries its primary model, then ``fallback_model_ids``, on a
         timeout, a connection error, HTTP 429 or HTTP 5xx. ``budget_s`` clamps
         the provider timeout to the run's remaining wall clock.
         """
@@ -2728,18 +2717,11 @@ class ChatBehaviour:
                 max_tokens=max_tokens,
                 response_format=response_format,
             )
-        targets = [item for item in self._chat_targets(tenant_id, model_alias) if item["real"]]
-        _model, _headers, _timeout, reported_real = self._completion_call(tenant_id, model_alias)
-        if not targets or not reported_real:
-            # A test may mark the call real without a registry row. Production uses the row.
-            return await self._complete_reported(
-                messages,
-                tools,
-                tenant_id=tenant_id,
-                model_alias=model_alias,
-                budget_s=budget_s,
-                max_tokens=max_tokens,
-                response_format=response_format,
+        targets = self._chat_targets(tenant_id, model_alias)
+        if not targets:
+            return _provider_failure(
+                f"The model alias '{model_alias}' is not connected to a registered model.",
+                retryable=False,
             )
         for target in targets:
             provider = target.get("provider")
@@ -2766,90 +2748,6 @@ class ChatBehaviour:
                 continue
             return outcome
         return last
-
-    async def _complete_reported(  # noqa: PLR0911, PLR0912
-        self,
-        messages: list[dict[str, object]],
-        tools: list[dict[str, object]],
-        *,
-        tenant_id: uuid.UUID,
-        model_alias: str,
-        budget_s: float | None,
-        max_tokens: int | None,
-        response_format: dict[str, object] | None,
-    ) -> dict[str, object] | None:
-        """One call as ``_completion_call`` describes it. A silent fake returns None."""
-        from ar_domain.models.call import clamp_timeout  # noqa: PLC0415
-        from ar_domain.models.logic import completion_message  # noqa: PLC0415
-        from ar_domain.models.request import chat_completion_body  # noqa: PLC0415
-
-        model, headers, timeout_s, real = self._completion_call(tenant_id, model_alias)
-        if real:
-            await self._ensure_provider_key(tenant_id, model_alias)
-            model, headers, timeout_s, real = self._completion_call(tenant_id, model_alias)
-        timeout_s = clamp_timeout(timeout_s, budget_s)
-        if real and timeout_s <= 0:
-            failed = _provider_failure("The model provider did not answer.", retryable=False)
-            failed["budget_exhausted"] = True
-            return failed
-        if real:
-            found = self._model_by_upstream(model)
-            body: dict[str, object] = chat_completion_body(
-                model=model,
-                messages=messages,
-                tools=tools,
-                max_tokens=_requested_max_tokens(max_tokens, None),
-                model_limit=self._output_limit(model),
-                context_window=_positive_int(
-                    found.get("context_window") if isinstance(found, dict) else None
-                ),
-                options=self.request_options(tenant_id, model_alias),
-                response_format=_shaped_format(
-                    response_format, _capability_set(found) if isinstance(found, dict) else set()
-                ),
-            )
-        else:
-            body = {"model": model, "messages": messages}
-            if tools:
-                body["tools"] = tools
-                body["tool_choice"] = "auto"
-        url = self._completion_url_for(tenant_id, model_alias, headers)
-        response, transport_error = await _post_json(
-            url,
-            body,
-            headers,
-            timeout_s,
-            self._dial_allow(tenant_id),
-            supplied=self._alias_target(tenant_id, model_alias) is not None,
-        )
-        if transport_error or response is None:
-            if not real:
-                return None
-            return _provider_failure("The model provider did not answer.", retryable=True)
-        if response.status_code >= 300:
-            if not real:
-                return None
-            return _provider_failure("The model provider returned an error.", retryable=True)
-        try:
-            payload = response.json()
-        except ValueError:
-            if not real:
-                return None
-            failed = _provider_failure("", retryable=False)
-            failed["text"] = ""
-            failed["parse_error"] = "The model provider returned malformed JSON."
-            return failed
-        parsed = completion_message(payload)
-        parsed["real"] = real
-        if real and model and model != "reasoning":
-            from ar_domain.models.logic import resolved_model_label  # noqa: PLC0415
-
-            parsed["resolved_model_id"] = model
-            parsed["answered_model"] = resolved_model_label(model)
-            registry = self._registry_id(tenant_id, model)
-            if registry is not None:
-                parsed["model_id"] = registry
-        return parsed
 
     async def _streamed_completion(  # noqa: PLR0917
         self,
@@ -2937,7 +2835,7 @@ class ChatBehaviour:
         # A caller that is listening gets the answer as it is written. A provider that does
         # not stream, or refuses the request, is asked again in one piece below, where every
         # refusal is told apart.
-        sink = listener() if target.get("real") else None
+        sink = listener()
         payload: object = None
         if sink is not None:
             payload = await self._streamed_completion(
@@ -2981,7 +2879,6 @@ class ChatBehaviour:
                 failed["parse_error"] = "The model provider returned malformed JSON."
                 return failed
         parsed = completion_message(payload, strip_thinking="preserve_thinking" not in capabilities)
-        parsed["real"] = True
         parsed["retryable"] = False
         if shaped is not None and "response_format" not in body:
             parsed["response_format_fallback"] = True
@@ -3035,23 +2932,21 @@ class ChatBehaviour:
                 or str(provider.get("status") or "active") != "active"
             ):
                 continue
-            real = str(provider.get("kind")) != "fake"
             targets.append(
                 {
                     "provider": provider,
                     "model": model,
-                    "real": real,
                     "fallback": index > 0,
                     "default_params": default_params,
-                    "timeout_s": self._configured_timeout(provider, real=real),
+                    "timeout_s": self._configured_timeout(provider),
                     "upstream": str(model.get("upstream_model") or "reasoning"),
                 }
             )
         return targets
 
     def _preferred_alias(self, tenant_id: uuid.UUID, alias: str) -> dict[str, object] | None:
-        """The alias row ``_alias_target`` would use: a real provider, then the tenant's own."""
-        ranked: list[tuple[int, int, dict[str, object]]] = []
+        """The alias row ``_alias_target`` would use: the tenant's own, then the platform's."""
+        ranked: list[tuple[int, dict[str, object]]] = []
         for row in self.aliases.values():
             if row.get("alias") != alias or row.get("status") != "active":
                 continue
@@ -3070,21 +2965,18 @@ class ChatBehaviour:
             provider = self.providers.get(provider_key) if provider_key is not None else None
             if not isinstance(provider, dict):
                 continue
-            fake_rank = 1 if str(provider.get("kind")) == "fake" else 0
             tenant_rank = 0 if owner == tenant_id else 1
-            ranked.append((fake_rank, tenant_rank, row))
+            ranked.append((tenant_rank, row))
         if not ranked:
             return None
-        ranked.sort(key=lambda item: (item[0], item[1]))
-        return ranked[0][2]
+        ranked.sort(key=lambda item: item[0])
+        return ranked[0][1]
 
-    def _configured_timeout(self, provider: dict[str, object], *, real: bool) -> float:
+    def _configured_timeout(self, provider: dict[str, object]) -> float:
         raw = provider.get("timeout_s")
         timeout = 120.0
         if isinstance(raw, int | float) and not isinstance(raw, bool):
             timeout = float(raw)
-        if not real:
-            return timeout
         return max(timeout, 30.0)
 
     def _url_for_provider(

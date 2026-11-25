@@ -8,8 +8,6 @@ import pytest
 
 from ar_domain.chat.service import ChatService
 from ar_domain.connectors.catalog import CONNECTORS
-from ar_domain.evals.gym.cli import _artifact_refusal
-from ar_domain.evals.gym.score import Report
 from ar_domain.proof import (
     CONTRACT,
     LIVE,
@@ -22,6 +20,8 @@ from ar_domain.proof import (
 )
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.seed_tools import seed
+from ar_testing.gym.cli import _artifact_refusal
+from ar_testing.gym.score import Report
 
 _NOT_LIVE = frozenset(
     {

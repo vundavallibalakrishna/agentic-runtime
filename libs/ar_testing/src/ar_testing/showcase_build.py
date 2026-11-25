@@ -188,6 +188,6 @@ def _seed_library(store: ChatService, tenant_id: uuid.UUID, user_id: uuid.UUID) 
 
 
 def _seed_chart(store: ChatService, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
-    from ar_domain.sandboxes.service import SandboxBook  # noqa: PLC0415
+    from ar_testing.showcase.chart import seed_chart  # noqa: PLC0415
 
-    SandboxBook(store).seed_chart(tenant_id, user_id)
+    seed_chart(store, tenant_id, user_id)

@@ -7,8 +7,8 @@ needs and an in-memory object store for the gym's uploads. The cert key is read 
 environment and is never printed.
 """
 
-from ar_domain.evals.gym.cli import main
 from ar_testing.demo import demo_store
+from ar_testing.gym.cli import main
 
 if __name__ == "__main__":
     raise SystemExit(main(make_store=demo_store))

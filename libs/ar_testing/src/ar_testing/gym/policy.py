@@ -229,7 +229,6 @@ def _turn(text: str, calls: list[dict[str, object]]) -> dict[str, object]:
         "text": text,
         "tool_calls": calls,
         "usage": {"tokens_in": 1, "tokens_out": 1},
-        "real": True,
     }
 
 

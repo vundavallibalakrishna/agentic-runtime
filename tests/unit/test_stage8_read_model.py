@@ -55,9 +55,7 @@ def test_production_boot_refuses_the_memory_double(monkeypatch: pytest.MonkeyPat
     try:
         with pytest.raises(MemoryStoreRefusedError):
             ChatService()
-        store = build_product_store(
-            _prod_settings(), allow_loopback=False, fake_models_allowed=False
-        )
+        store = build_product_store(_prod_settings(), allow_loopback=False)
     finally:
         set_settings(previous)
     assert isinstance(store, RepositoryReadModel)
@@ -70,7 +68,7 @@ def test_production_boot_refuses_the_memory_double(monkeypatch: pytest.MonkeyPat
 
 def test_dev_boot_keeps_the_memory_double() -> None:
     settings = BaseServiceSettings(_env_file=None, env=EnvName.DEV)
-    store = build_product_store(settings, allow_loopback=True, fake_models_allowed=True)
+    store = build_product_store(settings, allow_loopback=True)
     assert isinstance(store, ChatService)
 
 
@@ -131,7 +129,7 @@ def test_single_alembic_head_is_stage5_revision() -> None:
             revisions[revision] = down
     pointed = {item for item in revisions.values() if item}
     heads = sorted(rev for rev in revisions if rev not in pointed)
-    assert heads == ["0067"]
+    assert heads == ["0068"]
 
 
 class _Result:

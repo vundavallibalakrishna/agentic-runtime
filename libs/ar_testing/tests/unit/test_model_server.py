@@ -6,8 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 from openai import AsyncOpenAI
 
-from ar_fake_llm.app import create_application
-from ar_fake_llm.scripts import ChatTurn, Script, matches, token_count
+from ar_testing.model_server.app import create_application
+from ar_testing.model_server.scripts import ChatTurn, Script, matches, token_count
 
 
 @pytest.fixture

@@ -162,7 +162,7 @@ def test_browser_attach_export_and_reap() -> None:
     assert _call(store, "press", conversation_id=conversation)["is_error"] is False
     assert _call(store, "scroll", conversation_id=conversation)["is_error"] is False
     shot = _call(store, "screenshot", conversation_id=conversation, _run_id=run_id)
-    assert shot["is_error"] is False
+    assert shot["code"] == "sandbox_unavailable"
     assert _call(store, "submit_form", conversation_id=conversation, ref="e1")["is_error"] is False
     missing = _call(store, "attach_to_sandbox", file_id=str(uuid.uuid4()))
     assert missing["code"] == "not_found"
@@ -230,10 +230,11 @@ def test_browser_attach_export_and_reap() -> None:
 
     swept = reap(store, now=utcnow())
     assert swept["terminated"] >= 1
-    other = SandboxBook(store)
-    other.seed_chart(uuid.uuid4(), uuid.uuid4())
+    from ar_testing.showcase.chart import seed_chart
+
+    seed_chart(store, uuid.uuid4(), uuid.uuid4())
     store.conversations.pop(demo_id("showcase-revenue"), None)
-    other.seed_chart(demo_id("tenant"), demo_id("admin"))
+    seed_chart(store, demo_id("tenant"), demo_id("admin"))
 
 
 def test_manager_routes_and_docker_probe(monkeypatch: pytest.MonkeyPatch) -> None:

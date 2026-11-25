@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 
 from ar_domain.chat.service import demo_id
-from ar_domain.evals.gym.live import install_live, live_settings
+from ar_domain.evals.live import install_live, live_settings
 from ar_domain.exposure import keys, runs
 from ar_testing.demo import demo_store
 

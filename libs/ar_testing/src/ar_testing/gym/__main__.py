@@ -2,7 +2,7 @@
 
 The gym holds no demo-tenant building (M38b-T04d), so it is not started directly. Run
 ``scripts/m33c_eval_gym.py`` (``make eval-gym``), which builds the demo tenant and the
-embedding model the world needs and then calls ``ar_domain.evals.gym.cli.main``.
+embedding model the world needs and then calls ``ar_testing.gym.cli.main``.
 """
 
 import sys

@@ -2,7 +2,7 @@
 
 import orjson
 
-from ar_fake_llm.scripts import ChatTurn, Script, select
+from ar_testing.model_server.scripts import ChatTurn, Script, select
 
 
 def _turn(text: str, system: str = "") -> ChatTurn:

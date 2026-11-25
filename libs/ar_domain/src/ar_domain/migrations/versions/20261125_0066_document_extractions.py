@@ -1,7 +1,7 @@
 """Keep each extraction of a document.
 
-Revision ID: 0065
-Revises: 0064
+Revision ID: 0066
+Revises: 0065
 Create Date: 2026-11-24
 
 An extraction used to exist only in the answer that produced it. This table keeps
@@ -22,8 +22,8 @@ from ar_domain.migrations.helpers import enable_tenant_rls, grant_table
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-revision: str = "0065"
-down_revision: str | None = "0064"
+revision: str = "0066"
+down_revision: str | None = "0065"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

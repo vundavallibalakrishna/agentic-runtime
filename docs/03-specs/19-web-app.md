@@ -212,7 +212,7 @@ LCP < 2.0 s on `/chat` (cold, desktop, 4G fast), INP < 200 ms, JS ≤ 250 KB gzi
 
 - Unit/component (vitest + Testing Library + msw): reducer for every stream event type (fixture streams from `packages/api-client/fixtures/streams/*.jsonl`), Composer behaviours, ApprovalCard decisions, form schema mapping, permission guards.
 - Storybook for all `components/chat`, `components/common` with interaction tests.
-- E2E (Playwright, full stack via `make test-e2e` with `fake-llm`): login (password form), create agent from template, publish, chat with streaming, attach file, tool call with approval, knowledge upload + cited answer, routine test run, admin creates policy and sees approval required, accessibility checks (axe) on every page, visual snapshots of key pages (light/dark).
+- E2E (Playwright, full stack via `make test-e2e` with the test model server): login (password form), create agent from template, publish, chat with streaming, attach file, tool call with approval, knowledge upload + cited answer, routine test run, admin creates policy and sees approval required, accessibility checks (axe) on every page, visual snapshots of key pages (light/dark).
 
 ## 10. Records, reviews and guest routes
 

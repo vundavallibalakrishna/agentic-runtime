@@ -203,7 +203,7 @@ Error classification for `runs.error.code`: `model_unavailable`, `context_length
 - Unit: prompt layout snapshot tests (inline-snapshot) per block; budget arithmetic incl. paused time; citation parser; compaction stub replacement; tool name mapping `server__tool`.
 - Workflow tests (`temporalio.testing.WorkflowEnvironment` time-skipping) with mocked activities: final answer path; parallel tool batch limit; approval approve/reject/timeout; elicitation accept/decline; cancel during model step, during approval, during child; budget exceeded for each limit; continue-as-new resume; degrade to fast alias after 2 failures.
 - Replay tests: recorded histories in `services/runtime/tests/replay/*.json` replayed with `Replayer` on every PR (guards determinism).
-- Integration (testcontainers + `fake-llm` scripted scenarios in `services/fake_llm/scenarios/*.yaml`): chat turn end-to-end with SSE; tool call through `mcp-gateway` with an in-repo test MCP server (`ar_testing.mcp_echo`); subagent delegation; compaction triggered by small `context_window`.
+- Integration (testcontainers + the test model server scripted scenarios in `libs/ar_testing/src/ar_testing/model_server/scenarios/*.yaml`): chat turn end-to-end with SSE; tool call through `mcp-gateway` with an in-repo test MCP server (`ar_testing.mcp_echo`); subagent delegation; compaction triggered by small `context_window`.
 - Eval smoke (M13): golden suite runs nightly against real models.
 
 ## 13. Strict grounding

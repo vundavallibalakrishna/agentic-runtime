@@ -322,7 +322,7 @@ CREATE TABLE model_providers (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
   tenant_id       uuid REFERENCES tenants(id) ON DELETE CASCADE,  -- NULL = platform-provided
   name            text NOT NULL,
-  kind            text NOT NULL CHECK (kind IN ('openai_compatible','vllm','tei','fake')),
+  kind            text NOT NULL CHECK (kind IN ('openai_compatible','vllm','tei')),
   base_url        text NOT NULL,                      -- e.g. http://vllm-reasoning.inference.svc:8000/v1
   api_key_ref_id  uuid REFERENCES secret_refs(id) ON DELETE SET NULL,
   headers         jsonb NOT NULL DEFAULT '{}',        -- non-secret static headers
@@ -2022,7 +2022,7 @@ CREATE INDEX ix_document_revisions_document ON document_revisions(tenant_id, doc
 
 ## 34. Extraction history and resource settings
 
-Revision `0065` adds `document_extractions`. A library document id is not a foreign key: library ids are not knowledge documents. Revision `0067` adds `resource_settings`. Both are tenant owned, with the RLS policy from [rls §3](rls.md).
+Revision `0066` adds `document_extractions`. A library document id is not a foreign key: library ids are not knowledge documents. Revision `0068` adds `resource_settings`. Both are tenant owned, with the RLS policy from [rls §3](rls.md).
 
 ```sql
 CREATE TABLE document_extractions (

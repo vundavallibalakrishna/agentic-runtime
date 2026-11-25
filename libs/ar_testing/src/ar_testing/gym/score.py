@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ar_domain.evals.gym.tasks import ArgRule, Task
+    from ar_testing.gym.tasks import ArgRule, Task
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,7 +15,7 @@ from ar_domain.documents.ocr import engine_catalogue, tesseract_installed
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.handlers import dispatch
 from ar_domain.tools.pipeline import ToolPipeline
-from ar_testing.demo import demo_store
+from ar_testing.demo import demo_store, disconnect_chat
 
 if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService
@@ -209,7 +209,7 @@ def test_assistant_catalog_includes_ocr_and_image_ask() -> None:
     # No model here reads images, so the tool that needs one is not offered. Text
     # recognition needs none and stays.
     assert "image.ask" not in names
-    store._completion_call = lambda _t, alias="vision": ("vision-model", {}, 5.0, True)
+    store._completion_call = lambda _t, alias="vision": ("vision-model", {}, 5.0)
     store._alias_target = lambda _t, _alias: ({}, {"capabilities": ["chat", "vision"]})
     again = ToolPipeline(store).resolve_catalog(
         agent_version_id=agent["published_version_id"],  # type: ignore[arg-type]
@@ -220,6 +220,7 @@ def test_assistant_catalog_includes_ocr_and_image_ask() -> None:
 
 def test_image_ask_fails_clearly_without_a_vision_model() -> None:
     store = demo_store()
+    disconnect_chat(store)
     tenant = demo_id("tenant")
     file_id = _attach(
         store, tenant, (_FIXTURES / "ocr-canary.png").read_bytes(), "ocr-canary.png", "image/png"
