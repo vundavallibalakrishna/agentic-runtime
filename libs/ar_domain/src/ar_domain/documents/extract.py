@@ -719,33 +719,135 @@ def _pptx_table(table: ET.Element) -> list[list[str]]:
     return rows
 
 
+# Parts of a web page that are the site around the content, not the content: its menus,
+# banners, footers, sidebars, forms and widgets. A page read for a knowledge base keeps
+# only what it says, so a search finds the page for its subject, not for its menu.
+_HTML_NEVER = frozenset(
+    {
+        "script",
+        "style",
+        "noscript",
+        "template",
+        "svg",
+        "nav",
+        "aside",
+        "form",
+        "select",
+        "button",
+        "iframe",
+        "dialog",
+    }
+)
+# The site's header is its logo and menu. Its footer is kept: it is where a site gives its
+# address, telephone and email, and the menus in it are left out as link lists.
+_HTML_FRAME = frozenset({"header"})
+_HTML_ROLES = frozenset(
+    {"navigation", "banner", "contentinfo", "complementary", "search", "dialog"}
+)
+_HTML_CONTENT = frozenset({"main", "article"})
+_HTML_VOID = frozenset(
+    {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    }
+)
+# A list item that is mostly link text, or a link with only a date or a count beside it,
+# is a menu entry or a "recent posts" line. A short paragraph that is only a link is a
+# button ("Share", "Read more"). Both are left out.
+_HTML_LINK_SHARE = 0.6
+_HTML_LINK_ASIDE = 30
+_HTML_BUTTON = 40
+# When the page marks its content (``<main>`` or ``<article>``) and that holds at least
+# this much text, only that content and the site's footer are kept.
+_HTML_CONTENT_MIN = 200
+
+
 def _html(data: bytes) -> Extracted:
     from html.parser import HTMLParser  # noqa: PLC0415
 
     class Collector(HTMLParser):
         def __init__(self) -> None:
             super().__init__(convert_charrefs=True)
-            self.parts: list[tuple[str, str]] = []
+            # (tag, text, inside the page's marked content or its footer)
+            self.parts: list[tuple[str, str, bool]] = []
             self.capture = ""
             self.buffer: list[str] = []
+            self.linked: list[str] = []
             self.row: list[str] = []
             self.rows: list[list[str]] = []
             self.tables: list[list[list[str]]] = []
+            self.open: list[tuple[str, bool]] = []  # (tag, left out)
+            self.left_out = 0
+            self.content = 0
+            self.footer = 0
+            # Open links that lead somewhere else. A mailto: or tel: link is the contact
+            # detail itself, so its text counts as content.
+            self.links: list[bool] = []
+
+        def _leaves_out(self, tag: str, attrs: list[tuple[str, str | None]]) -> bool:
+            found = {name: (value or "") for name, value in attrs}
+            if tag in _HTML_NEVER or "hidden" in found:
+                return True
+            if found.get("aria-hidden", "").lower() == "true":
+                return True
+            if found.get("role", "").lower() in _HTML_ROLES:
+                return True
+            # A header inside the content is the article's own (its title, its byline);
+            # the site's header sits outside it.
+            return tag in _HTML_FRAME and not self.content
 
         def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-            del attrs
+            if tag in _HTML_VOID:
+                return
+            out = self._leaves_out(tag, attrs)
+            self.open.append((tag, out))
+            self.left_out += out
+            self.content += tag in _HTML_CONTENT
+            self.footer += tag == "footer"
+            if tag == "a":
+                href = next((value or "" for name, value in attrs if name == "href"), "")
+                self.links.append(not href.lower().startswith(("mailto:", "tel:")))
+            if self.left_out:
+                return
             if tag in {"h1", "h2", "h3", "p", "li", "td", "th"}:
                 self.capture = tag
                 self.buffer = []
+                self.linked = []
             if tag == "tr":
                 self.row = []
             if tag == "table":
                 self.rows = []
 
         def handle_endtag(self, tag: str) -> None:
+            if tag in _HTML_VOID or not any(name == tag for name, _ in self.open):
+                return
+            while self.open:
+                name, out = self.open.pop()
+                self.left_out -= out
+                self.content -= name in _HTML_CONTENT
+                self.footer -= name == "footer"
+                if name == "a" and self.links:
+                    self.links.pop()
+                if name == tag:
+                    break
+            if self.left_out:
+                return
             text = "".join(self.buffer).strip()
-            if tag == self.capture and text:
-                self.parts.append((tag, re.sub(r"\s+", " ", text)))
+            if tag == self.capture and text and not self._mostly_links(tag, text):
+                kept = bool(self.content or self.footer)
+                self.parts.append((tag, re.sub(r"\s+", " ", text), kept))
             if tag in {"td", "th"} and text:
                 self.row.append(re.sub(r"\s+", " ", text))
             if tag == "tr" and self.row:
@@ -757,16 +859,35 @@ def _html(data: bytes) -> Extracted:
             if tag == self.capture:
                 self.capture = ""
                 self.buffer = []
+                self.linked = []
+
+        def _mostly_links(self, tag: str, text: str) -> bool:
+            linked = len(re.sub(r"\s+", " ", "".join(self.linked)).strip())
+            if not linked:
+                return False
+            if tag == "li":
+                rest = len(text) - linked
+                return linked >= _HTML_LINK_SHARE * len(text) or rest < _HTML_LINK_ASIDE
+            if tag == "p":
+                return len(text) <= _HTML_BUTTON and len(text) - linked < 3
+            return False
 
         def handle_data(self, data: str) -> None:
-            if self.capture:
+            if self.capture and not self.left_out:
                 self.buffer.append(data)
+                if any(self.links):
+                    self.linked.append(data)
 
     parser = Collector()
     try:
         parser.feed(data.decode("utf-8", errors="replace"))
     except Exception as exc:
         raise ExtractError("corrupt", "This HTML file could not be read.") from exc
+    marked = [(tag, text) for tag, text, inside in parser.parts if inside]
+    if sum(len(text) for _, text in marked) >= _HTML_CONTENT_MIN:
+        parser_parts = marked
+    else:
+        parser_parts = [(tag, text) for tag, text, _ in parser.parts]
     passages: list[Passage] = []
     heading = "Document"
     level = 1
@@ -781,7 +902,7 @@ def _html(data: bytes) -> Extracted:
         if text:
             passages.extend(_sections(text, 1, len(passages), heading, level))
 
-    for tag, text in parser.parts:
+    for tag, text in parser_parts:
         if tag in {"h1", "h2", "h3"}:
             flush()
             heading = text
