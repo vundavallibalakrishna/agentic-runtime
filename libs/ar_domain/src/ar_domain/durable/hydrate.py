@@ -166,7 +166,7 @@ async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUI
     await _documents(session, store, tenant_id)
     await _webhooks(session, store, tenant_id)
     await _extractions(session, store, tenant_id)
-    await _settings(session, store, tenant_id)
+    await _resource_settings(session, store, tenant_id)
     await _chunks(session, store, tenant_id)
     await _facts(session, store, tenant_id)
     await _tools(session, store, tenant_id)
@@ -598,14 +598,11 @@ async def _extractions(session: AsyncSession, store: object, tenant_id: uuid.UUI
         _merge(store, "document_extractions", row["id"], dict(row))
 
 
-async def _settings(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+async def _resource_settings(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
     for row in await _rows(
         session, "SELECT * FROM resource_settings WHERE tenant_id = :tenant_id", tenant_id
     ):
-        loaded = dict(row)
-        if "schema" in loaded and "schema_doc" not in loaded:
-            loaded["schema"] = loaded["schema"]
-        _merge(store, "resource_settings", row["id"], loaded)
+        _merge(store, "resource_settings", row["id"], dict(row))
 
 
 async def _webhooks(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
