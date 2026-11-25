@@ -45,6 +45,9 @@ async def recall_memory(payload: dict[str, object]) -> dict[str, object]:
         agent_id=run.get("agent_id") if isinstance(run.get("agent_id"), uuid.UUID) else None,
         definition=definition,
     )
+    from ar_domain.config_docs.book import agent_settings_block  # noqa: PLC0415
+
+    settings = agent_settings_block(store, run)
     bundle = build_prompt(
         {
             "definition": definition,
@@ -52,6 +55,7 @@ async def recall_memory(payload: dict[str, object]) -> dict[str, object]:
             "memory": block,
             "summary": str(run.get("summary") or ""),
             "history": run.get("history") if isinstance(run.get("history"), list) else [],
+            "agent_settings": settings,
         }
     )
     return {

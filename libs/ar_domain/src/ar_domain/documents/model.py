@@ -60,13 +60,24 @@ def model_id_for(store: Any, tenant_id: uuid.UUID, alias: str) -> str:
     return str(call[0]) if call else ""
 
 
-def ask_model(store: Any, tenant_id: uuid.UUID, alias: str, task: str, evidence: str) -> str | None:
+def ask_model(  # noqa: PLR0917
+    store: Any,
+    tenant_id: uuid.UUID,
+    alias: str,
+    task: str,
+    evidence: str,
+    schema: dict[str, object] | None = None,
+) -> str | None:
     """Call the tenant's chat model. None when the alias has no model or the call fails."""
-    return ask_model_many(store, tenant_id, alias, [(task, evidence)])[0]
+    return ask_model_many(store, tenant_id, alias, [(task, evidence)], schema=schema)[0]
 
 
 def ask_model_many(
-    store: Any, tenant_id: uuid.UUID, alias: str, prompts: list[tuple[str, str]]
+    store: Any,
+    tenant_id: uuid.UUID,
+    alias: str,
+    prompts: list[tuple[str, str]],
+    schema: dict[str, object] | None = None,
 ) -> list[str | None]:
     """Ask the tenant's chat model each prompt, all at the same time. One answer a prompt.
 
@@ -100,6 +111,9 @@ def ask_model_many(
             "max_tokens": _ask_max_tokens(),
         }
         apply_request_options(body, options)
+        shaped = _response_format(store, tenant_id, alias or "reasoning", schema)
+        if shaped:
+            body["response_format"] = shaped
         bodies.append(body)
     from ar_common.internal_http import client_for  # noqa: PLC0415
 
@@ -119,12 +133,54 @@ def ask_model_many(
                 responses[index] = blocking(
                     _sent, client.post, url, json=bodies[index], headers=headers
                 )
+            elif _format_rejected(response):
+                plain = dict(bodies[index])
+                plain.pop("response_format", None)
+                responses[index] = blocking(_sent, client.post, url, json=plain, headers=headers)
     return [
         None
         if response is None or response.status_code >= 300
         else completion_text(response.json()) or None
         for response in responses
     ]
+
+
+def _response_format(
+    store: Any, tenant_id: uuid.UUID, alias: str, schema: dict[str, object] | None
+) -> dict[str, object] | None:
+    """Structured output when the model advertises it. Otherwise the prompt asks for JSON."""
+    if not schema:
+        return None
+    from ar_domain.models.request import response_format_body  # noqa: PLC0415
+
+    capabilities = _capabilities(store, tenant_id, alias)
+    if "json_schema" in capabilities:
+        return response_format_body(schema, mode="json_schema")
+    if "json_object" in capabilities:
+        return response_format_body(schema, mode="json_object")
+    return None
+
+
+def _capabilities(store: Any, tenant_id: uuid.UUID, alias: str) -> set[str]:
+    finder = getattr(store, "_alias_target", None)
+    if not callable(finder):
+        return set()
+    found = finder(tenant_id, alias)
+    model = found[1] if isinstance(found, tuple) and len(found) > 1 else None
+    raw = model.get("capabilities") if isinstance(model, dict) else None
+    if not isinstance(raw, list):
+        return set()
+    return {str(item) for item in raw}
+
+
+def _format_rejected(response: httpx.Response) -> bool:
+    from ar_domain.models.call import response_format_rejected  # noqa: PLC0415
+
+    try:
+        body = response.text
+    except Exception:  # noqa: BLE001 - a body that cannot be read is not a format refusal
+        return False
+    return response_format_rejected(response.status_code, body)
 
 
 def _ask_max_tokens() -> int:
@@ -150,8 +206,10 @@ class ModelAsk:
         self._tenant_id = tenant_id
         self._alias = alias
 
-    def __call__(self, task: str, evidence: str) -> str | None:
-        return ask_model(self._store, self._tenant_id, self._alias, task, evidence)
+    def __call__(
+        self, task: str, evidence: str, schema: dict[str, object] | None = None
+    ) -> str | None:
+        return ask_model(self._store, self._tenant_id, self._alias, task, evidence, schema)
 
     def many(self, prompts: list[tuple[str, str]]) -> list[str | None]:
         return ask_model_many(self._store, self._tenant_id, self._alias, prompts)

@@ -69,7 +69,13 @@ def opening_messages(
     prepared = run.get("prompt_messages")
     if isinstance(prepared, list) and prepared:
         return [dict(item) for item in prepared if isinstance(item, dict)]
-    bundle = build_prompt({"definition": definition, "user_text": user_text})
+    bundle = build_prompt(
+        {
+            "definition": definition,
+            "user_text": user_text,
+            "agent_settings": str(run.get("agent_settings") or ""),
+        }
+    )
     return [dict(item) for item in bundle.messages]
 
 

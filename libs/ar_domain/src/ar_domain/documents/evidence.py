@@ -517,16 +517,45 @@ def _threshold(value: float | None) -> float:
         return 0.8
 
 
+_FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.IGNORECASE | re.DOTALL)
+
+
 def _object(raw: str) -> dict[str, object]:
     from ar_common.errors import ArError, ErrorCode  # noqa: PLC0415
 
     try:
-        parsed = orjson.loads(raw)
+        parsed = _decode_json(raw)
     except orjson.JSONDecodeError as exc:
         raise ArError(ErrorCode.INVALID_STATE, "The extraction was not JSON.") from exc
     if not isinstance(parsed, dict):
         raise ArError(ErrorCode.INVALID_STATE, "The extraction was not a JSON object.")
     return parsed
+
+
+def _decode_json(raw: str) -> object:
+    """Strict JSON, or the same object inside a fence or a short prefix."""
+    text = raw.strip()
+    fenced = _FENCE.search(text)
+    if fenced:
+        text = fenced.group(1).strip()
+    try:
+        return orjson.loads(text)
+    except orjson.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            return orjson.loads(text[start : end + 1])
+        raise
+
+
+def response_schema(schema: dict[str, object]) -> dict[str, object]:
+    """The object the model is asked to return: one evidence record per field."""
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["fields"],
+        "properties": {"fields": {"type": "object"}, "source": schema},
+    }
 
 
 def _leaves(value: object, prefix: str = "") -> list[tuple[str, object]]:

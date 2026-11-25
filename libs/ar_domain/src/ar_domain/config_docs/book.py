@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import orjson
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 
@@ -43,6 +44,7 @@ class SettingsBook:
         document: dict[str, object],
     ) -> dict[str, object]:
         _check(schema, document)
+        _check_target_tool(self.store, document)
         rows = self._rows(tenant_id, resource_type, resource_id)
         previous_version = rows[-1].get("version") if rows else 0
         version = (previous_version if isinstance(previous_version, int) else 0) + 1
@@ -90,9 +92,59 @@ class SettingsBook:
         return found
 
 
+def agent_settings_block(store: Any, run: dict[str, object]) -> str:
+    """The latest settings document for the run's agent, for its system prompt."""
+    import uuid  # noqa: PLC0415
+
+    tenant = run.get("tenant_id")
+    if not isinstance(tenant, uuid.UUID):
+        return ""
+    agent_id = run.get("agent_id")
+    slug = ""
+    agents = getattr(store, "agents", {})
+    agent = agents.get(agent_id) if isinstance(agents, dict) else None
+    if isinstance(agent, dict):
+        slug = str(agent.get("slug") or "")
+    book = SettingsBook(store)
+    for resource_id in (slug, "" if agent_id is None else str(agent_id)):
+        if not resource_id:
+            continue
+        try:
+            found = book.latest(tenant, "agent", resource_id)
+        except NotFoundError:
+            continue
+        document = found.get("document")
+        if not isinstance(document, dict):
+            continue
+        return (
+            f"Agent settings, version {found.get('version')}. "
+            "These values are configuration for this agent.\n" + orjson.dumps(document).decode()
+        )
+    return ""
+
+
 def _version(item: dict[str, object]) -> int:
     value = item.get("version")
     return value if isinstance(value, int) else 0
+
+
+def registered_tool(store: Any, name: str) -> dict[str, object] | None:
+    """The tool version registered under ``name``, if this install has one."""
+    versions = getattr(store, "tool_versions", {})
+    if not isinstance(versions, dict):
+        return None
+    for row in versions.values():
+        if isinstance(row, dict) and str(row.get("qualified_name") or "") == name:
+            return row
+    return None
+
+
+def _check_target_tool(store: Any, document: dict[str, object]) -> None:
+    named = document.get("targetTool")
+    if not isinstance(named, str) or not named.strip():
+        return
+    if registered_tool(store, named.strip()) is None:
+        raise ValidationFailedError(f"{named} is not a registered tool")
 
 
 def _check(schema: dict[str, object], document: dict[str, object]) -> None:

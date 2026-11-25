@@ -65,6 +65,9 @@
             "properties": {
               "approvalGroup": {
                 "type": "string"
+              },
+              "targetTool": {
+                "type": "string"
               }
             }
           },

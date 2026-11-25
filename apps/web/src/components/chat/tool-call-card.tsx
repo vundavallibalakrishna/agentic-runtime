@@ -305,6 +305,27 @@ function friendlyName(qualified: string, t: (key: "toolChart") => string): strin
   return leaf.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function failureOf(
+  call: Record<string, unknown>,
+  presentation: Record<string, unknown>,
+): { status: string; message: string } {
+  const raw = text(call.status ?? "");
+  const error = call.error;
+  const fromError =
+    error && typeof error === "object"
+      ? text((error as { message?: string }).message)
+      : text(error);
+  const fromPresentation = text(presentation.kind) === "error" ? text(presentation.message) : "";
+  const message = fromError || fromPresentation;
+  const marked =
+    call.isError === true ||
+    call.is_error === true ||
+    text(presentation.kind) === "error" ||
+    Boolean(fromError);
+  const succeeded = raw === "succeeded" || raw === "completed" || raw === "";
+  return { status: marked && succeeded ? "failed" : raw || (marked ? "failed" : ""), message };
+}
+
 function friendlyStatus(
   status: string,
   t: (
@@ -318,13 +339,14 @@ function friendlyStatus(
 export function ToolCallCard({ call, label }: { call: Record<string, unknown>; label: string }) {
   const t = useTranslations("chat");
   const qualified = text(call.qualifiedName ?? call.qualified_name ?? "tool");
-  const called = presentationOf(call).kind === "agents";
+  const presentation = presentationOf(call);
+  const called = presentation.kind === "agents";
   const name = called ? t("calledAgents") : friendlyName(qualified, t);
-  const status = friendlyStatus(text(call.status ?? ""), t);
+  const failure = failureOf(call, presentation);
+  const status = friendlyStatus(failure.status, t);
   const preview = text(call.resultPreview ?? call.result_preview ?? "");
   const approvalId = text(call.approvalId ?? call.approval_id ?? "");
   const waiting = text(call.status ?? "") === "awaiting_approval";
-  const presentation = presentationOf(call);
   const kind = text(presentation.kind);
   const error = call.error;
   const connect =
@@ -353,6 +375,9 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           {" · "}
         </span>
         <span className="text-[var(--muted-foreground)]">{status}</span>
+        {failure.message ? (
+          <span className="mt-1 block text-[var(--destructive)]">{failure.message}</span>
+        ) : null}
       </summary>
       {text(call.arguments) ? (
         <details className="mt-2">

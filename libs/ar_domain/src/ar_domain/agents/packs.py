@@ -44,6 +44,20 @@ def verify_signature(public_pem: str, signature: str, digest: bytes) -> bool:
     return True
 
 
+def _refusal(payload: dict[str, object]) -> str:
+    """One line per resource the bundle refused. Empty when every resource was accepted."""
+    lines: list[str] = []
+    for item in _result_rows(payload):
+        if not isinstance(item, dict) or item.get("action") != "error":
+            continue
+        errors = item.get("errors")
+        detail = ""
+        if isinstance(errors, list) and errors and isinstance(errors[0], dict):
+            detail = str(errors[0].get("msg") or "")
+        lines.append(f"{item.get('kind')} {item.get('key')}: {detail}".strip())
+    return "; ".join(lines)
+
+
 def _result_rows(payload: dict[str, object]) -> list[object]:
     rows = payload.get("results")
     return list(rows) if isinstance(rows, list) else []
@@ -147,6 +161,7 @@ class PackService:
         *,
         signature: str | None,
         key_id: str | None,
+        stepped_up: bool = False,
     ) -> dict[str, object]:
         if not actor.has("packs:manage") and not actor.has("agents:manage_all"):
             raise ArError(ErrorCode.FORBIDDEN, "missing permission packs:manage")
@@ -159,7 +174,7 @@ class PackService:
         existing = self._by_version(actor.tenant_id, parsed.metadata.id, parsed.metadata.version)
         if existing is not None and existing.get("status") == "installed":
             _seed_settings(self.store, actor, manifest)
-            _apply_policies(self.store, actor, manifest)
+            _apply_policies(self.store, actor, manifest, stepped_up=stepped_up)
             body = self._out(existing)
             body["import_results"] = []
             return body
@@ -172,16 +187,24 @@ class PackService:
             for item in parsed.spec.resources
             if not (isinstance(item, dict) and item.get("kind") == "Policy")
         ]
+        bundle = {
+            "apiVersion": "agentic-runtime.dev/v1",
+            "kind": "Bundle",
+            "spec": {"resources": bundle_resources},
+        }
+        preview = import_bundle(self.store, actor, bundle, dry_run=True)
+        refused = _refusal(preview)
+        if refused:
+            raise ArError(ErrorCode.VALIDATION_FAILED, refused)
         imported = import_bundle(
             self.store,
             actor,
-            {
-                "apiVersion": "agentic-runtime.dev/v1",
-                "kind": "Bundle",
-                "spec": {"resources": bundle_resources},
-            },
+            bundle,
             dry_run=False,
         )
+        refused = _refusal(imported)
+        if refused:
+            raise ArError(ErrorCode.VALIDATION_FAILED, refused)
         now = utcnow()
         row_id = new_id()
         row = {
@@ -219,7 +242,7 @@ class PackService:
                 "created_at": now,
             }
         _seed_settings(self.store, actor, manifest)
-        _apply_policies(self.store, actor, manifest)
+        _apply_policies(self.store, actor, manifest, stepped_up=stepped_up)
         _audit(
             self.store,
             actor,
@@ -246,6 +269,7 @@ class PackService:
         signature: str | None,
         key_id: str | None,
         accept_conflicts: bool,
+        stepped_up: bool = False,
     ) -> dict[str, object]:
         if not actor.has("packs:manage") and not actor.has("agents:manage_all"):
             raise ArError(ErrorCode.FORBIDDEN, "missing permission packs:manage")
@@ -281,7 +305,9 @@ class PackService:
             for agent in self.store.agents.values():
                 if agent.get("tenant_id") == actor.tenant_id:
                     agent["dirty"] = False
-        installed = self.install(actor, manifest, signature=signature, key_id=key_id)
+        installed = self.install(
+            actor, manifest, signature=signature, key_id=key_id, stepped_up=stepped_up
+        )
         _audit(self.store, actor, "pack.upgraded", pack_id, {"version": parsed.metadata.version})
         current["status"] = "uninstalled"
         return installed
@@ -369,7 +395,9 @@ def _seed_settings(store: Any, actor: Actor, manifest: dict[str, object]) -> Non
         )
 
 
-def _apply_policies(store: Any, actor: Actor, manifest: dict[str, object]) -> None:
+def _apply_policies(
+    store: Any, actor: Actor, manifest: dict[str, object], *, stepped_up: bool = False
+) -> None:
     """Install each Policy through PolicyBook. A second install updates that policy."""
     from ar_domain.policy.service import PolicyBook  # noqa: PLC0415
 
@@ -406,7 +434,7 @@ def _apply_policies(store: Any, actor: Actor, manifest: dict[str, object]) -> No
                 added = book.add_version(actor, policy_id, {"document": rewritten})
                 added_version = added.get("version")
                 number = added_version if isinstance(added_version, int) else 1
-        book.activate(actor, policy_id, number, stepped_up=False)
+        book.activate(actor, policy_id, number, stepped_up=stepped_up)
 
 
 def _approval_group(store: Any, actor: Actor, manifest: dict[str, object]) -> str:

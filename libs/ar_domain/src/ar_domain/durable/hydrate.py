@@ -865,6 +865,17 @@ async def _events_for(  # noqa: PLR0917 - the event row needs the run, conversat
         _load(store, bucket, run_id, shaped)
 
 
+def index_groups(rows: list[dict[str, Any]]) -> dict[uuid.UUID, list[str]]:
+    """Group names each user belongs to. Approval rules name groups, not ids."""
+    found: dict[uuid.UUID, list[str]] = {}
+    for row in rows:
+        user_id = row.get("user_id")
+        name = str(row.get("name") or "").strip()
+        if isinstance(user_id, uuid.UUID) and name:
+            found.setdefault(user_id, []).append(name)
+    return found
+
+
 _ROLES_SQL = (
     "SELECT a.principal_id AS user_id, r.key FROM role_assignments a "
     "JOIN roles r ON r.id = a.role_id "
@@ -874,6 +885,12 @@ _ROLES_SQL = (
     "JOIN roles r ON r.id = a.role_id "
     "JOIN group_members m ON m.group_id = a.principal_id AND m.tenant_id = a.tenant_id "
     "WHERE a.tenant_id = :tenant_id AND a.principal_type = 'group' AND a.scope_type = 'tenant'"
+)
+
+_GROUPS_SQL = (
+    "SELECT m.user_id, g.name FROM group_members m "
+    "JOIN groups g ON g.id = m.group_id AND g.tenant_id = m.tenant_id "
+    "WHERE m.tenant_id = :tenant_id"
 )
 
 
@@ -886,9 +903,10 @@ async def _people(session: AsyncSession, store: object, tenant_id: uuid.UUID) ->
     roles: dict[uuid.UUID, set[str]] = {}
     for row in await _rows(session, _ROLES_SQL, tenant_id):
         roles.setdefault(row["user_id"], set()).add(str(row["key"]))
+    groups = index_groups(await _rows(session, _GROUPS_SQL, tenant_id))
     buckets = {
         name: getattr(store, name, None)
-        for name in ("user_statuses", "display_names", "user_emails", "user_roles")
+        for name in ("user_statuses", "display_names", "user_emails", "user_roles", "user_groups")
     }
     for user in await _rows(
         session,
@@ -900,6 +918,7 @@ async def _people(session: AsyncSession, store: object, tenant_id: uuid.UUID) ->
             "display_names": str(user["display_name"]),
             "user_emails": str(user["email"]).lower(),
             "user_roles": roles.get(user["id"], set()),
+            "user_groups": groups.get(user["id"], []),
         }
         for name, value in values.items():
             bucket = buckets[name]

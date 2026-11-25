@@ -8,6 +8,8 @@ import uuid
 from typing import TYPE_CHECKING, Any, cast
 
 import yaml
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
 from pydantic import JsonValue
 
 from ar_common.errors import ArError, ErrorCode
@@ -113,7 +115,19 @@ def import_bundle(  # noqa: PLR0912, PLR0915
                 }
             )
             continue
-        normalised, issues = schema_errors(cast("dict[str, object]", spec))
+        body = dict(spec)
+        settings_error = _settings_error(body)
+        if settings_error:
+            results.append(
+                {
+                    "kind": kind,
+                    "key": key,
+                    "action": "error",
+                    "errors": [{"msg": settings_error}],
+                }
+            )
+            continue
+        normalised, issues = schema_errors(body)
         if normalised is None:
             results.append(
                 {
@@ -165,6 +179,35 @@ def import_bundle(  # noqa: PLR0912, PLR0915
             }
         )
     return {"results": results}
+
+
+def _settings_error(body: dict[str, object]) -> str:
+    """Take settings off an agent spec and check the document against its schema.
+
+    The keys are not part of the agent definition. A pack carries them so install can
+    save a versioned settings document. Either both are present or neither is.
+    """
+    schema = body.pop("settingsSchema", None)
+    if schema is None:
+        schema = body.pop("settings_schema", None)
+    else:
+        body.pop("settings_schema", None)
+    document = body.pop("settings", None)
+    if schema is None and document is None:
+        return ""
+    if not isinstance(schema, dict) or not isinstance(document, dict):
+        return "settings and settingsSchema must both be objects"
+    try:
+        Draft202012Validator.check_schema(schema)
+        errors = sorted(
+            Draft202012Validator(schema).iter_errors(document),
+            key=lambda item: item.message,
+        )
+    except SchemaError:
+        return "settingsSchema is not a JSON Schema"
+    if errors:
+        return str(errors[0].message)
+    return ""
 
 
 def _text(spec: dict[str, object], *keys: str) -> str:
