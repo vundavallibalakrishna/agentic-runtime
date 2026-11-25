@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ar_common.ids import new_id
 
 JsonObject = dict[str, Any]
+ID_AT_BIRTH = "id_at_birth"
 
 
 def uuid_pk() -> Mapped[uuid.UUID]:
@@ -20,6 +21,8 @@ def uuid_pk() -> Mapped[uuid.UUID]:
         primary_key=True,
         default=new_id,
         server_default=text("uuidv7()"),
+        # A new row is given its id when it is made (db/base.py), not when it is saved.
+        info={ID_AT_BIRTH: True},
     )
 
 

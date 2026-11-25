@@ -1,8 +1,9 @@
 """API keys. Spec: docs/03-specs/02-identity-tenancy.md §3.8."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import Field
 
 from ar_api.deps import IdentityDep, expose, require_permission
@@ -18,6 +19,10 @@ class ApiKeyCreate(ApiModel):
     expires_in_days: int = 90
 
 
+def _when(value: object) -> str | None:
+    return value.isoformat() if hasattr(value, "isoformat") else None
+
+
 def _row(item: object, secret: str | None = None) -> dict[str, object]:
     body: dict[str, object] = {
         "id": str(item.id),  # type: ignore[attr-defined]
@@ -26,6 +31,8 @@ def _row(item: object, secret: str | None = None) -> dict[str, object]:
         "keyFormat": getattr(item, "key_format", "legacy"),
         "scopes": list(item.scopes),  # type: ignore[attr-defined]
         "expires_at": None if item.expires_at is None else item.expires_at.isoformat(),  # type: ignore[attr-defined]
+        "last_used_at": _when(getattr(item, "last_used_at", None)),
+        "revoked_at": _when(getattr(item, "revoked_at", None)),
     }
     if secret is not None:
         body["key"] = secret
@@ -35,8 +42,12 @@ def _row(item: object, secret: str | None = None) -> dict[str, object]:
 @router.get("/api/v1/api-keys", dependencies=[Depends(require_permission("api_keys:manage_own"))])
 @expose(public=False, permission="api_keys:manage_own")
 async def list_api_keys(
-    identity: IdentityDep, service_account_id: uuid.UUID | None = None
+    identity: IdentityDep,
+    service_account_id: uuid.UUID | None = None,
+    account: Annotated[uuid.UUID | None, Query(alias="serviceAccountId")] = None,
 ) -> dict[str, object]:
+    # The public name is camelCase. The older spelling is still read.
+    service_account_id = account or service_account_id
     user_id = None if service_account_id else identity.ctx.user_id
     rows = await identity.store.list_api_keys(
         user_id=user_id, service_account_id=service_account_id

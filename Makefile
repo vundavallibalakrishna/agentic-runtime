@@ -122,6 +122,7 @@ gen:
 	uv run python scripts/gen_openapi.py
 	uv run python scripts/gen_json_schema.py
 	uv run python scripts/sync_agent_docs.py
+	uv run python scripts/gen_developer_notes.py
 	pnpm --filter @ar/api-client gen
 	uv run python scripts/strip_generated_markers.py
 	uv run python scripts/gen_python_client.py

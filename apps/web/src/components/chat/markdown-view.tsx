@@ -105,7 +105,8 @@ function CodeBlock({ className, value }: { className: string; value: string }) {
         <div className="overflow-auto rounded-xl bg-[var(--muted)] p-3" ref={diagramRef} />
       ) : null}
       {language !== "mermaid" && lines.length > 0 ? (
-        <pre>
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs keyboard focus
+        <pre tabIndex={0}>
           <code>
             {lines.map((line) => {
               const seen = new Map<string, number>();
@@ -132,12 +133,14 @@ function CodeBlock({ className, value }: { className: string; value: string }) {
         </pre>
       ) : null}
       {language !== "mermaid" && lines.length === 0 ? (
-        <pre>
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs keyboard focus
+        <pre tabIndex={0}>
           <code>{value}</code>
         </pre>
       ) : null}
       {language === "mermaid" && !diagram ? (
-        <pre>
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs keyboard focus
+        <pre tabIndex={0}>
           <code>{value}</code>
         </pre>
       ) : null}

@@ -22,7 +22,7 @@ from ar_common.settings import DeploymentMode
 from ar_common.time import utcnow
 from ar_domain.db.context import Principal, TenantContext
 from ar_domain.identity.models import User
-from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_domain.identity.permissions import PERMISSION_KEYS, SYSTEM_ROLE_PERMISSIONS
 from ar_domain.identity.service import IdentityService
 from ar_domain.identity.tokens import sha256_hex
 from ar_testing.demo import demo_application
@@ -283,7 +283,22 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
     account = client.post("/api/v1/service-accounts", json={"name": "bot"})
     assert account.status_code == 200, account.text
     account_id = account.json()["id"]
+    # The reply names the account: an id the next call can use, and its status.
+    assert uuid.UUID(account_id)
+    assert account.json()["status"] == "active"
     assert client.get("/api/v1/service-accounts").status_code == 200
+    # What an account can be made for: each choice names a system role that grants it.
+    choices = client.get("/api/v1/service-accounts:capabilities").json()["items"]
+    assert [item["key"] for item in choices] == [
+        "chat",
+        "knowledge_search",
+        "knowledge_manage",
+        "agents_manage",
+    ]
+    for item in choices:
+        granted = SYSTEM_ROLE_PERMISSIONS[item["role"]]
+        assert item["permissions"]
+        assert set(item["permissions"]) <= set(granted)
     assert (
         client.patch(
             f"/api/v1/service-accounts/{account_id}", json={"description": "bot"}
@@ -293,6 +308,9 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
     created_key = client.post("/api/v1/api-keys", json={"name": "cli", "expiresInDays": 30})
     assert created_key.status_code == 200, created_key.text
     assert "key" in created_key.json()
+    assert uuid.UUID(created_key.json()["id"])
+    assert created_key.json()["lastUsedAt"] is None
+    assert created_key.json()["revokedAt"] is None
     assert client.get("/api/v1/api-keys").status_code == 200
     assert client.delete(f"/api/v1/api-keys/{created_key.json()['id']}").status_code in {200, 204}
     assert client.delete(f"/api/v1/service-accounts/{account_id}").status_code in {200, 204}
@@ -510,3 +528,8 @@ def test_scim_and_platform_admin_and_single_tenant_hide() -> None:
     assert hidden.status_code == 404
     with pytest.raises(ForbiddenError):
         require_step_up(utcnow() - timedelta(hours=1), now=utcnow(), ttl_s=60, needed=True)
+
+
+def test_the_list_of_what_an_account_is_for_needs_the_right_to_manage_accounts() -> None:
+    member = _principal(uuid.uuid4(), uuid.uuid4(), permissions=frozenset({"chat:use"}))
+    assert _app(member).get("/api/v1/service-accounts:capabilities").status_code == 403

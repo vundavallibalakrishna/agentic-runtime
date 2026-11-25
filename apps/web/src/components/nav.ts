@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   BarChart3,
+  BookOpen,
   Bot,
   Brain,
   CalendarClock,
@@ -10,6 +11,7 @@ import {
   FileText,
   Gauge,
   Inbox,
+  KeyRound,
   Library,
   Link2,
   MessageSquare,
@@ -50,6 +52,8 @@ export type NavItem = {
     | "navRuns"
     | "navModels"
     | "navUsers"
+    | "navDevelopers"
+    | "navServiceKeys"
     | "navComputers";
   section: "work" | "build" | "data" | "admin";
   /** Shown in the sidebar. Every other screen is reached from Settings. */
@@ -211,6 +215,20 @@ export const primaryNav: NavItem[] = [
     labelKey: "navComputers",
     permission: "sandboxes:manage",
     icon: Monitor,
+  },
+  {
+    href: "/developers",
+    section: "build",
+    labelKey: "navDevelopers",
+    permission: "chat:use",
+    icon: BookOpen,
+  },
+  {
+    href: "/admin/developers/keys",
+    section: "admin",
+    labelKey: "navServiceKeys",
+    permission: "service_accounts:manage",
+    icon: KeyRound,
   },
   {
     href: "/admin/users",

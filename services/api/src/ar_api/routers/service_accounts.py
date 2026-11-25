@@ -41,6 +41,18 @@ async def list_service_accounts(identity: IdentityDep) -> dict[str, object]:
     return {"data": [_row(item) for item in await identity.store.list_service_accounts()]}
 
 
+@router.get(
+    "/api/v1/service-accounts:capabilities",
+    dependencies=[Depends(require_permission("service_accounts:manage"))],
+)
+@expose(public=False, permission="service_accounts:manage")
+async def list_capabilities() -> dict[str, object]:
+    """What a service account can be made for: the role and the permissions for each."""
+    from ar_domain.identity.capabilities import capabilities  # noqa: PLC0415
+
+    return {"data": capabilities()}
+
+
 @router.post(
     "/api/v1/service-accounts",
     dependencies=[Depends(require_permission("service_accounts:manage"))],
@@ -72,6 +84,10 @@ async def patch_service_account(
         row.description = body.description
     if body.status is not None:
         row.status = body.status
+        # The account's user follows it: a disabled account owns and does nothing new.
+        owner = await identity.store.get_user(service_account_id)
+        if owner is not None:
+            owner.status = "active" if body.status == "active" else "suspended"
     if body.allow_on_behalf_of is not None:
         row.allow_on_behalf_of = body.allow_on_behalf_of
     return _row(row)
@@ -91,4 +107,8 @@ async def delete_service_account(
 
         raise NotFoundError("service account not found")
     await identity.store.delete(row)
+    # Its user stays, closed, so what the account created keeps an owner.
+    owner = await identity.store.get_user(service_account_id)
+    if owner is not None:
+        owner.status = "deprovisioned"
     return {"deleted": True}

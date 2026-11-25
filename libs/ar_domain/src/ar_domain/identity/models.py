@@ -120,6 +120,7 @@ class User(Base):
         CheckConstraint(
             "status IN ('invited','active','suspended','deprovisioned')", name="status"
         ),
+        CheckConstraint("kind IN ('person','service')", name="kind"),
         UniqueConstraint("tenant_id", "idp_subject", name="uq_users_subject"),
         UniqueConstraint("tenant_id", "email", name="uq_users_email"),
         Index("ix_users_tenant_status", "tenant_id", "status"),
@@ -133,6 +134,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(CITEXT, nullable=False)
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))
+    # ``service`` is the user a service account owns things through: same id as the
+    # account, no password, never listed or looked up as a person.
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'person'"))
     # Local sign-in credential (argon2id). Null until a password is set (invited users,
     # or users migrated before local auth). Never returned by an API after it is set.
     password_hash: Mapped[str | None] = mapped_column(Text)
