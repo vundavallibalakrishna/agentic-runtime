@@ -3,7 +3,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from ar_domain.models.options import default_request_options
 from ar_domain.models.registry import UpstreamTarget
 from ar_model_gateway.main import create_application
 
@@ -16,7 +15,7 @@ async def test_registered_model_is_forwarded(monkeypatch: pytest.MonkeyPatch) ->
         upstream_model="Qwen/Qwen3-32B",
         timeout_s=30,
         kind="openai_compatible",
-        request_options=default_request_options("Qwen/Qwen3-32B"),
+        request_options={"chat_template_kwargs": {"enable_thinking": False}},
     )
 
     async def _lookup(model_name: str) -> UpstreamTarget | None:

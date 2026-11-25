@@ -228,6 +228,51 @@ describe("Models admin", () => {
     );
   });
 
+  it("sends the request options a person writes for a chat model, and refuses text that is not an object", async () => {
+    const state = registry();
+    state.providers.push({
+      id: "prov-1",
+      name: "Main",
+      kind: "openai_compatible",
+      baseUrl: "https://models.example.com/v1",
+      hasApiKey: true,
+      platform: false,
+    });
+    render(wrap(<ModelsAdmin />));
+    fireEvent.click(await screen.findByRole("button", { name: "Advanced" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add model to Main" }));
+
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Model id"), {
+      target: { value: "vendor/chat-large" },
+    });
+    const options = within(dialog).getByLabelText("Request options (JSON)") as HTMLTextAreaElement;
+    // A new model starts with none, whatever it is called.
+    expect(options.value).toBe("");
+    fireEvent.change(options, { target: { value: "[1, 2]" } });
+    expect(
+      within(dialog).getByText(/Request options must be a JSON object/, {
+        selector: "[role=alert]",
+      }),
+    ).toBeTruthy();
+    fireEvent.change(options, {
+      target: { value: '{"chat_template_kwargs": {"enable_thinking": false}}' },
+    });
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add model" }));
+
+    await waitFor(() =>
+      expect(state.calls.find((call) => call.path === "/api/v1/models")).toMatchObject({
+        method: "POST",
+        body: {
+          upstreamModel: "vendor/chat-large",
+          kind: "chat",
+          requestOptions: { chat_template_kwargs: { enable_thinking: false } },
+        },
+      }),
+    );
+  });
+
   it("lets a rerank model say where it is called and how, and sends that with the model", async () => {
     const state = registry();
     state.providers.push({

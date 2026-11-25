@@ -21,7 +21,7 @@ from ar_common.settings import get_settings
 from ar_domain.audit.actions import AuditAction
 from ar_domain.audit.service import record
 from ar_domain.db.engine import platform_database_url
-from ar_domain.models.options import default_request_options, request_options_of
+from ar_domain.models.options import request_options_of
 from ar_domain.models.tables import Model, ModelAlias, ModelProvider
 from ar_domain.secrets.crypto import parse_keyring
 from ar_domain.secrets.stores.db_encrypted import DbEncryptedStore
@@ -243,8 +243,7 @@ async def save_model(
                     max_output_tokens=_whole(row.get("max_output_tokens")),
                     price_input_micros_per_mtok=_price(row, "price_input_micros_per_mtok"),
                     price_output_micros_per_mtok=_price(row, "price_output_micros_per_mtok"),
-                    request_options=request_options_of(row)
-                    or default_request_options(str(row.get("upstream_model") or "")),
+                    request_options=request_options_of(row),
                     embedding_dimensions=_whole(row.get("embedding_dimensions")),
                     licence="",
                     status="active",
