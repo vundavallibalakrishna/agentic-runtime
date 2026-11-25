@@ -161,8 +161,10 @@ def acl_sync(store: Any, source: dict[str, object], *, actor_id: object) -> dict
         kind="acl_sync",
         triggered_by="manual",
     )
-    index = memory_index(store)
     collection = store.knowledge_collections[source["collection_id"]]
+    # The index the collection is in. The memory one is not it on a database-backed
+    # install, where a change of readers used to reach the document and not the index.
+    index = _index_of(store, collection)
     for change in list_acl_changes({**source, "store": store}):
         external_id = str(change.get("external_id") or "")
         document = _by_external(store, source["id"], external_id)
@@ -255,7 +257,7 @@ def reindex(store: Any, collection: dict[str, object], *, actor_id: object) -> d
     return job
 
 
-def _delete_index(store: Any, collection: dict[str, object] | None) -> Any:
+def _index_of(store: Any, collection: dict[str, object] | None) -> Any:
     """The index that holds this collection's vectors. Memory when the process has no database.
 
     A pgvector collection is in the database this process is bound to, and the index
@@ -280,7 +282,7 @@ def _delete_index(store: Any, collection: dict[str, object] | None) -> Any:
 
 def delete_document(store: Any, document: dict[str, object], *, actor_id: object) -> None:
     collection = store.knowledge_collections.get(document.get("collection_id"))
-    index = _delete_index(store, collection if isinstance(collection, dict) else None)
+    index = _index_of(store, collection if isinstance(collection, dict) else None)
     if isinstance(collection, dict):
         run_sync(
             index.delete(
@@ -351,6 +353,7 @@ async def _upsert_item(
         principals = _collection_default(store, source)
     created = existing is None
     document = existing or _stub(store, source, item, mime, principals)
+    readers_before = None if created else document.get("acl_hash")
     document["mime_type"] = mime
     document["title"] = str(item.get("title") or document.get("title") or external_id)
     document["acl_principals"] = principals
@@ -377,6 +380,19 @@ async def _upsert_item(
     key = "added" if created else "updated"
     if status == "unchanged":
         key = "unchanged"
+        if readers_before != document["acl_hash"]:
+            # The text is the same and who may read it is not. The index holds the
+            # readers of every passage, and is told without embedding anything again.
+            collection = store.knowledge_collections.get(document.get("collection_id"))
+            if isinstance(collection, dict):
+                await _index_of(store, collection).set_acl(
+                    str(collection.get("store_collection")),
+                    document["tenant_id"],
+                    document["id"],
+                    principals,
+                    str(document.get("classification") or "internal"),
+                )
+            key = "updated"
     _stats(job)[key] = int(_stats(job)[key]) + 1  # type: ignore[call-overload]
     del actor_id
 
