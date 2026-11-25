@@ -166,9 +166,7 @@ def _run_script(
     on_host, in_computer = interpreters
     timeout = _as_limit(limits["timeout_s"])
     if runs_in_computer(store):
-        return run_in_computer(
-            store, arguments, root, [*in_computer, name, *args], timeout=timeout
-        )
+        return run_in_computer(store, arguments, root, [*in_computer, name, *args], timeout=timeout)
     if not host_exec_allowed():
         return _error("sandbox_unavailable", "the computer is not ready")
     return blocking(
