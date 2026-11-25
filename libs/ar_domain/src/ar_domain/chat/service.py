@@ -2298,8 +2298,13 @@ class ChatBehaviour:
                 {"message_id": str(assistant_id), "mode": report.get("mode"), "report": report},
             )
         parts = grounded.get("parts") if isinstance(grounded.get("parts"), list) else []
-        assistant["content"] = parts
+        from ar_domain.tools.agent_loop import _one_text, keep_one_reply  # noqa: PLC0415
+
+        assistant["content"] = _one_text(
+            [part for part in parts if isinstance(part, dict)], answer
+        )
         assistant["text"] = answer
+        keep_one_reply(self, run, assistant)
         assistant["status"] = "completed"
         run["ended_at"] = utcnow()
         run["status"] = "completed"
@@ -2533,9 +2538,14 @@ class ChatBehaviour:
             tool_calls=0,
             budget=read_budget(definition if isinstance(definition, dict) else {}),
         )
-        from ar_domain.tools.agent_loop import _with_trace  # noqa: PLC0415
+        from ar_domain.tools.agent_loop import (  # noqa: PLC0415
+            _one_text,
+            _with_trace,
+            keep_one_reply,
+        )
 
-        assistant["content"] = _with_trace(self, answer, run)
+        assistant["content"] = _one_text(_with_trace(self, answer, run), answer)
+        keep_one_reply(self, run, assistant)
         assistant["retrieval"] = run.get("retrieval")
         assistant["loaded_skill"] = run.get("loaded_skill")
         assistant["status"] = "completed"

@@ -1675,6 +1675,36 @@ def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> Non
         )
 
 
+def keep_one_reply(store: Any, run: dict[str, object], assistant: dict[str, object]) -> None:
+    """One conversation reply per run. Extra assistant rows for that run are dropped."""
+    messages = getattr(store, "messages", None)
+    if not isinstance(messages, dict):
+        return
+    kept = assistant.get("id")
+    run_id = run.get("id")
+    extra = [
+        key
+        for key, row in list(messages.items())
+        if isinstance(row, dict)
+        and row.get("run_id") == run_id
+        and row.get("role") == "assistant"
+        and row.get("scope") != "run"
+        and key != kept
+    ]
+    for key in extra:
+        messages.pop(key, None)
+
+
+def _one_text(content: list[dict[str, object]], text: str) -> list[dict[str, object]]:
+    """The answer is one text part. Citations and files stay beside it."""
+    rest = [
+        part
+        for part in content
+        if not isinstance(part, dict) or part.get("type") != "text"
+    ]
+    return [{"type": "text", "text": text}, *rest]
+
+
 def _deltas(store: Any, run: dict[str, object], assistant: dict[str, object]) -> Coalescer:
     """Sends the answer's text to the run's stream as the model writes it."""
     message_id = str(assistant.get("id"))
@@ -1764,6 +1794,8 @@ def _finish(
 ) -> None:
     assistant["text"] = answer
     content = [*_with_trace(store, answer, run), *_artifact_parts(store, previews)]
+    content = _one_text(content, answer)
+    keep_one_reply(store, run, assistant)
     prompts = [item for item in (followups or []) if item.strip()]
     if prompts:
         content.append({"type": "followups", "prompts": prompts})

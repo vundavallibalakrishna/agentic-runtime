@@ -307,6 +307,7 @@ def _assistant_message(store: Any, child: dict[str, object]) -> dict[str, object
         "content": [{"type": "text", "text": ""}],
         "text": "",
         "status": "streaming",
+        "scope": "run",
         "is_active_branch": False,
         "created_at": utcnow(),
     }

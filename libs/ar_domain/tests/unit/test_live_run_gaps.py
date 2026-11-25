@@ -16,9 +16,13 @@ from ar_domain.approvals.errors import StepUpRequiredError
 from ar_domain.approvals.service import ApprovalBook
 from ar_domain.bundles.import_ import import_bundle
 from ar_domain.chat.service import demo_id
-from ar_domain.durable.hydrate import index_groups
 from ar_domain.config_docs.book import SettingsBook, agent_settings_block
+from ar_domain.documents.evidence import interpret
+from ar_domain.documents.library import _interpreted, note_extraction_decision
+from ar_domain.documents.model import _response_format
+from ar_domain.durable.hydrate import index_groups
 from ar_domain.memory.session import prepare_prompt
+from ar_domain.tools.agent_loop import keep_one_reply
 from ar_domain.workspace.turn import opening_messages
 from ar_testing.demo import demo_store
 
@@ -231,3 +235,112 @@ def test_a_member_of_the_named_group_can_decide_the_approval() -> None:
         stepped_up=True,
     )
     assert approved["status"] == "approved"
+
+
+_SCHEMA = {
+    "type": "object",
+    "properties": {"total": {"type": "number"}},
+    "required": ["total"],
+}
+_PASSAGES = [{"anchor": "p1", "page": 1, "text": "The total is 42."}]
+
+
+def test_extraction_reads_fenced_and_prefixed_json_and_retries_once() -> None:
+    payload = (
+        '{"fields": {"total": {"value": 42, "quote": "The total is 42.", "confidence": 0.9}}}'
+    )
+    fenced = "Here is the object:\n```json\n" + payload + "\n```"
+    body = interpret(fenced, _SCHEMA, _PASSAGES, threshold=0.5)
+    assert body["result"]["total"] == 42
+    prefixed = "Answer: " + payload
+    assert interpret(prefixed, _SCHEMA, _PASSAGES, threshold=0.5)["result"]["total"] == 42
+    seen: list[object] = []
+
+    def ask(task: str, evidence: str, schema: object = None) -> str:
+        seen.append(schema)
+        return fenced
+
+    repaired = _interpreted(ask, _SCHEMA, _PASSAGES, "evidence", "not json", {"type": "object"})
+    assert repaired["result"]["total"] == 42
+    assert seen == [{"type": "object"}]
+    with pytest.raises(ArError, match="not JSON"):
+        _interpreted(lambda *_args: "still not", _SCHEMA, _PASSAGES, "evidence", "not json")
+
+
+def test_structured_output_is_requested_when_the_model_supports_it() -> None:
+    store = type("Store", (), {})()
+
+    def target(_tenant: object, _alias: str) -> tuple[object, dict[str, object]]:
+        return None, {"capabilities": ["json_schema"]}
+
+    store._alias_target = target
+    shaped = _response_format(store, uuid.uuid4(), "reasoning", {"type": "object"})
+    assert shaped is not None
+    assert shaped["type"] == "json_schema"
+
+
+def test_an_approved_extraction_leaves_awaiting_approval() -> None:
+    store = demo_store()
+    approval_id = uuid.uuid4()
+    call_id = uuid.uuid4()
+    store.document_extractions = {
+        uuid.uuid4(): {
+            "id": uuid.uuid4(),
+            "approval_id": approval_id,
+            "status": "awaiting_approval",
+            "result": {"total": 1},
+        }
+    }
+    store.tool_calls[call_id] = {"id": call_id, "status": "awaiting_approval"}
+    note_extraction_decision(
+        store,
+        {
+            "id": approval_id,
+            "qualified_name": "documents.review_extraction",
+            "status": "approved",
+            "tool_call_id": call_id,
+            "arguments": {"total": 2},
+            "tenant_id": demo_id("tenant"),
+            "decided_by": demo_id("admin"),
+        },
+    )
+    record = next(iter(store.document_extractions.values()))
+    assert record["status"] == "done"
+    assert store.tool_calls[call_id]["status"] == "succeeded"
+
+
+def test_a_turn_keeps_one_assistant_reply() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    run_id = uuid.uuid4()
+    kept = uuid.uuid4()
+    store.runs[run_id] = {"id": run_id, "tenant_id": tenant}
+    for index in range(3):
+        message_id = kept if index == 0 else uuid.uuid4()
+        store.messages[message_id] = {
+            "id": message_id,
+            "tenant_id": tenant,
+            "run_id": run_id,
+            "role": "assistant",
+            "text": "The total is 42.",
+            "content": [
+                {"type": "text", "text": "The total is 42."},
+                {"type": "text", "text": "The total is 42."},
+                {"type": "text", "text": "The total is 42."},
+            ],
+            "status": "completed",
+        }
+    assistant = store.messages[kept]
+    from ar_domain.tools.agent_loop import _one_text
+
+    assistant["content"] = _one_text(assistant["content"], "The total is 42.")
+    keep_one_reply(store, store.runs[run_id], assistant)
+    replies = [
+        row
+        for row in store.messages.values()
+        if row.get("run_id") == run_id and row.get("role") == "assistant"
+    ]
+    assert replies == [assistant]
+    assert [part.get("text") for part in assistant["content"] if part.get("type") == "text"] == [
+        "The total is 42."
+    ]
