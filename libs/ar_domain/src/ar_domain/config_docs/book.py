@@ -45,9 +45,8 @@ class SettingsBook:
         _check(schema, document)
         rows = self._rows(tenant_id, resource_type, resource_id)
         version = 1 if not rows else int(rows[-1].get("version") or 0) + 1
-        if rows and isinstance(rows[-1].get("schema"), dict):
-            schema = rows[-1]["schema"]  # type: ignore[assignment]
-            _check(schema, document)
+        previous = rows[-1].get("schema") if rows else None
+        schema_changed = bool(rows) and previous != schema
         row = {
             "id": new_id(),
             "tenant_id": tenant_id,
@@ -67,7 +66,12 @@ class SettingsBook:
             action="resource_settings.updated",
             target_type="resource_settings",
             target_id=row["id"],
-            detail={"resource_type": resource_type, "resource_id": resource_id, "version": version},
+            detail={
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "version": version,
+                "schema_changed": schema_changed,
+            },
         )
         return _public(row)
 

@@ -41,6 +41,7 @@ def _platform_servers(store: Any) -> None:
     _data_server(store)
     _documents_server(store)
     _extensions_server(store)
+    _settings_server(store)
     _image_server(store)
     _knowledge_server(store)
     _memory_server(store)
@@ -1239,6 +1240,36 @@ def _data_server(store: Any) -> None:
                         },
                     },
                     "required": ["connection", "sql"],
+                },
+                "R0",
+            ),
+        ],
+    )
+
+
+def _settings_server(store: Any) -> None:
+    _builtin(
+        store,
+        "settings",
+        "Settings",
+        "builtin://settings",
+        [
+            tool_row(
+                "read",
+                "Read settings",
+                "Read the saved settings for this agent or a pack. This does not change them.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "resourceType": {
+                            "type": "string",
+                            "description": "agent or pack. Defaults to agent.",
+                        },
+                        "resourceId": {
+                            "type": "string",
+                            "description": "Agent slug or pack id. Defaults to the current agent.",
+                        },
+                    },
                 },
                 "R0",
             ),

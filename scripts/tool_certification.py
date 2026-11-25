@@ -614,6 +614,12 @@ def state_cases() -> list[Case]:
             has("CERT-SCRIPT-1"),
         ),
         Case(
+            "settings.read",
+            "read the settings document",
+            fixed(resourceType="agent", resourceId="cert-agent"),
+            any_result,
+        ),
+        Case(
             "extensions.put",
             "store a pack row",
             fixed(packId="cert", bucket="notes", payload={"marker": "CERT-ROW-1"}),

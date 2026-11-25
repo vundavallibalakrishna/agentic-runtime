@@ -211,6 +211,7 @@ class PackService:
                 "resource_id": uuid.UUID(resource_id),
                 "created_at": now,
             }
+        _seed_settings(self.store, actor, manifest)
         _audit(
             self.store,
             actor,
@@ -324,3 +325,36 @@ class PackService:
             "manifest_hash": row.get("manifest_hash"),
             "signature_key_id": row.get("signature_key_id"),
         }
+
+
+def _seed_settings(store: Any, actor: Actor, manifest: dict[str, object]) -> None:
+    """Version 1 of an agent's settings, taken from the pack manifest when it names them."""
+    spec = manifest.get("spec") if isinstance(manifest.get("spec"), dict) else None
+    resources = spec.get("resources") if isinstance(spec, dict) else None
+    if not isinstance(resources, list):
+        return
+    from ar_domain.config_docs.book import SettingsBook  # noqa: PLC0415
+
+    book = SettingsBook(store)
+    for item in resources:
+        if not isinstance(item, dict):
+            continue
+        body = item.get("spec") if isinstance(item.get("spec"), dict) else None
+        if not isinstance(body, dict):
+            continue
+        schema = body.get("settingsSchema") or body.get("settings_schema")
+        document = body.get("settings")
+        if not isinstance(schema, dict) or not isinstance(document, dict):
+            continue
+        meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        resource_id = str(meta.get("slug") or meta.get("id") or "")
+        if not resource_id:
+            continue
+        book.save(
+            actor.tenant_id,
+            actor.user_id,
+            str(item.get("kind") or "agent").lower(),
+            resource_id,
+            schema,
+            document,
+        )
