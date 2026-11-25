@@ -76,10 +76,10 @@ class OutboundWebhook(Base):
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
-    secret_ref_id: Mapped[uuid.UUID] = mapped_column(
+    secret_ref_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("secret_refs.id", ondelete="RESTRICT", use_alter=True, name="fk_webhook_secret"),
-        nullable=False,
+        nullable=True,
     )
     topics: Mapped[list[str]] = text_array(default="ARRAY[]::text[]")
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))

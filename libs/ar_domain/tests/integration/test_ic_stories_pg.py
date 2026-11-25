@@ -5,11 +5,13 @@ Label: integration
 
 from __future__ import annotations
 
+import asyncio
 import os
 import subprocess
 import uuid
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from ar_common.time import utcnow
@@ -63,6 +65,46 @@ async def _ready(database_url: str) -> tuple[ChatService, Actor]:
     return store, Actor(tenant, admin, PERMISSION_KEYS, display_name="Admin")
 
 
+_TENANT = "(SELECT id FROM tenants WHERE slug = 'dev')"
+_CLEANUP = (
+    f"DELETE FROM approval_decisions WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"UPDATE tool_calls SET approval_id = NULL WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM approvals WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM tool_calls WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM webhook_deliveries WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM outbound_webhooks WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM outbox_events WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM document_extractions WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM resource_settings WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM extension_row_versions WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM extension_rows WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM named_secrets WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM runs WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM messages WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM conversations WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"UPDATE agents SET published_version_id = NULL, draft_version_id = NULL WHERE tenant_id IN {_TENANT}",  # noqa: E501, S608
+    f"DELETE FROM agent_versions WHERE tenant_id IN {_TENANT}",  # noqa: S608
+    f"DELETE FROM agents WHERE tenant_id IN {_TENANT}",  # noqa: S608
+)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _remove_story_rows(database_url: str) -> object:
+    """The dev tenant is shared. Leave it without the rows these stories write."""
+    yield
+    asyncio.run(_wipe(database_url))
+
+
+async def _wipe(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            for statement in _CLEANUP:
+                await connection.execute(text(statement))
+    finally:
+        await engine.dispose()
+
+
 async def _reload(database_url: str) -> ChatService:
     store = ChatService()
     assert await bind_store(store, database_url, tenant_slug="dev") is not None
@@ -70,21 +112,25 @@ async def _reload(database_url: str) -> ChatService:
 
 
 def _run_and_call(store: ChatService, actor: Actor) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
-    """A run and a tool call the approval's foreign keys can point at."""
+    """A run and a tool call the approval's foreign keys can point at.
+
+    The row is stored directly. Starting a chat turn would keep a task alive
+    after the test and trip the next test's database session.
+    """
     agent = store.ensure_assistant(actor.tenant_id, actor.user_id)
-    posted = store.create_api_run(
-        actor.tenant_id,
-        actor.user_id,
-        uuid.UUID(str(agent["id"])),
-        "review",
-        callback_url=None,
-        on_behalf_of=None,
-        allow_on_behalf=False,
-        permissions=["chat:use"],
-    )
-    run = posted["run"]
-    assert isinstance(run, dict)
-    run_id = uuid.UUID(str(run["id"]))
+    run_id = uuid.uuid4()
+    now = utcnow()
+    store.runs[run_id] = {
+        "id": run_id,
+        "tenant_id": actor.tenant_id,
+        "agent_id": uuid.UUID(str(agent["id"])),
+        "agent_version_id": agent.get("published_version_id"),
+        "user_id": actor.user_id,
+        "status": "completed",
+        "trigger": "api",
+        "created_at": now,
+        "updated_at": now,
+    }
     call_id = uuid.uuid4()
     store.tool_calls[call_id] = {
         "id": call_id,
