@@ -22,11 +22,13 @@ from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.sandboxes.runtime import (
     chart_command,
     ensure_scope,
+    list_workspace,
     read_workspace,
     resume_row,
     run_tool,
     suspend,
     workspace_root,
+    write_computer_file,
 )
 from ar_domain.sandboxes.service import SandboxBook
 from ar_domain.tools.pipeline import ToolPipeline
@@ -192,12 +194,18 @@ def test_chart_package_gate_browser_and_resume() -> None:
         }
     )
     assert held["status"] == "awaiting_approval"
-    sandbox = next(iter(store.sandboxes.values()))
-    root = workspace_root(sandbox["id"])
-    (root / "workspace" / "keep.txt").write_text("kept", encoding="utf-8")
+    # A file on the computer survives a suspend: it is copied out through the agent, the
+    # computer is stopped, and a new one gets the file back.
+    sandbox = next(row for row in store.sandboxes.values() if row.get("endpoint_url"))
+    assert write_computer_file(sandbox, "/workspace/keep.txt", b"kept") is None
+    before = sandbox["endpoint_url"]
     suspend(store, sandbox)
-    (root / "workspace" / "keep.txt").unlink()
+    assert sandbox["status"] == "suspended" and sandbox["endpoint_url"] is None
+    assert [item["path"] for item in list_workspace(sandbox, "/workspace", recursive=True)].count(
+        "/workspace/keep.txt"
+    )
     resume_row(store, sandbox)
+    assert sandbox["endpoint_url"] and sandbox["endpoint_url"] != before
     assert read_workspace(sandbox, "/workspace/keep.txt") == b"kept"
 
 

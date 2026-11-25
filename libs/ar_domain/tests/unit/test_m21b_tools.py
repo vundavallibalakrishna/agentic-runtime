@@ -8,7 +8,7 @@ import pytest
 
 from ar_domain.demo_ids import demo_id
 from ar_domain.tools.agent_loop import run_agent_loop
-from ar_domain.tools.general import dispatch_general, sandbox_mode
+from ar_domain.tools.general import dispatch_general
 from ar_domain.tools.logic import call_args_hash
 from ar_domain.tools.named_secrets import write_named_secret
 from ar_domain.tools.pipeline import ToolPipeline
@@ -47,7 +47,6 @@ def test_python_returns_output_and_a_file() -> None:
     presentation = result["structured"]["presentation"]
     assert presentation["exit_code"] == 0
     assert any(row["name"] == "summary.txt" for row in presentation["files"])
-    assert sandbox_mode() in {"namespace", "process"}
 
 
 def test_failed_python_is_an_error_the_agent_can_read() -> None:
@@ -55,7 +54,12 @@ def test_failed_python_is_an_error_the_agent_can_read() -> None:
     result = dispatch_general(
         store,
         "code",
-        {"_run_id": uuid.uuid4(), "source": "print(1/0)\n"},
+        {
+            "_tenant_id": demo_id("tenant"),
+            "_user_id": demo_id("admin"),
+            "_run_id": uuid.uuid4(),
+            "source": "print(1/0)\n",
+        },
     )
     assert result["is_error"] is True
     assert result["code"] == "command_failed"

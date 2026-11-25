@@ -40,6 +40,9 @@ def _request(store: object, qualified: str, arguments: dict[str, object]) -> dic
         "tool_version_id": version["id"],
         "arguments": arguments,
         "model_call_id": "m38-t09",
+        # Its own run, so its own working folder: a call with no run shares one folder
+        # with every other such call on the machine.
+        "run_id": uuid.uuid4(),
     }
 
 
@@ -75,7 +78,10 @@ async def test_the_handler_stays_on_the_loop_thread_and_only_the_command_leaves(
     store = demo_store()
     loop_thread = threading.get_ident()
     seen: dict[str, int] = {}
-    run_command = general.run_isolated
+    from ar_domain.sandboxes import folder_run
+
+    # The copy into the computer waits on the network, so it is what leaves the thread.
+    run_command = folder_run._push
     keep_file = general._store_file
 
     def command(*args: object, **kwargs: object) -> object:
@@ -86,7 +92,7 @@ async def test_the_handler_stays_on_the_loop_thread_and_only_the_command_leaves(
         seen["store"] = threading.get_ident()
         return keep_file(*args, **kwargs)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(general, "run_isolated", command)  # type: ignore[attr-defined]
+    monkeypatch.setattr(folder_run, "_push", command)  # type: ignore[attr-defined]
     monkeypatch.setattr(general, "_store_file", file)  # type: ignore[attr-defined]
     ran = await run_sync(
         dispatch_general, store, "code", {**_who(), "source": "open('out.txt', 'w').write('x')"}

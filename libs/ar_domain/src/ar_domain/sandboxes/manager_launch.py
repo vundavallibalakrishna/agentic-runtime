@@ -160,8 +160,8 @@ def register_sandbox_client(store: Any, settings: BaseServiceSettings) -> None:
     no computers: the process starts, and a tool that needs one is refused in words
     (``ComputersOff``). Dev and CI may start a docker container in process when
     ``AR_SANDBOX_IMAGE`` is set and the install allows an unisolated sandbox. With neither,
-    the computer tools run on the dev host. The sandbox manager itself does not call this:
-    it starts the computers.
+    there are no computers and a tool that needs one says so. The sandbox manager itself
+    does not call this: it starts the computers.
     """
     url = os.environ.get("AR_SANDBOX_MANAGER_URL", "").strip()
     shared = uses_shared_process_state(settings.env)

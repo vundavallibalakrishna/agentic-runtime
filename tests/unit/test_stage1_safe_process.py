@@ -28,7 +28,6 @@ from ar_common.settings import (
     EnvName,
     cursor_secret_text,
     get_settings,
-    host_exec_allowed,
     set_settings,
     uses_shared_process_state,
 )
@@ -52,12 +51,21 @@ def _prod_settings(**overrides: object) -> BaseServiceSettings:
 
 
 @pytest.mark.unit
-def test_host_exec_is_dev_and_ci_only() -> None:
-    assert host_exec_allowed(BaseServiceSettings(_env_file=None, env=EnvName.DEV))
-    assert host_exec_allowed(BaseServiceSettings(_env_file=None, env=EnvName.CI))
-    assert not host_exec_allowed(_prod_settings())
-    staging = BaseServiceSettings(_env_file=None, env=EnvName.STAGING, cursor_secret=_SECRET)
-    assert not host_exec_allowed(staging)
+@pytest.mark.parametrize("env", [EnvName.DEV, EnvName.CI, EnvName.STAGING, EnvName.PROD])
+def test_no_environment_runs_a_command_on_the_products_own_machine(env: EnvName) -> None:
+    """Dev and CI used to run code on the host when no computer was running. OQ-197."""
+    import ar_common.settings as common
+
+    assert not hasattr(common, "host_exec_allowed")
+    previous = get_settings()
+    set_settings(BaseServiceSettings(_env_file=None, env=env, cursor_secret=_SECRET))
+    try:
+        shell = dispatch_general(SimpleNamespace(), "shell", {"command": "echo hi"})
+        code = dispatch_general(SimpleNamespace(), "code", {"source": "print(1)"})
+    finally:
+        set_settings(previous)
+    assert shell["code"] == "sandbox_unavailable"
+    assert code["code"] == "sandbox_unavailable"
 
 
 @pytest.mark.unit
