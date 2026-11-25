@@ -189,6 +189,7 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
     from ar_domain.orchestration.spend import charge  # noqa: PLC0415
     from ar_domain.tools.agent_loop import (  # noqa: PLC0415
         _act,
+        _remember_usage,
         _stop_budget,
         _stop_error,
         _time_left,
@@ -212,6 +213,15 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
     used = _int(state.get("used_calls"))
     if used >= limits["max_tool_calls"]:
         saved = state.get("previews")
+        # What was spent before the stop still counts, as it does for every limit.
+        _remember_usage(
+            run,
+            _int(state.get("tokens_in")),
+            _int(state.get("tokens_out")),
+            _int(state.get("cost")),
+            _int(state.get("steps")),
+            usage_source=str(state.get("usage_source") or ""),
+        )
         _stop_budget(
             store, run, assistant, "max_tool_calls", saved if isinstance(saved, list) else []
         )

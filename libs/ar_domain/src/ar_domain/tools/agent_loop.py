@@ -584,6 +584,10 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             if not isinstance(call, dict):
                 continue
             if used_calls >= limits["max_tool_calls"]:
+                # What was spent before the stop still counts, as it does for every limit.
+                _remember_usage(
+                    run, tokens_in_total, tokens_out_total, cost, steps, usage_source=usage_source
+                )
                 _stop_budget(store, run, assistant, "max_tool_calls", previews)
                 return True
             used_calls += 1
