@@ -70,6 +70,44 @@ async def ingest_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
     return {"status": status, "document_id": str(document_id)}
 
 
+async def _read_outlook(
+    store: Any,
+    library: Any,
+    actor: Any,
+    document_id: uuid.UUID,
+    row: dict[str, Any],
+) -> dict[str, Any]:
+    """Read a .msg here, not in the API process, and ingest each attachment."""
+    from ar_common.offload import run_sync  # noqa: PLC0415
+    from ar_domain.documents.originals import read_original  # noqa: PLC0415
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_ingest.outlook import parse_outlook  # noqa: PLC0415
+
+    raw = read_original(store, str(row.get("object_key") or ""))
+    if raw is None:
+        return {"status": "failed", "code": "not_found", "message": "The file bytes are missing."}
+    try:
+        parsed = await run_sync(lambda: parse_outlook(raw))
+    except Exception as exc:  # noqa: BLE001 — a bad message is a failed document
+        await flush_store(store)
+        return {"status": "failed", "code": "corrupt", "message": type(exc).__name__}
+    headers = parsed.get("headers") if isinstance(parsed.get("headers"), dict) else {}
+    saved = library.finish_from_text(
+        actor, document_id, str(parsed.get("text") or ""), {"format": "msg", "headers": headers}
+    )
+    attachments = parsed.get("attachments")
+    if isinstance(attachments, list):
+        for item in attachments:
+            if isinstance(item, dict) and isinstance(item.get("data"), bytes):
+                library.ingest(
+                    actor,
+                    data=item["data"],
+                    filename=str(item.get("filename") or "attachment"),
+                )
+    await flush_store(store)
+    return {"status": str(saved.get("status") or "ready"), "document_id": str(document_id)}
+
+
 @activity.defn(name="parse_library_document")
 @repository_activity(process_store)
 async def parse_library_activity(payload: dict[str, Any]) -> dict[str, Any]:
@@ -107,6 +145,8 @@ async def parse_library_activity(payload: dict[str, Any]) -> dict[str, Any]:
             return {"status": "failed", "code": exc.code.value, "message": exc.detail}
         await flush_store(store)
         return {"status": "ready", "document_id": str(document_id)}
+    if isinstance(row, dict) and str(row.get("filename") or "").lower().endswith(".msg"):
+        return await _read_outlook(store, library, actor, document_id, row)
     try:
         saved = library.finish_parse(actor, document_id)
     except NotFoundError:

@@ -1,0 +1,11 @@
+{
+  "note": "Synthetic labelled example for tests and docs. Not a customer document.",
+  "document_type": "report",
+  "expected": {
+    "report_ref": "SYNTHETIC-REPORT-REF",
+    "title": "Sample findings",
+    "owner": "Ada Lovelace"
+  },
+  "output_text": "{\"report_ref\": \"SYNTHETIC-REPORT-REF\", \"title\": \"Sample findings\", \"owner\": \"ada  lovelace\"}",
+  "normalisers": {"report_ref": "exact", "title": "exact", "owner": "name"}
+}

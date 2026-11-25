@@ -192,6 +192,8 @@ class AuditAction(StrEnum):
     DOCUMENT_DELETED = "document.deleted"
     DOCUMENT_CLASSIFIED = "document.classified"
     LIBRARY_DOCUMENT_INGESTED = "library_document.ingested"
+    EXTRACTION_RECORDED = "extraction.recorded"
+    RESOURCE_SETTINGS_UPDATED = "resource_settings.updated"
     LIBRARY_DOCUMENT_REJECTED = "library_document.rejected"
     LIBRARY_DOCUMENT_DELETED = "library_document.deleted"
     DOCUMENT_TASK_STARTED = "document_task.started"
