@@ -201,7 +201,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_ROUTINE_DEFAULT_MAX_COST_MICROS` | `4000000` | Cost ceiling for a routine that names no budget | [spec 15](../03-specs/15-routines-triggers.md) |
 | `AR_ROUTINE_DEFAULT_MAX_WALL_CLOCK_S` | `600` | Wall-clock ceiling for a routine that names no budget | [spec 15](../03-specs/15-routines-triggers.md) |
 | `AR_EXTRACTION_MIN_CONFIDENCE` | `0.8` | A verified quote below this is low-confidence | [spec 24](../03-specs/24-documents.md) |
-| `AR_REGISTERED_SCRIPT_ENTRY` | `python model.py --params params.json` | Fixed command for a registered script. The model does not choose it | [spec 12](../03-specs/12-sandbox-isolation.md) |
+| `AR_REGISTERED_SCRIPT_ENTRY` | `python model.py --params params.json` | Fixed command for a registered script. The model does not choose it | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES` | `200` | Per worker process | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUNTIME_MAX_CONCURRENT_WORKFLOW_TASKS` | `100` | Temporal worker workflow-task slots | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUNTIME_TENANT_MAX_ACTIVE_RUNS` | `50` (plan `max_concurrent_runs` takes precedence when lower) | Per-tenant cap of concurrently executing runs (excess runs stay `queued`) | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |

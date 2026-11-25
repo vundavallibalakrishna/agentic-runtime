@@ -798,6 +798,9 @@ from .list_events_api_v1_audit_events_get_response_list_events_api_v1_audit_even
 from .list_events_api_v1_routines_routine_id_events_get_response_list_events_api_v1_routines_routine_id_events_get import (
     ListEventsApiV1RoutinesRoutineIdEventsGetResponseListEventsApiV1RoutinesRoutineIdEventsGet,
 )
+from .list_extractions_api_v1_library_documents_document_id_extractions_get_response_list_extractions_api_v1_library_documents_document_id_extractions_get import (
+    ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetResponseListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGet,
+)
 from .list_feedback_api_v1_feedback_get_response_list_feedback_api_v1_feedback_get import (
     ListFeedbackApiV1FeedbackGetResponseListFeedbackApiV1FeedbackGet,
 )
@@ -902,6 +905,9 @@ from .list_service_accounts_api_v1_service_accounts_get_response_list_service_ac
 )
 from .list_service_connections_api_v1_service_connections_get_response_list_service_connections_api_v1_service_connections_get import (
     ListServiceConnectionsApiV1ServiceConnectionsGetResponseListServiceConnectionsApiV1ServiceConnectionsGet,
+)
+from .list_settings_versions_api_v1_resource_settings_resource_type_resource_id_versions_get_response_list_settings_versions_api_v1_resource_settings_resource_type_resource_id_versions_get import (
+    ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetResponseListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGet,
 )
 from .list_shares_api_v1_conversations_conversation_id_shares_get_response_list_shares_api_v1_conversations_conversation_id_shares_get import (
     ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet,
@@ -1202,8 +1208,14 @@ from .read_all_api_v1_notifications_read_all_post_response_read_all_api_v1_notif
 from .read_retained_output_api_v1_runs_run_id_outputs_output_id_get_response_read_retained_output_api_v1_runs_run_id_outputs_output_id_get import (
     ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetResponseReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGet,
 )
+from .read_review_api_v1_review_token_get_response_read_review_api_v1_review_token_get import (
+    ReadReviewApiV1ReviewTokenGetResponseReadReviewApiV1ReviewTokenGet,
+)
 from .read_session_api_v1_builder_sessions_session_id_get_response_read_session_api_v1_builder_sessions_session_id_get import (
     ReadSessionApiV1BuilderSessionsSessionIdGetResponseReadSessionApiV1BuilderSessionsSessionIdGet,
+)
+from .read_settings_api_v1_resource_settings_resource_type_resource_id_get_response_read_settings_api_v1_resource_settings_resource_type_resource_id_get import (
+    ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetResponseReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGet,
 )
 from .reason_body import ReasonBody
 from .redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post_response_redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post import (
@@ -1265,6 +1277,8 @@ from .resume_source_api_v1_knowledge_sources_source_id_resume_post_response_resu
     ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponseResumeSourceApiV1KnowledgeSourcesSourceIdResumePost,
 )
 from .review_decide_body import ReviewDecideBody
+from .review_decision import ReviewDecision
+from .review_decision_arguments_type_0 import ReviewDecisionArgumentsType0
 from .revoke_agent_key_api_v1_agents_agent_id_api_keys_key_id_delete_response_revoke_agent_key_api_v1_agents_agent_id_api_keys_key_id_delete import (
     RevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDeleteResponseRevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDelete,
 )
@@ -1328,6 +1342,9 @@ from .save_described_tool_api_v1_described_tools_post_response_save_described_to
 from .save_draft_api_v1_agents_agent_id_versions_draft_put_response_save_draft_api_v1_agents_agent_id_versions_draft_put import (
     SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut,
 )
+from .save_settings_api_v1_resource_settings_resource_type_resource_id_put_response_save_settings_api_v1_resource_settings_resource_type_resource_id_put import (
+    SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutResponseSaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPut,
+)
 from .schemas_scim_v2_schemas_get_response_schemas_scim_v2_schemas_get import (
     SchemasScimV2SchemasGetResponseSchemasScimV2SchemasGet,
 )
@@ -1362,6 +1379,9 @@ from .session_message_api_v1_builder_sessions_session_id_messages_post_response_
 from .set_favourite_api_v1_me_agent_favourites_put_response_set_favourite_api_v1_me_agent_favourites_put import (
     SetFavouriteApiV1MeAgentFavouritesPutResponseSetFavouriteApiV1MeAgentFavouritesPut,
 )
+from .settings_body import SettingsBody
+from .settings_body_document import SettingsBodyDocument
+from .settings_body_settings_schema_type_0 import SettingsBodySettingsSchemaType0
 from .share_body import ShareBody
 from .simulate_body import SimulateBody
 from .simulate_body_args import SimulateBodyArgs
@@ -1397,6 +1417,9 @@ from .step_up_api_v1_auth_step_up_post_response_step_up_api_v1_auth_step_up_post
 )
 from .submit_api_v1_tool_servers_server_id_versions_version_id_submit_post_response_submit_api_v1_tool_servers_server_id_versions_version_id_submit_post import (
     SubmitApiV1ToolServersServerIdVersionsVersionIdSubmitPostResponseSubmitApiV1ToolServersServerIdVersionsVersionIdSubmitPost,
+)
+from .submit_review_api_v1_review_token_decide_post_response_submit_review_api_v1_review_token_decide_post import (
+    SubmitReviewApiV1ReviewTokenDecidePostResponseSubmitReviewApiV1ReviewTokenDecidePost,
 )
 from .suite_body import SuiteBody
 from .suite_body_gate_type_0 import SuiteBodyGateType0
@@ -1887,6 +1910,7 @@ __all__ = (
     "ListEvalSuitesApiV1EvalSuitesGetResponseListEvalSuitesApiV1EvalSuitesGet",
     "ListEventsApiV1AuditEventsGetResponseListEventsApiV1AuditEventsGet",
     "ListEventsApiV1RoutinesRoutineIdEventsGetResponseListEventsApiV1RoutinesRoutineIdEventsGet",
+    "ListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGetResponseListExtractionsApiV1LibraryDocumentsDocumentIdExtractionsGet",
     "ListFeedbackApiV1FeedbackGetResponseListFeedbackApiV1FeedbackGet",
     "ListFilesApiV1FilesGetResponseListFilesApiV1FilesGet",
     "ListGrantsApiV1TenantSupportAccessGetResponseListGrantsApiV1TenantSupportAccessGet",
@@ -1922,6 +1946,7 @@ __all__ = (
     "ListServersApiV1ToolServersGetResponseListServersApiV1ToolServersGet",
     "ListServiceAccountsApiV1ServiceAccountsGetResponseListServiceAccountsApiV1ServiceAccountsGet",
     "ListServiceConnectionsApiV1ServiceConnectionsGetResponseListServiceConnectionsApiV1ServiceConnectionsGet",
+    "ListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGetResponseListSettingsVersionsApiV1ResourceSettingsResourceTypeResourceIdVersionsGet",
     "ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet",
     "ListSkillsApiV1SkillsGetResponseListSkillsApiV1SkillsGet",
     "ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetResponseListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGet",
@@ -2051,7 +2076,9 @@ __all__ = (
     "QuotaPatch",
     "ReadAllApiV1NotificationsReadAllPostResponseReadAllApiV1NotificationsReadAllPost",
     "ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetResponseReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGet",
+    "ReadReviewApiV1ReviewTokenGetResponseReadReviewApiV1ReviewTokenGet",
     "ReadSessionApiV1BuilderSessionsSessionIdGetResponseReadSessionApiV1BuilderSessionsSessionIdGet",
+    "ReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGetResponseReadSettingsApiV1ResourceSettingsResourceTypeResourceIdGet",
     "ReasonBody",
     "RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost",
     "RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostResponseRefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPost",
@@ -2076,6 +2103,8 @@ __all__ = (
     "ResumeRunApiV1RunsRunIdResumePostResponseResumeRunApiV1RunsRunIdResumePost",
     "ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponseResumeSourceApiV1KnowledgeSourcesSourceIdResumePost",
     "ReviewDecideBody",
+    "ReviewDecision",
+    "ReviewDecisionArgumentsType0",
     "RevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDeleteResponseRevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDelete",
     "RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponseRevokeGrantApiV1TenantSupportAccessGrantIdRevokePost",
     "RevokeInvitationApiV1InvitationsInvitationIdDeleteResponseRevokeInvitationApiV1InvitationsInvitationIdDelete",
@@ -2107,6 +2136,7 @@ __all__ = (
     "RunRoutineApiV1RoutinesRoutineIdRunPostResponseRunRoutineApiV1RoutinesRoutineIdRunPost",
     "SaveDescribedToolApiV1DescribedToolsPostResponseSaveDescribedToolApiV1DescribedToolsPost",
     "SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut",
+    "SaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPutResponseSaveSettingsApiV1ResourceSettingsResourceTypeResourceIdPut",
     "SchemasScimV2SchemasGetResponseSchemasScimV2SchemasGet",
     "SearchApiV1KnowledgeSearchPostResponseSearchApiV1KnowledgeSearchPost",
     "SearchBody",
@@ -2127,6 +2157,9 @@ __all__ = (
     "SessionMessage",
     "SessionMessageApiV1BuilderSessionsSessionIdMessagesPostResponseSessionMessageApiV1BuilderSessionsSessionIdMessagesPost",
     "SetFavouriteApiV1MeAgentFavouritesPutResponseSetFavouriteApiV1MeAgentFavouritesPut",
+    "SettingsBody",
+    "SettingsBodyDocument",
+    "SettingsBodySettingsSchemaType0",
     "ShareBody",
     "SimulateBody",
     "SimulateBodyArgs",
@@ -2149,6 +2182,7 @@ __all__ = (
     "StepUpApiV1AuthStepUpPostBodyType0",
     "StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost",
     "SubmitApiV1ToolServersServerIdVersionsVersionIdSubmitPostResponseSubmitApiV1ToolServersServerIdVersionsVersionIdSubmitPost",
+    "SubmitReviewApiV1ReviewTokenDecidePostResponseSubmitReviewApiV1ReviewTokenDecidePost",
     "SuiteBody",
     "SuiteBodyGateType0",
     "SuitePatch",
