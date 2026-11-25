@@ -30,6 +30,7 @@ export type Definition = {
     maxParallel?: number;
     allowSelfClone?: boolean;
     childTimeoutS?: number;
+    maxCalls?: number;
   };
   human?: { enabled?: boolean };
   contract?: {

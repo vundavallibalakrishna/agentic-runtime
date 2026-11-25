@@ -109,6 +109,8 @@ def _install(store: object, actor: Actor, slug: str, base: str) -> None:
             "config": {"baseUrl": base, "tenantId": "recorded-tenant"},
         },
     )
+    # The token call goes to the recorded server, not to the demo tenant's stand-in.
+    store.oauth_transport = None  # type: ignore[attr-defined]
     row = next(iter(store.service_connections.values()))  # type: ignore[attr-defined]
     row["kind"] = "oauth_authorization_code"
     row["token_url"] = f"{base}/token"

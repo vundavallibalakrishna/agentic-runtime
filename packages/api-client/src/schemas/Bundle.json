@@ -105,6 +105,7 @@
             "allowSelfClone": false,
             "maxDepth": 1,
             "maxParallel": 3,
+            "maxCalls": 16,
             "childTimeoutS": 45
           }
         },
@@ -1850,6 +1851,13 @@
           "maximum": 8,
           "minimum": 1,
           "title": "Maxparallel",
+          "type": "integer"
+        },
+        "maxCalls": {
+          "default": 16,
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Maxcalls",
           "type": "integer"
         },
         "childTimeoutS": {

@@ -7,15 +7,24 @@ from typing import Any, TypedDict
 
 import orjson
 
+from ar_domain.orchestration import events
 from ar_domain.orchestration.ask import ask_person
-from ar_domain.orchestration.children import definition_of, run_named, run_parallel, wrapped
+from ar_domain.orchestration.children import (
+    definition_of,
+    pool_for,
+    run_named,
+    run_parallel,
+    wrapped,
+)
 from ar_domain.orchestration.spec import (
     agent_slug,
+    chain,
     contract_line,
     human_enabled,
     subagent_spec,
     whole,
 )
+from ar_domain.runs.request import cannot_wait
 
 ORCHESTRATION_NAMES = frozenset({"agents_call", "agents_parallel", "agents_handoff", "agents_ask"})
 
@@ -24,7 +33,7 @@ def orchestration_tools(
     store: Any, run: dict[str, object], definition: dict[str, object]
 ) -> tuple[list[dict[str, object]], dict[str, dict[str, object]]]:
     """OpenAI tool definitions plus the lookup rows the loop expects."""
-    if not isinstance(run.get("agent_chain"), list):
+    if not chain(run):
         slug = agent_slug(store, run)
         run["agent_chain"] = [slug] if slug else []
     spec = subagent_spec(definition)
@@ -44,9 +53,10 @@ def orchestration_tools(
             tools,
             index,
             "agents_parallel",
-            "Call several agents at once and return every answer so you can combine them. "
+            "Call several agents and return every answer so you can combine them. "
+            f"At most {spec['max_parallel']} run at once and the rest wait their turn. "
             + " ".join(lines),
-            _parallel_schema(names, spec["max_parallel"]),
+            _parallel_schema(names, spec["max_calls"]),
         )
         _add(
             tools,
@@ -56,7 +66,9 @@ def orchestration_tools(
             + " ".join(lines),
             _call_schema(names),
         )
-    if human_enabled(definition):
+    # An agent run inside its caller's step has nobody to ask. One that is its own
+    # workflow asks like any run, and its caller waits.
+    if human_enabled(definition) and not cannot_wait(run):
         _add(
             tools,
             index,
@@ -90,48 +102,36 @@ async def handle_orchestration(
     payload = arguments if isinstance(arguments, dict) else {}
     call_id = str(call.get("id") or "call")
     state["elapsed_s"] = _elapsed(state)
+    state["call_id"] = call_id
     if name == "agents_ask":
+        if cannot_wait(run):
+            return _done(
+                name,
+                call_id,
+                "An agent called by another cannot ask a person. Say what you need in your "
+                "answer, and the agent that called you can ask.",
+                failed=True,
+            )
         problem = ask_person(store, run, assistant, payload, call_id)
         if problem is None:
             return None
         return _done(name, call_id, str(problem.get("text") or ""), failed=True)
+    pool = pool_for(state)
     if name == "agents_parallel":
         calls = payload.get("calls")
         rows = [item for item in calls if isinstance(item, dict)] if isinstance(calls, list) else []
+        # The agents in this call draw on one pool. What the pool recorded is what this
+        # agent is charged, whether each of them finished, failed or ran out of time.
         outcome = await run_parallel(store, run, rows, state)
         raw_results = outcome.get("results")
         items = raw_results if isinstance(raw_results, list) else []
-        body = {"results": [_public(item) for item in items if isinstance(item, dict)]}
-        return _done(
-            name,
-            call_id,
-            orjson.dumps(body).decode(),
-            failed=bool(outcome.get("failed")),
-            tokens=whole(outcome.get("tokens"), 0),
-            cost=whole(outcome.get("cost"), 0),
-        )
+        results = [item for item in items if isinstance(item, dict)]
+        tasks = [str(row.get("task") or "") for row in rows]
+        return conclude(name, call_id, results, tasks, tokens=pool.tokens, cost=pool.cost)
     slug = str(payload.get("agent") or "")
     task = str(payload.get("task") or payload.get("note") or "")
-    outcome = await run_named(store, run, slug, task, state)
-    text = str(outcome.get("text") or "")
-    if name == "agents_handoff" and not outcome.get("failed"):
-        return {
-            "failed": False,
-            "stop": True,
-            "answer": text,
-            "tokens": whole(outcome.get("tokens"), 0),
-            "cost": whole(outcome.get("cost"), 0),
-            "preview": _preview(name, "completed", text),
-            "wrapped": wrapped(name, call_id, text),
-        }
-    return _done(
-        name,
-        call_id,
-        text,
-        failed=bool(outcome.get("failed")),
-        tokens=whole(outcome.get("tokens"), 0),
-        cost=whole(outcome.get("cost"), 0),
-    )
+    outcome = await run_named(store, run, slug, task, state, given=payload.get("input"))
+    return conclude(name, call_id, [outcome], [task], tokens=pool.tokens, cost=pool.cost)
 
 
 def _elapsed(state: dict[str, object]) -> int:
@@ -263,6 +263,12 @@ def _add(
     )
 
 
+_INPUT = {
+    "type": "object",
+    "description": "For an agent whose input schema is a JSON Schema: an object that matches it.",
+}
+
+
 def _call_schema(names: list[str]) -> dict[str, object]:
     return {
         "type": "object",
@@ -270,6 +276,7 @@ def _call_schema(names: list[str]) -> dict[str, object]:
             "agent": {"type": "string", "enum": names},
             "task": {"type": "string"},
             "note": {"type": "string"},
+            "input": _INPUT,
         },
         "required": ["agent"],
     }
@@ -287,6 +294,7 @@ def _parallel_schema(names: list[str], cap: int) -> dict[str, object]:
                     "properties": {
                         "agent": {"type": "string", "enum": names},
                         "task": {"type": "string"},
+                        "input": _INPUT,
                     },
                     "required": ["agent", "task"],
                 },
@@ -294,6 +302,50 @@ def _parallel_schema(names: list[str], cap: int) -> dict[str, object]:
         },
         "required": ["calls"],
     }
+
+
+def conclude(
+    name: str,
+    call_id: str,
+    outcomes: list[dict[str, object]],
+    tasks: list[str],
+    *,
+    tokens: int,
+    cost: int,
+) -> dict[str, object]:
+    """The answer to one call, from how each agent it named ended.
+
+    Both ways of running a called agent end here: inside the caller's step, and as its
+    own workflow. The caller is charged ``tokens`` and ``cost``.
+    """
+    agents = [
+        events.called(item, tasks[at] if at < len(tasks) else "")
+        for at, item in enumerate(outcomes)
+    ]
+    failed = any(item.get("failed") for item in outcomes)
+    if name == "agents_parallel":
+        body = {"results": [_public(item) for item in outcomes]}
+        return _done(
+            name,
+            call_id,
+            orjson.dumps(body).decode(),
+            failed=failed,
+            tokens=tokens,
+            cost=cost,
+            agents=agents,
+        )
+    text = str(outcomes[0].get("text") or "") if outcomes else ""
+    if name == "agents_handoff" and not failed:
+        return {
+            "failed": False,
+            "stop": True,
+            "answer": text,
+            "tokens": tokens,
+            "cost": cost,
+            "preview": _preview(name, "succeeded", text, agents),
+            "wrapped": wrapped(name, call_id, text),
+        }
+    return _done(name, call_id, text, failed=failed, tokens=tokens, cost=cost, agents=agents)
 
 
 def _done(
@@ -304,19 +356,30 @@ def _done(
     failed: bool,
     tokens: int = 0,
     cost: int = 0,
+    agents: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
         "failed": failed,
         "stop": False,
         "tokens": tokens,
         "cost": cost,
-        "preview": _preview(name, "failed" if failed else "completed", text),
+        "preview": _preview(name, "failed" if failed else "succeeded", text, agents or []),
         "wrapped": wrapped(name, call_id, text),
     }
 
 
-def _preview(name: str, status: str, text: str) -> dict[str, object]:
-    return {"qualified_name": name, "status": status, "result_preview": text[:500]}
+def _preview(
+    name: str, status: str, text: str, agents: list[dict[str, object]]
+) -> dict[str, object]:
+    """The saved call. With agents, the chat draws each one in place of the raw text."""
+    preview: dict[str, object] = {
+        "qualified_name": name,
+        "status": status,
+        "result_preview": text[:500],
+    }
+    if agents:
+        preview["presentation"] = {"kind": "agents", "agents": agents}
+    return preview
 
 
 def _public(item: dict[str, object]) -> dict[str, object]:

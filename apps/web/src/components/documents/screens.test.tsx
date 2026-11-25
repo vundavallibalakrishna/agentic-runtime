@@ -115,6 +115,47 @@ describe("document library", () => {
     ).toBeTruthy();
   });
 
+  it("shows each agent a reply called, with its task, its answer and a way in", () => {
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "agents_parallel",
+            status: "failed",
+            resultPreview: '{"results": []}',
+            presentation: {
+              kind: "agents",
+              agents: [
+                {
+                  agent: "Policy reader",
+                  status: "completed",
+                  task: "Read the access policy",
+                  summary: "Badges are required.",
+                  child_run_id: "run-1",
+                },
+                { agent: "Log reader", status: "failed", task: "", summary: "Timed out." },
+              ],
+            },
+          }}
+          label="Tool"
+        />,
+      ),
+    );
+    expect(screen.getByText("Called other agents")).toBeTruthy();
+    const rows = screen.getByTestId("called-agents").querySelectorAll("li");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.textContent).toContain("Policy reader · Done");
+    expect(rows[0]?.textContent).toContain("Read the access policy");
+    expect(rows[0]?.textContent).toContain("Badges are required.");
+    expect(rows[1]?.textContent).toContain("Log reader · Didn't finish");
+    expect(
+      screen.getByRole("link", { name: "See what Policy reader did" }).getAttribute("href"),
+    ).toBe("/runs/run-1");
+    // An agent with no run to open has no link, and the raw result is not printed.
+    expect(screen.queryByRole("link", { name: "See what Log reader did" })).toBeNull();
+    expect(screen.queryByText('{"results": []}')).toBeNull();
+  });
+
   it("renders a cited check", () => {
     render(
       wrap(

@@ -39,8 +39,6 @@ ALLOWED_CALLERS: dict[str, dict[str, frozenset[str]]] = {
     },
     "api": {
         "channels": frozenset({"api:internal"}),
-        "mcp-sql": frozenset({"api:internal"}),
-        "mcp-openapi": frozenset({"api:internal"}),
         "opa": frozenset({"api:internal"}),
         "runtime-worker": frozenset({"api:internal"}),
         "system-worker": frozenset({"api:internal"}),
@@ -53,14 +51,6 @@ ALLOWED_CALLERS: dict[str, dict[str, frozenset[str]]] = {
         "mcp-gateway": frozenset({"channels:deliver"}),
         "system-worker": frozenset({"channels:deliver"}),
         "api": frozenset({"channels:deliver"}),
-    },
-    "mcp-sql": {
-        "mcp-gateway": frozenset({"tools:call"}),
-        "api": frozenset({"tools:call"}),
-    },
-    "mcp-openapi": {
-        "mcp-gateway": frozenset({"tools:call"}),
-        "api": frozenset({"tools:call"}),
     },
 }
 

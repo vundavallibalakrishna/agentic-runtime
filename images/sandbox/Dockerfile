@@ -36,7 +36,6 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY libs libs
 COPY services services
-COPY connectors connectors
 # The policy decision rules; the ar-domain package build copies them in (see python-service.Dockerfile).
 COPY policies/rego/ar policies/rego/ar
 COPY images/sandbox/sandbox-tools.txt ./sandbox-tools.txt

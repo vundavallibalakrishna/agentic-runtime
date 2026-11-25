@@ -165,11 +165,12 @@ sequenceDiagram
   participant P as parent AgentRunWorkflow
   participant DB as Postgres
   participant C as child AgentRunWorkflow
-  P->>P: model calls agents__delegate {agent, task}
-  P->>DB: create_child_run (depth+1, budget = min(child, remaining))
-  P->>C: start child run-{child_id}
-  C->>C: own loop, tools, approvals (on conversation stream)
-  C-->>P: RunResult {final_text, files, usage}
+  P->>P: model calls agents_call / agents_parallel / agents_handoff
+  P->>DB: step creates each child run (queued, depth+1, budget and pool on its request) and notes the call
+  P->>C: start child run-{child_id} for each, then wait
+  C->>C: own loop, tools, approvals and questions (signals go to run-{child_id})
+  C->>DB: status, answer and usage saved by the child's own steps
+  P->>DB: next step reads how each child ended
   P->>P: add usage, emit subagent.completed, tool result to model
 ```
 

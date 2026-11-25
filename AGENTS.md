@@ -47,7 +47,7 @@ The owner set these on 6 November 2026 after a run on an empty database showed h
 | `services/channels`, `services/fake_llm` | Slack, Teams and email; the scripted model for development and tests |
 | `libs/ar_domain` | All business logic and the Alembic migrations |
 | `libs/ar_common`, `ar_contracts`, `ar_connector_sdk`, `ar_testing`, `ar_client` | Shared basics; cross-process models; connector SDK; test fixtures; generated Python client |
-| `connectors/`, `policies/`, `deploy/`, `evals/` | MCP connector servers; OPA Rego; Compose and Helm; golden and red-team suites |
+| `policies/`, `deploy/`, `evals/` | OPA Rego; Compose and Helm; golden and red-team suites |
 | `docs/` | Specs, plan, decisions and test evidence |
 
 The canonical list of deployables and modules is [service-decomposition](docs/02-architecture/service-decomposition.md). How the running system fits together: [docs/architecture/README.md](docs/architecture/README.md). Stack and exact versions: [docs/stack.md](docs/stack.md).

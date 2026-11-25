@@ -156,8 +156,6 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_MCPG_PORT` | `8002` | Listen port of `mcp-gateway` | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_MCP_GATEWAY_URL` | `http://localhost:8002` | Internal URL of `mcp-gateway` | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_MCP_INTERNAL_HTTP_ALLOWED_CIDRS` | cluster CIDRs | CIDRs `internal_http` tool servers may resolve to | [spec 08](../03-specs/08-tool-registry-mcp.md) |
-| `AR_MCP_OPENAPI_URL` | `http://mcp-openapi:8011/mcp` | Internal URL of `mcp-openapi` | [spec 08](../03-specs/08-tool-registry-mcp.md) |
-| `AR_MCP_SQL_URL` | `http://mcp-sql:8010/mcp` | Internal URL of `mcp-sql` | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_MEMORY_DEDUPE_SIM` | `0.92` | Cosine similarity above which facts are merged | [spec 11](../03-specs/11-memory.md) |
 | `AR_MEMORY_RECALL_MIN_SIM` | `0.25` | Minimum similarity for memory recall | [spec 11](../03-specs/11-memory.md) |
 | `AR_MG_CB_FAILURES` | `5` | Consecutive failures to open | [spec 04](../03-specs/04-model-gateway.md) |
@@ -323,8 +321,6 @@ These are laptop publish ports. They are not set in Helm. `make ports-check` cop
 | `AR_INGEST_HOST_PORT` | `8014` | Host port for ingest-worker health | [local-dev](local-dev.md#5-host-ports) |
 | `AR_LANGFUSE_HOST_PORT` | `3100` | Host port for Langfuse | [local-dev](local-dev.md#5-host-ports) |
 | `AR_MAILPIT_UI_HOST_PORT` | `8025` | Host port for the Mailpit UI | [local-dev](local-dev.md#5-host-ports) |
-| `AR_MCP_OPENAPI_HOST_PORT` | `8011` | Host port for mcp-openapi | [local-dev](local-dev.md#5-host-ports) |
-| `AR_MCP_SQL_HOST_PORT` | `8010` | Host port for mcp-sql | [local-dev](local-dev.md#5-host-ports) |
 | `AR_OPA_HOST_PORT` | `8181` | Host port for OPA. Updates `AR_OPA_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
 | `AR_OTEL_GRPC_HOST_PORT` | `4317` | Host port for OTLP gRPC. Updates `AR_OTEL_EXPORTER_OTLP_ENDPOINT` on localhost | [local-dev](local-dev.md#5-host-ports) |
 | `AR_OTEL_HTTP_HOST_PORT` | `4318` | Host port for OTLP HTTP | [local-dev](local-dev.md#5-host-ports) |

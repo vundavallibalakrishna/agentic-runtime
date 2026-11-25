@@ -386,11 +386,9 @@ async def test_skill_edits_republish_and_runtime_wrappers(stand_in: StandIn) -> 
 
 
 @pytest.mark.asyncio
-async def test_compose_and_child_activity_cover_the_edges() -> None:
+async def test_compose_covers_the_edges() -> None:
     from ar_domain.skills.load import write_docx
     from ar_domain.skills.turn import maybe_compose
-    from ar_runtime.activities.create_child_run import create_child_run
-    from ar_runtime.activities.expire_approval import bind_store
 
     store = demo_store()
     assert await maybe_compose(store, {}, {}, "hello") is False
@@ -414,19 +412,3 @@ async def test_compose_and_child_activity_cover_the_edges() -> None:
     )
     assert denied["is_error"] is True
     assert write_docx(store, {}, title="Brand brief", body="Hello")["is_error"] is True
-    bind_store(store)
-    store.runs[uuid.uuid4()] = {"id": "edge-child-0"}
-    planned = await create_child_run(
-        {
-            "run_id": "edge",
-            "depth": 0,
-            "max_depth": 3,
-            "remaining_budget": {"max_tokens": 10},
-            "allowed": ["researcher"],
-            "agent": "researcher",
-            "task": "Look",
-            "index": 0,
-        }
-    )
-    bind_store(None)
-    assert planned["child_run_id"] == "edge-child-0"

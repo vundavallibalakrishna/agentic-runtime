@@ -6,7 +6,7 @@ from ar_common.errors import ConflictError, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.tools.logic import as_int, as_mapping, as_sequence
-from ar_domain.tools.sql_guard import SqlRejected, check_sql
+from ar_domain.tools.sql_guard import SqlRejected
 
 if TYPE_CHECKING:
     import uuid
@@ -44,7 +44,10 @@ class DataConnections:
         if not dsn:
             raise ValidationFailedError("a dsn is required: the address of the warehouse")
         allow = as_mapping(body.get("allowlist"))
-        if not dsn.startswith("memory:"):
+        from ar_domain.tools.database import in_process  # noqa: PLC0415
+
+        served_here = in_process(dsn) is not None
+        if not served_here:
             from ar_domain.egress import tenant_hosts  # noqa: PLC0415
             from ar_domain.tools.database import _refuse_unsafe  # noqa: PLC0415
 
@@ -59,7 +62,7 @@ class DataConnections:
                 raise ValidationFailedError(exc.reason) from exc
         self.store.secret_values[secret_id] = dsn.encode()
         ciphertext = b""
-        if not dsn.startswith("memory:"):
+        if not served_here:
             from ar_domain.secrets.crypto import seal  # noqa: PLC0415
             from ar_domain.tools.service_connections import connection_key  # noqa: PLC0415
 
@@ -130,66 +133,18 @@ class DataConnections:
         self._audit(actor, "data_connection.deleted", connection_id)
 
     def test(self, actor: Actor, connection_id: uuid.UUID) -> dict[str, object]:
-        row = self._row(actor, connection_id)
-        from ar_domain.tools.database import connection_dsn  # noqa: PLC0415
+        from ar_domain.tools.database import probe  # noqa: PLC0415
 
-        if not connection_dsn(self.store, row).startswith("memory:"):
-            from ar_domain.tools.database import probe  # noqa: PLC0415
-
-            return probe(self.store, row)
-        allow = as_mapping(row.get("allowlist"))
-        tables = {str(item).lower() for item in as_sequence(allow.get("tables"))}
-        checks = [{"name": "connectivity", "ok": True, "detail": "the connection answered"}]
-        try:
-            check_sql(
-                "SELECT 1",
-                allow_tables=tables or {"public.orders"},
-                deny_columns=set(),
-                row_limit=1,
-            )
-            checks.append({"name": "read_only", "ok": True, "detail": "a select is accepted"})
-        except SqlRejected as exc:
-            checks.append({"name": "read_only", "ok": False, "detail": exc.reason})
-        try:
-            check_sql(
-                "CREATE TEMP TABLE t(id int)",
-                allow_tables=tables or {"public.orders"},
-                deny_columns=set(),
-            )
-            checks.append({"name": "reject_ddl", "ok": False, "detail": "ddl was accepted"})
-        except SqlRejected:
-            checks.append({"name": "reject_ddl", "ok": True, "detail": "ddl was rejected"})
-        missing = [table for table in tables if table != "public.orders"]
-        checks.append(
-            {
-                "name": "allowlist",
-                "ok": not missing,
-                "detail": "allowlisted tables are present" if not missing else "a table is missing",
-            }
-        )
-        return {"ok": all(bool(item["ok"]) for item in checks), "checks": checks}
+        return probe(self.store, self._row(actor, connection_id))
 
     def schema(self, actor: Actor, connection_id: uuid.UUID) -> dict[str, object]:
         row = self._row(actor, connection_id)
-        from ar_domain.tools.database import connection_dsn  # noqa: PLC0415
+        from ar_domain.tools.database import catalog  # noqa: PLC0415
 
-        if not connection_dsn(self.store, row).startswith("memory:"):
-            from ar_domain.tools.database import catalog  # noqa: PLC0415
-
-            try:
-                return catalog(self.store, row)
-            except Exception as exc:  # noqa: BLE001 — the message is already scrubbed
-                return {"tables": [], "notes": str(exc)[:200]}
-        allow = as_mapping(row.get("allowlist"))
-        tables = []
-        for name in as_sequence(allow.get("tables")):
-            tables.append(  # noqa: PERF401
-                {
-                    "name": name,
-                    "columns": ["id", "sku", "quantity"] if str(name).endswith("orders") else [],
-                }
-            )
-        return {"tables": tables, "notes": row.get("schema_notes") or ""}
+        try:
+            return catalog(self.store, row)
+        except Exception as exc:  # noqa: BLE001 — the message is already scrubbed
+            return {"tables": [], "notes": str(exc)[:200]}
 
     def _row(self, actor: Actor, connection_id: uuid.UUID) -> dict[str, object]:
         row = self.store.data_connections.get(connection_id)

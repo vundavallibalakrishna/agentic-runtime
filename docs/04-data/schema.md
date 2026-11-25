@@ -527,6 +527,7 @@ CREATE TABLE messages (
   tokens_out        int NOT NULL DEFAULT 0,
   author_user_id    uuid REFERENCES users(id) ON DELETE SET NULL,
   external_ref      text,                             -- Slack ts / Teams activity id / email Message-ID
+  tool_calls        jsonb,                            -- what the reply shows of the calls it made (name, status, preview, presentation); the record of each call is tool_calls. Revision 0064
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );

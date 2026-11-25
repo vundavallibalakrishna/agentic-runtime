@@ -23,7 +23,7 @@ from ar_domain.tools.sql_guard import SqlRejected, check_sql
 from ar_testing.demo import demo_store
 
 pytestmark = pytest.mark.dns_fallback
-_CORPUS = Path("connectors/mcp_sql/tests/corpus/malicious.txt")
+_CORPUS = Path(__file__).resolve().parents[1] / "corpus" / "sql_malicious.txt"
 
 
 def _actor() -> Actor:
@@ -226,39 +226,44 @@ def test_remote_discovery_and_openapi_version() -> None:
         "openapi": "3.1.0",
         "paths": {"/pets": {"get": {"operationId": "listPets", "summary": "List"}}},
     }
-    opened = book.create_server(
-        actor,
-        {
-            "slug": "pets",
-            "name": "Pets",
-            "kind": "openapi",
-            "version": {
-                "version": "1.0.0",
-                "config": {"openapi": {"spec": spec, "operations": ["listPets"]}},
+    # A tool server the product cannot reach is refused when it is registered. It used to
+    # be pointed at a built-in stand-in that answered with made-up pets and orders.
+    with pytest.raises(ValidationFailedError, match="OpenAPI document or its base URL"):
+        book.create_server(
+            actor,
+            {
+                "slug": "pets",
+                "name": "Pets",
+                "kind": "openapi",
+                "version": {
+                    "version": "1.0.0",
+                    "config": {"openapi": {"spec": spec, "operations": ["listPets"]}},
+                },
             },
-        },
-    )
-    assert opened["versions"][0]["tool_count"] == 1
-    empty = book.create_server(
-        actor,
-        {
-            "slug": "pets2",
-            "name": "Pets",
-            "kind": "openapi",
-            "version": {"version": "1.0.0", "config": {}},
-        },
-    )
-    assert empty["versions"][0]["discovery_error"]
-    warehouse = book.create_server(
-        actor,
-        {
-            "slug": "ledger",
-            "name": "Ledger",
-            "kind": "sql",
-            "version": {"version": "1.0.0", "config": {"sql": {"data_connection_id": "warehouse"}}},
-        },
-    )
-    assert warehouse["versions"][0]["tool_count"] == 3
+        )
+    with pytest.raises(ValidationFailedError, match="data connection"):
+        book.create_server(
+            actor,
+            {
+                "slug": "ledger",
+                "name": "Ledger",
+                "kind": "sql",
+                "version": {
+                    "version": "1.0.0",
+                    "config": {"sql": {"data_connection_id": "warehouse"}},
+                },
+            },
+        )
+    with pytest.raises(ValidationFailedError, match="https URL"):
+        book.create_server(
+            actor,
+            {
+                "slug": "nowhere",
+                "name": "Nowhere",
+                "kind": "remote_mcp",
+                "version": {"version": "1.0.0", "endpoint_url": "memory://nowhere"},
+            },
+        )
 
 
 def test_handlers_cover_each_builtin() -> None:
@@ -582,7 +587,7 @@ async def test_credentials_http_and_data_connections() -> None:
     probed = connections.test(actor, connection_id)
     assert probed["ok"] is True
     schema = connections.schema(actor, connection_id)
-    assert schema["tables"][0]["columns"]
+    assert schema["tables"][0]["name"] == "public.orders"
     version = next(iter(store.tool_server_versions.values()))
     version["config"] = {"sql": {"data_connection_id": str(connection_id)}}
     with pytest.raises(ConflictError):

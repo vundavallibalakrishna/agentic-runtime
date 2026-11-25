@@ -672,10 +672,18 @@ class ToolPipeline:
         )
 
     def _called_by_an_agent(self, request: dict[str, object]) -> bool:
-        """Whether the run making this call was started by another agent's run."""
+        """Whether the run making this call runs inside another agent's step.
+
+        Such a run cannot wait for a person. A called agent that is its own workflow
+        can: the request is made, its run pauses, and its caller's workflow waits.
+        """
+        from ar_domain.runs.request import asked  # noqa: PLC0415
+
         runs = getattr(self.store, "runs", None)
         run = runs.get(request.get("run_id")) if isinstance(runs, dict) else None
-        return isinstance(run, dict) and run.get("parent_run_id") is not None
+        if not isinstance(run, dict) or run.get("parent_run_id") is None:
+            return False
+        return not asked(run, "waits")
 
     def _hold(  # noqa: PLR0917
         self,

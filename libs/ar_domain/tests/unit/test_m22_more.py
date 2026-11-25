@@ -92,7 +92,7 @@ def test_connection_kinds_oauth_and_test() -> None:
             "name": "machine",
             "kind": "oauth_client_credentials",
             "secret": "client-secret",
-            "token_url": "memory://tokens",
+            "token_url": "https://example.com/oauth/token",
             "client_id": "ar",
         },
     )
@@ -107,7 +107,7 @@ def test_connection_kinds_oauth_and_test() -> None:
             "name": "userlogin",
             "kind": "oauth_authorization_code",
             "secret": "client-secret",
-            "token_url": "memory://tokens",
+            "token_url": "https://example.com/oauth/token",
             "authorize_url": "https://example.com/authorize",
             "client_id": "ar",
             "scopes": ["read"],

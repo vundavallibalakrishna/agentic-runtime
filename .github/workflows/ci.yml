@@ -8,6 +8,13 @@ on:
   push:
     branches: [main]
 
+# A new push to a pull request makes the run for the push before it pointless. It is
+# stopped, so its jobs do not hold the runners the new run is waiting for. Every push to
+# main is run to the end.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # What the change touches. A pull request that changes only Markdown under docs/ runs
   # the title, the industry check and the docs job, and skips the suite: nothing a test,
@@ -80,7 +87,9 @@ jobs:
         run: |
           curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -o /usr/local/bin/opa "https://github.com/open-policy-agent/opa/releases/download/v1.21.3/opa_linux_amd64_static"
           chmod +x /usr/local/bin/opa
-      - run: uv run pytest -m "not integration and not e2e and not qdrant" -q --cov
+      # One worker for each core of the runner. On one core this suite takes about eleven
+      # minutes; the tests do not depend on each other's order.
+      - run: uv run pytest -m "not integration and not e2e and not qdrant" -q --cov -n auto
 
   python-integration:
     needs: changes
@@ -271,7 +280,7 @@ jobs:
       - run: bash scripts/compose_install.sh
       - name: Compose logs
         if: failure()
-        run: docker compose -f compose.yaml -f compose.opa.yaml -f compose.vault.yaml -f compose.channels.yaml -f compose.connectors.yaml -f compose.model-gateway.yaml --profile production logs --no-color --tail 120
+        run: docker compose -f compose.yaml -f compose.opa.yaml -f compose.vault.yaml -f compose.channels.yaml -f compose.model-gateway.yaml --profile production logs --no-color --tail 120
 
   docs:
     if: github.event.action != 'edited'

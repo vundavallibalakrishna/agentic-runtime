@@ -95,11 +95,19 @@ def test_empty_env_values_use_settings_defaults(monkeypatch: pytest.MonkeyPatch)
 def test_port_in_use_sees_a_bound_socket() -> None:
     import socket
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = int(sock.getsockname()[1])
-        assert port_in_use(port)
-    assert not port_in_use(port)
+    # A port this test holds is in use. Once let go it is free, unless something else on
+    # the machine takes it in that instant, which tests run side by side do now and then.
+    # So a few ports are tried, and one that reads as free is enough.
+    freed: list[bool] = []
+    for _ in range(5):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = int(sock.getsockname()[1])
+            assert port_in_use(port)
+        freed.append(not port_in_use(port))
+        if freed[-1]:
+            break
+    assert any(freed)
 
 
 def test_prepare_reports_a_busy_port_and_the_fix(tmp_path: Path) -> None:

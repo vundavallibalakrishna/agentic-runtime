@@ -120,7 +120,7 @@ def test_oauth_invalid_grant() -> None:
             "slug": "local",
             "name": "Local",
             "authorizeUrl": "https://tickets.example/authorize",
-            "tokenUrl": "memory://oauth",
+            "tokenUrl": "https://example.com/oauth/token",
         },
     )
     assert created.status_code == 200, created.text
@@ -233,3 +233,23 @@ def test_a_console_test_goes_through_the_tool_gateway(monkeypatch: object) -> No
     # The gateway stores the run and the call. This process stored neither.
     assert len(store.runs) == runs_before
     assert len(store.tool_calls) == calls_before
+
+
+def test_a_data_connection_needs_its_database_address() -> None:
+    """The API used to fill in an in-memory warehouse when no address was given."""
+    client = _client()
+    refused = client.post("/api/v1/data-connections", json={"name": "ledger"})
+    assert refused.status_code == 422, refused.text
+    assert "dsn is required" in refused.text
+    listed = client.get("/api/v1/data-connections").json()["items"]
+    assert all(item["name"] != "ledger" for item in listed)
+
+
+def test_a_sql_tool_server_is_refused_and_points_to_data_connections() -> None:
+    client = _client()
+    refused = client.post(
+        "/api/v1/tool-servers",
+        json={"slug": "ledger", "name": "Ledger", "kind": "sql", "version": {"version": "1.0.0"}},
+    )
+    assert refused.status_code == 422, refused.text
+    assert "data connection" in refused.text

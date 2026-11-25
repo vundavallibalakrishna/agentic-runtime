@@ -44,13 +44,6 @@ def workflow_id(run_id: str) -> str:
     return f"run-{run_id}"
 
 
-def delegation_workflow() -> type[object]:
-    """Temporal parent run that starts subagent children."""
-    from ar_runtime.workflows.delegation import AgentRunWorkflow  # noqa: PLC0415
-
-    return AgentRunWorkflow
-
-
 def turn_workflow() -> type[object]:
     """The one run workflow. Approval and input are signals on it."""
     from ar_runtime.workflows.turn import TurnWorkflow  # noqa: PLC0415

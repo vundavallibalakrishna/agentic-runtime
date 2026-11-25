@@ -120,11 +120,8 @@ def _publish(client: httpx.Client) -> str:
                     ),
                     "model": {"alias": ALIAS},
                     "tools": [
-                        {
-                            "server": "session",
-                            "version": "*",
-                            "include": ["propose_change", "a2a_call"],
-                        }
+                        {"server": "session", "version": "*", "include": ["a2a_call"]},
+                        {"server": "browser", "version": "*", "include": ["submit_form"]},
                     ],
                     "budget": {
                         "maxSteps": 4,
@@ -323,8 +320,8 @@ def main() -> None:
                     "name": "agent_m29_exposed",
                     "arguments": {
                         "write": {
-                            "tool": "session.propose_change",
-                            "arguments": {"summary": "rename the record"},
+                            "tool": "browser.submit_form",
+                            "arguments": {"ref": "form"},
                         }
                     },
                 },

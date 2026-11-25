@@ -81,7 +81,7 @@ def test_one_password_can_match_two_tenants() -> None:
 
 def test_recorded_gmail_list_is_contract() -> None:
     store = demo_store()
-    seed(store, tenant=False)
+    seed(store)
     actor = _actor()
     ConnectorBook(store).install(
         actor,

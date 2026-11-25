@@ -266,6 +266,8 @@ class Message(Base):
         UUID(as_uuid=True), ForeignKey("models.id", ondelete="SET NULL")
     )
     answered_model: Mapped[str | None] = mapped_column(Text)
+    # What the reply shows of the tool calls it made. The record of each call is `tool_calls`.
+    tool_calls: Mapped[list[dict[str, object]] | None] = mapped_column(JSONB)
     tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     author_user_id: Mapped[uuid.UUID | None] = mapped_column(

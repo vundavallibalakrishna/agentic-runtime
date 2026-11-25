@@ -15,7 +15,6 @@ _ROOTS = (
     Path("libs/ar_domain/src"),
     Path("libs/ar_contracts/src"),
     Path("services"),
-    Path("connectors"),
     Path("packs"),
 )
 _SKIP = {"tests", "examples", "scripts"}

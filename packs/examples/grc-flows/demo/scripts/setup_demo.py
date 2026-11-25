@@ -108,6 +108,17 @@ AGENTS: dict[str, dict[str, object]] = {
                 "max_parallel": 3,
                 "child_timeout_s": 300,
             },
+            # What the specialists use counts against the lead. Two of them reading several
+            # documents use most of the default 80,000 tokens, so the lead is given room
+            # for them and for its own assessment.
+            "budget": {
+                "max_steps": 16,
+                "max_tokens": 400_000,
+                "max_cost_micros": 4_000_000,
+                "max_wall_clock_s": 600,
+                "max_tool_calls": 16,
+                "max_parallel_tool_calls": 1,
+            },
         },
     },
 }

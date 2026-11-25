@@ -1,80 +1,18 @@
 """Idempotent tool catalogue for the dev process and ``make seed``."""
 
 import functools
-import hashlib
 from typing import TYPE_CHECKING, Any
 
 from ar_common.time import utcnow
-from ar_domain.agents.logic import assistant_definition
 from ar_domain.chat.service import demo_id
-from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 from ar_domain.tools.logic import description_hash, manifest_hash
-from ar_domain.tools.openapi_import import operations_from
 
 if TYPE_CHECKING:
     import uuid
 
-PETSTORE: dict[str, object] = {
-    "openapi": "3.0.3",
-    "info": {"title": "Petstore", "version": "1.0.0"},
-    "paths": {
-        "/pets": {
-            "get": {
-                "operationId": "listPets",
-                "summary": "List pets",
-                "description": "Return the pets the caller can see.",
-                "responses": {"200": {"description": "ok"}},
-            },
-            "post": {
-                "operationId": "createPet",
-                "summary": "Create a pet",
-                "description": "Add a pet. This writes a new row.",
-                "requestBody": {
-                    "required": True,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {"name": {"type": "string"}},
-                                "required": ["name"],
-                            }
-                        }
-                    },
-                },
-                "responses": {"201": {"description": "created"}},
-            },
-        },
-        "/pets/{petId}": {
-            "get": {
-                "operationId": "showPet",
-                "summary": "Show one pet",
-                "description": "Return one pet by id.",
-                "parameters": [
-                    {"name": "petId", "in": "path", "required": True, "schema": {"type": "integer"}}
-                ],
-                "responses": {"200": {"description": "ok"}},
-            },
-            "delete": {
-                "operationId": "deletePet",
-                "summary": "Delete a pet",
-                "description": "Remove a pet. This cannot be undone.",
-                "parameters": [
-                    {"name": "petId", "in": "path", "required": True, "schema": {"type": "integer"}}
-                ],
-                "responses": {"204": {"description": "gone"}},
-            },
-        },
-    },
-}
 
-
-def seed(store: Any, *, tenant: bool = True) -> None:
-    """Insert the built-in tool catalogue, and the demo tenant's rows when ``tenant`` is set.
-
-    The catalogue belongs to no tenant. The demo tenant's settings, sample review queue,
-    example agent and fixtures use fixed ids and exist only in a store that has no
-    database behind it.
-    """
+def seed(store: Any) -> None:
+    """Insert the built-in tool catalogue. It belongs to no tenant."""
     import ar_domain.knowledge.resolver  # noqa: PLC0415
     import ar_domain.sandboxes.resolver  # noqa: PLC0415
     import ar_domain.skills.resolver  # noqa: PLC0415
@@ -82,44 +20,18 @@ def seed(store: Any, *, tenant: bool = True) -> None:
     from ar_domain.sandboxes.service import SandboxBook  # noqa: PLC0415
 
     SandboxBook(store).ensure_platform()
-    catalogue = not getattr(store, "tools_seeded", False)
-    demo = tenant and not getattr(store, "tenant_tools_seeded", False)
-    if not catalogue and not demo:
-        ensure_m33b(store)
-        ensure_m34b(store)
-        return
-    tenant_id = demo_id("tenant")
-    admin = demo_id("admin")
-    # Fixtures back the offline demo, the unit suite and the e2e specs. A store built
-    # for staging or production does not get them.
-    fixtures = demo and bool(getattr(store, "fake_models_allowed", True))
-    if demo:
-        _settings(store, tenant_id)
-    if catalogue:
-        _core_servers(store, fixtures=bool(getattr(store, "fake_models_allowed", True)))
-    if fixtures:
-        provider = _provider(store, tenant_id, admin)
-        _tickets(store, tenant_id, admin, provider)
-        _echo(store, tenant_id, admin)
-        _petstore(store, tenant_id, admin)
-        _warehouse(store, tenant_id, admin)
-        _desk(store, tenant_id, demo_id("builder"))
-    if demo:
-        _reviews(store, tenant_id)
-    if catalogue:
+    if not getattr(store, "tools_seeded", False):
+        _core_servers(store)
         _platform_servers(store)
         store.tools_seeded = True
-    if demo:
-        _analyst(store, tenant_id, admin)
-        store.tenant_tools_seeded = True
     ensure_m33b(store)
     ensure_m34b(store)
 
 
-def _core_servers(store: Any, *, fixtures: bool) -> None:
+def _core_servers(store: Any) -> None:
     _builtin(store, "files", "Files", "builtin://files", _file_tools())
     _builtin(store, "conversations", "Conversations", "builtin://conversations", _history_tools())
-    _builtin(store, "session", "Session", "builtin://session", _session_tools(fixtures=fixtures))
+    _builtin(store, "session", "Session", "builtin://session", _session_tools())
 
 
 def _platform_servers(store: Any) -> None:
@@ -153,7 +65,7 @@ class _Shelf:
 def shipped_tools() -> dict[str, dict[str, object]]:
     """Every built-in tool as this release defines it, by qualified name."""
     shelf = _Shelf()
-    _core_servers(shelf, fixtures=False)
+    _core_servers(shelf)
     _platform_servers(shelf)
     _append_tools(shelf, "documents", [_ocr_tool()])
     _append_tools(shelf, "general", [_pivot_tool()])
@@ -203,16 +115,13 @@ def _retire_unshipped(store: Any, shipped: dict[str, dict[str, object]]) -> None
     stored catalogue of an install seeded before the removal. Such a tool is marked
     disabled on the loaded row: it is not offered to a model and a call to it is
     refused. Only the servers this release ships are looked at, so a server a pack or a
-    test registered is left alone, and so are the approval fixture and the demo servers
-    of a store that allows them. Like the refreshed text, this is not written back.
+    test registered is left alone. Like the refreshed text, this is not written back.
     """
     tools = getattr(store, "tool_defs", None)
     if not isinstance(tools, dict):
         return
     servers = {name.split(".", 1)[0] for name in shipped}
     kept = set(shipped)
-    if getattr(store, "fake_models_allowed", True):
-        kept |= {f"session.{name}" for name in _TEST_CONTROL_TOOLS}
     for row in tools.values():
         if not isinstance(row, dict) or row.get("tenant_id") is not None:
             continue
@@ -224,44 +133,10 @@ def _retire_unshipped(store: Any, shipped: dict[str, dict[str, object]]) -> None
             row["disabled_reason"] = _RETIRED_REASON
 
 
-def _settings(store: Any, tenant: uuid.UUID) -> None:
-    current = store.tenant_settings.setdefault(tenant, {})
-    if not isinstance(current, dict):
-        return
-    security = current.setdefault("security", {})
-    if isinstance(security, dict):
-        security.setdefault("allow_self_review", True)
-        security.setdefault("require_step_up_for_w3", True)
-        security.setdefault("require_step_up_for_signoff", True)
-    features = current.setdefault("features", {})
-    if isinstance(features, dict):
-        features.setdefault("web_fetch", True)
-        features.setdefault("custom_rego", False)
-    approvals = current.setdefault("approvals", {})
-    if isinstance(approvals, dict):
-        approvals.setdefault("default_ttl_s", 86400)
-    current.setdefault("egress_allowlist", ["example.com"])
-    roles = getattr(store, "user_roles", None)
-    if isinstance(roles, dict):
-        roles.setdefault(demo_id("admin"), {"tenant_admin"})
-        roles.setdefault(demo_id("builder"), {"builder"})
-        roles.setdefault(demo_id("approver"), {"approver"})
-        roles.setdefault(demo_id("member"), {"member"})
-    names = getattr(store, "display_names", None)
-    if isinstance(names, dict):
-        names.setdefault(demo_id("admin"), "Dev Admin")
-        names.setdefault(demo_id("builder"), "Dev Builder")
-        names.setdefault(demo_id("approver"), "Dev Approver")
-        names.setdefault(demo_id("member"), "Dev Member")
-    for key in ("admin", "builder", "approver", "member"):
-        store.user_emails.setdefault(demo_id(key), f"{key}@dev.local")
-        store.user_statuses.setdefault(demo_id(key), "active")
-
-
 def _builtin(
     store: Any, slug: str, name: str, endpoint: str, tools: list[dict[str, object]]
 ) -> None:
-    _approved(
+    approved_server(
         store,
         tenant_id=None,
         owner=None,
@@ -277,266 +152,7 @@ def _builtin(
     )
 
 
-def _tickets(store: Any, tenant: uuid.UUID, admin: uuid.UUID, provider: uuid.UUID) -> None:
-    _approved(
-        store,
-        tenant_id=tenant,
-        owner=admin,
-        slug="tickets",
-        name="Tickets",
-        description="Files a ticket on the workspace tracker.",
-        kind="remote_mcp",
-        endpoint="memory://tickets",
-        auth_mode="user_oauth",
-        provider_id=provider,
-        tools=[
-            _tool(
-                "create_ticket",
-                "Create a ticket",
-                "Create a ticket for the signed-in person.",
-                {
-                    "type": "object",
-                    "properties": {"title": {"type": "string"}, "body": {"type": "string"}},
-                    "required": ["title"],
-                },
-                "W1",
-            ),
-            _tool(
-                "list_tickets",
-                "List tickets",
-                "List tickets the signed-in person has filed.",
-                {"type": "object", "properties": {}},
-                "R0",
-            ),
-        ],
-        config={},
-    )
-    grant_id = demo_id("grant-tickets")
-    if grant_id not in store.credential_grants:
-        store.credential_grants[grant_id] = {
-            "id": grant_id,
-            "tenant_id": tenant,
-            "user_id": admin,
-            "provider_id": provider,
-            "scopes": ["tickets.write"],
-            "status": "active",
-            "refresh_token": "refresh-admin",
-            "access_token": "access-admin",
-            "external_account_label": "admin@dev.local",
-            "created_at": utcnow(),
-            "updated_at": utcnow(),
-        }
-
-
-def _echo(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
-    """A draft-ready catalogue entry is created on demand. The approved echo is for the wizard demo."""  # noqa: E501
-    del store, tenant, admin
-
-
-def _petstore(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
-    parsed = operations_from(PETSTORE)
-    tools = [
-        _tool(
-            str(item["name"]),
-            str(item["title"]),
-            str(item["description"]),
-            item["input_schema"] if isinstance(item["input_schema"], dict) else {},
-            str(item["risk_class"]),
-            annotations=item["annotations"] if isinstance(item["annotations"], dict) else {},
-        )
-        for item in parsed
-    ]
-    _approved(
-        store,
-        tenant_id=tenant,
-        owner=admin,
-        slug="petstore",
-        name="Petstore",
-        description="Sample OpenAPI tools from the Petstore document.",
-        kind="openapi",
-        endpoint="memory://petstore",
-        auth_mode="none",
-        provider_id=None,
-        tools=tools,
-        config={
-            "openapi": {
-                "base_url": "https://petstore.example",
-                "operations": [item["operation_id"] for item in parsed],
-            }
-        },
-    )
-
-
-def _warehouse(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
-    connection_id = demo_id("connection-warehouse")
-    secret_id = demo_id("secret-warehouse")
-    if connection_id not in store.data_connections:
-        store.secret_values[secret_id] = b"memory://warehouse"
-        store.data_connections[connection_id] = {
-            "id": connection_id,
-            "tenant_id": tenant,
-            "name": "Warehouse",
-            "engine": "postgres",
-            "dsn_secret_ref_id": secret_id,
-            "identity_mode": "service",
-            "allowlist": {"schemas": ["public"], "tables": ["public.orders"], "columns_deny": []},
-            "row_limit": 1000,
-            "statement_timeout_s": 30,
-            "classification": "internal",
-            "schema_notes": "Orders the workspace can read.",
-            "status": "active",
-            "created_by": admin,
-            "created_at": utcnow(),
-            "updated_at": utcnow(),
-        }
-    slug = "warehouse"
-    tools = [
-        _tool(
-            "list_tables",
-            "List tables",
-            "List tables on the warehouse connection.",
-            {"type": "object", "properties": {}},
-            "R0",
-        ),
-        _tool(
-            "describe_table",
-            "Describe a table",
-            "Describe one allowlisted table.",
-            {"type": "object", "properties": {"table": {"type": "string"}}, "required": ["table"]},
-            "R0",
-        ),
-        _tool(
-            "run_query",
-            "Run a query",
-            "Run one read-only select against the warehouse.",
-            {"type": "object", "properties": {"sql": {"type": "string"}}, "required": ["sql"]},
-            "R1",
-        ),
-    ]
-    _approved(
-        store,
-        tenant_id=tenant,
-        owner=admin,
-        slug=slug,
-        name="Warehouse",
-        description="Read-only questions over the orders table.",
-        kind="sql",
-        endpoint="memory://warehouse",
-        auth_mode="none",
-        provider_id=None,
-        tools=tools,
-        config={"sql": {"data_connection_id": str(connection_id)}},
-    )
-
-
-def _reviews(store: Any, tenant: uuid.UUID) -> None:
-    """One queue and one item so the reviews screen is not empty."""
-    queues = getattr(store, "review_queues", None)
-    items = getattr(store, "review_items", None)
-    if not isinstance(queues, dict) or not isinstance(items, dict):
-        return
-    queue_id = demo_id("queue-output")
-    if queue_id in queues:
-        return
-    now = utcnow()
-    subject_id = demo_id("sample-output")
-    statement = "I reviewed the sample output."
-    queues[queue_id] = {
-        "id": queue_id,
-        "tenant_id": tenant,
-        "slug": "output",
-        "name": "Output review",
-        "subject_type": "artifact",
-        "levels": [{"level": 1, "role_key": "", "required_count": 1}],
-        "statement_template": "I reviewed {title} ({content_hash}).",
-        "created_at": now,
-        "updated_at": now,
-    }
-    items[demo_id("review-sample")] = {
-        "id": demo_id("review-sample"),
-        "tenant_id": tenant,
-        "queue_id": queue_id,
-        "subject_type": "artifact",
-        "subject_id": subject_id,
-        "subject_ref": {},
-        "content_hash": hashlib.sha256(f"artifact:{subject_id}".encode()).hexdigest(),
-        "statement_text": statement,
-        "statement_hash": hashlib.sha256(statement.encode()).hexdigest(),
-        "status": "pending",
-        "current_level": 1,
-        "levels": [{"level": 1, "role_key": "", "required_count": 1}],
-        "preparer_principal_type": "user",
-        "preparer_principal_id": demo_id("builder"),
-        "agent_id": None,
-        "expires_at": None,
-        "created_at": now,
-        "updated_at": now,
-    }
-
-
-def _desk(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
-    for agent in store.agents.values():
-        if agent.get("tenant_id") == tenant and agent.get("slug") == "desk":
-            return
-    definition = assistant_definition()
-    definition["persona"] = {
-        "display_name": "Desk",
-        "greeting": "Tell me the ticket or the question.",
-    }
-    definition["instructions"] = (
-        "You file tickets and answer questions about orders. "
-        "Use the tickets and warehouse tools when the person asks."
-    )
-    definition["starter_prompts"] = [
-        "File a ticket: the printer on floor 3 is jammed",
-        "How many orders are in the warehouse?",
-    ]
-    definition["tools"] = [
-        {"server": "tickets", "version": "*", "include": ["*"]},
-        {"server": "warehouse", "version": "*", "include": ["*"]},
-        {"server": "petstore", "version": "*", "include": ["*"]},
-    ]
-    budget = definition.get("budget")
-    if isinstance(budget, dict):
-        budget["max_parallel_tool_calls"] = 4
-    from ar_domain.agents.service import AgentLifecycle  # noqa: PLC0415
-
-    AgentLifecycle(store)._insert(
-        tenant,
-        admin,
-        slug="desk",
-        name="Desk",
-        description="Files tickets and reads the orders table.",
-        visibility="tenant",
-        definition=definition,
-        published=True,
-    )
-
-
-def _provider(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> uuid.UUID:
-    provider_id = demo_id("provider-tickets")
-    if provider_id not in store.credential_providers:
-        now = utcnow()
-        store.credential_providers[provider_id] = {
-            "id": provider_id,
-            "tenant_id": tenant,
-            "slug": "tickets",
-            "name": "Tickets",
-            "kind": "oauth2",
-            "authorize_url": "https://tickets.example/authorize",
-            "token_url": "memory://oauth",
-            "client_id": "ar-tickets",
-            "default_scopes": ["tickets.write"],
-            "extra": {},
-            "status": "active",
-            "created_by": admin,
-            "created_at": now,
-            "updated_at": now,
-        }
-    return provider_id
-
-
-def _approved(
+def approved_server(
     store: Any,
     *,
     tenant_id: uuid.UUID | None,
@@ -649,7 +265,7 @@ def register_builtin_server(
     tools: list[dict[str, object]],
 ) -> None:
     """Register one in-process server. A second call with the same slug is a no-op."""
-    _approved(
+    approved_server(
         store,
         tenant_id=tenant_id,
         owner=owner,
@@ -665,7 +281,7 @@ def register_builtin_server(
     )
 
 
-def _tool(  # noqa: PLR0917
+def tool_row(  # noqa: PLR0917
     name: str,
     title: str,
     description: str,
@@ -685,7 +301,7 @@ def _tool(  # noqa: PLR0917
 
 def _file_tools() -> list[dict[str, object]]:
     return [
-        _tool(
+        tool_row(
             "list",
             "List files",
             "List the files visible in this conversation. Returns each file's id, name, type "
@@ -703,7 +319,7 @@ def _file_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
-        _tool(
+        tool_row(
             "read",
             "Read a file",
             "Read the text of a file the person can access, by its id. Returns the text, or an "
@@ -731,7 +347,7 @@ def _file_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
-        _tool(
+        tool_row(
             "attach_to_sandbox",
             "Attach a file",
             "Copy a file from this conversation into the computer's working folder so a command "
@@ -763,7 +379,7 @@ def _knowledge_server(store: Any) -> None:
         "Knowledge",
         "builtin://knowledge",
         [
-            _tool(
+            tool_row(
                 "search",
                 "Search knowledge",
                 "Search the knowledge collections this agent may use, by meaning and "
@@ -811,7 +427,7 @@ def _knowledge_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "get_document",
                 "Read a document",
                 "Read the summary of one knowledge document the person can access, by id. "
@@ -828,7 +444,7 @@ def _knowledge_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "list_collections",
                 "List collections",
                 "List knowledge collections the person can see.",
@@ -852,7 +468,7 @@ def _skills_server(store: Any) -> None:
         "Skills",
         "builtin://skills",
         [
-            _tool(
+            tool_row(
                 "load",
                 "Load a skill",
                 "Load a skill's instructions into the turn and copy its assets onto the "
@@ -882,7 +498,7 @@ def _routines_server(store: Any) -> None:
         "Routines",
         "builtin://routines",
         [
-            _tool(
+            tool_row(
                 "create",
                 "Create a routine",
                 "Create a scheduled or webhook routine for this agent. A schedule uses a "
@@ -917,7 +533,7 @@ def _routines_server(store: Any) -> None:
                 },
                 "W1",
             ),
-            _tool(
+            tool_row(
                 "list",
                 "List routines",
                 "List routines the signed-in person owns.",
@@ -930,7 +546,7 @@ def _routines_server(store: Any) -> None:
 
 
 def _quiet_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "nothing_to_report",
         "Nothing to report",
         "Say that this run found nothing worth reporting. Call it once, before your final "
@@ -958,7 +574,7 @@ def _memory_server(store: Any) -> None:
         "Memory",
         "builtin://memory",
         [
-            _tool(
+            tool_row(
                 "search",
                 "Search memory",
                 "Find facts remembered earlier that this run is allowed to recall. Returns "
@@ -991,7 +607,7 @@ def _memory_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "save",
                 "Save a memory",
                 "Remember a short, durable fact for later turns. A 'user' fact is saved at "
@@ -1020,7 +636,7 @@ def _memory_server(store: Any) -> None:
                 },
                 "W1",
             ),
-            _tool(
+            tool_row(
                 "forget",
                 "Forget a memory",
                 "Delete one of the signed-in person's remembered facts, by id or by a search "
@@ -1059,7 +675,7 @@ def _general_server(store: Any) -> None:
 
 
 def _code_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "code",
         "Run Python",
         "Run Python. It starts in the conversation's working folder, so a relative path "
@@ -1093,7 +709,7 @@ def _general_tools() -> list[dict[str, object]]:
     """Platform tools an agent can use without a dedicated connector."""
     return [
         _code_tool(),
-        _tool(
+        tool_row(
             "shell",
             "Run a shell command",
             "Run a shell command. It starts in the conversation's working folder, so a "
@@ -1117,7 +733,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
+        tool_row(
             "read_file",
             "Read a workspace file",
             "Read a file from the working folder. The path is relative to it, "
@@ -1145,7 +761,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
-        _tool(
+        tool_row(
             "write_file",
             "Write a workspace file",
             "Write a text file in the working folder, at a path relative to it. "
@@ -1172,7 +788,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
+        tool_row(
             "list_files",
             "List workspace files",
             "List the files in the working folder. Files attached in this conversation "
@@ -1189,7 +805,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
-        _tool(
+        tool_row(
             "edit_file",
             "Edit a workspace file",
             "Replace an exact piece of text in a workspace file. oldString must match the file "
@@ -1222,7 +838,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
+        tool_row(
             "grep",
             "Search file contents",
             "Search the working folder for lines matching a regular expression. Returns each "
@@ -1249,7 +865,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
-        _tool(
+        tool_row(
             "glob",
             "Find files by name",
             "List workspace files whose path matches a glob pattern, for example **/*.py. "
@@ -1267,7 +883,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
-        _tool(
+        tool_row(
             "move",
             "Move a workspace file",
             "Move or rename a file or folder within the working folder. Creates missing parent "
@@ -1290,7 +906,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
+        tool_row(
             "delete",
             "Delete a workspace file",
             "Delete a file or folder in the working folder. A folder is removed with its "
@@ -1308,7 +924,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
+        tool_row(
             "fetch",
             "Fetch a page",
             "Fetch a URL and return its title and readable text, with the status, ETag, "
@@ -1343,7 +959,7 @@ def _general_tools() -> list[dict[str, object]]:
             "R1",
             {"openWorldHint": True, "readOnlyHint": True},
         ),
-        _tool(
+        tool_row(
             "search",
             "Search the web",
             "Search the web with the tenant's configured provider. Returns ranked results with "
@@ -1365,7 +981,7 @@ def _general_tools() -> list[dict[str, object]]:
             "R1",
             {"openWorldHint": True, "readOnlyHint": True},
         ),
-        _tool(
+        tool_row(
             "http",
             "Call an HTTP API",
             "Send an HTTP request. GET and HEAD run immediately. "
@@ -1436,7 +1052,7 @@ def _general_tools() -> list[dict[str, object]]:
             "R1",
             {"openWorldHint": True},
         ),
-        _tool(
+        tool_row(
             "inspect_table",
             "Inspect a table file",
             "Open a CSV, TSV, JSON or xlsx file in this run's workspace. "
@@ -1458,7 +1074,7 @@ def _general_tools() -> list[dict[str, object]]:
         _pivot_tool(),
         _sample_table_tool(),
         *_saved_query_tools(),
-        _tool(
+        tool_row(
             "export_table",
             "Export a table",
             "Write rows to a CSV or xlsx file that can be downloaded from the chat. "
@@ -1516,7 +1132,7 @@ def _data_server(store: Any) -> None:
         "Database",
         "builtin://data",
         [
-            _tool(
+            tool_row(
                 "list_schemas",
                 "List schemas",
                 "List the schemas on a named read-only database connection. Returns schema "
@@ -1534,7 +1150,7 @@ def _data_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "list_tables",
                 "List tables",
                 "List the tables on a named read-only database connection. Returns table names "
@@ -1552,7 +1168,7 @@ def _data_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "describe_table",
                 "Describe a table",
                 "Describe the columns of one table on a named read-only database connection. "
@@ -1575,7 +1191,7 @@ def _data_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "query",
                 "Query a database",
                 "Run one read-only SELECT on a named database connection and return the rows. "
@@ -1609,7 +1225,7 @@ def _documents_server(store: Any) -> None:
         "Documents",
         "builtin://documents",
         [
-            _tool(
+            tool_row(
                 "list",
                 "List documents",
                 "List documents. scope is turn, conversation or library. "
@@ -1636,7 +1252,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "search",
                 "Search documents",
                 "Search library documents by meaning and words. Returns ranked passages, each "
@@ -1672,7 +1288,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "ingest",
                 "Ingest a document",
                 "Extract a PDF, DOCX, XLSX, PPTX, TXT, MD, HTML or image into the library so it "
@@ -1714,7 +1330,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "W1",
             ),
-            _tool(
+            tool_row(
                 "read",
                 "Read a document",
                 "Read a library document by page, heading, anchor range or cursor. "
@@ -1766,7 +1382,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "outline",
                 "Document outline",
                 "List headings with level, page span and tokens. Pass cursor for the next page.",
@@ -1787,7 +1403,7 @@ def _documents_server(store: Any) -> None:
                 "R0",
             ),
             _diff_tool(),
-            _tool(
+            tool_row(
                 "tables",
                 "Read tables",
                 "Return tables from a document. Pass table to select one by anchor or sheet name, "
@@ -1807,7 +1423,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "map",
                 "Map an instruction over documents",
                 "Run the caller's instruction on each section of the named documents. "
@@ -1859,7 +1475,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "extract",
                 "Extract by schema",
                 "Fill a JSON Schema from one document. A missing model is an error. "
@@ -1874,7 +1490,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _tool(
+            tool_row(
                 "edit",
                 "Write a new document version",
                 "Apply anchor replacements and store a new file. The original is not changed. "
@@ -1914,7 +1530,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "W1",
             ),
-            _tool(
+            tool_row(
                 "create",
                 "Create a document",
                 "Create a DOCX, PDF, PPTX or XLSX from a title and sections or sheets. "
@@ -2038,7 +1654,7 @@ def _image_server(store: Any) -> None:
 
 
 def _ocr_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "ocr",
         "Read a scanned document",
         "Read text from a scanned PDF or an image. The default provider is tesseract "
@@ -2080,7 +1696,7 @@ def _ocr_tool() -> dict[str, object]:
 
 
 def _crosscheck_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "crosscheck",
         "Cross-check a document",
         "Find the places inside one document that disagree with each other: the same thing "
@@ -2113,7 +1729,7 @@ def _crosscheck_tool() -> dict[str, object]:
 
 
 def _image_ask_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "ask",
         "Ask about an image",
         "Answer a question about an uploaded screenshot, chart, UI or diagram. "
@@ -2189,7 +1805,7 @@ def ensure_m34b(store: Any) -> None:
 
 
 def _query_table_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "query_table",
         "Query a table file",
         "Run one read-only SQL statement in DuckDB over CSV, TSV, JSON or xlsx "
@@ -2226,7 +1842,7 @@ def _query_table_tool() -> dict[str, object]:
 
 
 def _pivot_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "pivot_table",
         "Pivot a table file",
         "Pivot one sheet with DuckDB. index, on and value are column names from "
@@ -2280,7 +1896,7 @@ def _pivot_tool() -> dict[str, object]:
 
 
 def _sample_table_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "sample_table",
         "Sample a table file",
         "Draw a sample of rows from a CSV, TSV, JSON or xlsx file and write it to a CSV "
@@ -2378,7 +1994,7 @@ def _sample_table_tool() -> dict[str, object]:
 
 def _saved_query_tools() -> list[dict[str, object]]:
     return [
-        _tool(
+        tool_row(
             "save_query",
             "Save a table query",
             "Save one read-only SQL statement under a name so it can be run again later "
@@ -2429,7 +2045,7 @@ def _saved_query_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
+        tool_row(
             "list_saved_queries",
             "List saved queries",
             "List the queries saved in this workspace: the name, newest version, "
@@ -2438,7 +2054,7 @@ def _saved_query_tools() -> list[dict[str, object]]:
             {"type": "object", "properties": {}},
             "R0",
         ),
-        _tool(
+        tool_row(
             "run_saved_query",
             "Run a saved query",
             "Run a saved query against a table file as it is now. Nothing is cached. The "
@@ -2479,7 +2095,7 @@ def _saved_query_tools() -> list[dict[str, object]]:
 
 
 def _chart_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "chart",
         "Draw a chart",
         "Draw a bar, line, area, scatter, pie, grouped, stacked, stacked100, multiline or "
@@ -2713,7 +2329,7 @@ def _sandbox_tools() -> list[dict[str, object]]:
         "required": ["path"],
     }
     return [
-        _tool(
+        tool_row(
             "exec",
             "Run a command",
             "Run a command on the computer and return its stdout, stderr, exit code and any "
@@ -2721,14 +2337,14 @@ def _sandbox_tools() -> list[dict[str, object]]:
             command,
             "W1",
         ),
-        _tool(
+        tool_row(
             "read_file",
             "Read a file",
             "Read a file from the computer's workspace and return its text.",
             path,
             "W1",
         ),
-        _tool(
+        tool_row(
             "write_file",
             "Write a file",
             "Write a text file on the computer's workspace.",
@@ -2753,14 +2369,14 @@ def _sandbox_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
+        tool_row(
             "list_files",
             "List files",
             "List the files under a path in the computer's workspace.",
             path,
             "W1",
         ),
-        _tool(
+        tool_row(
             "export_file",
             "Export a file",
             "Save a file from the computer's workspace as an artifact that can be downloaded "
@@ -2809,7 +2425,7 @@ def _browser_tools() -> list[dict[str, object]]:
     }
     page: dict[str, object] = {"openWorldHint": True, "readOnlyHint": True}
     return [
-        _tool(
+        tool_row(
             "navigate",
             "Open a page",
             "Open a page in this conversation's browser. Allowlisted hosts open immediately. "
@@ -2818,7 +2434,7 @@ def _browser_tools() -> list[dict[str, object]]:
             "R0",
             page,
         ),
-        _tool(
+        tool_row(
             "snapshot",
             "Read the page",
             "Read the current page as an accessibility tree with element refs. Untrusted text.",
@@ -2826,7 +2442,7 @@ def _browser_tools() -> list[dict[str, object]]:
             "R0",
             page,
         ),
-        _tool(
+        tool_row(
             "click",
             "Click",
             "Click an element. A link to a host outside the allow list is not followed; "
@@ -2835,12 +2451,12 @@ def _browser_tools() -> list[dict[str, object]]:
             "R0",
             page,
         ),
-        _tool("type", "Type", "Type into an element on the page.", ref, "W1"),
-        _tool("press", "Press a key", "Press a key on the page.", ref, "R0"),
-        _tool("scroll", "Scroll", "Scroll the page.", ref, "R0"),
-        _tool("screenshot", "Screenshot", "Save a screenshot of the page.", ref, "R0"),
-        _tool("submit_form", "Submit a form", "Submit a form on the page.", ref, "W2"),
-        _tool(
+        tool_row("type", "Type", "Type into an element on the page.", ref, "W1"),
+        tool_row("press", "Press a key", "Press a key on the page.", ref, "R0"),
+        tool_row("scroll", "Scroll", "Scroll the page.", ref, "R0"),
+        tool_row("screenshot", "Screenshot", "Save a screenshot of the page.", ref, "R0"),
+        tool_row("submit_form", "Submit a form", "Submit a form on the page.", ref, "W2"),
+        tool_row(
             "save_pdf",
             "Save the page as PDF",
             "Save the current page as a PDF artifact you can attach or read.",
@@ -2855,7 +2471,7 @@ def _browser_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
-        _tool(
+        tool_row(
             "download",
             "Download a file",
             "Click an element that downloads a file and save it as an artifact. Untrusted.",
@@ -2863,7 +2479,7 @@ def _browser_tools() -> list[dict[str, object]]:
             "R1",
             page,
         ),
-        _tool(
+        tool_row(
             "upload",
             "Upload a file",
             "Attach a workspace file to a file input on the page.",
@@ -2884,35 +2500,35 @@ def _browser_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
+        tool_row(
             "tabs",
             "List tabs",
             "List the open browser tabs with their index, title and URL, and which is active.",
             {"type": "object", "properties": {}},
             "R0",
         ),
-        _tool(
+        tool_row(
             "new_tab",
             "Open a tab",
             "Open a new, blank browser tab and make it the active one.",
             {"type": "object", "properties": {}},
             "R0",
         ),
-        _tool(
+        tool_row(
             "switch_tab",
             "Switch tab",
             "Make another open tab the active one, by its index from the tabs tool.",
             tab_index,
             "R0",
         ),
-        _tool(
+        tool_row(
             "close_tab",
             "Close a tab",
             "Close an open tab by its index from the tabs tool.",
             tab_index,
             "R0",
         ),
-        _tool(
+        tool_row(
             "use_connection",
             "Sign in with a connection",
             "Sign the browser in using a stored connection by name, so the page opens as "
@@ -2929,7 +2545,7 @@ def _browser_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
+        tool_row(
             "save_session",
             "Save the signed-in session",
             "Save the current signed-in browser session back to its connection, so later "
@@ -2940,49 +2556,9 @@ def _browser_tools() -> list[dict[str, object]]:
     ]
 
 
-def _analyst(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
-    from ar_domain.agents.service import AgentLifecycle  # noqa: PLC0415
-
-    for agent in store.agents.values():
-        if agent.get("tenant_id") == tenant and agent.get("slug") == "revenue-analyst":
-            return
-    AgentLifecycle(store)._insert(
-        tenant,
-        admin,
-        slug="revenue-analyst",
-        name="Revenue analyst",
-        description="Charts a spreadsheet on the computer.",
-        visibility="tenant",
-        published=True,
-        definition={
-            "persona": {
-                "display_name": "Revenue analyst",
-                "greeting": "Attach a spreadsheet and I will chart it.",
-            },
-            "instructions": "Use the computer to chart the attached spreadsheet.",
-            "starter_prompts": ["Analyse the attached CSV and chart revenue by month"],
-            "model": {"alias": "reasoning", "fast_alias": "fast", "vision_alias": "vision"},
-            "tools": [
-                {"server": "general", "include": ["*"]},
-                {"server": "files", "include": ["*"]},
-                {"server": "browser", "include": ["*"]},
-            ],
-            "sandbox": {"enabled": True, "template": "python-data", "scope": "conversation"},
-            "budget": {
-                "max_steps": 8,
-                "max_tokens": DEFAULT_RUN_BUDGET["max_tokens"],
-                "max_cost_micros": 1_000_000,
-                "max_wall_clock_s": 120,
-                "max_tool_calls": 4,
-                "max_parallel_tool_calls": 1,
-            },
-        },
-    )
-
-
 def _history_tools() -> list[dict[str, object]]:
     return [
-        _tool(
+        tool_row(
             "search_history",
             "Search history",
             "Search the person's earlier messages with this agent and return matching "
@@ -3008,7 +2584,7 @@ def _history_tools() -> list[dict[str, object]]:
 
 def _research_tools() -> list[dict[str, object]]:
     return [
-        _tool(
+        tool_row(
             "search",
             "Search the web",
             "Search the configured provider and return titles and URLs. "
@@ -3030,7 +2606,7 @@ def _research_tools() -> list[dict[str, object]]:
             "R1",
             {"openWorldHint": True, "readOnlyHint": True},
         ),
-        _tool(
+        tool_row(
             "fetch",
             "Fetch a page",
             "Fetch a page and return its readable text. Fixture pages stay local. "
@@ -3057,7 +2633,7 @@ def _research_tools() -> list[dict[str, object]]:
 
 def _context_tools() -> list[dict[str, object]]:
     return [
-        _tool(
+        tool_row(
             "retrieve",
             "Read a truncated tool result",
             "Read on in a tool result that was shortened in the prompt. "
@@ -3084,7 +2660,7 @@ def _context_tools() -> list[dict[str, object]]:
 
 
 def _diff_tool() -> dict[str, object]:
-    return _tool(
+    return tool_row(
         "diff",
         "Diff two documents",
         "List the sections that differ between two stored documents: changed, added "
@@ -3120,7 +2696,7 @@ def _web_server(store: Any) -> None:
 
 def _web_tools() -> list[dict[str, object]]:
     return [
-        _tool(
+        tool_row(
             "discover",
             "List what a site publishes",
             "List the addresses one URL publishes: the items of an RSS or Atom feed, the "
@@ -3157,20 +2733,10 @@ def _web_tools() -> list[dict[str, object]]:
     ]
 
 
-_TEST_CONTROL_TOOLS = frozenset({"propose_change"})
-
-
-def _session_tools(*, fixtures: bool = True) -> list[dict[str, object]]:
-    """Control tools. `propose_change` exists to exercise approval."""
-    tools = _all_control_tools()
-    if fixtures:
-        return tools
-    return [tool for tool in tools if tool["name"] not in _TEST_CONTROL_TOOLS]
-
-
-def _all_control_tools() -> list[dict[str, object]]:
+def _session_tools() -> list[dict[str, object]]:
+    """Control tools: the plan, tool search and a call to a remote agent."""
     return [
-        _tool(
+        tool_row(
             "plan_update",
             "Update the plan",
             "Replace the visible plan for this conversation.",
@@ -3202,7 +2768,7 @@ def _all_control_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
-        _tool(
+        tool_row(
             "search",
             "Search tools",
             "Find a tool available to this agent by what it does. Returns matching tool names "
@@ -3219,23 +2785,7 @@ def _all_control_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
-        _tool(
-            "propose_change",
-            "Propose a change",
-            "Record a change to stored data. This waits for approval before it is saved.",
-            {
-                "type": "object",
-                "properties": {
-                    "summary": {
-                        "type": "string",
-                        "description": "A short description of the change to be approved.",
-                    }
-                },
-                "required": ["summary"],
-            },
-            "W2",
-        ),
-        _tool(
+        tool_row(
             "a2a_call",
             "Call a remote agent",
             "Call a remote agent over A2A. Pass the agent card URL and the message. "

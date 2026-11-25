@@ -21,8 +21,6 @@ ar-model-gateway:1.0.0 ar-model-gateway:1.0.0
 ar-mcp-gateway:1.0.0 ar-mcp-gateway:1.0.0
 ar-sandbox-manager:1.0.0 ar-sandbox-manager:1.0.0
 ar-channels:1.0.0 ar-channels:1.0.0
-ar-mcp-sql:1.0.0 ar-mcp-sql:1.0.0
-ar-mcp-openapi:1.0.0 ar-mcp-openapi:1.0.0
 ar-fake-llm:1.0.0 ar-fake-llm:1.0.0
 ar-migrate:1.0.0 ar-migrate:1.0.0
 ar-squid:1.0.0 ar-squid:1.0.0

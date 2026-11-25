@@ -2805,6 +2805,11 @@
         },
         "usage": {
           "$ref": "#/$defs/RunUsage"
+        },
+        "callId": {
+          "default": "",
+          "title": "Callid",
+          "type": "string"
         }
       },
       "required": [
@@ -2896,6 +2901,11 @@
         },
         "taskBrief": {
           "title": "Taskbrief",
+          "type": "string"
+        },
+        "callId": {
+          "default": "",
+          "title": "Callid",
           "type": "string"
         }
       },

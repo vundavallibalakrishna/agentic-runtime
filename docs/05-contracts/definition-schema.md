@@ -86,12 +86,13 @@ spec:
     allowed: [web-researcher]   # agent slugs this agent may delegate to
     allowSelfClone: true      # delegate to a copy of itself with a narrowed tool subset
     maxDepth: 2                # 1..3; platform max 3
-    maxParallel: 3             # 1..8
-    childTimeoutS: 45         # a slower child is failed and not retried
+    maxParallel: 3             # 1..8; how many called agents run at once
+    maxCalls: 16               # 1..64; how many agents one call may name. Those past maxParallel wait their turn
+    childTimeoutS: 45         # working time for each called agent; a slower one is stopped and not retried
   contract:
     description: ""           # shown to a parent that calls this agent
-    inputSchema: {}
-    outputSchema: {}
+    inputSchema: {}           # a JSON Schema for an object ("type: object" or "properties") is checked; any other shape is only shown
+    outputSchema: {}          # the same rule: a JSON Schema for an object is what the agent's answer must match
   human:
     enabled: false            # the agent may pause and ask a person
   sandbox:

@@ -343,6 +343,7 @@ export type Allowed = string[];
 export type Allowselfclone = boolean;
 export type Maxdepth = number;
 export type Maxparallel = number;
+export type Maxcalls = number;
 export type Childtimeouts = number;
 export type Description1 = string;
 /**
@@ -647,6 +648,7 @@ export interface SubagentSpec {
   allowSelfClone?: Allowselfclone;
   maxDepth?: Maxdepth;
   maxParallel?: Maxparallel;
+  maxCalls?: Maxcalls;
   childTimeoutS?: Childtimeouts;
 }
 /**
@@ -1191,6 +1193,7 @@ export interface SubagentSpec1 {
   allowSelfClone?: Allowselfclone;
   maxDepth?: Maxdepth;
   maxParallel?: Maxparallel;
+  maxCalls?: Maxcalls;
   childTimeoutS?: Childtimeouts;
 }
 /**

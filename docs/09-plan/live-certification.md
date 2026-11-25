@@ -20,7 +20,7 @@ Compose `--profile production` publishes these host ports. Override a port with 
 | ingest worker | `AR_INGEST_HOST_PORT` | 8014 |
 | S3 (SeaweedFS) | `AR_S3_HOST_PORT` | 8333 |
 
-The API origin is `http://127.0.0.1:$AR_PORT`. The browser origin is `http://127.0.0.1:$AR_WEB_HOST_PORT`. The web process reads `API_PROXY_URL` on each request and proxies `/api`, `/v1` and `/.well-known/agent-card.json` to the API. mcp-sql publishes `AR_MCP_SQL_HOST_PORT` (default 8010); leave the API on 8000.
+The API origin is `http://127.0.0.1:$AR_PORT`. The browser origin is `http://127.0.0.1:$AR_WEB_HOST_PORT`. The web process reads `API_PROXY_URL` on each request and proxies `/api`, `/v1` and `/.well-known/agent-card.json` to the API.
 
 ## Start
 

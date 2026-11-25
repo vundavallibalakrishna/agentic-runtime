@@ -276,7 +276,7 @@ def test_editing_a_connection_cannot_set_allow_platform() -> None:
     store = demo_store()
     actor = Actor(demo_id("tenant"), demo_id("admin"), frozenset({"tools:create"}))
     made = DataConnections(store).create(
-        actor, {"name": "warehouse", "engine": "postgres", "dsn": "memory:demo"}
+        actor, {"name": "warehouse", "engine": "postgres", "dsn": "memory://warehouse"}
     )
     patched = DataConnections(store).patch(
         actor,

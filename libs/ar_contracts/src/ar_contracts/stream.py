@@ -340,6 +340,8 @@ class SubagentStartedData(_Data):
     agent_id: uuid.UUID
     agent_name: str
     task_brief: str
+    # The tool call that started this agent. Agents started by one call share it.
+    call_id: str = ""
 
 
 class SubagentStarted(_Event):
@@ -352,6 +354,7 @@ class SubagentCompletedData(_Data):
     status: str
     result_summary: str
     usage: RunUsage
+    call_id: str = ""
 
 
 class SubagentCompleted(_Event):

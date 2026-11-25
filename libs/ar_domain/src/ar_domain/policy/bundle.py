@@ -1,5 +1,6 @@
 """OPA bundle bytes. Spec: docs/03-specs/09-policy-approvals.md §3.2."""
 
+import gzip
 import hashlib
 import io
 import tarfile
@@ -76,7 +77,13 @@ def build_bundle(store: Any) -> tuple[bytes, str]:
         }
     data = orjson.dumps({"tenants": tenants})
     blob = io.BytesIO()
-    with tarfile.open(fileobj=blob, mode="w:gz") as archive:
+    # The gzip header carries the time it was written. With the clock in it, the same
+    # rules built a second apart were different bytes with a different ETag, so OPA was
+    # sent the whole bundle again on every poll. The time is fixed at zero.
+    with (
+        gzip.GzipFile(fileobj=blob, mode="wb", mtime=0) as packed,
+        tarfile.open(fileobj=packed, mode="w") as archive,
+    ):
         _add(archive, "ar/policy.rego", _read("policy.rego"))
         _add(archive, "ar/jsonpath.rego", _read("jsonpath.rego"))
         _add(archive, "data.json", data)

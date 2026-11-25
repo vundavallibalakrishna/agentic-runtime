@@ -52,8 +52,6 @@ flowchart LR
     MCPG[mcp-gateway<br/>tool choke point + built-ins]
     SBM[sandbox-manager]
     CHN[channels<br/>Slack, Teams, email]
-    SQL[mcp-sql]
-    OAPI[mcp-openapi]
     OPA[opa]
   end
   subgraph data[Stateful services]
@@ -76,15 +74,15 @@ flowchart LR
   SYS --> PG & VK & TMP & S3 & MG & SBM & CHN
   ING2 --> PG & TMP & S3 & MG
   ING2 -.->|optional adapter| QD
-  MCPG --> PG & VK & OPA & S3 & SBM & SA & SQL & OAPI & CHN
+  MCPG --> PG & VK & OPA & S3 & SBM & SA & CHN
   MCPG -.->|optional adapter| QD
   SBM --> PG & S3 & SA
   SA --> SQ
   CHN --> API & VK
   MG --> LLMs[(model servers)]
   MCPG --> EXT[(remote MCP servers)]
-  SQL --> DBS[(company databases)]
-  OAPI --> APIS[(internal APIs)]
+  MCPG --> DBS[(company databases)]
+  MCPG --> APIS[(internal APIs)]
 ```
 
 Observability sidecars are omitted: every deployable exports OTLP to the OpenTelemetry Collector ([spec 18](../03-specs/18-observability-eval.md)).

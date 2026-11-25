@@ -56,6 +56,16 @@ def _text_of(content: object) -> str:
     return ""
 
 
+def _message(row: dict[str, Any]) -> dict[str, Any]:
+    """A message as the store holds it: its text, and the tool calls it shows, if any."""
+    row["text"] = _text_of(row.get("content"))
+    if row.get("tool_calls") is None:
+        # A reply written before the column, or one with no calls. The store's own
+        # copy, if it has one, is not replaced with nothing.
+        row.pop("tool_calls", None)
+    return row
+
+
 def _merge(store: object, name: str, key: object, row: dict[str, Any]) -> None:
     bucket = getattr(store, name, None)
     if not isinstance(bucket, dict):
@@ -231,6 +241,7 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
             return
         _merge(store, "runs", run_id, dict(run))
         tenant_id = run["tenant_id"]
+        await _called_runs(session, store, run)
         # A setting an administrator changed since this process started applies to this turn.
         await _settings(session, store, tenant_id)
         await _people(session, store, tenant_id)
@@ -252,8 +263,7 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
         ).mappings()
         attached: list[uuid.UUID] = []
         for message in messages:
-            body = dict(message)
-            body["text"] = _text_of(body.get("content"))
+            body = _message(dict(message))
             _merge(store, "messages", body["id"], body)
             attached.extend(_file_ids(body.get("content")))
             if body.get("run_id") == run_id and body.get("role") == "assistant":
@@ -264,6 +274,24 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
         await _tool_calls_for(session, store, tenant_id, run_id)
         await _library_for_files(session, store, tenant_id)
         await _events_for(session, store, run_id, run.get("conversation_id"), run.get("tenant_id"))
+
+
+async def _called_runs(session: AsyncSession, store: object, run: Any) -> None:
+    """The runs this run's calls started, and the runs started beside it.
+
+    A caller answers a call from how each called agent's run ended. A called agent
+    checks the pool it shares against what the others in its call have spent. Both read
+    rows another worker wrote.
+    """
+    found = await session.execute(
+        text(
+            "SELECT * FROM runs WHERE tenant_id = :tenant_id AND id <> :id "
+            "AND (parent_run_id = :id OR parent_run_id = :parent)"
+        ),
+        {"tenant_id": run["tenant_id"], "id": run["id"], "parent": run.get("parent_run_id")},
+    )
+    for row in found.mappings():
+        _merge(store, "runs", row["id"], dict(row))
 
 
 async def _tool_calls_for(
@@ -752,8 +780,7 @@ async def _messages(session: AsyncSession, store: object, tenant_id: uuid.UUID) 
     for row in await _rows(
         session, "SELECT * FROM messages WHERE tenant_id = :tenant_id", tenant_id
     ):
-        row["text"] = _text_of(row.get("content"))
-        _merge(store, "messages", row["id"], row)
+        _merge(store, "messages", row["id"], _message(row))
 
 
 async def load_run_events(store: object, run_id: uuid.UUID) -> None:

@@ -27,7 +27,7 @@ DEFERRED_SERVERS: set[str] = set()  # the connectors were described in M39-T01a
 
 def _seed_catalogue() -> list[dict[str, Any]]:
     store = ChatService()
-    seed_tools.seed(store, tenant=False)  # the built-in catalogue, no demo tenant or fixtures
+    seed_tools.seed(store)  # the built-in catalogue
     return list(store.tool_versions.values())
 
 

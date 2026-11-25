@@ -106,3 +106,62 @@ describe("reduceStream", () => {
     expect(state.toolFailure).toContain("failed");
   });
 });
+
+describe("called agents", () => {
+  const started = (seq: number, childRunId: string, agentName: string, callId = "p") => ({
+    type: "subagent.started",
+    seq,
+    data: { childRunId, agentName, taskBrief: `Task for ${agentName}`, callId },
+  });
+
+  it("puts the agents one call started on one row, and follows each to its end", () => {
+    const two = [started(1, "a", "Alpha"), started(2, "b", "Beta")].reduce(
+      reduceStream,
+      emptyStream,
+    );
+    expect(two.status).toBe("streaming");
+    expect(two.tools).toHaveLength(1);
+    expect(two.tools[0]).toMatchObject({ status: "running", callId: "p" });
+    expect(two.tools[0]?.presentation).toEqual({
+      kind: "agents",
+      agents: [
+        { agent: "Alpha", status: "running", task: "Task for Alpha", summary: "", childRunId: "a" },
+        { agent: "Beta", status: "running", task: "Task for Beta", summary: "", childRunId: "b" },
+      ],
+    });
+    const one = reduceStream(two, {
+      type: "subagent.completed",
+      seq: 3,
+      data: { childRunId: "b", status: "completed", resultSummary: "BLUE", callId: "p" },
+    });
+    // One agent is still working, so the call is.
+    expect(one.tools[0]?.status).toBe("running");
+    const done = reduceStream(one, {
+      type: "subagent.completed",
+      seq: 4,
+      data: { childRunId: "a", status: "failed", resultSummary: "Timed out.", callId: "p" },
+    });
+    expect(done.tools[0]?.status).toBe("failed");
+    const agents = done.tools[0]?.presentation?.agents as { status: string; summary: string }[];
+    expect(agents.map((row) => [row.status, row.summary])).toEqual([
+      ["failed", "Timed out."],
+      ["completed", "BLUE"],
+    ]);
+  });
+
+  it("starts a new row for a second call", () => {
+    const state = [
+      started(1, "a", "Alpha", "first"),
+      {
+        type: "subagent.completed",
+        seq: 2,
+        data: { childRunId: "a", status: "completed", resultSummary: "RED", callId: "first" },
+      },
+      started(3, "b", "Beta", "second"),
+    ].reduce(reduceStream, emptyStream);
+    expect(state.tools.map((tool) => [tool.callId, tool.status])).toEqual([
+      ["first", "completed"],
+      ["second", "running"],
+    ]);
+  });
+});

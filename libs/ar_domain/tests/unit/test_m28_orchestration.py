@@ -179,7 +179,6 @@ async def test_parallel_children_return_both_answers() -> None:
                             "calls": [
                                 {"agent": "alpha", "task": "Say ALPHA"},
                                 {"agent": "beta", "task": "Say BETA"},
-                                {"agent": "alpha", "task": "extra"},
                             ]
                         },
                     }
@@ -200,7 +199,14 @@ async def test_parallel_children_return_both_answers() -> None:
     assert len(children) == 2
     assert {row["agent_slug"] for row in children} == {"alpha", "beta"}
     assert {row["status"] for row in children} == {"completed"}
-    assert run["usage"]["cost_micros"] >= 1
+    # What the two called agents used is recorded beside the caller's own use, once each.
+    assert run["usage"]["subagents"] == {
+        "runs": 2,
+        "tokens_in": 2,
+        "tokens_out": 4,
+        "cost_micros": 0,
+    }
+    assert (run["usage"]["tokens_in"], run["usage"]["tokens_out"]) == (2, 4)
 
 
 async def test_failed_child_lets_the_parent_recover() -> None:
@@ -316,6 +322,228 @@ async def test_child_timeout_is_not_retried() -> None:
     assert "RECOVERED" in str(assistant["text"])
     child = next(row for row in store.runs.values() if row.get("parent_run_id") == run["id"])
     assert child["error"]["code"] == "child_timeout"
+
+
+def _reply(text: str, *, used: int = 1, calls: list[dict[str, object]] | None = None):  # type: ignore[no-untyped-def]
+    return {"text": text, "tool_calls": calls or [], "usage": {"tokens_in": 1, "tokens_out": used}}
+
+
+def _given(messages: list[dict[str, object]], task: str) -> bool:
+    """Whether this call belongs to the agent that was given ``task``, on any of its calls."""
+    return any(
+        task in str(row.get("content") or "") for row in messages if row.get("role") == "user"
+    )
+
+
+def _both(*agents: str) -> list[dict[str, object]]:
+    calls = [{"agent": name, "task": f"TASK {name}"} for name in agents]
+    return [{"id": "p", "name": "agents_parallel", "arguments": {"calls": calls}}]
+
+
+async def test_agents_called_together_share_one_budget() -> None:
+    """Two agents called at once draw on what the caller has left, not on that much each."""
+    store = _store()
+    _agent(store, "alpha", _definition())
+    _agent(store, "beta", _definition())
+    parent, version = _agent(
+        store,
+        "lead",
+        _definition(
+            budget={**_BUDGET, "max_tokens": 100},
+            subagents={"allowed": ["alpha", "beta"], "max_depth": 2, "max_parallel": 2},
+        ),
+    )
+    run, assistant = _open(store, parent, version)
+    asked_again: list[str] = []
+
+    def handler(messages: list[dict[str, object]]) -> dict[str, object]:
+        for name in ("alpha", "beta"):
+            if _given(messages, f"TASK {name}"):
+                # The first reply is empty, so each is asked once more. By then the two
+                # together have used more than the caller had left.
+                if len(messages) <= 2:
+                    return _reply("", used=60)
+                asked_again.append(name)
+                return _reply(f"{name} done", used=1)
+        if not any(row.get("role") == "tool" for row in messages):
+            return _reply("", used=5, calls=_both("alpha", "beta"))
+        return _reply("combined", used=1)
+
+    _script(store, handler)
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    children = {
+        row["agent_slug"]: row
+        for row in store.runs.values()
+        if row.get("parent_run_id") == run["id"]
+    }
+    # Each used 61 of the 94 the caller had left on its first call. One pool means only the
+    # first to go on has room for a second call. With that much each, both would go on.
+    assert len(asked_again) == 1
+    assert sorted(row["status"] for row in children.values()) == ["budget_exceeded", "completed"]
+    stopped = next(row for row in children.values() if row["status"] == "budget_exceeded")
+    assert stopped["agent_slug"] not in asked_again
+    # The caller is charged what they used, so it is over its own limit too.
+    assert run["status"] == "budget_exceeded"
+    assert run["usage"]["subagents"]["runs"] == 2
+    # The counts are working state of the call: none is left, and none is on a run row,
+    # which is saved and returned by the API as it is.
+    from ar_domain.orchestration import spend
+
+    assert spend._RUNNING == {}
+    assert all(isinstance(key, str) for row in store.runs.values() for key in row)
+    assert not [key for row in children.values() for key in row if key.startswith("_")]
+
+
+async def test_the_agent_that_ran_out_of_time_is_the_one_marked() -> None:
+    """Of two called together, the slow one times out and the quick one is left alone."""
+    store = _store()
+    _agent(store, "slow", _definition())
+    _agent(store, "quick", _definition())
+    parent, version = _agent(
+        store,
+        "timer",
+        _definition(
+            subagents={
+                "allowed": ["slow", "quick"],
+                "max_depth": 2,
+                "max_parallel": 2,
+                "child_timeout_s": 1,
+            }
+        ),
+    )
+    run, assistant = _open(store, parent, version)
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tools, tenant_id, model_alias
+        if _given(messages, "TASK slow"):
+            await asyncio.sleep(2)
+            return _reply("late")
+        if _given(messages, "TASK quick"):
+            return _reply("quick done")
+        if not any(row.get("role") == "tool" for row in messages):
+            # The slow one is named first, so the quick one is the last to start.
+            return _reply("", calls=_both("slow", "quick"))
+        return _reply("carried on")
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    children = {
+        row["agent_slug"]: row
+        for row in store.runs.values()
+        if row.get("parent_run_id") == run["id"]
+    }
+    assert children["quick"]["status"] == "completed"
+    assert children["quick"].get("error") is None
+    assert children["slow"]["status"] == "failed"
+    assert children["slow"]["error"]["code"] == "child_timeout"
+    assert "carried on" in str(assistant["text"])
+
+
+async def test_an_agent_stopped_for_time_is_still_counted() -> None:
+    """What a called agent used before it ran out of time is on the caller's record."""
+    store = _store()
+    _agent(store, "slow", _definition())
+    parent, version = _agent(
+        store,
+        "timer",
+        _definition(subagents={"allowed": ["slow"], "max_depth": 2, "child_timeout_s": 1}),
+    )
+    run, assistant = _open(store, parent, version)
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tools, tenant_id, model_alias
+        if _given(messages, "TASK slow"):
+            if len(messages) <= 2:
+                return _reply("", used=40)  # a first call that is paid for
+            await asyncio.sleep(2)
+            return _reply("late")
+        if not any(row.get("role") == "tool" for row in messages):
+            call = {
+                "id": "t",
+                "name": "agents_call",
+                "arguments": {"agent": "slow", "task": "TASK slow"},
+            }
+            return _reply("", calls=[call])
+        return _reply("carried on")
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    assert run["usage"]["subagents"] == {
+        "runs": 1,
+        "tokens_in": 1,
+        "tokens_out": 40,
+        "cost_micros": 0,
+    }
+
+
+async def test_a_called_agent_cannot_stop_to_ask_a_person() -> None:
+    """It is not offered the question tool, and a question it tries anyway is refused."""
+    store = _store()
+    _agent(store, "helper", _definition(human={"enabled": True}))
+    parent, version = _agent(
+        store, "lead", _definition(subagents={"allowed": ["helper"], "max_depth": 2})
+    )
+    run, assistant = _open(store, parent, version)
+    offered: list[set[str]] = []
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tenant_id, model_alias
+        if _given(messages, "TASK helper"):
+            names = {
+                str((item.get("function") or {}).get("name") or item.get("name"))
+                for item in tools or []
+            }
+            offered.append(names)
+            if not any(row.get("role") == "tool" for row in messages):
+                call = {"id": "q", "name": "agents_ask", "arguments": {"question": "Which year?"}}
+                return _reply("", calls=[call])
+            return _reply("I need the year to answer.")
+        if not any(row.get("role") == "tool" for row in messages):
+            call = {
+                "id": "t",
+                "name": "agents_call",
+                "arguments": {"agent": "helper", "task": "TASK helper"},
+            }
+            return _reply("", calls=[call])
+        return _reply("The helper needs the year.")
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    child = next(row for row in store.runs.values() if row.get("parent_run_id") == run["id"])
+    assert all("agents_ask" not in names for names in offered)
+    assert child["status"] == "completed"
+    assert run["status"] == "completed"
+    assert not [row for row in store.runs.values() if row.get("status") == "waiting_input"]
+
+
+async def test_a_called_agent_acts_with_its_callers_permissions() -> None:
+    """A run started with a narrowed key keeps that narrowing in the agents it calls."""
+    from ar_domain.runs.request import ask, permissions_of
+
+    store = _store()
+    _agent(store, "helper", _definition())
+    parent, version = _agent(
+        store, "lead", _definition(subagents={"allowed": ["helper"], "max_depth": 2})
+    )
+    run, assistant = _open(store, parent, version)
+    ask(run, "permissions", ["chat:use"])
+
+    def handler(messages: list[dict[str, object]]) -> dict[str, object]:
+        if _given(messages, "TASK helper"):
+            return _reply("done")
+        if not any(row.get("role") == "tool" for row in messages):
+            call = {
+                "id": "t",
+                "name": "agents_call",
+                "arguments": {"agent": "helper", "task": "TASK helper"},
+            }
+            return _reply("", calls=[call])
+        return _reply("finished")
+
+    _script(store, handler)
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    child = next(row for row in store.runs.values() if row.get("parent_run_id") == run["id"])
+    assert permissions_of(child) == ["chat:use"]
 
 
 async def test_human_question_resumes_and_blocks_self_approval() -> None:
@@ -507,18 +735,75 @@ def test_webhook_duplicate_does_not_start_a_second_run() -> None:
     assert len(runs) == 1
 
 
-def test_reconcile_fails_running_and_keeps_a_question() -> None:
+class _Temporal:
+    """Temporal as a process asks it at start: which workflows are still going."""
+
+    def __init__(self, states: dict[str, str]) -> None:
+        self.states = states
+        self.asked: list[str] = []
+
+    def get_workflow_handle(self, workflow_id: str) -> _Temporal._Handle:
+        return _Temporal._Handle(self, workflow_id)
+
+    class _Handle:
+        def __init__(self, temporal: _Temporal, workflow_id: str) -> None:
+            self.temporal, self.workflow_id = temporal, workflow_id
+
+        async def describe(self) -> object:
+            from types import SimpleNamespace
+
+            from temporalio.service import RPCError, RPCStatusCode
+
+            self.temporal.asked.append(self.workflow_id)
+            state = self.temporal.states.get(self.workflow_id)
+            if state is None:
+                raise RPCError("workflow not found", RPCStatusCode.NOT_FOUND, b"")
+            if state == "UNREACHABLE":
+                raise RPCError("unavailable", RPCStatusCode.UNAVAILABLE, b"")
+            return SimpleNamespace(status=SimpleNamespace(name=state))
+
+
+async def test_a_process_that_starts_ends_only_the_runs_whose_workflow_is_gone() -> None:
+    """One process restarting must not end the runs another process is carrying out."""
     store = _store()
     agent, version = _agent(store, "pause", _definition(human={"enabled": True}))
-    running, _assistant = _open(store, agent, version)
+    held, _ = _open(store, agent, version)
+    lost, _ = _open(store, agent, version)
+    ended, _ = _open(store, agent, version)
+    unknown, _ = _open(store, agent, version)
+    finished, _ = _open(store, agent, version)
     waiting, assistant = _open(store, agent, version)
     waiting["status"] = "waiting_input"
     ask_person(store, waiting, assistant, {"question": "Ready?", "options": ["yes"]}, "q")
-    changed = reconcile_interrupted(store)
-    assert str(running["id"]) in changed
-    assert running["status"] == "failed"
-    assert running["error"]["code"] == "interrupted"
+    temporal = _Temporal(
+        {
+            f"run-{held['id']}": "RUNNING",
+            f"run-{ended['id']}": "TERMINATED",
+            f"run-{unknown['id']}": "UNREACHABLE",
+            # The workflow finished the turn; the row this process holds is behind.
+            f"run-{finished['id']}": "COMPLETED",
+        }
+    )
+    store.temporal_client = temporal  # type: ignore[assignment]
+    changed = await reconcile_interrupted(store)
+    assert set(changed) == {str(lost["id"]), str(ended["id"])}
+    for run in (lost, ended):
+        assert run["status"] == "failed"
+        assert run["error"]["code"] == "interrupted"
+    # Another worker has it, Temporal could not say, or the turn is already done.
+    assert [run["status"] for run in (held, unknown, finished)] == ["running"] * 3
+    # A run paused for a person is not asked about.
     assert waiting["status"] == "waiting_input"
+    assert f"run-{waiting['id']}" not in temporal.asked
+
+
+async def test_a_process_that_cannot_ask_temporal_ends_no_run() -> None:
+    store = _store()
+    agent, version = _agent(store, "pause", _definition())
+    running, _ = _open(store, agent, version)
+    store.temporal_client = None
+    assert await reconcile_interrupted(store) == []
+    assert running["status"] == "running"
     assert subagent_spec({"subagents": {}})["child_timeout_s"] == 45
     assert is_cycle({"agent_chain": ["a", "b"]}, "a", allow_self=True) is True
     assert is_cycle({"agent_chain": ["a"]}, "a", allow_self=True) is False
@@ -857,3 +1142,242 @@ def test_inbox_lists_the_assignee_and_rejects_a_bad_answer() -> None:
     except ValidationFailedError as exc:
         blank_answer = exc
     assert blank_answer is not None
+
+
+async def test_the_stream_says_which_agents_were_called_and_how_each_ended() -> None:
+    """The chat draws called agents from these events, so they follow the contract."""
+    from ar_contracts.stream import SubagentCompletedData, SubagentStartedData
+
+    store = _store()
+    _agent(store, "slow", _definition())
+    _agent(store, "quick", _definition())
+    parent, version = _agent(
+        store,
+        "desk",
+        _definition(
+            subagents={
+                "allowed": ["slow", "quick"],
+                "max_depth": 2,
+                "max_parallel": 2,
+                "child_timeout_s": 1,
+            }
+        ),
+    )
+    run, assistant = _open(store, parent, version)
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tools, tenant_id, model_alias
+        if _given(messages, "TASK slow"):
+            await asyncio.sleep(2)
+            return _reply("late")
+        if _given(messages, "TASK quick"):
+            return _reply("quick done")
+        if not any(row.get("role") == "tool" for row in messages):
+            return _reply("", calls=_both("slow", "quick"))
+        return _reply("carried on")
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    sent = store.events[uuid.UUID(str(run["id"]))]
+    started = [
+        SubagentStartedData(**row["data"]) for row in sent if row["type"] == "subagent.started"
+    ]
+    ended = [
+        SubagentCompletedData(**row["data"]) for row in sent if row["type"] == "subagent.completed"
+    ]
+    children = {
+        row["agent_slug"]: row
+        for row in store.runs.values()
+        if row.get("parent_run_id") == run["id"]
+    }
+    assert {(item.agent_name, item.task_brief, item.call_id) for item in started} == {
+        ("slow", "TASK slow", "p"),
+        ("quick", "TASK quick", "p"),
+    }
+    assert {item.agent_id for item in started} == {row["agent_id"] for row in children.values()}
+    # Every agent that started is said to have ended, the one that ran out of time too.
+    by_child = {str(item.child_run_id): item for item in ended}
+    assert set(by_child) == {str(row["id"]) for row in children.values()}
+    quick, slow = by_child[str(children["quick"]["id"])], by_child[str(children["slow"]["id"])]
+    assert (quick.status, quick.result_summary, quick.call_id) == ("completed", "quick done", "p")
+    assert quick.usage.tokens_out == 1
+    assert slow.status == "failed"
+    assert "timed out" in slow.result_summary
+    # The reply keeps the same picture for when the conversation is opened again.
+    saved = store.messages[assistant["id"]]["tool_calls"]
+    shown = [call["presentation"] for call in saved if call.get("presentation")]
+    assert [item["kind"] for item in shown] == ["agents"]
+    assert [(row["agent"], row["status"], row["task"]) for row in shown[0]["agents"]] == [
+        ("slow", "failed", "TASK slow"),
+        ("quick", "completed", "TASK quick"),
+    ]
+    assert [row["child_run_id"] for row in shown[0]["agents"]] == [
+        str(children["slow"]["id"]),
+        str(children["quick"]["id"]),
+    ]
+
+
+def _many(*agents: str) -> list[dict[str, object]]:
+    calls = [{"agent": name, "task": f"TASK {at} {name}"} for at, name in enumerate(agents)]
+    return [{"id": "p", "name": "agents_parallel", "arguments": {"calls": calls}}]
+
+
+async def test_agents_past_the_parallel_limit_wait_their_turn_and_all_are_answered() -> None:
+    """Two run at once. The rest start as others end; none is dropped for being extra."""
+    store = _store()
+    _agent(store, "worker", _definition())
+    parent, version = _agent(
+        store,
+        "lead",
+        _definition(
+            subagents={
+                "allowed": ["worker"],
+                "max_depth": 2,
+                "max_parallel": 2,
+                "max_calls": 5,
+                "child_timeout_s": 5,
+            }
+        ),
+    )
+    run, assistant = _open(store, parent, version)
+    going = {"now": 0, "most": 0}
+
+    async def complete(messages, tools, *, tenant_id, model_alias):  # type: ignore[no-untyped-def]
+        del tools, tenant_id, model_alias
+        mine = [str(row.get("content")) for row in messages if row.get("role") == "user"]
+        if any("TASK" in said for said in mine):
+            going["now"] += 1
+            going["most"] = max(going["most"], going["now"])
+            await asyncio.sleep(0.05)
+            going["now"] -= 1
+            return _reply("done " + mine[-1].split()[1])
+        if not any(row.get("role") == "tool" for row in messages):
+            return _reply("", calls=_many(*["worker"] * 6))
+        return _reply("all in")
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    assert going["most"] == 2
+    children = [row for row in store.runs.values() if row.get("parent_run_id") == run["id"]]
+    # Five is what one call may name here. The sixth is refused, and says why.
+    assert len(children) == 5
+    assert {row["status"] for row in children} == {"completed"}
+    shown = store.messages[assistant["id"]]["tool_calls"][0]["presentation"]["agents"]
+    assert [row["summary"] for row in shown[:5]] == [f"done {at}" for at in range(5)]
+    assert shown[5]["status"] == "failed"
+    assert "at most 5 agents" in shown[5]["summary"]
+    assert run["usage"]["subagents"]["runs"] == 5
+
+
+_TICKET = {
+    "type": "object",
+    "properties": {"ticket": {"type": "string"}},
+    "required": ["ticket"],
+    "additionalProperties": False,
+}
+_VERDICT = {
+    "type": "object",
+    "properties": {"verdict": {"type": "string", "enum": ["open", "closed"]}},
+    "required": ["verdict"],
+    "additionalProperties": False,
+}
+
+
+def _clerk(store: ChatService) -> tuple[dict[str, object], dict[str, object]]:
+    """A lead, and a clerk whose contract is a real schema on both sides."""
+    contract = {
+        "description": "Looks up a ticket.",
+        "input_schema": _TICKET,
+        "output_schema": _VERDICT,
+    }
+    _agent(store, "clerk", _definition(contract=contract))
+    parent, version = _agent(
+        store, "desk", _definition(subagents={"allowed": ["clerk"], "max_depth": 2})
+    )
+    return _open(store, parent, version)
+
+
+def _asks_clerk(given: object) -> list[dict[str, object]]:
+    arguments: dict[str, object] = {"agent": "clerk", "task": "Look it up"}
+    if given is not None:
+        arguments["input"] = given
+    return [{"id": "c", "name": "agents_call", "arguments": arguments}]
+
+
+async def test_what_a_caller_passes_is_checked_against_the_called_agents_input_schema() -> None:
+    store = _store()
+    run, assistant = _clerk(store)
+    tries: list[object] = [None, {"ticket": 7}, {"ticket": "T-19"}]
+    seen: list[str] = []
+
+    def handler(messages: list[dict[str, object]]) -> dict[str, object]:
+        mine = [str(row.get("content")) for row in messages if row.get("role") == "user"]
+        if any("Look it up" in said for said in mine):
+            seen.append(mine[-1])
+            return _reply('{"verdict": "open"}')
+        if tries:
+            return _reply("", calls=_asks_clerk(tries.pop(0)))
+        return _reply("It is open.")
+
+    _script(store, handler)
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    calls = store.messages[assistant["id"]]["tool_calls"]
+    shown = [call["presentation"]["agents"][0] for call in calls]
+    # No input, then the wrong type: each is refused in words the caller can act on, and
+    # no run is started for it.
+    assert [row["status"] for row in shown] == ["failed", "failed", "completed"]
+    assert "needs an `input` object" in shown[0]["summary"]
+    assert "ticket" in shown[1]["summary"]
+    assert len([row for row in store.runs.values() if row.get("parent_run_id") == run["id"]]) == 1
+    # The called agent is given the task and the input together.
+    assert len(seen) == 1
+    assert "Look it up" in seen[0]
+    assert '"ticket": "T-19"' in seen[0]
+    assert shown[2]["summary"] == '{"verdict":"open"}'
+
+
+async def test_a_called_agents_answer_is_checked_against_its_output_schema() -> None:
+    store = _store()
+    run, assistant = _clerk(store)
+    said = ["It looks open to me.", '{"verdict": "open"}']
+    told_schema: list[bool] = []
+
+    def handler(messages: list[dict[str, object]]) -> dict[str, object]:
+        mine = [str(row.get("content")) for row in messages if row.get("role") == "user"]
+        if any("Look it up" in said_ for said_ in mine):
+            told_schema.append(any("verdict" in str(row.get("content")) for row in messages))
+            return _reply(said.pop(0))
+        if not any(row.get("role") == "tool" for row in messages):
+            return _reply("", calls=_asks_clerk({"ticket": "T-19"}))
+        return _reply("Open.")
+
+    _script(store, handler)
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    # The clerk was told the shape, answered in prose, and was asked once more.
+    assert told_schema == [True, True]
+    shown = store.messages[assistant["id"]]["tool_calls"][0]["presentation"]["agents"][0]
+    assert (shown["status"], shown["summary"]) == ("completed", '{"verdict":"open"}')
+
+
+async def test_a_called_agent_that_never_answers_in_its_shape_fails_and_the_caller_is_told() -> (
+    None
+):
+    store = _store()
+    run, assistant = _clerk(store)
+
+    def handler(messages: list[dict[str, object]]) -> dict[str, object]:
+        mine = [str(row.get("content")) for row in messages if row.get("role") == "user"]
+        if any("Look it up" in said for said in mine):
+            return _reply("It looks open to me.")
+        if not any(row.get("role") == "tool" for row in messages):
+            return _reply("", calls=_asks_clerk({"ticket": "T-19"}))
+        return _reply("I could not get a verdict.")
+
+    _script(store, handler)
+    assert await run_agent_loop(store, run, assistant, "go") is True
+    child = next(row for row in store.runs.values() if row.get("parent_run_id") == run["id"])
+    assert child["status"] == "failed"
+    shown = store.messages[assistant["id"]]["tool_calls"][0]["presentation"]["agents"][0]
+    assert shown["status"] == "failed"
+    assert "It looks open to me." not in shown["summary"]
+    assert str(assistant["text"]).startswith("I could not get a verdict.")

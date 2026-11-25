@@ -190,11 +190,7 @@ class CredentialBook:
     async def _exchange(
         self, provider: dict[str, object], code: str, verifier: str
     ) -> dict[str, str]:
-        if code == "invalid":
-            raise ArError(ErrorCode.BAD_REQUEST, "invalid_grant")
         token_url = str(provider.get("token_url") or "")
-        if token_url.startswith("memory://"):
-            return {"access_token": f"access-{code}", "refresh_token": f"refresh-{code}"}
         kind = str(provider.get("kind"))
         form = {"code": code, "code_verifier": verifier, "grant_type": "authorization_code"}
         if kind == "token_exchange":
@@ -211,11 +207,6 @@ class CredentialBook:
         if not isinstance(provider, dict):
             raise ArError(ErrorCode.FORBIDDEN, "credential_required")
         token_url = str(provider.get("token_url") or "")
-        if token_url.startswith("memory://"):
-            rotated = f"refresh-rotated-{refresh[-6:]}"
-            grant["refresh_token"] = rotated
-            grant["access_token"] = f"access-{rotated}"
-            return str(grant["access_token"])
         try:
             tokens = await _post_token(
                 token_url,

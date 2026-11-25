@@ -430,7 +430,6 @@ class ChatBehaviour:
     pets: list[dict[str, object]] = field(default_factory=lambda: [{"id": 1, "name": "doggie"}])
     rate_buckets: dict[str, list[float]] = field(default_factory=dict)
     tools_seeded: bool = False
-    tenant_tools_seeded: bool = False
     notifications: list[dict[str, object]] = field(default_factory=list)
     policies: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     policy_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -530,7 +529,7 @@ class ChatBehaviour:
         # tenant and its scripted provider with ``ar_testing.demo``.
         from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
 
-        ToolRegistry(self).ensure_seed(tenant=False)
+        ToolRegistry(self).ensure_seed()
 
     def ensure_assistant(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> dict[str, object]:
         """Create the published ``assistant`` agent for a tenant once.
@@ -2371,7 +2370,7 @@ class ChatBehaviour:
         if not run_is_active(str(run.get("status"))):
             return "final"
         kind = str(run.get("step_kind") or "")
-        if kind in {"tools", "model", "paused", "fanout"}:
+        if kind in {"tools", "model", "paused", "fanout", "agents"}:
             return kind
         return "model"
 
@@ -2420,6 +2419,12 @@ class ChatBehaviour:
             from ar_domain.research.driver import advance_research  # noqa: PLC0415
 
             run["step_kind"] = await advance_research(self, run, text, one_step=one_step)
+            return
+        if one_step and run.get("parent_run_id") is not None:
+            # A run another agent's call started: that agent, with the task as its message.
+            from ar_domain.orchestration.calls import step as step_called  # noqa: PLC0415
+
+            await step_called(self, run)
             return
         if one_step:
             from ar_domain.tools.worker_loop import worker_loop_open  # noqa: PLC0415
@@ -3576,6 +3581,13 @@ class ChatBehaviour:
         label = self._answered_model(run)
         if label:
             body["answered_model"] = label
+        # The run row keeps the agent's id. Its name and slug are read from the agent,
+        # so a run loaded from the database is named like one this process started.
+        agent_id = run.get("agent_id")
+        agent = self.agents.get(agent_id) if isinstance(agent_id, uuid.UUID) else None
+        if isinstance(agent, dict):
+            body["agent_name"] = body.get("agent_name") or agent.get("name")
+            body["agent_slug"] = body.get("agent_slug") or agent.get("slug")
         return body
 
     def _answered_model(self, run: dict[str, object]) -> str:
@@ -3627,7 +3639,7 @@ class ChatBehaviour:
         """Child runs started by this run. A missing parent is 404."""
         self.get_run(tenant_id, run_id)
         listed = [
-            self._public(row)
+            self._with_answered_model(row)
             for row in self.runs.values()
             if row.get("tenant_id") == tenant_id and row.get("parent_run_id") == run_id
         ]

@@ -1260,11 +1260,13 @@ async def _messages(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         INSERT INTO messages (
             id, tenant_id, conversation_id, run_id, parent_message_id, role, content, status,
             is_active_branch, author_user_id, model_id, model_alias, answered_model,
+            tool_calls,
             scope, created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :conversation_id, :run_id, :parent_message_id, :role,
             CAST(:content AS jsonb), :status, :is_active_branch, :author_user_id, :model_id,
-            :model_alias, :answered_model, :scope, :created_at, :updated_at
+            :model_alias, :answered_model, CAST(:tool_calls AS jsonb), :scope, :created_at,
+            :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             content = EXCLUDED.content,
@@ -1272,6 +1274,7 @@ async def _messages(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
             model_id = COALESCE(EXCLUDED.model_id, messages.model_id),
             model_alias = COALESCE(EXCLUDED.model_alias, messages.model_alias),
             answered_model = COALESCE(EXCLUDED.answered_model, messages.answered_model),
+            tool_calls = COALESCE(EXCLUDED.tool_calls, messages.tool_calls),
             updated_at = EXCLUDED.updated_at
     """
     for row in _parents_first(rows, "parent_message_id"):
@@ -1311,6 +1314,9 @@ async def _messages(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "model_id": as_uuid(row.get("model_id")),
                 "model_alias": as_text(row.get("model_alias")) or None,
                 "answered_model": as_text(row.get("answered_model")) or None,
+                "tool_calls": as_json(row["tool_calls"], [])
+                if isinstance(row.get("tool_calls"), list) and row["tool_calls"]
+                else None,
                 # A message a run wrote for itself is kept apart from the conversation's.
                 "scope": "run" if row.get("scope") == "run" else "conversation",
                 "created_at": as_dt(row.get("created_at")) or now,

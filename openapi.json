@@ -21700,7 +21700,7 @@
           "dsn": {
             "type": "string",
             "title": "Dsn",
-            "default": "memory://warehouse"
+            "default": ""
           },
           "identityMode": {
             "type": "string",

@@ -11,7 +11,8 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_untrusted
 from ar_domain.durable.tracking import keep
-from ar_domain.runs.request import ask
+from ar_domain.orchestration import events
+from ar_domain.runs.request import ask, permissions_of
 from ar_domain.skills.logic import budget_exhausted, child_budget, platform_max_depth
 from ar_domain.skills.metrics import SUBAGENTS
 
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 
 
 def plan_child(payload: dict[str, object]) -> dict[str, object]:
-    """Pure child plan used by the ``create_child_run`` activity."""
+    """The plan for one child run: its id, depth and budget, or why it cannot start."""
     parent_depth = _count(payload.get("depth"))
     max_depth = min(_count(payload.get("max_depth")) or 1, platform_max_depth())
     if parent_depth + 1 > max_depth:
@@ -120,12 +121,7 @@ async def delegate(
             store,
             parent,
             "subagent.started",
-            {
-                "child_run_id": str(child["id"]),
-                "agent_id": str(child.get("agent_id") or ""),
-                "agent_name": str(brief.get("agent") or ""),
-                "task_brief": str(brief.get("task") or "")[:500],
-            },
+            events.started(child, str(brief.get("task") or "")),
         )
         if parent.get("cancel_requested") is True:
             _finish_child(store, child, "cancelled", "")
@@ -133,12 +129,7 @@ async def delegate(
                 store,
                 parent,
                 "subagent.completed",
-                {
-                    "child_run_id": str(child["id"]),
-                    "status": "cancelled",
-                    "result_summary": "",
-                    "usage": {},
-                },
+                events.completed(child, "cancelled", "", {}),
             )
             SUBAGENTS.labels(status="cancelled").inc()
             return {
@@ -157,12 +148,7 @@ async def delegate(
             store,
             parent,
             "subagent.completed",
-            {
-                "child_run_id": str(child["id"]),
-                "status": status,
-                "result_summary": answer[:2048],
-                "usage": child_usage,
-            },
+            events.completed(child, status, answer, dict(child_usage)),
         )
         SUBAGENTS.labels(status=status).inc()
     merged = "\n\n".join(texts)[:8000]
@@ -246,6 +232,11 @@ def _insert_child(
         "steps": [],
         "loaded_skills": [],
     }
+    # A called agent acts with what its caller may do, no more. A run started with a
+    # narrowed key keeps that narrowing all the way down.
+    inherited = permissions_of(parent)
+    if inherited is not None:
+        ask(run, "permissions", inherited)
     stored = keep(store.runs, child_id, run)
     store.events[child_id] = []
     planned["stored_id"] = str(child_id)
