@@ -256,6 +256,8 @@ async def retrieve(
                 "snippet": str(hit.get("snippet") or "")[:500],
                 "text": str(hit.get("text") or hit.get("snippet") or ""),
                 "library_document_id": str(hit.get("library_document_id") or ""),
+                # Where the passage was read from. A citation links there.
+                "uri": str(hit.get("uri") or ""),
             }
             for hit in kept
         ],
