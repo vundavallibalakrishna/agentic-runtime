@@ -163,31 +163,30 @@ def _reports(parsed: dict[str, object], schema: dict[str, object]) -> list[dict[
             reports.append({"path": path, "value": value})
     have = {str(item["path"]) for item in reports}
     reports.extend({"path": path} for path in required_paths(schema) if path not in have)
-    _typecheck(
-        schema, _nest({str(item["path"]): item.get("value") for item in reports if "value" in item})
-    )
+    _mark_type_errors(schema, reports)
     return reports
 
 
-def _typecheck(schema: dict[str, object], result: dict[str, object]) -> None:
-    """Drop nothing here. A value of the wrong JSON type is removed by the caller via errors."""
-    errors = list(Draft202012Validator(schema).iter_errors(result))
-    bad = set()
-    for error in errors:
+def _mark_type_errors(schema: dict[str, object], reports: list[dict[str, object]]) -> None:
+    """A leaf whose JSON type disagrees with the schema is invalid, on that leaf."""
+    result = _nest(
+        {str(item["path"]): item.get("value") for item in reports if "value" in item}
+    )
+    bad: set[str] = set()
+    for error in Draft202012Validator(schema).iter_errors(result):
         if error.path:
             bad.add(".".join(str(part) for part in error.path))
-    if not bad:
-        return
-    # Wrong types are not values. The field stays missing rather than failing the document.
-    for path in list(result):
-        if path in bad:
-            result.pop(path, None)
+    for item in reports:
+        if str(item.get("path") or "") in bad:
+            item["type_error"] = True
 
 
 def _judge(
     item: dict[str, object], passages: list[dict[str, object]], threshold: float
 ) -> dict[str, object]:
     path = str(item.get("path") or "")
+    if item.get("type_error") is True:
+        return _invalid(path, item.get("value"), str(item.get("quote") or ""))
     if "value" not in item or item.get("value") is None:
         return _missing(path)
     quote = str(item.get("quote") or "")
@@ -199,6 +198,8 @@ def _judge(
         located = _locate_value(passages, item.get("value"))
     if not verified:
         status = "missing"
+    elif not _supported(item.get("value"), quote or str(item.get("value") or "")):
+        status = "invalid"
     elif confidence < threshold:
         status = "low_confidence"
     else:
@@ -230,6 +231,30 @@ def _pick(rows: list[dict[str, object]]) -> dict[str, object] | None:
         chosen["status"] = "conflicting"
         return chosen
     return verified[0]
+
+
+def _supported(value: object, quote: str) -> bool:
+    """The value is in the quote, or its digits are, so a normalised number still counts."""
+    if value is None:
+        return True
+    folded_quote = " ".join(quote.split()).casefold()
+    folded = " ".join(str(value).split()).casefold()
+    if folded and folded in folded_quote:
+        return True
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int | float):
+        digits = "".join(ch for ch in str(value) if ch.isdigit())
+        return bool(digits) and digits in "".join(ch for ch in quote if ch.isdigit())
+    return False
+
+
+def _invalid(path: str, value: object, quote: str) -> dict[str, object]:
+    row = _missing(path)
+    row["value"] = value
+    row["quote"] = quote
+    row["status"] = "invalid"
+    return row
 
 
 def _missing(path: str) -> dict[str, object]:

@@ -81,6 +81,23 @@ def test_a_quote_in_the_source_is_extracted_and_a_missing_one_is_not() -> None:
     assert "owner" in body["exceptions"]
 
 
+def test_a_wrong_type_or_a_value_absent_from_its_quote_is_invalid() -> None:
+    passages = [{"text": "The limit is one thousand.", "page": 1, "anchor": "p1"}]
+    typed = interpret(
+        '{"fields": {"limit": {"value": "1000", "quote": "one thousand", "confidence": 0.9}}}',
+        {"type": "object", "properties": {"limit": {"type": "integer"}}},
+        passages,
+    )
+    assert typed["fields"][0]["status"] == "invalid"
+    unsupported = interpret(
+        '{"fields": {"limit": {"value": "1000", "quote": "one thousand", "confidence": 0.9}}}',
+        {"type": "object", "properties": {"limit": {"type": "string"}}},
+        passages,
+    )
+    assert unsupported["fields"][0]["status"] == "invalid"
+    assert "limit" in unsupported["exceptions"]
+
+
 def test_a_low_confidence_quote_is_not_extracted() -> None:
     passages = [{"text": "Limit 1000", "page": 2, "anchor": "p2"}]
     raw = '{"fields": {"limit": {"value": "1000", "quote": "1000", "confidence": 0.2}}}'
