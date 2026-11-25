@@ -77,7 +77,8 @@ async def test_a_worker_with_a_database_holds_no_demo_tenant(
     assert "petstore" not in slugs
     names = {str(row["qualified_name"]) for row in store.tool_versions.values()}
     assert "general.fetch" in names
-    assert ("session.propose_change" in names) is (env is EnvName.DEV)
+    assert "session.propose_change" not in names
+    assert "proposals.propose_change" not in names
     assert "session.checkpoint" not in names
 
 

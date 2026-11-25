@@ -91,3 +91,18 @@ def test_the_product_seed_builds_no_tenant_rows() -> None:
     assert not store.credential_providers
     assert not store.data_connections
     assert not store.tenant_settings
+
+
+def test_the_product_catalogue_is_the_same_in_every_environment() -> None:
+    """The approval test tool was in the catalogue only where fake models were allowed."""
+    from ar_domain.chat.service import ChatService
+
+    def names(store: ChatService) -> set[str]:
+        return {str(row["qualified_name"]) for row in store.tool_versions.values()}
+
+    assert names(ChatService()) == names(ChatService(fake_models_allowed=False))
+    assert "session.propose_change" not in names(ChatService())
+    for name in ("seed_tools.py", "handlers.py"):
+        source = (_TOOLS / name).read_text(encoding="utf-8")
+        assert "propose_change" not in source
+        assert "fake_models_allowed" not in source

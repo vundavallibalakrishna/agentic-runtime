@@ -605,13 +605,6 @@ def state_cases() -> list[Case]:
             has("general.chart"),
         ),
         Case(
-            "session.propose_change",
-            "propose a change",
-            fixed(summary="Certification proposal."),
-            any_result,
-            expect="gated",
-        ),
-        Case(
             "conversations.search_history",
             "search past chats",
             fixed(query="certification"),

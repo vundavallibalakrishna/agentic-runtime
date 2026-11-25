@@ -231,7 +231,6 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `sandbox.write_file` | `unit` | no | Retired. A sandbox binding is rewritten to general and the model is not shown this tool. |
 | tool | `session.a2a_call` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `session.plan_update` | `unit` | yes | In-process tool. Not a recorded live model run. |
-| tool | `session.propose_change` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `session.search` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `skills.load` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `web.discover` | `unit` | yes | In-process tool. Not a recorded live model run. |

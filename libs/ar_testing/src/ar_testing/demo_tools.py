@@ -17,6 +17,7 @@ from ar_domain.chat.service import demo_id
 from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 from ar_domain.tools.openapi_import import operations_from
 from ar_domain.tools.seed_tools import approved_server, tool_row
+from ar_testing.approval_tool import offer_approval_tool
 from ar_testing.tool_stand_ins import PETSTORE, TICKETS, TOKEN_URL, WAREHOUSE
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ def seed_demo_tools(store: Any) -> None:
         _petstore(store, tenant, admin)
         _warehouse(store, tenant, admin)
         _desk(store, tenant, demo_id("builder"))
+        offer_approval_tool(store)
     _reviews(store, tenant)
     _analyst(store, tenant, admin)
 

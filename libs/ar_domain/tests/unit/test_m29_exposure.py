@@ -10,6 +10,7 @@ from ar_common.ids import new_id
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.exposure import a2a, keys, mcp_server, runs
 from ar_domain.identity.tokens import sha256_hex
+from ar_testing.approval_tool import BINDING
 from ar_testing.demo import demo_store
 
 
@@ -20,7 +21,8 @@ def _store() -> ChatService:
     version = store.versions[agent["published_version_id"]]
     definition = dict(version["definition"])
     definition["tools"] = [
-        {"server": "session", "version": "*", "include": ["propose_change", "a2a_call"]}
+        {"server": "session", "version": "*", "include": ["a2a_call"]},
+        dict(BINDING),
     ]
     definition["contract"] = {"description": "Answers short questions."}
     version["definition"] = definition
@@ -180,7 +182,7 @@ def test_write_returns_approval_required() -> None:
         label="Write",
     )
     outcome = runs.execute_write(
-        store, row, "assistant", "session.propose_change", {"summary": "rename the record"}
+        store, row, "assistant", "proposals.propose_change", {"summary": "rename the record"}
     )
     assert outcome["status"] == "approval_required"
     assert outcome["output"] == "Approval required"
