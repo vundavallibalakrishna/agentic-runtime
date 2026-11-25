@@ -82,11 +82,12 @@ export async function proxy(request: NextRequest) {
 }
 
 // Gate every workspace page; leave the API, static files, the sign-in page, the two
-// password-reset pages and the invitation page (a person who cannot sign in must reach
-// them), the public guest page and the health check alone. The widget is matched for its own headers above.
+// password-reset pages, the invitation page and a review link (a person who cannot sign in
+// must reach them), the public guest page and the health check alone. The widget is matched
+// for its own headers above.
 export const config = {
   matcher: [
     "/widget/:path*",
-    "/((?!api|_next|favicon.ico|login|forgot-password|reset-password|invite|guest|healthz|widget|.*\\.).*)",
+    "/((?!api|_next|favicon.ico|login|forgot-password|reset-password|invite|review|guest|healthz|widget|.*\\.).*)",
   ],
 };
