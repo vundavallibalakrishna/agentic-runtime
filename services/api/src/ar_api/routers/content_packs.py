@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from ar_api.actors import actor_from, chat_of, principal_of
 from ar_api.deps import expose, require_permission
+from ar_api.routers.tooling import stepped_up
 from ar_contracts.api_model import ApiModel
 from ar_domain.agents.packs import PackService
 
@@ -51,6 +52,7 @@ async def install_pack(body: InstallBody, request: Request) -> dict[str, object]
         body.manifest,
         signature=body.signature,
         key_id=body.key_id,
+        stepped_up=stepped_up(request),
     )
 
 
@@ -76,6 +78,7 @@ async def upgrade_pack(pack_id: str, body: UpgradeBody, request: Request) -> dic
         signature=body.signature,
         key_id=body.key_id,
         accept_conflicts=body.accept_conflicts,
+        stepped_up=stepped_up(request),
     )
 
 
