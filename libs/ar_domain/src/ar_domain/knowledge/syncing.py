@@ -3,6 +3,8 @@
 import hashlib
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
@@ -11,6 +13,7 @@ from ar_domain.knowledge.access import as_uuid
 from ar_domain.knowledge.fetchers import fetch_bytes, list_acl_changes, list_changes, map_item_acl
 from ar_domain.knowledge.pipeline import embedding_error, ingest_document, stored_bytes
 from ar_domain.knowledge.raw import keep_raw
+from ar_domain.knowledge.site import NotModified
 from ar_domain.knowledge.store import memory_index
 from ar_domain.knowledge.store_types import DeleteFilter
 from ar_domain.knowledge.syncutil import run_sync
@@ -87,7 +90,8 @@ def sync_source(
         _stats(job)["seen"] = int(_stats(job)["seen"]) + 1  # type: ignore[call-overload]
         try:
             _upsert_item(store, source, item, mode=mode, job=job, actor_id=actor_id)
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, httpx.HTTPError) as exc:
+            # One page that cannot be read is that page's failure, not the sync's.
             _fail(job, external_id, str(exc))
     deleted = page.get("deleted_external_ids")
     if isinstance(deleted, list):
@@ -276,9 +280,15 @@ def _upsert_item(
     actor_id: object,
 ) -> None:
     external_id = str(item.get("external_id") or "")
-    raw, mime = fetch_bytes(item)
-    digest = hashlib.sha256(raw).hexdigest()
     existing = _by_external(store, source["id"], external_id)
+    # A source may ask its site only whether a document it already holds has changed.
+    item["known"] = existing is not None and existing.get("status") == "indexed"
+    try:
+        raw, mime = fetch_bytes(item)
+    except NotModified:
+        _stats(job)["unchanged"] = int(_stats(job)["unchanged"]) + 1  # type: ignore[call-overload]
+        return
+    digest = hashlib.sha256(raw).hexdigest()
     hint = str(item.get("version_hint") or digest)
     if (
         existing is not None
