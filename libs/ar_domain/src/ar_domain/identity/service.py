@@ -501,6 +501,8 @@ class IdentityService:
             tenant_id=self.ctx.tenant_id,
             name=name,
             description=description,
+            # Said here, not left to the column's default: the reply names the status.
+            status="active",
             allow_on_behalf_of=allow_on_behalf_of,
             created_by=self.ctx.user_id,
         )

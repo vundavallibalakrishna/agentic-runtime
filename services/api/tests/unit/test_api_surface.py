@@ -283,6 +283,9 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
     account = client.post("/api/v1/service-accounts", json={"name": "bot"})
     assert account.status_code == 200, account.text
     account_id = account.json()["id"]
+    # The reply names the account: an id the next call can use, and its status.
+    assert uuid.UUID(account_id)
+    assert account.json()["status"] == "active"
     assert client.get("/api/v1/service-accounts").status_code == 200
     # What an account can be made for: each choice names a system role that grants it.
     choices = client.get("/api/v1/service-accounts:capabilities").json()["items"]
@@ -305,6 +308,7 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
     created_key = client.post("/api/v1/api-keys", json={"name": "cli", "expiresInDays": 30})
     assert created_key.status_code == 200, created_key.text
     assert "key" in created_key.json()
+    assert uuid.UUID(created_key.json()["id"])
     assert created_key.json()["lastUsedAt"] is None
     assert created_key.json()["revokedAt"] is None
     assert client.get("/api/v1/api-keys").status_code == 200
