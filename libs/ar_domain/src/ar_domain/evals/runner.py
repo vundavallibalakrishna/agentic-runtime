@@ -48,28 +48,100 @@ async def execute_eval_run(store: Any, eval_run_id: uuid.UUID) -> dict[str, obje
 
 
 async def _execute(store: Any, eval_run_id: uuid.UUID, row: dict[str, object]) -> dict[str, object]:
-    row["status"] = "running"
-    row["started_at"] = utcnow()
+    """In one process: begin, every case several at a time, then finish."""
+    case_ids = begin_eval_run(store, eval_run_id)
+    gate_keeper = asyncio.Semaphore(_concurrency())
+
+    async def one(case_id: str) -> None:
+        async with gate_keeper:
+            await score_eval_case(store, eval_run_id, case_id)
+
+    await asyncio.gather(*(one(case_id) for case_id in case_ids))
+    del row
+    return finish_eval_run(store, eval_run_id)
+
+
+def begin_eval_run(store: Any, eval_run_id: uuid.UUID) -> list[str]:
+    """Mark the run running and return the ids of the cases it scores, in order.
+
+    A run that already ended returns no cases. A workflow scores each case in its own
+    activity, so a suite of any size finishes and one slow case never ends the run.
+    """
+    row = store.eval_runs.get(eval_run_id)
+    if not isinstance(row, dict) or row.get("status") in {"cancelled", "completed", "failed"}:
+        return []
+    if row.get("status") != "running":
+        row["status"] = "running"
+        row["started_at"] = utcnow()
+    return [str(case["id"]) for case in _cases(store, row)]
+
+
+async def score_eval_case(store: Any, eval_run_id: uuid.UUID, case_id: str) -> bool:
+    """Run one case through the agent, judge it and save its result. True when it passed.
+
+    Safe to repeat: a case that already has a result in this run is not run again. A
+    case that cannot run is saved as a failed result that says why; it never ends the run.
+    """
+    row = store.eval_runs.get(eval_run_id)
+    case = store.eval_cases.get(_uuid(case_id))
+    if not isinstance(row, dict) or not isinstance(case, dict):
+        return False
+    done = _result_for(store, eval_run_id, case.get("id"))
+    if done is not None:
+        return bool(done.get("passed"))
+    if row.get("status") in {"cancelled", "completed", "failed"}:
+        return False
+    try:
+        outcome = await _run_case(store, row, case)
+        scores = grade(_list(case.get("assertions")), outcome)
+        await _judge(store, row, case, outcome, scores)
+    except Exception as exc:  # noqa: BLE001 - one case that cannot run is a failed case
+        from ar_domain.tools.logic import raised_at  # noqa: PLC0415
+
+        outcome = {"output_text": "", "latency_ms": 0, "cost_micros": 0}
+        scores = {
+            "case_error": {
+                "passed": False,
+                "score": 0.0,
+                "verdict": "failed",
+                "detail": f"The case did not run: {type(exc).__name__} at {raised_at(exc)}.",
+            }
+        }
+    ok = passed(scores)
+    _save_result(store, row, case, outcome, scores, ok)
+    CASE_SECONDS.observe(max(_int(outcome.get("latency_ms")), 1) / 1000)
+    return ok
+
+
+def finish_eval_run(store: Any, eval_run_id: uuid.UUID) -> dict[str, object]:
+    """Summarise the saved results, end the run and tell whoever waits for it.
+
+    A selected case with no result (its activity never finished) counts as failed.
+    """
+    row = store.eval_runs.get(eval_run_id)
+    if not isinstance(row, dict):
+        return {"status": "failed"}
+    if row.get("status") in {"cancelled", "completed", "failed"}:
+        return _summary(row)
     suite = store.eval_suites.get(row.get("suite_id"))
     gate = suite.get("gate") if isinstance(suite, dict) else {}
     if not isinstance(gate, dict):
         gate = {}
-    selected = _cases(store, row)
-    # Cases are independent conversations, so several are worked on at once. Results
-    # keep the order of the cases.
-    gate_keeper = asyncio.Semaphore(_concurrency())
-
-    async def one(case: dict[str, object]) -> dict[str, object]:
-        async with gate_keeper:
-            outcome = await _run_case(store, row, case)
-            scores = grade(_list(case.get("assertions")), outcome)
-            await _judge(store, row, case, outcome, scores)
-            ok = passed(scores)
-            saved = _save_result(store, row, case, outcome, scores, ok)
-            CASE_SECONDS.observe(max(_int(outcome.get("latency_ms")), 1) / 1000)
-            return saved
-
-    results: list[dict[str, object]] = list(await asyncio.gather(*(one(case) for case in selected)))
+    results: list[dict[str, object]] = []
+    for case in _cases(store, row):
+        saved = _result_for(store, eval_run_id, case.get("id"))
+        if saved is None:
+            missing = {
+                "case_error": {
+                    "passed": False,
+                    "score": 0.0,
+                    "verdict": "failed",
+                    "detail": "The case did not finish.",
+                }
+            }
+            outcome = {"output_text": "", "latency_ms": 0, "cost_micros": 0}
+            saved = _save_result(store, row, case, outcome, missing, False)
+        results.append(saved)
     baseline = _baseline(store, row.get("baseline_eval_run_id"))
     summary = summarise(gate, results, baseline)
     row["summary"] = summary
@@ -97,6 +169,40 @@ async def _execute(store: Any, eval_run_id: uuid.UUID, row: dict[str, object]) -
     return summary
 
 
+def fail_eval_run(store: Any, eval_run_id: uuid.UUID, reason: str) -> dict[str, object]:
+    """End a run that broke for a reason other than a failing case. A gate hears it."""
+    row = store.eval_runs.get(eval_run_id)
+    if not isinstance(row, dict):
+        return {"status": "failed"}
+    if row.get("status") in {"cancelled", "completed", "failed"}:
+        return _summary(row)
+    from ar_common.logging import get_logger  # noqa: PLC0415
+
+    get_logger(__name__).error("eval_run_failed", eval_run_id=str(eval_run_id), error_type=reason)
+    row["status"] = "failed"
+    row["finished_at"] = utcnow()
+    RUNS.labels(status="failed", trigger=str(row.get("trigger") or "manual")).inc()
+    if row.get("trigger") == "publish_gate":
+        _finish_gate(store, row, False)
+    return _summary(row)
+
+
+def eval_concurrency() -> int:
+    """How many cases of one run are worked on at the same time."""
+    return _concurrency()
+
+
+def _result_for(store: Any, eval_run_id: uuid.UUID, case_id: object) -> dict[str, object] | None:
+    for result in store.eval_results.values():
+        if (
+            isinstance(result, dict)
+            and result.get("eval_run_id") == eval_run_id
+            and result.get("case_id") == case_id
+        ):
+            return result
+    return None
+
+
 def _concurrency() -> int:
     """``AR_EVAL_CONCURRENCY``: cases of one run worked on at the same time."""
     from ar_common.settings import get_settings  # noqa: PLC0415
@@ -119,6 +225,18 @@ async def _judge(
         if key.startswith("llm_judge_") and position.isdigit() and int(position) < len(assertions):
             pending.append((key, assertions[int(position)]))
     if not pending:
+        return
+    status = str(outcome.get("status") or "")
+    if status and status != "completed":
+        # No answer to judge: the agent's run itself did not complete. Say so, and do not
+        # spend judge calls on an empty answer.
+        for key, _item in pending:
+            scores[key] = {
+                "passed": False,
+                "score": 0.0,
+                "verdict": "failed",
+                "detail": f"The agent's run ended {status}, so the answer was not judged.",
+            }
         return
     from ar_common.offload import run_sync  # noqa: PLC0415
     from ar_domain.evals.judge import judge_case  # noqa: PLC0415

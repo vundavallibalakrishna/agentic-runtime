@@ -193,3 +193,69 @@ def test_an_answer_without_the_fact_fails_the_run(stand_in: StandIn) -> None:
     summary = _run(store)["summary"]
     assert isinstance(summary, dict)
     assert summary["pass_rate"] == 0
+
+
+def test_a_case_that_cannot_run_is_a_failed_case_and_the_run_still_finishes(
+    stand_in: StandIn, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ar_domain.evals import runner
+
+    store = demo_store(allow_loopback=True)
+    stand_in.script("judge-broken", _scripts(ANSWER))
+    stand_in.connect(store, demo_id("tenant"), script_set="judge-broken")
+    real = runner._run_case
+    calls = {"n": 0}
+
+    async def flaky(store_: object, row: object, case: dict[str, object]) -> dict[str, object]:
+        calls["n"] += 1
+        if case.get("name") == "support hours 1":
+            raise RuntimeError("store went away")
+        return await real(store_, row, case)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(runner, "_run_case", flaky)
+    ran = _run(store)
+    summary = ran["summary"]
+    assert isinstance(summary, dict)
+    assert summary["cases"] == 3
+    assert summary["passed"] == 2
+    results = ran["results"]
+    assert isinstance(results, list)
+    broken = next(row for row in results if row["case"]["name"] == "support hours 1")
+    assert broken["scores"]["case_error"]["detail"].startswith("The case did not run: RuntimeError")
+
+
+def test_scoring_a_case_twice_keeps_one_result(stand_in: StandIn) -> None:
+    import asyncio
+
+    from ar_domain.evals.runner import begin_eval_run, finish_eval_run, score_eval_case
+
+    store = demo_store(allow_loopback=True)
+    stand_in.script("judge-twice", _scripts(ANSWER))
+    stand_in.connect(store, demo_id("tenant"), script_set="judge-twice")
+    actor = _actor()
+    life = AgentLifecycle(store)
+    created = life.create(actor, slug="twice", name="Twice", description="twice")
+    agent_id = uuid.UUID(str(created["id"]))
+    life.publish(actor, agent_id, change_note="first")
+    book = EvalBook(store)
+    suite = book.create_suite(actor, {"name": "Twice", "kind": "functional", "agent_id": agent_id})
+    book.create_case(
+        actor,
+        suite["id"],  # type: ignore[arg-type]
+        {
+            "name": "hours",
+            "input": {"messages": ["support hours?"]},
+            "assertions": [{"type": "llm_judge", "must": MUST, "mustNot": MUST_NOT}],
+        },
+    )
+    store.defer_eval_runs = True
+    queued = book.start_run(actor, suite["id"], {"agent_version_ref": "published"})  # type: ignore[arg-type]
+    run_id = uuid.UUID(str(queued["id"]))
+    case_ids = begin_eval_run(store, run_id)
+    assert len(case_ids) == 1
+    first = asyncio.run(score_eval_case(store, run_id, case_ids[0]))
+    again = asyncio.run(score_eval_case(store, run_id, case_ids[0]))
+    assert first is True
+    assert again is True
+    assert len([r for r in store.eval_results.values() if r["eval_run_id"] == run_id]) == 1
+    assert finish_eval_run(store, run_id)["pass_rate"] == 1

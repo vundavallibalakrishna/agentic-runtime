@@ -82,9 +82,9 @@ class TemporalBridge:
         from ar_runtime.main import TASK_QUEUE  # noqa: PLC0415
         from ar_runtime.worker import runtime_activities, runtime_workflows  # noqa: PLC0415
         from ar_system.workflows.eval_run import (  # noqa: PLC0415
+            EVAL_ACTIVITIES,
             EVAL_QUEUE,
             EvalRunWorkflow,
-            execute_eval_activity,
         )
 
         runtime = Worker(
@@ -97,7 +97,7 @@ class TemporalBridge:
             self.client,
             task_queue=EVAL_QUEUE,
             workflows=[EvalRunWorkflow],
-            activities=[execute_eval_activity],
+            activities=EVAL_ACTIVITIES,
         )
         ingest = Worker(
             self.client,

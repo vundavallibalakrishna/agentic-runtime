@@ -324,6 +324,9 @@ class EvalBook:
                     "run_id": row.get("run_id"),
                 }
             )
+        # Cases finish in any order when several run at once; they are listed as the
+        # run selected them.
+        found.sort(key=lambda item: str(item["case"].get("name") or ""))  # type: ignore[attr-defined]
         return found
 
     def cancel(self, actor: Actor, eval_run_id: uuid.UUID) -> dict[str, object]:
