@@ -221,7 +221,7 @@ async def _post_json(
             host = urlsplit(url).hostname
             if host and host not in hosts:
                 hosts.append(host)
-            async with async_client(timeout=timeout_s, allow=hosts) as client:
+            async with async_client(timeout=timeout_s, allow=hosts, reuse=True) as client:
                 response = await client.post(url, json=body, headers=headers)
     except httpx.HTTPError:
         return None, True
@@ -2771,7 +2771,9 @@ class ChatBehaviour:
         request = {**body, "stream": True, "stream_options": {"include_usage": True}}
         try:
             async with (
-                async_client(timeout=timeout_s, allow=self._dial_allow(tenant_id)) as client,
+                async_client(
+                    timeout=timeout_s, allow=self._dial_allow(tenant_id), reuse=True
+                ) as client,
                 client.stream(
                     "POST", url, json=request, headers={**headers, "accept": "text/event-stream"}
                 ) as response,

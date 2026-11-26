@@ -416,6 +416,9 @@ class BaseServiceSettings(BaseSettings):
     # What every outbound request names itself as. A site owner reads this in their logs,
     # so an install that reads public pages puts a contact address in it.
     http_user_agent: str = "agentic-runtime"
+    # How long an idle connection to a model or embedding provider stays open for the next
+    # call. Opening one costs a TCP and a TLS handshake.
+    egress_keepalive_s: float = Field(default=60.0, ge=0)
     # How many requests a minute the page tools send to one host, across every tenant.
     fetch_per_host_per_minute: int = Field(default=30, ge=1)
     # The mail server the product sends through: invitations, and a routine's result when

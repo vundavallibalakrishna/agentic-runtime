@@ -219,18 +219,20 @@ def client_for(
     timeout: float | None = None,
     allow: list[str] | None = None,
     supplied: bool = False,
+    reuse: bool = False,
 ) -> httpx.Client:
     """Cluster client for a configured service, external client otherwise.
 
     ``supplied`` is a URL a tenant saved. It is never a cluster client and
     never carries the install HMAC, even when it names one of our services.
+    ``reuse`` keeps an external client's connections open for the next call.
     """
     if supplied:
         _refuse_supplied(url)
-        return sync_client(timeout=timeout, allow=_allow_with_host(allow, url))
+        return sync_client(timeout=timeout, allow=_allow_with_host(allow, url), reuse=reuse)
     if is_internal_service(url):
         return internal_sync_client(timeout=timeout)
-    return sync_client(timeout=timeout, allow=_allow_with_host(allow, url))
+    return sync_client(timeout=timeout, allow=_allow_with_host(allow, url), reuse=reuse)
 
 
 def post(url: str, **kwargs: Any) -> httpx.Response:
@@ -253,12 +255,14 @@ async def async_post(
     allow: list[str] | None = None,
     timeout_s: float | None = None,
     supplied: bool = False,
+    reuse: bool = False,
     **kwargs: Any,
 ) -> httpx.Response:
     """POST to a configured service in cluster mode, or to anyone else externally.
 
     ``supplied`` is a tenant URL: external client, no HMAC, and refused when
-    it names an install service or a loopback address.
+    it names an install service or a loopback address. ``reuse`` keeps an external
+    connection open for the next call.
     """
     if supplied:
         _refuse_supplied(url)
@@ -267,5 +271,7 @@ async def async_post(
         async with internal_async_client(timeout=timeout_s) as client:
             return await client.post(url, headers=headers, **kwargs)
     headers = kwargs.pop("headers", None)
-    async with async_client(timeout=timeout_s, allow=_allow_with_host(allow, url)) as client:
+    async with async_client(
+        timeout=timeout_s, allow=_allow_with_host(allow, url), reuse=reuse
+    ) as client:
         return await client.post(url, headers=headers, **kwargs)
