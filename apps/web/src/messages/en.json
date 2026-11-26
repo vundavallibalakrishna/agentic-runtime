@@ -813,7 +813,9 @@
     "visibilityPrivate": "Only me",
     "visibilityTeam": "Its team",
     "visibilityTenant": "Everyone in the workspace",
-    "visibilityHelp": "A channel or widget reaches only an agent the person behind it may use, so choose Everyone for an agent on Slack, Teams, email or a widget. Sharing with everyone needs the right to publish agents. Save draft saves it, and it applies at once, without publishing."
+    "visibilityHelp": "A channel or widget reaches only an agent the person behind it may use, so choose Everyone for an agent on Slack, Teams, email or a widget. Sharing with everyone needs the right to publish agents. Save draft saves it, and it applies at once, without publishing.",
+    "maxWords": "Longest answer, in words",
+    "maxWordsHelp": "Optional. The agent is told this limit right before it answers, after any passages it read, and a much longer answer is cut off. Leave empty for no limit."
   },
   "tools": {
     "title": "Tools",

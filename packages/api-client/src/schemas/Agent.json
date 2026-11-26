@@ -357,6 +357,20 @@
           "minimum": 1,
           "title": "Followupcount",
           "type": "integer"
+        },
+        "maxWords": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 10,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxwords"
         }
       },
       "title": "OutputSpec",
@@ -895,7 +909,8 @@
         "grounding": "off",
         "jsonSchema": {},
         "followups": false,
-        "followupCount": 3
+        "followupCount": 3,
+        "maxWords": null
       }
     },
     "assurance": {

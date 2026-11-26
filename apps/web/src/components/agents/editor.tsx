@@ -551,6 +551,33 @@ export function AgentEditor() {
                           </option>
                         ))}
                     </select>
+                    <label className="mt-4 block text-sm font-medium" htmlFor="editor-max-words">
+                      {t("maxWords")}
+                    </label>
+                    <Input
+                      aria-describedby="editor-max-words-help"
+                      className="mt-1 w-32"
+                      id="editor-max-words"
+                      max={5000}
+                      min={10}
+                      onChange={(event) => {
+                        const words = Math.floor(Number(event.target.value));
+                        const { maxWords: _dropped, ...rest } = definition.output ?? {};
+                        updateDefinition({
+                          ...definition,
+                          output:
+                            event.target.value && words > 0 ? { ...rest, maxWords: words } : rest,
+                        });
+                      }}
+                      type="number"
+                      value={definition.output?.maxWords ?? ""}
+                    />
+                    <p
+                      className="mt-1 max-w-xl text-xs text-[var(--muted-foreground)]"
+                      id="editor-max-words-help"
+                    >
+                      {t("maxWordsHelp")}
+                    </p>
                     <fieldset className="mt-4">
                       <legend className="text-sm font-medium">{t("toolsAndConnectors")}</legend>
                       {servers.length === 0 ? (

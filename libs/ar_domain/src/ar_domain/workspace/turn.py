@@ -235,8 +235,32 @@ def _append_system(
         extra.append(_LIBRARY_MISS)
     else:
         extra.append(_NO_LIBRARY)
+    rule = length_rule(definition)
+    if rule:
+        # Last, after the passages and right before the question: a rule at the top of a
+        # long prompt was ignored (26 of 36 answers ran past a 120-word limit).
+        extra.append(rule)
     if extra:
         system["content"] = str(system.get("content") or "") + "\n\n" + "\n\n".join(extra)
+
+
+def max_words(definition: dict[str, object] | None) -> int | None:
+    """``output.maxWords`` when the agent sets one."""
+    output = definition.get("output") if isinstance(definition, dict) else None
+    raw = output.get("max_words", output.get("maxWords")) if isinstance(output, dict) else None
+    return raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else None
+
+
+def length_rule(definition: dict[str, object] | None) -> str:
+    """The answer-length rule the model reads last, or empty when the agent sets none."""
+    words = max_words(definition)
+    if words is None:
+        return ""
+    return (
+        f"Length: your answer is at most {words} words. Lead with the direct answer, keep "
+        "only what the question needs, and keep each citation. When the question asks for "
+        "more than fits, cover the most important parts and say what you left out."
+    )
 
 
 def _definition(store: Any, run: dict[str, object]) -> dict[str, object] | None:
