@@ -69,7 +69,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DOCUMENT_ALIGN_COSINE` | `0.75` | Minimum cosine before two headings are paired when both have vectors. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_ALIGN_LEXICAL` | `0.5` | Minimum word overlap before two headings are paired. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_ASK_MAX_TOKENS` | `1800` | Output tokens one document model call may ask for. | [document tasks](../09-plan/document-tasks.md) |
-| `AR_DOCUMENT_EXTRACT_TIMEOUT_S` | `900` | How long `documents.extract` may run. The gateway and the runtime client use this when it is longer than the stored tool timeout. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_EXTRACT_TIMEOUT_S` | `900` | How long `documents.extract` may run. Allowed range 1–7200. The gateway's run limit, the runtime HTTP client (plus `AR_TOOL_GATEWAY_GRACE_S`), the step activity timeout, and an approved resume use this when it is longer than the stored tool timeout. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_TOOL_GATEWAY_GRACE_S` | `60` | Extra seconds the runtime waits on the tool gateway after the tool's own timeout. | [tools](../03-specs/08-tool-registry-mcp.md) |
 | `AR_DOCUMENT_CHUNK_CHARS` | `1000` | Characters in one library passage. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_CHUNK_OVERLAP` | `120` | Overlap between library passages. | [document tasks](../09-plan/document-tasks.md) |

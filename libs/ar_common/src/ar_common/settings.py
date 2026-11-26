@@ -485,8 +485,9 @@ class BaseServiceSettings(BaseSettings):
     document_vision_max_bytes: int = Field(default=8 * 1024 * 1024, ge=1)
     document_ask_max_tokens: int = Field(default=1800, ge=1)
     # documents.extract may run for many model calls. The stored tool default is
-    # shorter than that work. This is the budget the gateway and its client use.
-    document_extract_timeout_s: int = Field(default=900, ge=1, le=900)
+    # shorter than that work. This is the budget the gateway, its client, and the
+    # step that runs the tool wait for. 900 is the default; 7200 is the ceiling.
+    document_extract_timeout_s: int = Field(default=900, ge=1, le=7200)
     # Added to a tool's timeout when the runtime calls the gateway, so the client
     # does not give up before the tool's own deadline.
     tool_gateway_grace_s: int = Field(default=60, ge=0, le=300)

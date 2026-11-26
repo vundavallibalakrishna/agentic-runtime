@@ -55,6 +55,18 @@ def resolved_timeout_s(version: dict[str, object] | None) -> int:
     return stored
 
 
+def caller_wait_s(version: dict[str, object] | None) -> float:
+    """Seconds a caller waits for this tool: its resolved timeout plus gateway grace.
+
+    ``documents.extract`` resolves to ``AR_DOCUMENT_EXTRACT_TIMEOUT_S`` when that is
+    longer than the timeout stored on the tool. Callers that stop sooner cut the extract
+    off before the gateway does.
+    """
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return max(1.0, float(resolved_timeout_s(version)) + float(get_settings().tool_gateway_grace_s))
+
+
 _IMPLICIT = frozenset(
     {
         "files.read",

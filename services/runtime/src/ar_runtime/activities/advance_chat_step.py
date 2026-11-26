@@ -135,11 +135,21 @@ async def _stop_or_apply(
     if not isinstance(decision, dict):
         return None
     from ar_common.offload import run_sync  # noqa: PLC0415
-    from ar_domain.tools.resume import apply_decision  # noqa: PLC0415
 
     # The approved call waits on the gateway. Under run_sync that wait leaves the
     # loop free, so the activity heartbeat keeps running for the tool's timeout.
-    applied = await run_sync(apply_decision, store, run, decision)
+    # The limit is the extract budget plus grace: a shorter cap would cancel a long
+    # extract, and a tool with a shorter timeout still ends on its own HTTP wait.
+    from ar_domain.tools.pipeline import caller_wait_s  # noqa: PLC0415
+    from ar_domain.tools.resume import apply_decision  # noqa: PLC0415
+
+    applied = await run_sync(
+        apply_decision,
+        store,
+        run,
+        decision,
+        limit_s=caller_wait_s({"qualified_name": "documents.extract"}),
+    )
     if applied == "final" or not run_is_active(str(run.get("status") or "")):
         return {
             "status": str(run.get("status") or "completed"),

@@ -383,6 +383,8 @@ def test_signal_and_budget_without_a_running_loop(monkeypatch: pytest.MonkeyPatc
     class _Settings:
         run_history_steps = "nope"
         approval_wait_s = True
+        document_extract_timeout_s = 900
+        tool_gateway_grace_s = 60
 
     def _settings() -> _Settings:
         return _Settings()
@@ -403,14 +405,16 @@ def test_signal_and_budget_without_a_running_loop(monkeypatch: pytest.MonkeyPatc
     # and a tool call that waits for approval takes one more activity.
     assert chat["max_steps"] == 16 + 2 * 16
     # One activity may last as long as the run's wall clock allows, and a little more.
-    assert chat["step_timeout_s"] == 600 + 60
+    # A document extract may be configured longer than that clock, so the activity is
+    # at least the extract budget plus the client grace plus the same margin.
+    assert chat["step_timeout_s"] == max(600 + 60, 900 + 60 + 60)
     hurried = workflow_payload(
         store,
         {"agent_version_id": uuid.uuid4(), "budget_override": {"max_wall_clock_s": 30}},
         run_id,
         "hi",
     )
-    assert hurried["step_timeout_s"] == 30 + 60
+    assert hurried["step_timeout_s"] == max(30 + 60, 900 + 60 + 60)
     from ar_domain.tools.resume import _approval_row, _resume, apply_decision, settle_approval
 
     settle_approval(store, {"id": uuid.uuid4(), "run_id": uuid.uuid4(), "status": "approved"})

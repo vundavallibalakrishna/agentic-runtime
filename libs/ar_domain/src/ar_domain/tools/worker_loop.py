@@ -193,6 +193,7 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
         _stop_budget,
         _stop_error,
         _time_left,
+        _tool_limit_s,
     )
     from ar_domain.tools.images import build_image_message  # noqa: PLC0415
 
@@ -328,7 +329,7 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
                 by_name,
                 used,
                 retry=_int(state.get("consecutive_errors")) > 0,
-                limit_s=_time_left(limits, started),
+                limit_s=_tool_limit_s(limits, started, call, by_name),
             )
     if outcome is None:
         run["step_kind"] = "paused"

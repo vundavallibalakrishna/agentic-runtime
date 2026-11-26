@@ -663,7 +663,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                         by_name,
                         used_calls,
                         retry=consecutive_errors > 0,
-                        limit_s=_time_left(limits, started),
+                        limit_s=_tool_limit_s(limits, started, call, by_name),
                     )
             if outcome is None:
                 return True
@@ -1110,6 +1110,34 @@ def _wire_calls(calls: list[object]) -> list[dict[str, object]]:
 def _time_left(limits: dict[str, int], started: float) -> float:
     """Seconds of the run's wall clock a tool call may still use, and never under one."""
     return max(1.0, limits["max_wall_clock_s"] - (time.monotonic() - started))
+
+
+def _tool_limit_s(
+    limits: dict[str, int],
+    started: float,
+    call: dict[str, object],
+    by_name: dict[str, dict[str, object]],
+) -> float:
+    """How long this tool call may wait before the loop stops it.
+
+    The remaining wall clock is the usual bound. ``documents.extract`` may be configured
+    longer than that clock, and the gateway client waits the tool timeout plus grace, so
+    this limit is at least that wait.
+    """
+    remaining = _time_left(limits, started)
+    name = str(call.get("name") or "")
+    bound = by_name.get(name)
+    qualified = str(bound.get("qualified_name") or "") if isinstance(bound, dict) else ""
+    if not qualified:
+        qualified = name.replace("__", ".")
+    if qualified != "documents.extract":
+        return remaining
+    from ar_domain.tools.pipeline import caller_wait_s  # noqa: PLC0415
+
+    version: dict[str, object] = {"qualified_name": qualified}
+    if isinstance(bound, dict):
+        version = bound
+    return max(remaining, caller_wait_s(version))
 
 
 def _remaining(limits: dict[str, int], started: float) -> float:
