@@ -357,6 +357,47 @@ def _resolve_collection_ids(raw: object, collections: list[dict[str, object]]) -
     return resolved
 
 
+def _resolve_document_ids(raw: object, store: Any, collection_ids: list[object]) -> list[str]:
+    """Turn a model's ``document_ids`` into the ids of documents in the searched collections.
+
+    The model sees a passage under its document's title and address, never its id, so it
+    names a document the way it saw it: ``Freedom-Park-Case-Study.docx``, or an address,
+    sometimes with a prefix of its own (``site:https://example.com/page/``). Accept an id, a
+    title (case-insensitive) or an address, matched only against documents in
+    ``collection_ids``, and drop anything that does not match. A bad name then narrows
+    nothing instead of failing the search and spending one of the agent's tool calls.
+    """
+    if not isinstance(raw, list):
+        return []
+    within = {str(item) for item in collection_ids}
+    rows = getattr(store, "knowledge_documents", {})
+    documents = [
+        row
+        for row in (rows.values() if isinstance(rows, dict) else [])
+        if isinstance(row, dict)
+        and str(row.get("collection_id")) in within
+        and row.get("status") != "deleted"
+    ]
+    resolved: list[str] = []
+    for item in raw:
+        key = str(item).strip()
+        if not key:
+            continue
+        lowered = key.lower()
+        for row in documents:
+            uri = str(row.get("uri") or "").strip()
+            title = str(row.get("title") or "").strip().lower()
+            if (
+                key == str(row.get("id"))
+                or (title and lowered == title)
+                or (uri and (key == uri or key.endswith(uri)))
+            ):
+                found = str(row.get("id"))
+                if found not in resolved:
+                    resolved.append(found)
+    return resolved
+
+
 def _bound_collections(store: Any, arguments: dict[str, object]) -> set[str] | None:
     """The collection slugs the calling agent is bound to, or None when it names none.
 
@@ -445,8 +486,9 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         }
         if arguments.get("min_score") is not None:
             body["min_score"] = arguments.get("min_score")
-        if arguments.get("document_ids"):
-            body["document_ids"] = arguments.get("document_ids")
+        named = _resolve_document_ids(arguments.get("document_ids"), store, raw_ids)
+        if named:
+            body["document_ids"] = named
         found = book.search(actor, body)
     except (ValueError, TypeError, ArError) as exc:
         return _error("validation_failed", str(exc))
