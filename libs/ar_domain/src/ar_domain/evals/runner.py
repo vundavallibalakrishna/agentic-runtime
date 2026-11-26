@@ -3,6 +3,7 @@
 Spec: docs/03-specs/18-observability-eval.md §4.2.
 """
 
+import asyncio
 import uuid
 from typing import TYPE_CHECKING
 
@@ -54,14 +55,21 @@ async def _execute(store: Any, eval_run_id: uuid.UUID, row: dict[str, object]) -
     if not isinstance(gate, dict):
         gate = {}
     selected = _cases(store, row)
-    results: list[dict[str, object]] = []
-    for case in selected:
-        outcome = await _run_case(store, row, case)
-        scores = grade(_list(case.get("assertions")), outcome)
-        ok = passed(scores)
-        saved = _save_result(store, row, case, outcome, scores, ok)
-        results.append(saved)
-        CASE_SECONDS.observe(max(_int(outcome.get("latency_ms")), 1) / 1000)
+    # Cases are independent conversations, so several are worked on at once. Results
+    # keep the order of the cases.
+    gate_keeper = asyncio.Semaphore(_concurrency())
+
+    async def one(case: dict[str, object]) -> dict[str, object]:
+        async with gate_keeper:
+            outcome = await _run_case(store, row, case)
+            scores = grade(_list(case.get("assertions")), outcome)
+            await _judge(store, row, case, outcome, scores)
+            ok = passed(scores)
+            saved = _save_result(store, row, case, outcome, scores, ok)
+            CASE_SECONDS.observe(max(_int(outcome.get("latency_ms")), 1) / 1000)
+            return saved
+
+    results: list[dict[str, object]] = list(await asyncio.gather(*(one(case) for case in selected)))
     baseline = _baseline(store, row.get("baseline_eval_run_id"))
     summary = summarise(gate, results, baseline)
     row["summary"] = summary
@@ -87,6 +95,47 @@ async def _execute(store: Any, eval_run_id: uuid.UUID, row: dict[str, object]) -
     if row.get("trigger") == "publish_gate":
         _finish_gate(store, row, bool(summary.get("gate_passed")))
     return summary
+
+
+def _concurrency() -> int:
+    """``AR_EVAL_CONCURRENCY``: cases of one run worked on at the same time."""
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return max(1, int(get_settings().eval_concurrency))
+
+
+async def _judge(
+    store: Any,
+    eval_run: dict[str, object],
+    case: dict[str, object],
+    outcome: dict[str, object],
+    scores: dict[str, dict[str, object]],
+) -> None:
+    """Replace each ``llm_judge`` placeholder with the judge model's verdict."""
+    assertions = _list(case.get("assertions"))
+    pending = []
+    for key in scores:
+        position = key.removeprefix("llm_judge_")
+        if key.startswith("llm_judge_") and position.isdigit() and int(position) < len(assertions):
+            pending.append((key, assertions[int(position)]))
+    if not pending:
+        return
+    from ar_common.offload import run_sync  # noqa: PLC0415
+    from ar_domain.evals.judge import judge_case  # noqa: PLC0415
+
+    raw_input = case.get("input")
+    messages = raw_input.get("messages") if isinstance(raw_input, dict) else []
+    turns = [str(item) for item in messages] if isinstance(messages, list) else []
+    question = "\n".join(turns)
+    for key, item in pending:
+        scores[key] = await run_sync(
+            judge_case,
+            store,
+            eval_run.get("tenant_id"),
+            item if isinstance(item, dict) else {},
+            outcome,
+            question,
+        )
 
 
 async def _run_case(

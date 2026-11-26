@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal
 
-from pydantic import Field, TypeAdapter, ValidationError
+from pydantic import Field, TypeAdapter, ValidationError, model_validator
 
 from ar_common.errors import FieldError, ValidationFailedError
 from ar_contracts.api_model import ApiModel
@@ -92,6 +92,24 @@ class OverlapAssertion(ApiModel):
     threshold: float = 0.5
 
 
+class LlmJudgeAssertion(ApiModel):
+    """A model judges the final answer against statements it must and must not make.
+
+    ``judge_alias`` names the tenant's model alias that judges (default ``reasoning``).
+    """
+
+    type: Literal["llm_judge"]
+    must: list[str] = Field(default_factory=list, max_length=50)
+    must_not: list[str] = Field(default_factory=list, max_length=50)
+    judge_alias: str | None = None
+
+    @model_validator(mode="after")
+    def _has_statements(self) -> LlmJudgeAssertion:
+        if not any(text.strip() for text in [*self.must, *self.must_not]):
+            raise ValueError("llm_judge needs at least one statement in must or mustNot")
+        return self
+
+
 class MaxLatencyAssertion(ApiModel):
     type: Literal["max_latency_ms"]
     value: int
@@ -130,6 +148,7 @@ Assertion = Annotated[
     | RefusalAssertion
     | SimilarityAssertion
     | OverlapAssertion
+    | LlmJudgeAssertion
     | MaxLatencyAssertion
     | MaxCostAssertion
     | MaxStepsAssertion
@@ -153,10 +172,16 @@ class ToolMock(ApiModel):
 def parse_assertion(raw: object) -> dict[str, object]:
     """Validate one assertion and return snake_case fields.
 
-    The old name ``llm_judge`` is accepted and stored as ``lexical_overlap``.
-    The check does not call a model.
+    An ``llm_judge`` written before the model judge, with a ``rubric`` and no
+    statements, is stored as ``lexical_overlap``, as it always was. It does not call
+    a model.
     """
-    if isinstance(raw, dict) and raw.get("type") == "llm_judge":
+    if (
+        isinstance(raw, dict)
+        and raw.get("type") == "llm_judge"
+        and "rubric" in raw
+        and not any(key in raw for key in ("must", "mustNot", "must_not"))
+    ):
         raw = {**raw, "type": "lexical_overlap"}
     try:
         model = _ASSERTIONS.validate_python(raw)

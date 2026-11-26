@@ -38,6 +38,7 @@ Case format: the in-product import format (JSONL/YAML, spec 18 `EvalInput` + ass
 ## 4. Judges
 
 - Lexical overlap (`lexical_overlap`) does not call a model. Its result is `not_judged`, never a pass. `refusal` remains a pattern check. A live eval artifact names the model id and the date; a dry-run artifact is proof `unit` and is a different file.
+- `llm_judge` calls the tenant's judge model (`judgeAlias`, default `reasoning`) once per `must` and `mustNot` statement. A `stated` verdict needs a quote found in the answer; a malformed reply is `failed`, never a guessed pass. Use a judge model other than the one under test, and spot-check a sample of verdicts by hand before trusting a new judge or prompt.
 - Judge calibration: `evals/judge-calibration.yaml` (40 human-labelled examples); judge agreement with labels ≥ 85 % required before a judge model/prompt change is accepted.
 - Deterministic assertions preferred whenever possible (`tool_called`, `contains`, `json_schema`, `citation_present`).
 

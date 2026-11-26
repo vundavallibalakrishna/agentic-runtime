@@ -1278,7 +1278,21 @@
     "noResults": "Run the suite to see results.",
     "runUnfinished": "The run did not finish. The results below may be incomplete.",
     "gate": "Publish gate",
-    "back": "Back"
+    "back": "Back",
+    "summary": "{passed} of {total} cases passed.",
+    "factsMet": "{met} of {total} facts",
+    "missed": "Facts the answer missed",
+    "forbidden": "Claims it should not have made",
+    "unjudged": "{count, plural, one {# statement was} other {# statements were}} not judged: the judge model did not answer in the expected form.",
+    "answer": "Answer",
+    "noAnswer": "No answer was given.",
+    "importCases": "Import cases",
+    "imported": "{count, plural, one {# case} other {# cases}} imported.",
+    "importedWithErrors": "{count, plural, one {# case} other {# cases}} imported, {errors} skipped. First problem, line {first}",
+    "lastResults": "Last results",
+    "model": "Model for this run",
+    "agentModel": "The agent's own model",
+    "runStarted": "The run has started. A large suite takes a while; this page shows the results when it ends."
   },
   "channels": {
     "title": "Channels",

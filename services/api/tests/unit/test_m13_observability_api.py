@@ -87,3 +87,47 @@ def test_overview_health_suites_and_isolation() -> None:
     holder["principal"] = _principal(roles=frozenset({"member"}))
     denied = client.get("/api/v1/platform/health")
     assert denied.status_code == 403
+
+
+def test_cases_import_from_text_with_model_judged_assertions_and_isolation() -> None:
+    holder = {"principal": _principal()}
+    client = _client(holder)
+    created = client.post(
+        "/api/v1/eval-suites",
+        json={"name": "Imported", "kind": "functional", "gate": {"required": False}},
+    )
+    suite_id = created.json()["id"]
+    good = (
+        '{"name": "hours", "input": {"messages": ["support hours?"]}, '
+        '"assertions": [{"type": "llm_judge", "must": ["Premium lists 16x5."], '
+        '"mustNot": ["Says 24x7."]}]}'
+    )
+    bad = (
+        '{"name": "empty judge", "input": {"messages": ["x"]}, '
+        '"assertions": [{"type": "llm_judge"}]}'
+    )
+    imported = client.post(
+        f"/api/v1/eval-suites/{suite_id}/cases:import", json={"content": f"{good}\n{bad}"}
+    )
+    assert imported.status_code == 200
+    body = imported.json()
+    assert body["imported"] == 1
+    assert [error["line"] for error in body["errors"]] == [2]
+    cases = client.get(f"/api/v1/eval-suites/{suite_id}/cases").json()["items"]
+    assert cases[0]["assertions"][0] == {
+        "type": "llm_judge",
+        "must": ["Premium lists 16x5."],
+        "mustNot": ["Says 24x7."],
+        "judgeAlias": None,
+    }
+    both = client.post(
+        f"/api/v1/eval-suites/{suite_id}/cases:import",
+        json={"content": good, "fileId": str(uuid.uuid4())},
+    )
+    assert both.status_code == 422
+    holder["principal"] = _principal(tenant=uuid.uuid4())
+    hidden = client.post(f"/api/v1/eval-suites/{suite_id}/cases:import", json={"content": good})
+    assert hidden.status_code == 404
+    holder["principal"] = _principal(permissions=frozenset({"evals:run"}))
+    forbidden = client.post(f"/api/v1/eval-suites/{suite_id}/cases:import", json={"content": good})
+    assert forbidden.status_code == 403
