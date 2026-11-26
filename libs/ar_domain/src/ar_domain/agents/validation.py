@@ -65,12 +65,20 @@ def reference_issues(  # noqa: PLR0912
     if isinstance(model, dict) and isinstance(model.get("alias"), str):
         alias = model["alias"]
         issues.extend(resolve_reference("model_alias", ctx, alias, ("model", "alias")))
-        fast = model.get("fast_alias")
-        if isinstance(fast, str) and fast:
-            issues.extend(resolve_reference("model_alias", ctx, fast, ("model", "fastAlias")))
-        vision = model.get("vision_alias")
-        if isinstance(vision, str) and vision:
-            issues.extend(resolve_reference("model_alias", ctx, vision, ("model", "visionAlias")))
+        # The background and image models are optional for a tenant (the Models screen says
+        # so). Without the first the answers model does that work; without the second the
+        # image tool is not offered. So naming one the tenant has not set is a warning: a
+        # new tenant with no image model can still create and publish an agent.
+        for key, loc, instead in (
+            ("fast_alias", "fastAlias", "the answers model does background work instead"),
+            ("vision_alias", "visionAlias", "the agent cannot read images until it is set"),
+        ):
+            named = model.get(key)
+            if isinstance(named, str) and named:
+                issues.extend(
+                    ReferenceIssue(item.loc, f"{item.msg}; {instead}", item.type, warning=True)
+                    for item in resolve_reference("model_alias", ctx, named, ("model", loc))
+                )
     tools = definition.get("tools")
     if isinstance(tools, list):
         for index, tool in enumerate(tools):
