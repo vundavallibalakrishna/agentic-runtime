@@ -48,7 +48,9 @@ def worker_loop_open(run: dict[str, object]) -> bool:
 # What earlier steps of the turn found and used. The answer's citations, the loaded-skill
 # note and the list of tools read are built from these when the turn ends, which may be
 # several activities later.
-_GROUNDING = ("retrieval", "loaded_skill", "tools_used")
+# What a turn keeps on the run between steps: what it found, and whether it may still
+# call tools (an agent past its tool-call limit makes one last call without them).
+_GROUNDING = ("retrieval", "loaded_skill", "tools_used", "tools_closed")
 
 
 def read_worker_loop(run: dict[str, object]) -> dict[str, object] | None:
@@ -193,6 +195,7 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
         _stop_budget,
         _stop_error,
         _time_left,
+        close_tools,
     )
     from ar_domain.tools.images import build_image_message  # noqa: PLC0415
 
@@ -211,6 +214,13 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
         return "model"
     call = pending[index]
     used = _int(state.get("used_calls"))
+    if used >= limits["max_tool_calls"] and not run.get("tools_closed"):
+        # The agent wants more tools than it may use. It answers from what it found.
+        close_tools(run, messages, list(pending[index:]))
+        state["phase"] = "model"
+        state["pending_calls"] = []
+        state["pending_index"] = 0
+        return "model"
     if used >= limits["max_tool_calls"]:
         saved = state.get("previews")
         # What was spent before the stop still counts, as it does for every limit.

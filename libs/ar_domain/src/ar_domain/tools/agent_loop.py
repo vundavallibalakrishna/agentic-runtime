@@ -346,7 +346,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 turn = await _ask(
                     store,
                     messages,
-                    openai_tools,
+                    [] if run.get("tools_closed") else openai_tools,
                     run=run,
                     alias=alias,
                     limits=limits,
@@ -580,11 +580,15 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             run["step_kind"] = "tools"
             return True
         batch_images: list[dict[str, object]] = []
-        for call in calls:
+        for position, call in enumerate(calls):
             if not isinstance(call, dict):
                 continue
+            if used_calls >= limits["max_tool_calls"] and not run.get("tools_closed"):
+                # The agent wants more tools than it may use. It answers from what it found.
+                close_tools(run, messages, calls[position:])
+                break
             if used_calls >= limits["max_tool_calls"]:
-                # What was spent before the stop still counts, as it does for every limit.
+                # It asked for a tool again with none offered. What was spent still counts.
                 _remember_usage(
                     run, tokens_in_total, tokens_out_total, cost, steps, usage_source=usage_source
                 )
@@ -1222,6 +1226,29 @@ def _merge_source(current: str, step: str) -> str:
     if not current or current == step:
         return step
     return "mixed"
+
+
+TOOLS_CLOSED = (
+    "Not run: this answer has used every tool call it may make. Answer now from what "
+    "the earlier tool results and passages say, and say plainly what you could not check."
+)
+
+
+def close_tools(
+    run: dict[str, object], messages: list[dict[str, object]], calls: list[object]
+) -> None:
+    """Answer each call past the tool-call limit with why it was not run, and offer no
+    more tools this turn, so the next model call writes the answer (spec 07 §Budgets).
+
+    Before, the run stopped here and the person got the stop notice instead of an answer,
+    although the passages it had already found usually answered the question.
+    """
+    run["tools_closed"] = True
+    messages.extend(
+        {"role": "tool", "tool_call_id": str(call.get("id") or ""), "content": TOOLS_CLOSED}
+        for call in calls
+        if isinstance(call, dict)
+    )
 
 
 def _over(  # noqa: PLR0917
