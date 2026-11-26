@@ -36,6 +36,8 @@ class ExecuteBody(ApiModel):
     dry_run: bool = False
     synthetic: bool = False
     approval_id: uuid.UUID | None = None
+    # The held tool-call row an approved execution updates. A first call omits it.
+    tool_call_id: uuid.UUID | None = None
     args_hash: str = ""
     agent_id: uuid.UUID | None = None
     step: str | int | None = None

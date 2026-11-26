@@ -1,9 +1,15 @@
 """Gateway catalogue and execute routes share the tool pipeline."""
 
+import uuid
+
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from ar_domain.chat.service import demo_id
+from ar_domain.tools.gateway_client import _body
 from ar_mcp_gateway.main import create_application
+from ar_mcp_gateway.routes import ExecuteBody
 from ar_testing.demo_tenant import seed_demo_tenant
 from ar_testing.internal_client import signed_client
 
@@ -107,3 +113,86 @@ def test_a_console_test_stores_its_run_as_the_conversations_agent() -> None:
     assert run["trigger"] == "api"
     call = next(row for row in store.tool_calls.values() if row.get("run_id") == run["id"])
     assert call["status"] == "succeeded"
+
+
+def test_an_approved_call_settles_the_held_row() -> None:
+    """The execute route accepts tool_call_id and the pipeline updates that row."""
+    app = create_application()
+    client = signed_client(app)
+    store = app.state.chat
+    seed_demo_tenant(store)
+    version = next(
+        row for row in store.tool_versions.values() if row.get("qualified_name") == "files.list"
+    )
+    call_id = uuid.uuid4()
+    store.tool_calls[call_id] = {
+        "id": call_id,
+        "tenant_id": demo_id("tenant"),
+        "status": "awaiting_approval",
+        "result_preview": "Waiting for approval.",
+        "qualified_name": "files.list",
+        "idempotency_key": "held-row",
+    }
+    refused = client.post(
+        "/internal/v1/tool-calls:execute",
+        json={
+            "tenant_id": str(demo_id("tenant")),
+            "user_id": str(demo_id("admin")),
+            "tool_version_id": str(version["id"]),
+            "arguments": {},
+            "synthetic": True,
+            "model_call_id": "approved",
+            "tool_call_id": str(call_id),
+            "not_a_field": True,
+        },
+    )
+    assert refused.status_code == 422
+    assert store.tool_calls[call_id]["status"] == "awaiting_approval"
+    before = set(store.tool_calls)
+    called = client.post(
+        "/internal/v1/tool-calls:execute",
+        json={
+            "tenant_id": str(demo_id("tenant")),
+            "user_id": str(demo_id("admin")),
+            "tool_version_id": str(version["id"]),
+            "arguments": {},
+            "synthetic": True,
+            "model_call_id": "approved",
+            "tool_call_id": str(call_id),
+        },
+    )
+    assert called.status_code == 200, called.text
+    body = called.json()
+    assert body["status"] == "succeeded"
+    assert body["tool_call_id"] == str(call_id)
+    assert store.tool_calls[call_id]["status"] == "succeeded"
+    assert set(store.tool_calls) == before
+
+
+def test_the_client_payload_matches_execute_body() -> None:
+    """Every field the runtime posts is a field ExecuteBody accepts."""
+    call_id = uuid.uuid4()
+    request = {
+        "tenant_id": uuid.uuid4(),
+        "user_id": uuid.uuid4(),
+        "run_id": uuid.uuid4(),
+        "agent_version_id": uuid.uuid4(),
+        "tool_version_id": uuid.uuid4(),
+        "arguments": {"document_id": "doc"},
+        "model_call_id": "call-1",
+        "dry_run": False,
+        "synthetic": False,
+        "approval_id": uuid.uuid4(),
+        "args_hash": "abc",
+        "agent_id": uuid.uuid4(),
+        "step": 2,
+        "query_id": "q-1",
+        "call_index": 0,
+        "tool_call_id": call_id,
+    }
+    payload = _body(request)
+    assert set(payload) <= set(ExecuteBody.model_fields)
+    parsed = ExecuteBody.model_validate(payload)
+    assert parsed.tool_call_id == call_id
+    with pytest.raises(ValidationError):
+        ExecuteBody.model_validate({**payload, "not_a_field": True})
