@@ -18,6 +18,8 @@ import os
 import socket
 import ssl
 import threading
+import weakref
+from collections import OrderedDict
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import TYPE_CHECKING
@@ -28,7 +30,7 @@ import httpx
 from ar_common.egress_policy import canonical_ip, decide, host_of
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from typing import Any
 
 _MODES = frozenset({"external", "cluster"})
@@ -326,8 +328,9 @@ class AsyncEgressTransport(httpx.AsyncBaseTransport):
         self._inner._pool._network_backend = _PinAsync()
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        timeout = self._timeout if self._timeout is not None else _connect_timeout(request)
         token = await _approve_async(
-            request, self._allow, self._mode, self._loopback, timeout=self._timeout
+            request, self._allow, self._mode, self._loopback, timeout=timeout
         )
         try:
             return await self._inner.handle_async_request(request)
@@ -398,9 +401,14 @@ def sync_client(
     timeout: float | httpx.Timeout | None = None,
     transport: httpx.BaseTransport | None = None,
     follow_redirects: bool = False,
+    reuse: bool = False,
     **kwargs: Any,
 ) -> httpx.Client:
-    """A client whose transport refuses a URL the egress decision rejects."""
+    """A client whose transport refuses a URL the egress decision rejects.
+
+    ``reuse`` keeps the connections open after the client closes, for the next client
+    with the same egress settings in this process. Every request is still approved.
+    """
     client_kwargs = _client_kwargs(kwargs)
     _real_transport(transport)
     chosen = current_allow() if allow is None else list(allow)
@@ -409,7 +417,34 @@ def sync_client(
     cert = client_kwargs.pop("cert", None)
     limits = _limits(client_kwargs.pop("limits", None))
     checked: httpx.BaseTransport
-    if transport is None:
+    key = (
+        _reuse_key(
+            chosen,
+            mode=mode,
+            loopback=loopback,
+            verify=verify,
+            http2=http2,
+            cert=cert,
+            limits=limits,
+        )
+        if reuse
+        else None
+    )
+    if transport is None and key is not None:
+        checked = _kept_sync(
+            key,
+            lambda: EgressTransport(
+                allow=chosen,
+                mode=_mode(mode),
+                loopback=loopback,
+                timeout=None,
+                verify=verify,
+                http2=http2,
+                cert=cert,
+                limits=_kept_limits(),
+            ),
+        )
+    elif transport is None:
         checked = EgressTransport(
             allow=chosen,
             mode=_mode(mode),
@@ -439,9 +474,10 @@ def async_client(
     timeout: float | httpx.Timeout | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
     follow_redirects: bool = False,
+    reuse: bool = False,
     **kwargs: Any,
 ) -> httpx.AsyncClient:
-    """Async form of :func:`sync_client`."""
+    """Async form of :func:`sync_client`. Kept connections belong to the running loop."""
     client_kwargs = _client_kwargs(kwargs)
     _real_transport(transport)
     chosen = current_allow() if allow is None else list(allow)
@@ -450,7 +486,34 @@ def async_client(
     cert = client_kwargs.pop("cert", None)
     limits = _limits(client_kwargs.pop("limits", None))
     checked: httpx.AsyncBaseTransport
-    if transport is None:
+    key = (
+        _reuse_key(
+            chosen,
+            mode=mode,
+            loopback=loopback,
+            verify=verify,
+            http2=http2,
+            cert=cert,
+            limits=limits,
+        )
+        if reuse
+        else None
+    )
+    if transport is None and key is not None:
+        checked = _kept_async(
+            key,
+            lambda: AsyncEgressTransport(
+                allow=chosen,
+                mode=_mode(mode),
+                loopback=loopback,
+                timeout=None,
+                verify=verify,
+                http2=http2,
+                cert=cert,
+                limits=_kept_limits(),
+            ),
+        )
+    elif transport is None:
         checked = AsyncEgressTransport(
             allow=chosen,
             mode=_mode(mode),
@@ -472,6 +535,119 @@ def async_client(
         trust_env=False,
         **_named(client_kwargs),
     )
+
+
+# Connections kept for reuse. A process talks to a handful of providers; opening a new
+# TCP and TLS connection for every call costs a round trip or two each time. The pools
+# are keyed by every setting that shapes a connection or its egress decision, so two
+# callers share one only when a new connection for either would be the same.
+_KEPT_MAX = 32
+_kept_lock = threading.Lock()
+_kept_sync_pools: OrderedDict[tuple[object, ...], EgressTransport] = OrderedDict()
+_kept_async_pools: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, OrderedDict[tuple[object, ...], AsyncEgressTransport]
+] = weakref.WeakKeyDictionary()
+
+
+class _KeptTransport(httpx.BaseTransport):
+    """A shared transport. Closing the client leaves its connections open."""
+
+    def __init__(self, inner: EgressTransport) -> None:
+        self._inner = inner
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        return self._inner.handle_request(request)
+
+    def close(self) -> None:
+        return None
+
+
+class _KeptAsyncTransport(httpx.AsyncBaseTransport):
+    """Async form of :class:`_KeptTransport`."""
+
+    def __init__(self, inner: AsyncEgressTransport) -> None:
+        self._inner = inner
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        return await self._inner.handle_async_request(request)
+
+    async def aclose(self) -> None:
+        return None
+
+
+def _reuse_key(
+    allow: list[str],
+    *,
+    mode: str,
+    loopback: bool | None,
+    verify: ssl.SSLContext | str | bool,
+    http2: bool,
+    cert: object,
+    limits: httpx.Limits | None,
+) -> tuple[object, ...] | None:
+    """The pool a client may share, or None when it must have its own.
+
+    A trust store built for one call and caller-chosen limits are not shared. The
+    timeout is not part of the key: each client puts its own on every request.
+    """
+    if isinstance(verify, ssl.SSLContext) or limits is not None:
+        return None
+    if cert is not None and not isinstance(cert, str | tuple):
+        return None
+    return (
+        tuple(sorted({host_key(host) for host in allow})),
+        _mode(mode),
+        loopback,
+        verify,
+        http2,
+        cert,
+    )
+
+
+def _kept_limits() -> httpx.Limits:
+    """How long an idle kept connection stays open (``AR_EGRESS_KEEPALIVE_S``)."""
+    seconds = 60.0
+    try:
+        from ar_common.settings import get_settings  # noqa: PLC0415
+
+        seconds = float(get_settings().egress_keepalive_s)
+    except Exception:  # noqa: BLE001 — settings are optional while the process boots
+        seconds = 60.0
+    return httpx.Limits(keepalive_expiry=max(seconds, 0.0))
+
+
+def _kept_sync(key: tuple[object, ...], build: Callable[[], EgressTransport]) -> _KeptTransport:
+    with _kept_lock:
+        pool = _kept_sync_pools.get(key)
+        if pool is None:
+            pool = build()
+            _kept_sync_pools[key] = pool
+            while len(_kept_sync_pools) > _KEPT_MAX:
+                # Another thread may still be reading from it; its idle connections
+                # close when it is collected.
+                _kept_sync_pools.popitem(last=False)
+        _kept_sync_pools.move_to_end(key)
+        return _KeptTransport(pool)
+
+
+def _kept_async(
+    key: tuple[object, ...], build: Callable[[], AsyncEgressTransport]
+) -> httpx.AsyncBaseTransport:
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return build()
+    with _kept_lock:
+        pools = _kept_async_pools.setdefault(loop, OrderedDict())
+        pool = pools.get(key)
+        if pool is None:
+            pool = build()
+            pools[key] = pool
+            while len(pools) > _KEPT_MAX:
+                # The oldest pool's idle connections close when it is collected.
+                pools.popitem(last=False)
+        pools.move_to_end(key)
+        return _KeptAsyncTransport(pool)
 
 
 def get(url: str, *, allow: list[str] | None = None, **kwargs: Any) -> httpx.Response:
@@ -673,6 +849,13 @@ def _answer(address: str, port: int | str | None) -> tuple[int, int, int, str, t
     if ":" in address:
         return (socket.AF_INET6, socket.SOCK_STREAM, 6, "", (address, number, 0, 0))
     return (socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, number))
+
+
+def _connect_timeout(request: httpx.Request) -> float | None:
+    """The connect timeout the client put on this request, for a shared transport."""
+    chosen = request.extensions.get("timeout")
+    value = chosen.get("connect") if isinstance(chosen, dict) else None
+    return float(value) if isinstance(value, int | float) else None
 
 
 def _seconds(timeout: float | httpx.Timeout | None) -> float | None:
