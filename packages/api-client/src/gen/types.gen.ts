@@ -3892,7 +3892,7 @@ export type WidgetSessionBody = {
     /**
      * Token
      */
-    token: string;
+    token?: string | null;
 };
 
 export type HealthzHealthzGetData = {

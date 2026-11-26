@@ -3,12 +3,16 @@
 Spec: docs/04-data/rls.md §6, docs/07-ops/scaling.md (pool of 20 via PgBouncer).
 """
 
+import asyncio
 import uuid  # noqa: TC003
+from collections.abc import AsyncIterator  # noqa: TC003
+from contextlib import asynccontextmanager
 from typing import Any  # noqa: TC003
 
 import orjson
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from ar_common.database_roles import assert_application_url, refuse_set_password, role_password
 from ar_common.settings import get_settings
@@ -123,3 +127,32 @@ async def ping_database(url: str) -> None:
     async with asyncio.timeout(2):
         async with engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
+
+
+@asynccontextmanager
+async def engine_here(store: object) -> AsyncIterator[AsyncEngine | None]:
+    """The store's database engine, usable on the event loop that is running now.
+
+    An asyncpg connection belongs to the loop it was opened on. The store's engine pools
+    connections on the loop the process bound it on. A tool call runs its search on a
+    short-lived loop of its own (``run_sync``), where a pooled connection fails. There
+    this gives an engine that opens one connection for the read and pools nothing. On the
+    process's own loop it gives the shared engine. None when the store has no database.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine):
+        yield None
+        return
+    if getattr(store, "durable_loop", None) is asyncio.get_running_loop():
+        yield engine
+        return
+    own = create_async_engine(
+        engine.url,
+        poolclass=NullPool,
+        hide_parameters=True,
+        connect_args={"timeout": 2, "statement_cache_size": 0},
+    )
+    try:
+        yield own
+    finally:
+        await own.dispose()

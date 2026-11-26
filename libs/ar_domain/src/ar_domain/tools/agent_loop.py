@@ -584,6 +584,10 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             if not isinstance(call, dict):
                 continue
             if used_calls >= limits["max_tool_calls"]:
+                # What was spent before the stop still counts, as it does for every limit.
+                _remember_usage(
+                    run, tokens_in_total, tokens_out_total, cost, steps, usage_source=usage_source
+                )
                 _stop_budget(store, run, assistant, "max_tool_calls", previews)
                 return True
             used_calls += 1
@@ -941,6 +945,37 @@ def _catalogue_row(store: Any, qualified: str, model_name: str) -> dict[str, obj
                 "tool_version_id": str(row.get("id")),
             }
     return None
+
+
+_KNOWLEDGE_SEARCH = "knowledge.search"
+# How much of each found passage the model reads. The prompt's own passages are as long.
+_FOUND_CHARS = 2000
+
+
+def _found_text(
+    run: dict[str, object], structured: object, qualified: str, call_id: str
+) -> str | None:
+    """What the model reads for a knowledge search: each passage under its run number.
+
+    The search's own listing numbers its hits from one, which collides with the passages
+    already in the prompt, and the answer's citations then pointed at the wrong source.
+    Each hit is added to the run's passages and shown under the number a citation to it
+    will have. None when the search found nothing, so the gateway's text stands.
+    """
+    hits = structured.get("hits") if isinstance(structured, dict) else None
+    if not isinstance(hits, list) or not hits:
+        return None
+    from ar_domain.knowledge.members import number_found  # noqa: PLC0415
+
+    numbers = number_found(run, hits)
+    rows = [hit for hit in hits if isinstance(hit, dict)]
+    lines = []
+    for number, hit in zip(numbers, rows, strict=True):
+        source = str(hit.get("uri") or "")
+        label = f"{hit.get('title') or 'Source'}" + (f" ({source})" if source else "")
+        body = str(hit.get("text") or hit.get("snippet") or "")[:_FOUND_CHARS]
+        lines.append(f"[{number}] {label}\n{body}")
+    return wrap_tool_result(tool=qualified, call_id=call_id, content="\n\n".join(lines))
 
 
 def _model_text(
@@ -1546,10 +1581,13 @@ def _act(  # noqa: PLR0917
             "latency_ms": result.get("latency_ms"),
         },
     )
+    wrapped = _model_text(result, qualified, model_call_id, text, failed=failed)
+    if qualified == _KNOWLEDGE_SEARCH and not failed:
+        wrapped = _found_text(run, structured, qualified, model_call_id) or wrapped
     return {
         "failed": failed,
         "preview": preview,
-        "wrapped": _model_text(result, qualified, model_call_id, text, failed=failed),
+        "wrapped": wrapped,
         "images": collect_images(store, structured, run.get("tenant_id")),
         "structured": structured,
     }
@@ -1641,8 +1679,11 @@ def _with_trace(store: Any, answer: str, run: dict[str, object]) -> list[dict[st
     from ar_domain.documents.cited import cited_parts  # noqa: PLC0415
     from ar_domain.workspace.turn import citation_parts  # noqa: PLC0415
 
-    retrieved = citation_parts(run.get("retrieval"))
-    cited = cited_parts(store, run, answer, start=len(retrieved) + 1)
+    retrieval = run.get("retrieval")
+    retrieved = citation_parts(retrieval, answer)
+    held = retrieval.get("hits") if isinstance(retrieval, dict) else None
+    numbered = len(held) if isinstance(held, list) else 0
+    cited = cited_parts(store, run, answer, start=numbered + 1)
     from ar_domain.documents.sections import tools_part  # noqa: PLC0415
 
     reading = tools_part(run)

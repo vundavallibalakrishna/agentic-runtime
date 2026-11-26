@@ -7558,17 +7558,23 @@
             "title": "Integrationid"
           },
           "token": {
-            "type": "string",
-            "maxLength": 16384,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 16384,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Token"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "integrationId",
-          "token"
+          "integrationId"
         ],
         "title": "WidgetSessionBody"
       }

@@ -8,10 +8,8 @@ says why.
 ``source`` carries the store it belongs to under ``store``, set by the caller.
 """
 
-import hashlib
 import mimetypes
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 import httpx
 
@@ -46,6 +44,9 @@ def list_changes(source: dict[str, object], *, mode: str) -> dict[str, object]:
 
 def check(source: dict[str, object]) -> dict[str, object]:
     """Reach the source and return a sample of at most five items."""
+    if source.get("kind") == "web":
+        # A check asks whether the site answers. It does not walk it.
+        source = {**source, "config": {**_config(source), "max_pages": 5, "max_depth": 0}}
     try:
         page = list_changes(source, mode="incremental")
     except (httpx.HTTPError, ArError, OSError, ValueError) as exc:
@@ -155,79 +156,11 @@ def _hosts(row: dict[str, object]) -> list[str]:
     return tenant_hosts(store, tenant)
 
 
-def _web(  # noqa: PLR0911
-    source: dict[str, object], config: dict[str, object], *, mode: str
-) -> dict[str, object]:
-    start = str(config.get("url") or "")
-    if not start:
-        return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
-    allow = (
-        {str(item) for item in config.get("allowlist", [])}  # type: ignore[attr-defined]
-        if isinstance(config.get("allowlist"), list)
-        else set()
-    )
-    host = urlparse(start).hostname or ""
-    if allow and host not in allow and urlparse(start).netloc not in allow:
-        return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
-    from ar_common import robots  # noqa: PLC0415
-    from ar_common.egress_http import guard, sync_client, user_agent  # noqa: PLC0415
+def _web(source: dict[str, object], config: dict[str, object], *, mode: str) -> dict[str, object]:
+    """One page, or a site walked from its start addresses (``knowledge.site``)."""
+    from ar_domain.knowledge.site import walk  # noqa: PLC0415
 
-    hosts = _hosts(source)
-    if guard(start, hosts) is not None:
-        return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
-    if str(config.get("proxy") or "").strip():
-        return {
-            "items": [],
-            "deleted_external_ids": [],
-            "next_cursor": {},
-            "done": True,
-            "error": "a proxy is configured and is refused",
-        }
-    client = sync_client(allow=hosts, timeout=5.0, follow_redirects=False)
-    try:
-        answer = client.get(robots.address(start))
-        rules = robots.Robots(robots.text_for(answer.status_code, answer.text), user_agent())
-        if not rules.allows(start):
-            return {
-                "items": [],
-                "deleted_external_ids": [],
-                "next_cursor": {},
-                "done": True,
-                "error": "the site's robots.txt asks automated readers not to fetch this page",
-            }
-        # The validator the last sync was answered with is on the source's cursor. A full
-        # sync reads the page whatever the site says about it.
-        cursor = source.get("cursor")
-        kept = dict(cursor) if isinstance(cursor, dict) else {}
-        etag = str(kept.get("etag") or "") if mode != "full" else ""
-        page = client.get(start, headers={"If-None-Match": etag} if etag else {})
-    finally:
-        client.close()
-    if page.status_code == 304:
-        return {"items": [], "deleted_external_ids": [], "next_cursor": kept, "done": True}
-    digest = hashlib.sha256(page.content).hexdigest()
-    measured = {
-        "status": page.status_code,
-        "etag": page.headers.get("etag", ""),
-        "lastModified": page.headers.get("last-modified", ""),
-    }
-    return {
-        "items": [
-            {
-                "external_id": start,
-                "title": host or "Page",
-                "uri": start,
-                "mime_type": "text/html",
-                "version_hint": page.headers.get("etag") or digest,
-                "measured": measured,
-                "text": page.text,
-                "acl": [],
-            }
-        ],
-        "deleted_external_ids": [],
-        "next_cursor": {"etag": page.headers.get("etag", ""), "sha256": digest},
-        "done": True,
-    }
+    return walk(source, config, mode=mode)
 
 
 def _nothing(error: str = "") -> dict[str, object]:

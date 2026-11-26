@@ -281,7 +281,7 @@ spec:
 
 | kind | Config read today | Credential |
 |---|---|---|
-| `web` | `url`, `allowlist[]` | none |
+| `web` | `url` for one page, or `start_urls[]`, `allowed_domains[]`, `max_pages`, `max_depth` for a site ([spec 10 §5](../03-specs/10-knowledge.md)) | none |
 | `s3` | `bucket` (required), `prefix`, `endpoint`, `region`, `connection` (required) | saved connection of kind `basic`: username is the access key, secret is the secret key |
 | `sharepoint`, `confluence`, `google_drive` | `url` (an address that returns the listing as JSON: `value[]` or `results[]`), `connection?` | saved connection, sent as its headers |
 | `database` | `query` (required), `idColumn` (`id`), `titleColumn` (`title`), `textColumn` (`text`), `aclColumn?`, `versionColumn?`; the source's `dataConnectionId` (or `connection`, a data connection's name) | the data connection |

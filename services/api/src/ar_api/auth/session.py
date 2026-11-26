@@ -32,6 +32,9 @@ class SessionData:
     amr: list[str] | None = None
     widget_integration_id: uuid.UUID | None = None
     widget_conversation_id: uuid.UUID | None = None
+    # A visitor nobody signed in: the session of a public widget, and how much it has said.
+    widget_public: bool = False
+    widget_messages: int = 0
 
     def to_json(self) -> bytes:
         return orjson.dumps(
@@ -55,6 +58,8 @@ class SessionData:
                 "widget_conversation_id": str(self.widget_conversation_id)
                 if self.widget_conversation_id
                 else None,
+                "widget_public": self.widget_public,
+                "widget_messages": self.widget_messages,
             }
         )
 
@@ -82,6 +87,8 @@ class SessionData:
             widget_conversation_id=uuid.UUID(payload["widget_conversation_id"])
             if payload.get("widget_conversation_id")
             else None,
+            widget_public=payload.get("widget_public") is True,
+            widget_messages=int(payload.get("widget_messages") or 0),
         )
 
 

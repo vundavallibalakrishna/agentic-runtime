@@ -45,17 +45,39 @@ def worker_loop_open(run: dict[str, object]) -> bool:
     return bool(state.get("opened")) or (isinstance(messages, list) and bool(messages))
 
 
+# What earlier steps of the turn found and used. The answer's citations, the loaded-skill
+# note and the list of tools read are built from these when the turn ends, which may be
+# several activities later.
+_GROUNDING = ("retrieval", "loaded_skill", "tools_used")
+
+
 def read_worker_loop(run: dict[str, object]) -> dict[str, object] | None:
+    """The saved step, with what the first step found put back on the run.
+
+    A run is saved between activities as its columns, and its grounding is not one of
+    them. Without this a turn that called a tool ended with no citations, because the
+    passages placed in its prompt were gone by the time the answer was saved.
+    """
     raw = run.get("checkpoint")
     if not isinstance(raw, dict):
         return None
     state = raw.get("worker_loop")
-    return dict(state) if isinstance(state, dict) else None
+    if not isinstance(state, dict):
+        return None
+    grounding = state.get("grounding")
+    if isinstance(grounding, dict):
+        for name in _GROUNDING:
+            if name not in run and name in grounding:
+                run[name] = grounding[name]
+    return dict(state)
 
 
 def write_worker_loop(run: dict[str, object], state: dict[str, object]) -> None:
     raw = run.get("checkpoint")
     checkpoint = dict(raw) if isinstance(raw, dict) else {}
+    found = {name: run[name] for name in _GROUNDING if run.get(name) is not None}
+    if found:
+        state = {**state, "grounding": found}
     checkpoint["worker_loop"] = state
     run["checkpoint"] = checkpoint
 
@@ -167,6 +189,7 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
     from ar_domain.orchestration.spend import charge  # noqa: PLC0415
     from ar_domain.tools.agent_loop import (  # noqa: PLC0415
         _act,
+        _remember_usage,
         _stop_budget,
         _stop_error,
         _time_left,
@@ -190,6 +213,15 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
     used = _int(state.get("used_calls"))
     if used >= limits["max_tool_calls"]:
         saved = state.get("previews")
+        # What was spent before the stop still counts, as it does for every limit.
+        _remember_usage(
+            run,
+            _int(state.get("tokens_in")),
+            _int(state.get("tokens_out")),
+            _int(state.get("cost")),
+            _int(state.get("steps")),
+            usage_source=str(state.get("usage_source") or ""),
+        )
         _stop_budget(
             store, run, assistant, "max_tool_calls", saved if isinstance(saved, list) else []
         )

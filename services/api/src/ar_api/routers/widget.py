@@ -1,7 +1,7 @@
 """Embedded chat. Spec: docs/03-specs/16-channels.md §7."""
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
@@ -18,11 +18,21 @@ from ar_api.auth.widget import (
 from ar_api.deps import expose, require_permission
 from ar_api.routers import m2
 from ar_api.routers.tooling import chat
-from ar_common.errors import ArError, NotFoundError, UnauthenticatedError
+from ar_common.errors import (
+    ArError,
+    ForbiddenError,
+    NotFoundError,
+    RateLimitedError,
+    UnauthenticatedError,
+)
 from ar_common.time import utcnow
 from ar_contracts.widget import WidgetConversationBody, WidgetMessageBody, WidgetSessionBody
 from ar_domain.channels.posts import load_credentials
-from ar_domain.channels.widget_auth import allowed_origins, verify_registered_token
+from ar_domain.channels.widget_auth import (
+    allowed_origins,
+    public_access,
+    verify_registered_token,
+)
 
 router = APIRouter()
 WidgetData = Annotated[SessionData, Depends(widget_session_data)]
@@ -33,34 +43,38 @@ _CHAT = [Depends(require_permission("chat:use"))]
 @expose(public=True, permission=None)
 async def widget_frame(integration_id: uuid.UUID, request: Request) -> dict[str, object]:
     row = integration(request, integration_id)
-    return {"allowed_origins": allowed_origins(row.get("config")), "name": row["name"]}
+    public = public_access(row.get("config"))
+    return {
+        "allowed_origins": allowed_origins(row.get("config")),
+        "name": row["name"],
+        # Whether a visitor starts a session themselves, and what they are told first.
+        "access": "signed" if public is None else "public",
+        "notice": "" if public is None else public["notice"],
+    }
 
 
 @router.post("/api/v1/widget/sessions", status_code=204)
 @expose(public=True, permission=None)
 async def widget_session(body: WidgetSessionBody, request: Request) -> Response:
     row = integration(request, body.integration_id)
-    credentials = load_credentials(chat(request), row)
-    secret = str(credentials.get("widget_secret") or credentials.get("secret") or "")
-    config = row.get("config")
-    claims = await verify_registered_token(
-        body.token,
-        secret=secret,
-        audience=f"ar-widget:{body.integration_id}",
-        config=config if isinstance(config, dict) else {},
-    )
-    if claims is None:
-        raise UnauthenticatedError()
     tenant_id = uuid.UUID(str(row["tenant_id"]))
-    user_id = await active_user(request, tenant_id, claims["sub"])
+    public = public_access(row.get("config"))
+    if public is not None:
+        await _admit_visitor(request, body.integration_id, public)
+        email, name, ttl = public["visitor_email"], "Visitor", int(public["session_s"])
+    else:
+        claims = await _host_claims(request, row, body)
+        email, name = str(claims["sub"]), str(claims.get("name") or claims["sub"])
+        ttl = max(1, int(claims["exp"]) - int(utcnow().timestamp()))
+    user_id = await active_user(request, tenant_id, email) if email else None
     if user_id is None:
         raise UnauthenticatedError()
     session_id, data = new_session(tenant_id, user_id)
     data.widget_integration_id = body.integration_id
-    data.email = claims["sub"]
-    data.display_name = str(claims.get("name") or claims["sub"])
+    data.widget_public = public is not None
+    data.email = email
+    data.display_name = name
     data.permissions = ["chat:use"]
-    ttl = max(1, int(claims["exp"]) - int(utcnow().timestamp()))
     previous = request.cookies.get("ar_widget_session")
     if previous:
         await request.app.state.widget_sessions.delete(previous)
@@ -75,6 +89,46 @@ async def widget_session(body: WidgetSessionBody, request: Request) -> Response:
         ),
     )
     return response
+
+
+async def _host_claims(
+    request: Request, row: dict[str, object], body: WidgetSessionBody
+) -> dict[str, Any]:
+    """The visitor the host signed for. A widget that is not public takes nothing less."""
+    if not body.token:
+        raise UnauthenticatedError()
+    credentials = load_credentials(chat(request), row)
+    secret = str(credentials.get("widget_secret") or credentials.get("secret") or "")
+    config = row.get("config")
+    claims = await verify_registered_token(
+        body.token,
+        secret=secret,
+        audience=f"ar-widget:{body.integration_id}",
+        config=config if isinstance(config, dict) else {},
+    )
+    if claims is None:
+        raise UnauthenticatedError()
+    return claims
+
+
+async def _admit_visitor(
+    request: Request, integration_id: uuid.UUID, public: dict[str, object]
+) -> None:
+    """Count this session against what the widget allows in a minute, in all and from one
+    address. A session costs nothing until it sends a message, and each may send only so
+    many, so these two counts bound what a script can spend."""
+    limiter = request.app.state.rate_limiter
+    address = request.client.host if request.client else "unknown"
+    for key, limit in (
+        (f"widget:{integration_id}", int(str(public["sessions_per_minute"]))),
+        (f"widget:{integration_id}:{address}", int(str(public["sessions_per_client"]))),
+    ):
+        decision = await limiter.take(key, limit)
+        if not decision.allowed:
+            raise RateLimitedError(
+                "Too many chats were started. Try again in a minute.",
+                retry_after=int(decision.reset_s or 60),
+            )
 
 
 @router.get("/api/v1/widget/session", dependencies=_CHAT)
@@ -97,6 +151,7 @@ async def widget_context(
         "agents": sorted(agents, key=lambda item: str(item["name"])),
         "csrf_token": data.csrf_token,
         "conversation_id": data.widget_conversation_id,
+        "public": data.widget_public,
     }
 
 
@@ -142,6 +197,8 @@ async def widget_send(
     conversation_id: uuid.UUID, body: WidgetMessageBody, request: Request, data: WidgetData
 ) -> dict[str, object]:
     check_conversation(request, data, conversation_id)
+    if data.widget_public:
+        await _count_message(request, data)
     return await m2.post_message(
         conversation_id,
         m2.MessageBody(
@@ -162,6 +219,10 @@ async def widget_upload(
     mime_type: Annotated[str, Form()] = "",
 ) -> dict[str, object]:
     """The same upload the signed-in chat uses, under the widget session."""
+    if data.widget_public:
+        # Every visitor acts as one account. A file one of them stored would be that
+        # account's, and nobody is there to answer for what was uploaded.
+        raise ForbiddenError("A public chat does not take files.")
     raw = await upload.read()
     mime = mime_type or upload.content_type or "application/octet-stream"
     return chat(request).upload(
@@ -171,6 +232,18 @@ async def widget_upload(
         mime,
         raw,
     )
+
+
+async def _count_message(request: Request, data: SessionData) -> None:
+    """A visitor's session sends only as many messages as its widget allows."""
+    public = public_access(integration(request, data.widget_integration_id).get("config"))
+    most = int(str(public["max_messages"])) if public is not None else 0
+    if data.widget_messages >= most:
+        raise RateLimitedError(
+            "This chat has reached its limit. Start a new chat to carry on.", retry_after=60
+        )
+    data.widget_messages += 1
+    await request.app.state.widget_sessions.update(request.cookies["ar_widget_session"], data)
 
 
 def _check_run(request: Request, data: SessionData, run_id: uuid.UUID) -> None:

@@ -92,6 +92,13 @@ class SearchBody(ApiModel):
     debug: bool = False
 
 
+async def _fresh(request: Request) -> None:
+    """A worker syncs and indexes. What it wrote is read before it is shown here."""
+    from ar_domain.durable.hydrate import refresh_knowledge  # noqa: PLC0415
+
+    await refresh_knowledge(chat(request), actor(request).tenant_id)
+
+
 def _book(request: Request) -> KnowledgeBook:
     return KnowledgeBook(chat(request))
 
@@ -120,6 +127,7 @@ async def create_collection(body: CollectionBody, request: Request) -> dict[str,
 )
 @expose(public=False, permission="knowledge:read")
 async def get_collection(collection_id: uuid.UUID, request: Request) -> dict[str, object]:
+    await _fresh(request)
     return _book(request).get_collection(actor(request), collection_id)
 
 
@@ -173,7 +181,13 @@ async def list_sources(collection_id: uuid.UUID, request: Request) -> dict[str, 
 async def create_source(
     collection_id: uuid.UUID, body: SourceBody, request: Request
 ) -> dict[str, object]:
-    return _book(request).create_source(actor(request), collection_id, dump(body))
+    # The first sync reads the whole source. It is started where this install runs syncs
+    # (the ingest worker, when there is one), and the source is returned without waiting.
+    book = _book(request)
+    made = book.create_source(actor(request), collection_id, dump(body), first_sync=False)
+    if made.get("kind") != "upload":
+        await book.start_sync(actor(request), uuid.UUID(str(made["id"])), "full")
+    return book.get_source(actor(request), uuid.UUID(str(made["id"])))
 
 
 @router.get(
@@ -182,6 +196,7 @@ async def create_source(
 )
 @expose(public=False, permission="knowledge:read")
 async def get_source(source_id: uuid.UUID, request: Request) -> dict[str, object]:
+    await _fresh(request)
     return _book(request).get_source(actor(request), source_id)
 
 
@@ -222,7 +237,7 @@ async def test_source(source_id: uuid.UUID, request: Request) -> dict[str, objec
 )
 @expose(public=False, permission="knowledge:read")
 async def sync_source(source_id: uuid.UUID, body: SyncBody, request: Request) -> dict[str, object]:
-    return _book(request).sync(actor(request), source_id, body.mode)
+    return await _book(request).start_sync(actor(request), source_id, body.mode)
 
 
 @router.post(
@@ -255,6 +270,7 @@ async def list_documents(
     status: Annotated[str, Query()] = "",
     source_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> dict[str, object]:
+    await _fresh(request)
     return page(
         _book(request).list_documents(
             actor(request), collection_id, query=q, status=status, source_id=source_id
@@ -338,6 +354,7 @@ async def delete_document(document_id: uuid.UUID, request: Request) -> dict[str,
 )
 @expose(public=False, permission="knowledge:read")
 async def list_jobs(collection_id: uuid.UUID, request: Request) -> dict[str, object]:
+    await _fresh(request)
     return page(_book(request).list_jobs(actor(request), collection_id))
 
 

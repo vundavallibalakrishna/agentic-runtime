@@ -26,11 +26,18 @@ type Session = {
   csrfToken: string;
   conversationId: string | null;
   agents: { id: string; name: string }[];
+  public?: boolean;
 };
 
 export function WidgetChat({ integrationId }: { integrationId: string }) {
   const t = useTranslations("widget");
-  const [phase, setPhase] = useState<"loading" | "waiting" | "ready" | "error">("loading");
+  const [phase, setPhase] = useState<"loading" | "waiting" | "notice" | "ready" | "error">(
+    "loading",
+  );
+  // What a public widget tells a visitor before the chat starts, and the visitor's yes.
+  const [notice, setNotice] = useState("");
+  const [visitor, setVisitor] = useState(false);
+  const accept = useRef<(() => void) | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [agentId, setAgentId] = useState("");
   const [conversationId, setConversationId] = useState("");
@@ -94,22 +101,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
       parentOrigin.current = event.origin;
       clearTimeout(timer);
       try {
-        await request("/sessions", {
-          method: "POST",
-          signal: controller.signal,
-          body: JSON.stringify({ integrationId, token: event.data.token }),
-        });
-        const context = await request<Session>("/session", { signal: controller.signal });
-        if (context.integrationId !== integrationId) throw new Error(t("requestFailed"));
-        if (controller.signal.aborted) return;
-        csrfToken.current = context.csrfToken;
-        setSession(context);
-        setAgentId(context.agents[0]?.id ?? "");
-        setConversationId("");
-        setMessages([]);
-        setStream(emptyStream);
-        setExpired(false);
-        setPhase("ready");
+        await enter({ integrationId, token: event.data.token });
       } catch (failure) {
         if (controller.signal.aborted) return;
         setError(
@@ -118,16 +110,61 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
         setPhase("error");
       }
     }
+
+    // Start a session and open the chat in it. A public widget sends no token.
+    async function enter(body: { integrationId: string; token?: string }) {
+      await request("/sessions", {
+        method: "POST",
+        signal: controller.signal,
+        body: JSON.stringify(body),
+      });
+      const context = await request<Session>("/session", { signal: controller.signal });
+      if (context.integrationId !== integrationId) throw new Error(t("requestFailed"));
+      if (controller.signal.aborted) return;
+      csrfToken.current = context.csrfToken;
+      setSession(context);
+      setAgentId(context.agents[0]?.id ?? "");
+      setConversationId("");
+      setMessages([]);
+      setStream(emptyStream);
+      setExpired(false);
+      setPhase("ready");
+    }
+
+    async function visit() {
+      setPhase("loading");
+      try {
+        await enter({ integrationId });
+      } catch (failure) {
+        if (controller.signal.aborted) return;
+        setError(failure instanceof ApiError ? failure.message : t("startFailed"));
+        setPhase("error");
+      }
+    }
     window.addEventListener("message", authenticate);
     void (async () => {
       try {
-        const policy = await request<{ allowedOrigins: string[] }>(
-          `/integrations/${integrationId}`,
-          { signal: controller.signal },
-        );
+        const policy = await request<{
+          allowedOrigins: string[];
+          access?: string;
+          notice?: string;
+        }>(`/integrations/${integrationId}`, { signal: controller.signal });
         origins = exactOrigins(policy.allowedOrigins);
         if (controller.signal.aborted) return;
         if (window.parent === window || !origins.length) throw new Error(t("embedOnly"));
+        setVisitor(policy.access === "public");
+        if (policy.access === "public") {
+          // Nobody signs a visitor in. The page that framed this one is where Escape
+          // sends its close, when it is one the widget allows.
+          const from = document.referrer ? new URL(document.referrer).origin : "";
+          parentOrigin.current = origins.includes(from) ? from : "";
+          if (policy.notice) {
+            setNotice(policy.notice);
+            accept.current = () => void visit();
+            setPhase("notice");
+          } else await visit();
+          return;
+        }
         setPhase("waiting");
         // The ready message contains no credentials; only an allowed parent may answer.
         window.parent.postMessage({ type: "ar-widget:ready", integrationId, nonce }, "*");
@@ -361,7 +398,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
     >
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">{t("eyebrow")}</p>
+          {visitor ? null : <p className="text-xs text-muted-foreground">{t("eyebrow")}</p>}
           <h1 className="truncate text-lg font-semibold">{session?.name || t("title")}</h1>
         </div>
         {phase === "ready" && (
@@ -381,7 +418,14 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
           </Button>
         )}
       </header>
-      {phase !== "ready" ? (
+      {phase === "notice" ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-7 text-center">
+          <MessageSquare size={28} className="text-muted-foreground" aria-hidden="true" />
+          <h2 className="text-lg font-medium">{t("beforeYouStart")}</h2>
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground">{notice}</p>
+          <Button onClick={() => accept.current?.()}>{t("startChat")}</Button>
+        </div>
+      ) : phase !== "ready" ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-7 text-center">
           <MessageSquare size={28} className="text-muted-foreground" aria-hidden="true" />
           <h2 className="text-lg font-medium">
@@ -391,7 +435,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
             role={phase === "error" ? "alert" : "status"}
             className="text-sm text-muted-foreground"
           >
-            {error || t("signingIn")}
+            {error || t(visitor ? "starting" : "signingIn")}
           </p>
           {phase === "error" && (
             <Button variant="outline" onClick={() => setAttempt((current) => current + 1)}>
@@ -528,14 +572,16 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
             />
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Button
-                  aria-label={t("attach")}
-                  onClick={() => fileRef.current?.click()}
-                  type="button"
-                  variant="ghost"
-                >
-                  <Paperclip size={15} />
-                </Button>
+                {visitor ? null : (
+                  <Button
+                    aria-label={t("attach")}
+                    onClick={() => fileRef.current?.click()}
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Paperclip size={15} />
+                  </Button>
+                )}
                 <p className="text-xs text-muted-foreground">{t("hint")}</p>
               </div>
               {busy ? (

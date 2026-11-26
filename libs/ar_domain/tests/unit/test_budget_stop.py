@@ -154,6 +154,24 @@ def test_the_tool_call_limit_keeps_them_on_a_worker_step() -> None:
     content = reply["content"]
     assert isinstance(content, list)
     assert [part["name"] for part in content if part["type"] == "file"] == ["matrix.csv"]
+    # The model calls made before the stop are recorded, as for every other limit.
+    assert run["usage"]["steps"] >= 1
+
+
+def test_the_tool_call_limit_records_what_was_spent_in_one_process() -> None:
+    store = _store([_write("c1", "matrix.csv", 9_000), _write("c2", "sample.csv", 9_500)])
+    for version in store.versions.values():
+        definition = version.get("definition")
+        budget = definition.get("budget") if isinstance(definition, dict) else None
+        if isinstance(budget, dict):
+            budget["max_tool_calls"] = 1
+    run_id = _post(store)
+
+    asyncio.run(store.generate(run_id, "Make two files", []))
+
+    run = store.runs[run_id]
+    assert run["status"] == "budget_exceeded"
+    assert run["usage"]["steps"] >= 1
 
 
 def test_the_stop_text_lists_only_what_succeeded() -> None:

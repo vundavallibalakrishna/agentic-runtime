@@ -109,7 +109,9 @@ def test_the_first_sync_stores_the_page_as_a_file(site: Any) -> None:
     assert revision["file_id"] == str(document["raw_file_id"])
     assert revision["version_hash"] == file_row["sha256"]
     assert revision["metadata"]["etag"] == '"a"'
-    assert source["cursor"]["etag"] == '"a"'
+    # What the site said about each page is kept by the page's address.
+    [kept] = source["cursor"]["pages"].values()
+    assert kept["etag"] == '"a"'
 
 
 def test_an_unchanged_page_is_asked_for_with_its_etag_and_stores_nothing(site: Any) -> None:
@@ -118,7 +120,9 @@ def test_an_unchanged_page_is_asked_for_with_its_etag_and_stores_nothing(site: A
     job = sync_source(store, source, mode="incremental", actor_id=None)
     assert job["status"] == "succeeded"
     assert ("/notice", '"a"') in site.seen
-    assert source["cursor"]["etag"] == '"a"'
+    # What the site said about each page is kept by the page's address.
+    [kept] = source["cursor"]["pages"].values()
+    assert kept["etag"] == '"a"'
     assert len(_revisions(book, document_id)) == 1
     assert store.knowledge_documents[document_id]["status"] == "indexed"
 
@@ -138,7 +142,8 @@ def test_a_changed_page_adds_a_version_and_keeps_the_earlier_one(site: Any) -> N
     assert earlier["file_id"] == str(first_file)
     # The earlier version was not overwritten: its bytes are still read back.
     assert read_blob(store, first_file) == old
-    assert source["cursor"]["etag"] == '"b"'
+    [kept] = source["cursor"]["pages"].values()
+    assert kept["etag"] == '"b"'
 
 
 def test_a_full_sync_of_an_unchanged_page_keeps_the_document_and_adds_no_version(

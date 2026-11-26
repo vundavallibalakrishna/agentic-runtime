@@ -9,7 +9,9 @@ from ar_contracts.api_model import ApiModel
 
 class WidgetSessionBody(ApiModel):
     integration_id: uuid.UUID
-    token: str = Field(min_length=1, max_length=16384)
+    # The host's signed token. A public widget has no host that knows the visitor, and
+    # sends none.
+    token: str | None = Field(default=None, min_length=1, max_length=16384)
 
 
 class WidgetConversationBody(ApiModel):

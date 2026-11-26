@@ -1,7 +1,10 @@
 """Source sync, ACL sync, reindex and delete. Activities call the same functions."""
 
+import asyncio
 import hashlib
 from typing import TYPE_CHECKING, Any
+
+import httpx
 
 from ar_common.ids import new_id
 from ar_common.time import utcnow
@@ -9,8 +12,14 @@ from ar_domain.audit.memory import remember
 from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.access import as_uuid
 from ar_domain.knowledge.fetchers import fetch_bytes, list_acl_changes, list_changes, map_item_acl
-from ar_domain.knowledge.pipeline import embedding_error, ingest_document, stored_bytes
+from ar_domain.knowledge.pipeline import (
+    embedding_error,
+    ingest_document,
+    ingest_document_async,
+    stored_bytes,
+)
 from ar_domain.knowledge.raw import keep_raw
+from ar_domain.knowledge.site import NotModified
 from ar_domain.knowledge.store import memory_index
 from ar_domain.knowledge.store_types import DeleteFilter
 from ar_domain.knowledge.syncutil import run_sync
@@ -18,6 +27,10 @@ from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfigur
 
 if TYPE_CHECKING:
     import uuid
+
+
+# The longest one item of a source may take to be read.
+_ITEM_READ_S = 90.0
 
 
 def open_job(
@@ -59,20 +72,55 @@ def finish_job(job: dict[str, object], *, status: str, error: str | None = None)
 def sync_source(
     store: Any, source: dict[str, object], *, mode: str, actor_id: object
 ) -> dict[str, object]:
-    """Ingest changed items and delete tombstones. Unchanged bytes are a no-op."""
-    running = _running(store, source["id"], "full_sync" if mode == "full" else "incremental_sync")
-    if running is not None:
-        return running
-    kind = "full_sync" if mode == "full" else "incremental_sync"
-    job = open_job(
+    """Sync a source from code that is not async. See ``sync_source_async``."""
+    return run_sync(sync_source_async(store, source, mode=mode, actor_id=actor_id))
+
+
+def sync_kind(mode: str) -> str:
+    return "full_sync" if mode == "full" else "incremental_sync"
+
+
+def open_sync(store: Any, source: dict[str, object], mode: str) -> dict[str, object]:
+    """The job of one sync of a source, opened before the sync starts."""
+    return open_job(
         store,
         tenant_id=as_uuid(source["tenant_id"]),
         collection_id=as_uuid(source["collection_id"]),
         source_id=as_uuid(source["id"]),
-        kind=kind,
+        kind=sync_kind(mode),
         triggered_by="manual",
     )
-    page = list_changes({**source, "store": store, "tenant_id": source.get("tenant_id")}, mode=mode)
+
+
+async def sync_source_async(  # noqa: PLR0912 - one pass over a source, start to end
+    store: Any,
+    source: dict[str, object],
+    *,
+    mode: str,
+    actor_id: object,
+    job: dict[str, object] | None = None,
+    beat: Any = None,
+) -> dict[str, object]:
+    """Ingest changed items and delete tombstones. Unchanged bytes are a no-op.
+
+    It runs on the caller's event loop, where the index's database connections live. The
+    waiting it does, on the source and on each item, is off the loop. ``job`` is the job
+    another process opened for this sync, when one did; ``beat`` is called as each item
+    is done, so whoever is waiting for a long sync knows it is alive.
+    """
+    if job is None:
+        running = _running(store, source["id"], sync_kind(mode))
+        if running is not None:
+            return running
+        job = open_sync(store, source, mode)
+    elif job.get("status") != "running":
+        # The job of a sync that was stopped part way and is being tried again.
+        job["status"] = "running"
+        job["error"] = None
+        job["finished_at"] = None
+    page = await asyncio.to_thread(
+        list_changes, {**source, "store": store, "tenant_id": source.get("tenant_id")}, mode=mode
+    )
     if page.get("error"):
         _fail(job, "", str(page["error"]))
         job["status"] = "failed"
@@ -86,9 +134,12 @@ def sync_source(
         seen.add(external_id)
         _stats(job)["seen"] = int(_stats(job)["seen"]) + 1  # type: ignore[call-overload]
         try:
-            _upsert_item(store, source, item, mode=mode, job=job, actor_id=actor_id)
-        except (OSError, ValueError) as exc:
+            await _upsert_item(store, source, item, mode=mode, job=job, actor_id=actor_id)
+        except (OSError, ValueError, httpx.HTTPError) as exc:
+            # One page that cannot be read is that page's failure, not the sync's.
             _fail(job, external_id, str(exc))
+        if callable(beat):
+            beat()
     deleted = page.get("deleted_external_ids")
     if isinstance(deleted, list):
         for external_id in deleted:
@@ -119,8 +170,10 @@ def acl_sync(store: Any, source: dict[str, object], *, actor_id: object) -> dict
         kind="acl_sync",
         triggered_by="manual",
     )
-    index = memory_index(store)
     collection = store.knowledge_collections[source["collection_id"]]
+    # The index the collection is in. The memory one is not it on a database-backed
+    # install, where a change of readers used to reach the document and not the index.
+    index = _index_of(store, collection)
     for change in list_acl_changes({**source, "store": store}):
         external_id = str(change.get("external_id") or "")
         document = _by_external(store, source["id"], external_id)
@@ -213,11 +266,21 @@ def reindex(store: Any, collection: dict[str, object], *, actor_id: object) -> d
     return job
 
 
-def _delete_index(store: Any, collection: dict[str, object] | None) -> Any:
-    """The index that holds this collection's vectors. Memory when the process has no database."""
+def _index_of(store: Any, collection: dict[str, object] | None) -> Any:
+    """The index that holds this collection's vectors. Memory when the process has no database.
+
+    A pgvector collection is in the database this process is bound to, and the index
+    that reaches it is the one a search and an ingest use (``active_index``). The adapter
+    taken by name alone has no address for it, so on a database-backed install a document
+    could be indexed and never deleted.
+    """
     if not getattr(store, "durable", False) or not isinstance(collection, dict):
         return memory_index(store)
     backend = str(collection.get("store_backend") or "pgvector")
+    if backend == "pgvector":
+        from ar_domain.knowledge.store import active_index  # noqa: PLC0415
+
+        return active_index(store)
     from ar_domain.knowledge.store import get_retrieval_store  # noqa: PLC0415
 
     try:
@@ -228,7 +291,7 @@ def _delete_index(store: Any, collection: dict[str, object] | None) -> Any:
 
 def delete_document(store: Any, document: dict[str, object], *, actor_id: object) -> None:
     collection = store.knowledge_collections.get(document.get("collection_id"))
-    index = _delete_index(store, collection if isinstance(collection, dict) else None)
+    index = _index_of(store, collection if isinstance(collection, dict) else None)
     if isinstance(collection, dict):
         run_sync(
             index.delete(
@@ -266,7 +329,7 @@ def delete_document(store: Any, document: dict[str, object], *, actor_id: object
     )
 
 
-def _upsert_item(
+async def _upsert_item(
     store: Any,
     source: dict[str, object],
     item: dict[str, object],
@@ -276,9 +339,20 @@ def _upsert_item(
     actor_id: object,
 ) -> None:
     external_id = str(item.get("external_id") or "")
-    raw, mime = fetch_bytes(item)
-    digest = hashlib.sha256(raw).hexdigest()
     existing = _by_external(store, source["id"], external_id)
+    # A source may ask its site only whether a document it already holds has changed.
+    item["known"] = existing is not None and existing.get("status") == "indexed"
+    try:
+        # One item gets a bounded time. A site that accepts a request and then sends its
+        # answer a byte at a time never trips a read timeout, and held a whole sync for
+        # most of an hour. The item fails, and the sync goes on to the next.
+        raw, mime = await asyncio.wait_for(
+            asyncio.to_thread(fetch_bytes, item), timeout=_ITEM_READ_S
+        )
+    except NotModified:
+        _stats(job)["unchanged"] = int(_stats(job)["unchanged"]) + 1  # type: ignore[call-overload]
+        return
+    digest = hashlib.sha256(raw).hexdigest()
     hint = str(item.get("version_hint") or digest)
     if (
         existing is not None
@@ -293,6 +367,7 @@ def _upsert_item(
         principals = _collection_default(store, source)
     created = existing is None
     document = existing or _stub(store, source, item, mime, principals)
+    readers_before = None if created else document.get("acl_hash")
     document["mime_type"] = mime
     document["title"] = str(item.get("title") or document.get("title") or external_id)
     document["acl_principals"] = principals
@@ -310,7 +385,7 @@ def _upsert_item(
         current = int(_stats(job).get("unmapped_principals") or 0)  # type: ignore[call-overload]
         _stats(job)["unmapped_principals"] = current + unmapped
     try:
-        status = ingest_document(store, as_uuid(document["id"]), raw)
+        status = await ingest_document_async(store, as_uuid(document["id"]), raw)
     except EmbeddingUnconfiguredError, EmbeddingFailedError:
         status = "failed"
     if status == "failed":
@@ -319,6 +394,19 @@ def _upsert_item(
     key = "added" if created else "updated"
     if status == "unchanged":
         key = "unchanged"
+        if readers_before != document["acl_hash"]:
+            # The text is the same and who may read it is not. The index holds the
+            # readers of every passage, and is told without embedding anything again.
+            collection = store.knowledge_collections.get(document.get("collection_id"))
+            if isinstance(collection, dict):
+                await _index_of(store, collection).set_acl(
+                    str(collection.get("store_collection")),
+                    document["tenant_id"],
+                    document["id"],
+                    principals,
+                    str(document.get("classification") or "internal"),
+                )
+            key = "updated"
     _stats(job)[key] = int(_stats(job)[key]) + 1  # type: ignore[call-overload]
     del actor_id
 
@@ -361,7 +449,10 @@ def _collection_default(store: Any, source: dict[str, object]) -> list[str]:
     collection = store.knowledge_collections.get(source.get("collection_id"))
     if not isinstance(collection, dict):
         return []
-    if collection.get("acl_mode") != "collection":
+    # A page on the web names nobody who may read it, in any mode. Left with no reader it
+    # was indexed and found by no search, without a word. It is read by whoever may read
+    # the collection, which is never more people than the collection itself allows.
+    if collection.get("acl_mode") != "collection" and source.get("kind") != "web":
         return []
     from ar_domain.knowledge.acl import collection_acl  # noqa: PLC0415
 

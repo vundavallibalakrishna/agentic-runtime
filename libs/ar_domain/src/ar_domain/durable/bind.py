@@ -75,6 +75,7 @@ async def bind_store(
         raise
     install_tracking(store)
     store.durable_engine = engine  # type: ignore[attr-defined]
+    store.durable_loop = asyncio.get_running_loop()  # type: ignore[attr-defined]
     store.durable = True  # type: ignore[attr-defined]
     store.flush_soon = lambda: schedule_flush(store)  # type: ignore[attr-defined]
     seeded = {name: set(getattr(store, name, {})) for name in BUCKETS}

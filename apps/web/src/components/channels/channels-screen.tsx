@@ -39,6 +39,10 @@ export function ChannelsScreen() {
   const [kind, setKind] = useState("slack");
   const [token, setToken] = useState("");
   const [origins, setOrigins] = useState("");
+  const [access, setAccess] = useState("signed");
+  const [visitorEmail, setVisitorEmail] = useState("");
+  const [visitorNotice, setVisitorNotice] = useState("");
+  const anyone = kind === "widget" && access === "public";
   const [embed, setEmbed] = useState("");
   const [routing, setRouting] = useState("");
   const [agentId, setAgentId] = useState("");
@@ -100,7 +104,9 @@ export function ChannelsScreen() {
             ? { appId: "app", appPassword: token }
             : kind === "email"
               ? { username: "agent", password: token }
-              : { widgetSecret: token };
+              : anyone
+                ? {}
+                : { widgetSecret: token };
       const created = await api<Integration>("/api/v1/channel-integrations", {
         method: "POST",
         body: JSON.stringify({
@@ -110,7 +116,16 @@ export function ChannelsScreen() {
           credentials,
           agentRouting: advanced && routing ? JSON.parse(routing) : [],
           config:
-            kind === "widget" ? { allowedOrigins } : { command: "/agent", allowedChannelIds: [] },
+            kind === "widget"
+              ? anyone
+                ? {
+                    allowedOrigins,
+                    access: "public",
+                    visitorEmail: visitorEmail.trim(),
+                    notice: visitorNotice.trim(),
+                  }
+                : { allowedOrigins }
+              : { command: "/agent", allowedChannelIds: [] },
         }),
       });
       setEmbed(
@@ -220,16 +235,64 @@ export function ChannelsScreen() {
                 <option value="email">Email</option>
                 <option value="widget">Widget</option>
               </select>
-              <label className="mt-3 block text-sm" htmlFor="channel-token">
-                {kind === "widget" ? t("widgetSecret") : t("token")}
-              </label>
-              <Input
-                className="mt-1 max-w-md"
-                id="channel-token"
-                onChange={(event) => setToken(event.target.value)}
-                type="password"
-                value={token}
-              />
+              {kind === "widget" && (
+                <div className="mt-3">
+                  <label className="block text-sm" htmlFor="widget-access">
+                    {t("widgetAccess")}
+                  </label>
+                  <select
+                    className="mt-1 max-w-md rounded-lg border border-[var(--border)] bg-[var(--card)] p-2 text-sm"
+                    id="widget-access"
+                    onChange={(event) => setAccess(event.target.value)}
+                    value={access}
+                  >
+                    <option value="signed">{t("widgetAccessSigned")}</option>
+                    <option value="public">{t("widgetAccessPublic")}</option>
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t(anyone ? "widgetAccessPublicHelp" : "widgetAccessSignedHelp")}
+                  </p>
+                </div>
+              )}
+              {anyone ? (
+                <div className="mt-3">
+                  <label className="block text-sm" htmlFor="widget-visitor">
+                    {t("widgetVisitor")}
+                  </label>
+                  <Input
+                    className="mt-1 max-w-md"
+                    id="widget-visitor"
+                    onChange={(event) => setVisitorEmail(event.target.value)}
+                    type="email"
+                    value={visitorEmail}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">{t("widgetVisitorHelp")}</p>
+                  <label className="mt-3 block text-sm" htmlFor="widget-notice">
+                    {t("widgetNotice")}
+                  </label>
+                  <textarea
+                    id="widget-notice"
+                    value={visitorNotice}
+                    onChange={(event) => setVisitorNotice(event.target.value)}
+                    rows={2}
+                    className="mt-1 w-full max-w-xl rounded-lg border border-border bg-background p-3 text-sm"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">{t("widgetNoticeHelp")}</p>
+                </div>
+              ) : (
+                <>
+                  <label className="mt-3 block text-sm" htmlFor="channel-token">
+                    {kind === "widget" ? t("widgetSecret") : t("token")}
+                  </label>
+                  <Input
+                    className="mt-1 max-w-md"
+                    id="channel-token"
+                    onChange={(event) => setToken(event.target.value)}
+                    type="password"
+                    value={token}
+                  />
+                </>
+              )}
               {kind === "widget" && (
                 <div className="mt-3">
                   <label htmlFor="widget-origins" className="block text-sm">
