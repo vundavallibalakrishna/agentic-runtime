@@ -125,3 +125,23 @@ async def test_loopback_follows_the_installs_setting_not_the_environments_name(
         assert store.holds_tenant_state() is False
         return
     assert store.allow_loopback is True
+
+
+@pytest.mark.parametrize(("env", "shared"), [(EnvName.PROD, True), (EnvName.DEV, False)])
+async def test_a_worker_publishes_its_run_events_where_the_api_reads_them(
+    env: EnvName, shared: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The turns run here. Their events must reach the stream as they happen."""
+    from ar_domain.runs.event_bus import ValkeyRunBus
+
+    found = TenantBinding(SimpleNamespace(), "acme", "Acme", "self_hosted", {})  # type: ignore[arg-type]
+    built = _prepare(monkeypatch, env, found)
+
+    await worker._prepare_store()
+
+    bus = built[0].event_bus
+    if shared:
+        assert isinstance(bus, ValkeyRunBus)
+        assert bus.url == "redis://shared/0"
+    else:
+        assert bus is None
