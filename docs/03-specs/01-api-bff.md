@@ -95,7 +95,7 @@ Permissions are computed by `identity.service.effective_permissions(principal)` 
 Liveness: 200 `{"status":"ok"}` if the process is up.
 
 #### GET /readyz
-Readiness, cached 10 s. Always checks Postgres (`SELECT 1`) and Temporal health. Checks Valkey `PING` when sessions and the rate limiter are shared (not `dev` or `ci`). 503 with the failing check names. `/healthz` does not connect.
+Readiness, cached 10 s. Always checks Postgres (`SELECT 1`) and Temporal health. Checks Valkey `PING` when sessions and the rate limiter are shared (not `dev` or `ci`). `masking` fails until the engine that masks personal data in tool results is built (`pii.analyzer.warmed`): loading it holds the process for many seconds, so the process takes no traffic until it is done. 503 with the failing check names. `/healthz` does not connect.
 
 #### GET /metrics
 Prometheus exposition (not routed by public ingress).

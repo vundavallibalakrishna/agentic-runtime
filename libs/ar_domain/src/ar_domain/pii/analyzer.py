@@ -300,6 +300,24 @@ def _cached_engine() -> object:
     return _engine_cache[0]
 
 
+def warmed() -> bool:
+    """Whether the engine is built, so a tool result is masked without waiting for it."""
+    return bool(_engine_cache)
+
+
+async def warm() -> None:
+    """Build the engine and wait for it, off the event loop.
+
+    Loading the language model holds the interpreter for many seconds. A worker that
+    took work while it loaded could not run that work or report that it was alive, and
+    the step was cut off; so a worker waits for this before it takes any.
+    """
+    if not _engine_cache:
+        import asyncio  # noqa: PLC0415
+
+        await asyncio.to_thread(_cached_engine)
+
+
 def warm_up() -> None:
     """Build the engine now, on a thread of its own.
 
