@@ -2,7 +2,9 @@
 
 A workspace administrator creates a widget on the **Channels** screen: its name, the
 agent it talks to, who can chat, and the exact origins of the pages allowed to show it.
-The screen gives a script tag to paste into the page:
+Widgets are off in a new workspace; the same screen turns them on ("Website and portal
+chat"), which needs the right to manage the workspace. A saved widget is changed, turned
+off or deleted from its row, and **Install code** shows its script tag again:
 
 ```html
 <script src="{{BASE_URL}}/widget.js" data-integration="<widget id>" defer></script>
@@ -10,6 +12,17 @@ The screen gives a script tag to paste into the page:
 
 The script adds a button that opens the chat in a frame. `data-label` sets the button's
 text. For WordPress, Drupal, Joomla and plain PHP, see [PHP and CMS sites](php-cms.md).
+
+The agent must be one the people behind the widget may use: on the agent's page set
+**Who can use it** to "Everyone in the workspace". The Channels screen says when the
+chosen agent is not.
+
+**Sources.** An answer carries the numbers of the passages it cites, and a **Sources**
+button under it opens the list when the visitor asks: one line per page, with the numbers
+the answer gave it; a web page is a link that opens in a new tab, and any other source is
+named only. A widget whose **Let visitors see the sources an answer cites** is off
+(`showSources: false`) receives no source at all: the API takes them out of the
+conversation before the widget reads it.
 
 A widget is one of two kinds.
 

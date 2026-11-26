@@ -52,6 +52,7 @@ export function AgentEditor() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
+  const [visibility, setVisibility] = useState("private");
   const [servers, setServers] = useState<{ slug: string; name: string; kind?: string }[]>([]);
   const [catalogue, setCatalogue] = useState<
     { name: string; server: string; source: string; risk: string }[]
@@ -76,6 +77,7 @@ export function AgentEditor() {
       );
       setAgent(body);
       setName(body.name ?? "");
+      setVisibility(body.visibility ?? "private");
       setDefinition(source);
       setYaml(definitionToYaml(source as JsonValue));
       setVersions(history.items ?? []);
@@ -304,7 +306,7 @@ export function AgentEditor() {
       await persistDraft();
       await api(`/api/v1/agents/${agentId}`, {
         method: "PATCH",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, visibility }),
       });
       setNotice(detail("saved"));
     } catch (caught) {
@@ -504,6 +506,28 @@ export function AgentEditor() {
                       onChange={(event) => setName(event.target.value)}
                       value={name}
                     />
+                    <label className="mt-4 block text-sm font-medium" htmlFor="agent-visibility">
+                      {t("visibility")}
+                    </label>
+                    <select
+                      aria-describedby="agent-visibility-help"
+                      className="mt-1 w-full max-w-xs rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 text-sm"
+                      id="agent-visibility"
+                      onChange={(event) => setVisibility(event.target.value)}
+                      value={visibility}
+                    >
+                      <option value="private">{t("visibilityPrivate")}</option>
+                      {visibility === "team" ? (
+                        <option value="team">{t("visibilityTeam")}</option>
+                      ) : null}
+                      <option value="tenant">{t("visibilityTenant")}</option>
+                    </select>
+                    <p
+                      className="mt-1 max-w-xl text-xs text-[var(--muted-foreground)]"
+                      id="agent-visibility-help"
+                    >
+                      {t("visibilityHelp")}
+                    </p>
                     <label className="mt-4 block text-sm font-medium" htmlFor="editor-model">
                       {t("modelAlias")}
                     </label>

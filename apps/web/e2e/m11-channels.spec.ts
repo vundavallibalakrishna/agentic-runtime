@@ -57,6 +57,7 @@ test("channels list, test connection, link profile, and stay accessible", async 
 
   await page.getByLabel("Name").fill("Desk Slack");
   await page.getByLabel("Bot token").fill("xoxb-desk");
+  await page.getByLabel("Signing secret").fill("desk-signing-secret");
   await page.getByRole("button", { name: "Save channel" }).click();
   await expect(page.getByText("Channel saved.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Desk Slack" })).toBeVisible();
