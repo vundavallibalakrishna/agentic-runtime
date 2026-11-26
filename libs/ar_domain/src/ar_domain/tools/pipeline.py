@@ -34,6 +34,27 @@ from ar_domain.usage.service import UsageBook, note
 
 _log = get_logger(__name__)
 
+
+def resolved_timeout_s(version: dict[str, object] | None) -> int:
+    """How long this tool may run.
+
+    ``documents.extract`` uses ``AR_DOCUMENT_EXTRACT_TIMEOUT_S`` when that budget
+    is longer than the timeout stored on the tool. A live install keeps the short
+    default until this is read at call time.
+    """
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    stored = 30
+    name = ""
+    if isinstance(version, dict):
+        stored = as_int(version.get("timeout_s"), 30)
+        name = str(version.get("qualified_name") or "")
+    if name == "documents.extract":
+        configured = int(get_settings().document_extract_timeout_s)
+        return max(stored, configured)
+    return stored
+
+
 _IMPLICIT = frozenset(
     {
         "files.read",
@@ -288,7 +309,7 @@ class ToolPipeline:
         public_args = {
             key: value for key, value in call_args.items() if not str(key).startswith("_")
         }
-        timeout = float(as_int(version.get("timeout_s"), 30))
+        timeout = float(resolved_timeout_s(version))
         remote_name = _remote_name(version)
         try:
             if endpoint.startswith("stdio://"):
@@ -1049,6 +1070,13 @@ class ToolPipeline:
         if prior is None:
             return None
         status = str(prior.get("status") or "")
+        # A held call has a preview and is not finished. The approved execution
+        # must update this row, not be answered by the hold or written beside it.
+        if status == "awaiting_approval":
+            existing = _uuid_of(prior.get("id"))
+            if existing is not None:
+                request["tool_call_id"] = existing
+            return None
         if status in _TERMINAL or prior.get("result_preview"):
             return _from_stored(prior, version)
         existing = _uuid_of(prior.get("id"))

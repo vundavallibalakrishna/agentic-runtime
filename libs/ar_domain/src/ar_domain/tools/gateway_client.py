@@ -77,6 +77,11 @@ def _post(
     body = _body(request) if body is None else body
     try:
         response = _send(f"{url}/internal/v1/{route}", body, timeout)
+    except httpx.TimeoutException:
+        return _unavailable(
+            "The tool call timed out before the gateway finished. "
+            "Whether it changed anything is not known."
+        )
     except httpx.HTTPError as exc:
         reason = str(getattr(exc, "reason", "") or exc).strip()
         get_logger(__name__).warning(
@@ -105,14 +110,14 @@ def _send(url: str, body: dict[str, object], timeout: float) -> httpx.Response:
 
 
 def _timeout(store: Any, request: dict[str, object]) -> float:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+    from ar_domain.tools.pipeline import resolved_timeout_s  # noqa: PLC0415
+
     versions = getattr(store, "tool_versions", {})
     version = versions.get(request.get("tool_version_id")) if isinstance(versions, dict) else None
-    raw = version.get("timeout_s") if isinstance(version, dict) else 30
-    try:
-        seconds = float(raw)  # type: ignore[arg-type]
-    except TypeError, ValueError:
-        seconds = 30.0
-    return max(1.0, seconds) + 15.0
+    seconds = float(resolved_timeout_s(version if isinstance(version, dict) else None))
+    grace = float(get_settings().tool_gateway_grace_s)
+    return max(1.0, seconds + grace)
 
 
 def _body(request: dict[str, object]) -> dict[str, object]:
@@ -133,6 +138,7 @@ def _body(request: dict[str, object]) -> dict[str, object]:
         "step",
         "query_id",
         "call_index",
+        "tool_call_id",
     )
     body: dict[str, object] = {}
     for key in keys:

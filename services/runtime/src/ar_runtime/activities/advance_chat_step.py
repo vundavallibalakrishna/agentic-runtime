@@ -19,7 +19,6 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
     run_id = uuid.UUID(str(payload.get("run_id") or ""))
     if store is None or not hasattr(store, "advance_turn"):
         return {"status": "missing_store", "kind": "final", "run_id": str(run_id)}
-    from ar_domain.conversations.logic import run_is_active  # noqa: PLC0415
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
     from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
     from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
@@ -30,10 +29,43 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
     run = runs.get(run_id) if isinstance(runs, dict) else None
     if not isinstance(run, dict):
         return {"status": "missing", "kind": "final", "run_id": str(run_id)}
-    stopped = await _stop_or_apply(store, run, run_id, payload)
-    if stopped is not None:
-        await flush_store(store)
-        return stopped
+    during_tool = False
+    try:
+        async with heartbeating():
+            during_tool = True
+            stopped = await _stop_or_apply(store, run, run_id, payload)
+            during_tool = False
+            if stopped is not None:
+                await flush_store(store)
+                return stopped
+            return await _advance(store, run, run_id, payload, runs)
+    except asyncio.CancelledError:
+        # A stop while the model is writing cancels the run and keeps the text.
+        # A stop during the approved tool call is the deadline cutting it off:
+        # that is a failed tool call, not a silent cancel.
+        from ar_domain.tools.resume import fail_interrupted_tool, mark_cancelled  # noqa: PLC0415
+
+        stopped_run = runs.get(run_id) if isinstance(runs, dict) else None
+        if isinstance(stopped_run, dict):
+            if during_tool and stopped_run.get("cancel_requested") is not True:
+                fail_interrupted_tool(store, stopped_run)
+            else:
+                mark_cancelled(store, stopped_run)
+        await asyncio.shield(flush_store(store))
+        raise
+
+
+async def _advance(
+    store: Any,
+    run: dict[str, Any],
+    run_id: uuid.UUID,
+    payload: dict[str, Any],
+    runs: object,
+) -> dict[str, Any]:
+    """One model or tool step, after a stored decision has been applied."""
+    from ar_domain.conversations.logic import run_is_active  # noqa: PLC0415
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+
     status = str(run.get("status") or "")
     if not run_is_active(status):
         await flush_store(store)
@@ -69,19 +101,8 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
         else payload.get("names")
     )
     names = [str(item) for item in raw_names] if isinstance(raw_names, list) else []
-    try:
-        async with heartbeating():
-            kind = await store.advance_turn(run_id, text, names)
-    except asyncio.CancelledError:
-        # The person pressed Stop while this step was running. What was written so far is
-        # kept, and the run is closed here, where its rows are.
-        from ar_domain.tools.resume import mark_cancelled  # noqa: PLC0415
-
-        stopped = runs.get(run_id) if isinstance(runs, dict) else None
-        if isinstance(stopped, dict):
-            mark_cancelled(store, stopped)
-        await asyncio.shield(flush_store(store))
-        raise
+    advance = store.advance_turn
+    kind = await advance(run_id, text, names)
     await flush_store(store)
     run = runs.get(run_id, {}) if isinstance(runs, dict) else {}
     status = str(run.get("status") or "completed") if isinstance(run, dict) else "completed"
@@ -113,9 +134,12 @@ async def _stop_or_apply(
     decision = payload.get("decision")
     if not isinstance(decision, dict):
         return None
+    from ar_common.offload import run_sync  # noqa: PLC0415
     from ar_domain.tools.resume import apply_decision  # noqa: PLC0415
 
-    applied = apply_decision(store, run, decision)
+    # The approved call waits on the gateway. Under run_sync that wait leaves the
+    # loop free, so the activity heartbeat keeps running for the tool's timeout.
+    applied = await run_sync(apply_decision, store, run, decision)
     if applied == "final" or not run_is_active(str(run.get("status") or "")):
         return {
             "status": str(run.get("status") or "completed"),

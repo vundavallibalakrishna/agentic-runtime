@@ -17,17 +17,18 @@ async def save_extractions(session: AsyncSession, rows: list[dict[str, Any]]) ->
     sql = """
         INSERT INTO document_extractions (
             id, tenant_id, document_id, content_hash, schema_hash, model_alias,
-            strategy, fields, result, corrections, approval_id, run_id, created_at
+            strategy, fields, result, corrections, approval_id, run_id, status, created_at
         ) VALUES (
             :id, :tenant_id, :document_id, :content_hash, :schema_hash, :model_alias,
             :strategy, CAST(:fields AS jsonb), CAST(:result AS jsonb),
-            CAST(:corrections AS jsonb), :approval_id, :run_id, :created_at
+            CAST(:corrections AS jsonb), :approval_id, :run_id, :status, :created_at
         )
         ON CONFLICT (id) DO UPDATE SET
             fields = EXCLUDED.fields,
             result = EXCLUDED.result,
             corrections = EXCLUDED.corrections,
-            approval_id = EXCLUDED.approval_id
+            approval_id = EXCLUDED.approval_id,
+            status = EXCLUDED.status
     """
     for row in rows:
         extraction_id = as_uuid(row.get("id"))
@@ -50,6 +51,7 @@ async def save_extractions(session: AsyncSession, rows: list[dict[str, Any]]) ->
                 "corrections": as_json(row.get("corrections"), []),
                 "approval_id": as_uuid(row.get("approval_id")),
                 "run_id": as_uuid(row.get("run_id")),
+                "status": as_text(row.get("status"), "done"),
                 "created_at": as_dt(row.get("created_at")) or utcnow(),
             },
         )

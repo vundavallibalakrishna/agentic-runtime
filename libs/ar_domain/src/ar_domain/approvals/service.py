@@ -8,7 +8,14 @@ from ar_common.errors import ConflictError, ForbiddenError, NotFoundError, Valid
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.approvals.errors import StepUpRequiredError
-from ar_domain.approvals.logic import can_decide, can_view, is_approver, render_preview
+from ar_domain.approvals.logic import (
+    can_decide,
+    can_view,
+    decision_reason,
+    is_approver,
+    may_attempt,
+    render_preview,
+)
 from ar_domain.approvals.pending import amend
 from ar_domain.audit.memory import remember
 from ar_domain.policy.service import _settings
@@ -74,7 +81,7 @@ class ApprovalBook:
         channel: str = "web",
     ) -> dict[str, object]:
         row = self._require(actor, approval_id)
-        if not can_decide(self.store, actor, row):
+        if not may_attempt(self.store, actor, row):
             raise ForbiddenError("you cannot decide this approval")
         from ar_domain.approvals.sod import SodBook  # noqa: PLC0415
 
@@ -407,6 +414,7 @@ class ApprovalBook:
                     "input_schema": {} if version is None else version.get("input_schema"),
                 },
                 "can_decide": can_decide(self.store, actor, row),
+                "decision_reason": decision_reason(self.store, actor, row),
             }
         )
         return body

@@ -219,7 +219,7 @@ class SodBook:
 
     def _role_hits(self, actor: Actor, other_id: object, applies: str) -> list[dict[str, str]]:
         other_roles = set(self.store.user_roles.get(other_id, set()))
-        mine = set(actor.roles)
+        mine = set(getattr(actor, "roles", ()))
         found: list[dict[str, str]] = []
         for row in self.store.sod_constraints.values():
             if row.get("tenant_id") != actor.tenant_id or row.get("enabled") is not True:

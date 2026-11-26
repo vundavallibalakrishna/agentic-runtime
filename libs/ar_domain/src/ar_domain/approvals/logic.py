@@ -4,6 +4,8 @@ import re
 from datetime import datetime
 from typing import TYPE_CHECKING, cast
 
+from ar_domain.approvals.sod import SodBook
+
 if TYPE_CHECKING:
     from typing import Any
 
@@ -48,8 +50,13 @@ def render_preview(
     }
 
 
-def can_decide(store: Any, actor: Any, approval: dict[str, object]) -> bool:
-    """True when this person may decide the approval. Spec 09 §5."""
+def may_attempt(store: Any, actor: Any, approval: dict[str, object]) -> bool:
+    """True when this person is an approver the request will consider.
+
+    Separation of duties is checked afterwards and reported as ``sod_violation``.
+    ``can_decide`` includes that check so the console does not offer a button
+    the decision will refuse.
+    """
     if approval.get("status") != "pending":
         return False
     rule = approval.get("approver_rule")
@@ -59,6 +66,37 @@ def can_decide(store: Any, actor: Any, approval: dict[str, object]) -> bool:
     if four_eyes and str(actor.user_id) == str(approval.get("requested_for_user_id")):
         return False
     return is_approver(store, actor, approval)
+
+
+def can_decide(store: Any, actor: Any, approval: dict[str, object]) -> bool:
+    """True when this person may approve. The same SoD rules as decide. Spec 09 §5."""
+    return decision_reason(store, actor, approval) == ""
+
+
+def decision_reason(store: Any, actor: Any, approval: dict[str, object]) -> str:
+    """Why this person cannot approve, or an empty string when they can."""
+    if approval.get("status") != "pending":
+        return "This approval is no longer pending."
+    rule = approval.get("approver_rule")
+    four_eyes = bool(approval.get("four_eyes")) or (
+        isinstance(rule, dict) and bool(rule.get("four_eyes"))
+    )
+    if four_eyes and str(actor.user_id) == str(approval.get("requested_for_user_id")):
+        return "You requested this, so someone else has to approve it."
+    if not is_approver(store, actor, approval):
+        return "You are not an approver for this request."
+    reasons = {
+        "agent_owner": "You own this agent, so you cannot approve this request.",
+        "conflicting_roles": (
+            "Your role conflicts with the requester, so you cannot approve this request."
+        ),
+    }
+    for item in SodBook(store).approval_violations(actor, approval):
+        invariant = str(item.get("invariant") or "")
+        if invariant == "four_eyes":
+            continue
+        return reasons.get(invariant, "Separation of duties stops you approving this request.")
+    return ""
 
 
 def is_approver(store: Any, actor: Any, approval: dict[str, object]) -> bool:

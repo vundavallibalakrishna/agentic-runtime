@@ -13,12 +13,48 @@ if TYPE_CHECKING:
     from typing import Any
 
 
+def settle_held_call(store: Any, approval: dict[str, object]) -> None:
+    """Move the tool call the approval is about off ``awaiting_approval``.
+
+    The decision is recorded on that row. The later execution of an approved call
+    writes its outcome onto the same row, so a second row is not the only place
+    the result exists.
+    """
+    decision = str(approval.get("status") or "")
+    status = {
+        "approved": "approved",
+        "rejected": "rejected",
+        "expired": "expired",
+        "cancelled": "cancelled",
+    }.get(decision, "failed")
+    calls = getattr(store, "tool_calls", None)
+    if not isinstance(calls, dict):
+        return
+    call_id = approval.get("tool_call_id")
+    call = calls.get(call_id)
+    if not isinstance(call, dict):
+        call = next(
+            (
+                row
+                for row in calls.values()
+                if isinstance(row, dict) and row.get("approval_id") == approval.get("id")
+            ),
+            None,
+        )
+    if isinstance(call, dict) and str(call.get("status") or "") == "awaiting_approval":
+        call["status"] = status
+        if decision != "approved":
+            call["is_error"] = True
+            call["error"] = {"code": status, "message": f"The approval was {decision}."}
+
+
 def settle_approval(store: Any, approval: dict[str, object]) -> None:
     """Record that a decision is ready and wake the run's workflow.
 
     The API does not call the tool. The next ``advance_chat_step`` does, through the
     gateway. A missing workflow is started so that activity can apply the decision.
     """
+    settle_held_call(store, approval)
     from ar_domain.routines.engine import is_delivery_tool  # noqa: PLC0415
 
     if is_delivery_tool(approval.get("qualified_name")):
@@ -106,6 +142,59 @@ def apply_decision(store: Any, run: dict[str, object], decision: dict[str, objec
         _resume(store, run, approval)
         return "continue" if str(run.get("status")) == "running" else "final"
     return "paused"
+
+
+_WAITING = "Waiting for approval before this tool runs."
+_INTERRUPTED = (
+    "The tool call did not finish in time. It was stopped, and whether it "
+    "changed anything is not known. Check before asking for it again."
+)
+
+
+def fail_interrupted_tool(store: Any, run: dict[str, object]) -> None:
+    """A step cut off while a tool was running. The reply says so, and the call is failed."""
+    from ar_domain.runs.failure import fail_run  # noqa: PLC0415
+
+    if not run_is_active(str(run.get("status"))):
+        return
+    assistant_id = run.get("assistant_message_id")
+    messages = getattr(store, "messages", {})
+    assistant = messages.get(assistant_id) if isinstance(messages, dict) else None
+    if isinstance(assistant, dict):
+        said = str(assistant.get("text") or "")
+        if not said or said == _WAITING:
+            assistant["text"] = _INTERRUPTED
+            assistant["content"] = [{"type": "text", "text": _INTERRUPTED}]
+        calls = assistant.get("tool_calls")
+        if isinstance(calls, list):
+            for call in calls:
+                if isinstance(call, dict) and str(call.get("status") or "") in {
+                    "awaiting_approval",
+                    "running",
+                }:
+                    call["status"] = "failed"
+                    call["result_preview"] = _INTERRUPTED
+                    call["error"] = {"code": "upstream_timeout", "message": _INTERRUPTED}
+    calls_book = getattr(store, "tool_calls", {})
+    if isinstance(calls_book, dict):
+        for row in calls_book.values():
+            if (
+                isinstance(row, dict)
+                and row.get("run_id") == run.get("id")
+                and str(row.get("status") or "") in {"awaiting_approval", "running"}
+            ):
+                row["status"] = "failed"
+                row["is_error"] = True
+                row["error"] = {"code": "upstream_timeout", "message": _INTERRUPTED}
+                row["result_preview"] = _INTERRUPTED
+    fail_run(
+        store,
+        run,
+        code="upstream_timeout",
+        message=_INTERRUPTED,
+        reason="tool_timeout",
+        assistant=assistant if isinstance(assistant, dict) else None,
+    )
 
 
 def mark_cancelled(store: Any, run: dict[str, object]) -> None:
