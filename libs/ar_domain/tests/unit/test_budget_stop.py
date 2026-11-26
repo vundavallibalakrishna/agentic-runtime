@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 _STOP = "Stopped because the max tokens limit was reached."
 
 
-def _store(steps: list[dict[str, object]]) -> ChatService:
+def _store(steps: list[dict[str, object]], offered: list[int] | None = None) -> ChatService:
     store = demo_store()
     store._completion_call = lambda _tenant, alias="reasoning": (  # type: ignore[method-assign]
         "Qwen/Qwen3-32B",
@@ -35,7 +35,9 @@ def _store(steps: list[dict[str, object]]) -> ChatService:
         tenant_id: uuid.UUID,
         model_alias: str,
     ) -> dict[str, object]:
-        del messages, tools, tenant_id, model_alias
+        del messages, tenant_id, model_alias
+        if offered is not None:
+            offered.append(len(tools))
         return pending.pop(0)
 
     store.complete_turn = complete  # type: ignore[method-assign]
@@ -126,52 +128,103 @@ def test_a_run_a_worker_steps_keeps_them_too() -> None:
     _check_reply(store, run_id)
 
 
-def test_the_tool_call_limit_keeps_them_on_a_worker_step() -> None:
-    store = _store([_write("c1", "matrix.csv", 9_000), _write("c2", "sample.csv", 9_500)])
+def _one_tool_call(store: ChatService) -> None:
     for version in store.versions.values():
         definition = version.get("definition")
         budget = definition.get("budget") if isinstance(definition, dict) else None
         if isinstance(budget, dict):
             budget["max_tool_calls"] = 1
+
+
+def _answer(text: str) -> dict[str, object]:
+    return {"text": text, "tool_calls": [], "usage": {"tokens_in": 9_800, "tokens_out": 40}}
+
+
+def _drive(store: ChatService, run_id: uuid.UUID, *, worker: bool) -> None:
+    if not worker:
+        asyncio.run(store.generate(run_id, "Make two files", []))
+        return
+
+    async def steps() -> None:
+        for _ in range(12):
+            if await store.advance_turn(run_id, "Make two files", []) in {"final", "paused"}:
+                return
+
+    asyncio.run(steps())
+
+
+def _past_the_limit(worker: bool) -> None:
+    offered: list[int] = []
+    answer = "I made matrix.csv. I could not make sample.csv within this answer."
+    store = _store(
+        [
+            _write("c1", "matrix.csv", 9_000),
+            _write("c2", "sample.csv", 9_500),
+            _answer(answer),
+        ],
+        offered,
+    )
+    _one_tool_call(store)
     run_id = _post(store)
 
-    async def drive() -> str:
-        kind = ""
-        for _ in range(12):
-            kind = await store.advance_turn(run_id, "Make two files", [])
-            if kind in {"final", "paused"}:
-                break
-        return kind
+    _drive(store, run_id, worker=worker)
 
-    assert asyncio.run(drive()) == "final"
     run = store.runs[run_id]
+    # The agent asked for a second tool past its limit of one. That call was not run, and
+    # the next model call was offered no tools, so it answered from what it had.
+    assert run["status"] == "completed"
+    assert offered[0] > 0 and offered[-1] == 0
+    reply = store.messages[uuid.UUID(str(run["assistant_message_id"]))]
+    assert reply["text"] == answer
+    names = [str(row.get("name")) for row in store.files.values()]
+    assert "matrix.csv" in names
+    assert "sample.csv" not in names
+    # The three model calls are recorded.
+    assert run["usage"]["steps"] == 3
+
+
+def test_past_the_tool_call_limit_it_answers_without_tools_in_one_process() -> None:
+    _past_the_limit(worker=False)
+
+
+def test_past_the_tool_call_limit_it_answers_without_tools_on_worker_steps() -> None:
+    _past_the_limit(worker=True)
+
+
+def _still_asks(worker: bool) -> None:
+    store = _store(
+        [
+            _write("c1", "matrix.csv", 9_000),
+            _write("c2", "sample.csv", 9_500),
+            _write("c3", "again.csv", 9_700),
+        ]
+    )
+    _one_tool_call(store)
+    run_id = _post(store)
+
+    _drive(store, run_id, worker=worker)
+
+    run = store.runs[run_id]
+    # Offered no tools, it asked for one anyway: the run stops as it did before.
     assert run["status"] == "budget_exceeded"
     reply = store.messages[uuid.UUID(str(run["assistant_message_id"]))]
     text = str(reply["text"])
     assert text.startswith("Stopped because the max tool calls limit was reached.")
     assert "- general.write_file: matrix.csv" in text
-    assert "sample.csv" not in text
+    assert "sample.csv" not in text and "again.csv" not in text
     content = reply["content"]
     assert isinstance(content, list)
     assert [part["name"] for part in content if part["type"] == "file"] == ["matrix.csv"]
     # The model calls made before the stop are recorded, as for every other limit.
-    assert run["usage"]["steps"] >= 1
+    assert run["usage"]["steps"] >= 2
 
 
-def test_the_tool_call_limit_records_what_was_spent_in_one_process() -> None:
-    store = _store([_write("c1", "matrix.csv", 9_000), _write("c2", "sample.csv", 9_500)])
-    for version in store.versions.values():
-        definition = version.get("definition")
-        budget = definition.get("budget") if isinstance(definition, dict) else None
-        if isinstance(budget, dict):
-            budget["max_tool_calls"] = 1
-    run_id = _post(store)
+def test_a_model_that_asks_for_tools_after_the_limit_is_stopped_in_one_process() -> None:
+    _still_asks(worker=False)
 
-    asyncio.run(store.generate(run_id, "Make two files", []))
 
-    run = store.runs[run_id]
-    assert run["status"] == "budget_exceeded"
-    assert run["usage"]["steps"] >= 1
+def test_a_model_that_asks_for_tools_after_the_limit_is_stopped_on_worker_steps() -> None:
+    _still_asks(worker=True)
 
 
 def test_the_stop_text_lists_only_what_succeeded() -> None:
