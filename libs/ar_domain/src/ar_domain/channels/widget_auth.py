@@ -63,6 +63,7 @@ _MESSAGES_DEFAULT = 30
 _SESSIONS_PER_MINUTE_DEFAULT = 60
 _SESSIONS_PER_CLIENT_DEFAULT = 10
 _NOTICE_MAX = 2000
+_MESSAGE_CHARS_DEFAULT = 2000
 
 
 def public_access(config: object) -> dict[str, Any] | None:
@@ -99,7 +100,51 @@ def public_access(config: object) -> dict[str, Any] | None:
             600,
         ),
         "notice": str(config.get("notice") or "")[:_NOTICE_MAX],
+        "max_message_chars": number(
+            ("maxMessageChars", "max_message_chars"), _MESSAGE_CHARS_DEFAULT, 32000
+        ),
     }
+
+
+def allows_visitors(definition: object) -> bool:
+    """Whether an agent's published definition lets people who are not signed in chat."""
+    channels = definition.get("channels") if isinstance(definition, dict) else None
+    return isinstance(channels, dict) and channels.get("public") is True
+
+
+def client_address(peer: str, forwarded: str, trusted: str) -> str:
+    """The address a request is counted against.
+
+    ``peer`` is who connected. When that is one of the install's own proxies, the visitor
+    is the last address in ``X-Forwarded-For`` that is not such a proxy. A caller that is
+    not a trusted proxy is counted as itself: what it writes in the header is not believed,
+    or one script could pose as any number of visitors.
+    """
+    import ipaddress  # noqa: PLC0415
+
+    networks = []
+    for item in trusted.split(","):
+        try:
+            networks.append(ipaddress.ip_network(item.strip(), strict=False))
+        except ValueError:
+            continue
+
+    def ours(value: str) -> bool:
+        try:
+            address = ipaddress.ip_address(value.strip())
+        except ValueError:
+            return False
+        return any(address in network for network in networks)
+
+    if not ours(peer):
+        return peer
+    for hop in reversed([part.strip() for part in forwarded.split(",") if part.strip()]):
+        if not ours(hop):
+            try:
+                return str(ipaddress.ip_address(hop))
+            except ValueError:
+                return peer
+    return peer
 
 
 def _claims(  # noqa: PLR0911 - each malformed claim fails closed

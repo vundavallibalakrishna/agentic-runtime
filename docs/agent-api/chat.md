@@ -127,4 +127,5 @@ console.log(reply.output);
 |---|---|
 | MCP | `POST /v1/mcp` or `/v1/agents/<slug>/mcp`, agent key |
 | A2A | `/v1/agents/<slug>/a2a` and the agent card; see [a2a.md](a2a.md) |
-| OpenAI-compatible | `POST /api/v1/openai/chat/completions`, service-account key, `model` is the agent's slug |
+| OpenAI-compatible | `POST /api/v1/openai/chat/completions`, service-account key, `model` is the agent's slug; `GET /api/v1/openai/models` lists the agents as models |
+| Research | `POST /v1/research/runs` starts a longer, multi-step research run with an agent key; `GET /v1/research/runs/{run_id}` and `/v1/research/runs/{run_id}/events` follow it |

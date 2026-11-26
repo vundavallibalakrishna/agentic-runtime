@@ -119,7 +119,7 @@ spec:
   safety:
     piiMasking: false          # mask PII in prompts sent to the model (Presidio)
     injectionClassifier: true  # flag suspicious tool output (fast model)
-  channels: { web: true, slack: true, teams: true, email: false, api: true, widget: false }
+  channels: { web: true, slack: true, teams: true, email: false, api: true, widget: false, public: false }   # public: people who have not signed in may chat, through a widget open to anyone
 ```
 
 ### 2.1 Field rules (validated on save; errors use `validation_failed` / `unknown_reference`)

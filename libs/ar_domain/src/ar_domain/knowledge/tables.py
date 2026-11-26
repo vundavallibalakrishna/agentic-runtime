@@ -300,6 +300,8 @@ class DocumentExtraction(Base):
     schema_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
     model_alias: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
     strategy: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("''"))
+    # Added by revision 0073; the model had not been given the column.
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=sql_text("'done'"))
     fields: Mapped[dict[str, object]] = mapped_column(
         JSONB, nullable=False, server_default=sql_text("'[]'::jsonb")
     )

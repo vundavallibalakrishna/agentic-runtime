@@ -1282,6 +1282,26 @@ export function AgentEditor() {
             </fieldset>
           </TabsContent>
           <TabsContent value="expose">
+            <label className="mb-6 flex items-start gap-2 text-sm">
+              <input
+                checked={definition.channels?.public === true}
+                className="mt-1"
+                disabled={agent.canEdit === false}
+                onChange={(event) =>
+                  updateDefinition({
+                    ...definition,
+                    channels: { ...definition.channels, public: event.target.checked },
+                  })
+                }
+                type="checkbox"
+              />
+              <span>
+                {t("exposePublic")}
+                <span className="block text-xs text-[var(--muted-foreground)]">
+                  {t("exposePublicHelp")}
+                </span>
+              </span>
+            </label>
             <ExposePanel agentId={agentId} canEdit={agent.canEdit !== false} slug={agent.slug} />
           </TabsContent>
         </Tabs>

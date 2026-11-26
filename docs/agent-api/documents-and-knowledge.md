@@ -54,7 +54,8 @@ curl -s {{BASE_URL}}/api/v1/knowledge/collections/$COLLECTION_ID/documents \
   -d '{"fileIds":["'$FILE_ID'"]}'
 ```
 
-**Add one document another way**, with `POST .../collections/$COLLECTION_ID/members`:
+**Add one document another way**, with
+`POST /api/v1/knowledge/collections/$COLLECTION_ID/members`:
 
 | `kind` | Send | Adds |
 |---|---|---|
@@ -65,20 +66,31 @@ curl -s {{BASE_URL}}/api/v1/knowledge/collections/$COLLECTION_ID/documents \
 The reply says `indexed` or `unchanged`. Sending the same text again changes nothing;
 `"force": true` indexes it again.
 
-**Keep a page in step.** Add a web source and let it sync on a schedule:
+**Keep a whole site in step.** Add a web source that starts at the site's sitemap and
+let it sync on a schedule. The host must be on the workspace's web-access list.
 
 ```bash
 curl -s {{BASE_URL}}/api/v1/knowledge/collections/$COLLECTION_ID/sources \
   -H "Authorization: Bearer $CURA_KEY" -H "Content-Type: application/json" \
-  -d '{"name":"Website","kind":"web","config":{"url":"https://example.com/pricing"},"syncSchedule":"0 3 * * *"}'
+  -d '{"name":"Website","kind":"web","syncSchedule":"0 3 * * *",
+       "config":{"start_urls":["https://example.com/sitemap.xml"],"allowed_domains":["example.com"],"max_pages":200,"max_depth":0}}'
 
 curl -s {{BASE_URL}}/api/v1/knowledge/sources/$SOURCE_ID:sync \
   -H "Authorization: Bearer $CURA_KEY" -H "Content-Type: application/json" \
   -d '{"mode":"incremental"}'
 ```
 
+A start address may be a page, a sitemap, a sitemap index or a feed. Each page becomes one
+document under its own title and address, so an answer that cites it links to the page.
+`max_depth` 1 also reads what those pages link to on the same site, such as PDFs. The
+site's robots.txt is always followed, an unchanged page is not read again, and a page
+that has left the sitemap is removed.
+
 The sync answers `202` with a `jobId`. `GET /api/v1/knowledge/jobs/$JOB_ID` gives its
-`status` and `stats` (`added`, `updated`, `unchanged`, `deleted`, `failed`).
+`status` and `stats` (`added`, `updated`, `unchanged`, `deleted`, `failed`);
+`GET /api/v1/knowledge/collections/$COLLECTION_ID/jobs` lists a collection's jobs, and
+`POST /api/v1/knowledge/jobs/$JOB_ID:cancel` stops one.
+`GET /api/v1/knowledge/collections/$COLLECTION_ID` gives the collection and its counts.
 
 **Search** (`knowledge:read`):
 

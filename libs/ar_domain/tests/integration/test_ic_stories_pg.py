@@ -215,7 +215,7 @@ async def test_an_extraction_correction_reloads(database_url: str) -> None:
     }
     library = DocumentLibrary(store)
     library._ask = lambda _actor, _alias: (  # type: ignore[method-assign]
-        lambda _prompt, _wrapped: (
+        lambda _prompt, _wrapped, *_shape, **_options: (
             '{"fields": {"report_date": {"value": "old", "quote": "not on the page", '
             '"confidence": 0.9}}}'
         )

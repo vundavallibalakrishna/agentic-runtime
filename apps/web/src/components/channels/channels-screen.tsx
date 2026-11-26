@@ -28,6 +28,11 @@ type Integration = {
 
 const MODE_KEY = "ar-settings-mode";
 
+function whole(value: string, fallback: number): number {
+  const number = Math.floor(Number(value));
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
 export function ChannelsScreen() {
   const t = useTranslations("channels");
   const [rows, setRows] = useState<Integration[]>([]);
@@ -42,6 +47,14 @@ export function ChannelsScreen() {
   const [access, setAccess] = useState("signed");
   const [visitorEmail, setVisitorEmail] = useState("");
   const [visitorNotice, setVisitorNotice] = useState("");
+  // What the server applies when a limit is left as it is.
+  const [limits, setLimits] = useState({
+    maxMessages: "30",
+    maxMessageChars: "2000",
+    sessionsPerMinute: "60",
+    sessionsPerClientPerMinute: "10",
+    sessionMinutes: "30",
+  });
   const anyone = kind === "widget" && access === "public";
   const [embed, setEmbed] = useState("");
   const [routing, setRouting] = useState("");
@@ -123,6 +136,11 @@ export function ChannelsScreen() {
                     access: "public",
                     visitorEmail: visitorEmail.trim(),
                     notice: visitorNotice.trim(),
+                    maxMessages: whole(limits.maxMessages, 30),
+                    maxMessageChars: whole(limits.maxMessageChars, 2000),
+                    sessionsPerMinute: whole(limits.sessionsPerMinute, 60),
+                    sessionsPerClientPerMinute: whole(limits.sessionsPerClientPerMinute, 10),
+                    sessionSeconds: whole(limits.sessionMinutes, 30) * 60,
                   }
                 : { allowedOrigins }
               : { command: "/agent", allowedChannelIds: [] },
@@ -278,6 +296,36 @@ export function ChannelsScreen() {
                     className="mt-1 w-full max-w-xl rounded-lg border border-border bg-background p-3 text-sm"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">{t("widgetNoticeHelp")}</p>
+                  <fieldset className="mt-3">
+                    <legend className="text-sm font-medium">{t("widgetLimits")}</legend>
+                    <div className="mt-1 flex flex-wrap gap-4">
+                      {(
+                        [
+                          ["maxMessages", "widgetMaxMessages", 1000],
+                          ["maxMessageChars", "widgetMaxChars", 32000],
+                          ["sessionsPerMinute", "widgetSessionsPerMinute", 6000],
+                          ["sessionsPerClientPerMinute", "widgetSessionsPerVisitor", 600],
+                          ["sessionMinutes", "widgetSessionMinutes", 1440],
+                        ] as const
+                      ).map(([key, label, most]) => (
+                        <label className="text-sm" htmlFor={`widget-${key}`} key={key}>
+                          {t(label)}
+                          <Input
+                            className="mt-1 w-28"
+                            id={`widget-${key}`}
+                            max={most}
+                            min={1}
+                            onChange={(event) =>
+                              setLimits((current) => ({ ...current, [key]: event.target.value }))
+                            }
+                            type="number"
+                            value={limits[key]}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{t("widgetLimitsHelp")}</p>
+                  </fieldset>
                 </div>
               ) : (
                 <>

@@ -43,6 +43,19 @@ The response returns the credential **once**:
 Store `key` securely — later reads return everything **except** the secret. The key id
 (`ak_<prefix>`) is safe to log; the `sk_` secret is not.
 
+The calls, all for a workspace administrator:
+
+| Call | What it does |
+|---|---|
+| `GET /api/v1/service-accounts:capabilities` | What an account can be made for, with the role and permissions for each |
+| `POST /api/v1/service-accounts` | Create an account |
+| `PATCH /api/v1/service-accounts/{service_account_id}` | Describe it, or disable it (`status: "disabled"`) |
+| `DELETE /api/v1/service-accounts/{service_account_id}` | Delete it. What it created stays |
+| `POST /api/v1/api-keys` | Mint a key for it (`serviceAccountId`, `scopes`, `expiresInDays`) |
+| `GET /api/v1/api-keys?serviceAccountId=` | Its keys, without their secrets |
+| `POST /api/v1/api-keys/{api_key_id}:rotate` | A new secret for a key; the old one stops at once |
+| `DELETE /api/v1/api-keys/{api_key_id}` | Revoke a key |
+
 ### Authenticate
 
 Send the whole credential as a bearer token:

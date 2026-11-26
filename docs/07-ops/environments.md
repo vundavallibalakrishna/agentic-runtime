@@ -70,7 +70,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DOCUMENT_ALIGN_LEXICAL` | `0.5` | Minimum word overlap before two headings are paired. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_ASK_MAX_TOKENS` | `1800` | Output tokens one document model call may ask for. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_EXTRACT_TIMEOUT_S` | `900` | How long `documents.extract` may run. The gateway and the runtime client use this when it is longer than the stored tool timeout. | [document tasks](../09-plan/document-tasks.md) |
-| `AR_TOOL_GATEWAY_GRACE_S` | `60` | Extra seconds the runtime waits on the tool gateway after the tool's own timeout. | [tools](../03-specs/08-tools-mcp.md) |
+| `AR_TOOL_GATEWAY_GRACE_S` | `60` | Extra seconds the runtime waits on the tool gateway after the tool's own timeout. | [tools](../03-specs/08-tool-registry-mcp.md) |
 | `AR_DOCUMENT_CHUNK_CHARS` | `1000` | Characters in one library passage. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_CHUNK_OVERLAP` | `120` | Overlap between library passages. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_COLLECTION_CAP` | `20` | Collections searched in one page. | [document tasks](../09-plan/document-tasks.md) |
@@ -253,6 +253,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SMTP_STARTTLS` | `false` (dev) | Use STARTTLS | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_SMTP_USERNAME` | (empty) | SMTP auth user | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_SSE_MAX_PER_USER` | `20` | Concurrent SSE streams per user | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_TRUSTED_PROXY_CIDRS` | `127.0.0.0/8,::1/128` | The proxies in front of the API (the web app, an ingress), as CIDRs. A request from one of them is counted against the visitor named in `X-Forwarded-For`; any other request is counted against its own address | [spec 16 §7](../03-specs/16-channels.md) |
 | `AR_STEP_UP_TTL_S` | `600` | Step-up validity | [spec 01](../03-specs/01-api-bff.md), [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_TABLE_MAX_ROWS` | `1000000` | The most rows of one table file (CSV, TSV, JSON or a sheet of an xlsx) the table tools read. A longer file is refused, never read in part. Rows are held in the in-process query engine while one statement runs | [OQ-152](../open-questions.md) |
 | `AR_TEMPORAL_ADDRESS` | `localhost:7233` | Temporal frontend host:port. `/readyz` always checks it. A turn is not run in the API process when the worker cannot take it (`interrupted` / `not_resumed`) | [spec 01](../03-specs/01-api-bff.md), [spec 07](../03-specs/07-agent-runtime.md) |
