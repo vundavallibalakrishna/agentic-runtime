@@ -2,7 +2,8 @@
 
 ``/healthz`` stays a liveness probe and does not connect. ``/readyz`` checks
 Postgres (including that ``alembic_version`` is the head revision), Valkey when
-sessions and the limiter are shared, and Temporal. A turn is not run in this
+sessions and the limiter are shared, Temporal, and that the engine which masks
+personal data in tool results is built (``masking``). A turn is not run in this
 process. A platform-database deny name that has never resolved is a ``degraded``
 detail, not a failure. A check is cached for ten seconds.
 """
@@ -26,7 +27,7 @@ Ping = Callable[[], Awaitable[None]]
 
 def readiness_names(*, shared: bool) -> list[str]:
     """Check names ``/readyz`` reports, in a stable order."""
-    names = ["postgres", "temporal"]
+    names = ["postgres", "temporal", "masking"]
     if shared:
         names.insert(1, "valkey")
     return names
@@ -43,7 +44,17 @@ def api_readiness(settings: BaseServiceSettings) -> dict[str, ReadinessCheck]:
     checks["temporal"] = _cached(
         lambda: ping_temporal(settings.temporal_address, settings.temporal_namespace)
     )
+    checks["masking"] = masking_ready
     return checks
+
+
+async def masking_ready() -> None:
+    """Not ready until the masking engine is built. While it loads, the process can
+    serve almost nothing, so it takes no traffic yet."""
+    from ar_domain.pii.analyzer import warmed  # noqa: PLC0415
+
+    if not warmed():
+        raise RuntimeError("the engine that masks personal data is still loading")
 
 
 def api_readiness_notes(settings: BaseServiceSettings) -> dict[str, Callable[[], Awaitable[str]]]:

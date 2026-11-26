@@ -43,12 +43,22 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
         # A stop while the model is writing cancels the run and keeps the text.
         # A stop during the approved tool call is the deadline cutting it off:
         # that is a failed tool call, not a silent cancel.
-        from ar_domain.tools.resume import fail_interrupted_tool, mark_cancelled  # noqa: PLC0415
+        from ar_domain.tools.resume import (  # noqa: PLC0415
+            fail_cut_off,
+            fail_interrupted_tool,
+            mark_cancelled,
+        )
 
         stopped_run = runs.get(run_id) if isinstance(runs, dict) else None
         if isinstance(stopped_run, dict):
-            if during_tool and stopped_run.get("cancel_requested") is not True:
+            asked = stopped_run.get("cancel_requested") is True
+            cut_off = _cut_off_reason()
+            if during_tool and not asked:
                 fail_interrupted_tool(store, stopped_run)
+            elif cut_off and not asked:
+                # Temporal stopped the step: it missed its heartbeat or deadline, or the
+                # worker is shutting down. Nobody pressed Stop.
+                fail_cut_off(store, stopped_run, cut_off)
             else:
                 mark_cancelled(store, stopped_run)
         await asyncio.shield(flush_store(store))
@@ -172,3 +182,18 @@ def _step_body(
         batch = run.get("section_batch")
         body["sections"] = batch if isinstance(batch, list) else []
     return body
+
+
+def _cut_off_reason() -> str:
+    """Why Temporal cancelled this activity, when it was not a cancel someone asked for."""
+    try:
+        details = activity.cancellation_details()
+    except RuntimeError:
+        return ""
+    if details is None or details.cancel_requested:
+        return ""
+    if details.timed_out:
+        return "step_timeout"
+    if details.worker_shutdown:
+        return "worker_shutdown"
+    return ""

@@ -143,11 +143,12 @@ def test_shared_process_state_is_outside_dev_and_ci() -> None:
     assert not uses_shared_process_state(EnvName.DEV)
     assert not uses_shared_process_state(EnvName.CI)
     assert uses_shared_process_state(EnvName.PROD)
-    assert readiness_names(shared=False) == ["postgres", "temporal"]
+    assert readiness_names(shared=False) == ["postgres", "temporal", "masking"]
     assert readiness_names(shared=True) == [
         "postgres",
         "valkey",
         "temporal",
+        "masking",
     ]
 
 
