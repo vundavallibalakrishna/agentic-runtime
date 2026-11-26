@@ -106,14 +106,14 @@ describe("detail flow failures", () => {
     fireEvent.change(words, { target: { value: "120" } });
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     await waitFor(() => expect(drafts).toHaveLength(1));
-    expect((drafts[0].definition as { output: unknown }).output).toEqual({
+    expect((drafts[0]?.definition as { output?: unknown } | undefined)?.output).toEqual({
       citations: "preferred",
       maxWords: 120,
     });
     fireEvent.change(words, { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     await waitFor(() => expect(drafts).toHaveLength(2));
-    expect((drafts[1].definition as { output: unknown }).output).toEqual({
+    expect((drafts[1]?.definition as { output?: unknown } | undefined)?.output).toEqual({
       citations: "preferred",
     });
   });
