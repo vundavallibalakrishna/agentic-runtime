@@ -94,6 +94,7 @@ All activities are idempotent on (`run_id`, `step_seq` / `tool_call_id`): they u
 - `XADD ar:run:{run_id}:events MAXLEN ~ 20000` and `XADD ar:conv:{conversation_id}:events MAXLEN ~ 5000` (if conversation).
 - Persisted types are buffered and inserted into `run_events` in batches (≤ 50 events or 250 ms), and always flushed before an activity returns.
 - Deltas are coalesced: ≤ 1 `message.delta` per 50 ms per message (`AR_DELTA_COALESCE_MS`).
+- **Every process that runs a turn publishes.** Outside dev and CI the runtime worker's store carries the same `ValkeyRunBus` as the API (`ar_domain.runs.event_bus.process_bus`, set in `ar_runtime.worker._prepare_store`; each activity's unit takes it from there), so an answer's text reaches a reader as the model writes it. Before 2026-11-26 only the API had a bus: a worker's events reached a reader when the step was saved, so a public answer arrived all at once after 9 s instead of starting at about 6 s. The bus writes on the loop its client belongs to; an event emitted on another loop (a tool or search on a `run_sync` thread) is handed to that loop.
 - On terminal event: `EXPIRE` both run keys 24 h (`AR_RUN_STREAM_TTL_S`); `runs.last_event_seq` updated.
 - If Valkey is unavailable the emitter writes persisted events to `run_events` only and drops deltas (the client catches up from `message.completed`), metric `ar_event_emit_failures_total`.
 

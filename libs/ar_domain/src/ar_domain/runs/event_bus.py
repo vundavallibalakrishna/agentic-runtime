@@ -25,15 +25,32 @@ class ValkeyRunBus:
         self.url = url
         self._client = client
         self._pending: set[asyncio.Task[str]] = set()
+        # The loop the client belongs to: the first one that published or read.
+        self._owner: asyncio.AbstractEventLoop | None = None
 
     def publish(self, run_id: uuid.UUID, event: dict[str, object]) -> None:
-        """Schedule a write. A caller with no running loop drops the publish."""
+        """Schedule a write on the loop that owns the client.
+
+        A turn's text is written on the loop of the step that runs it, but a tool or a
+        search can emit from a short-lived loop on another thread. The client's
+        connections belong to one loop, so a write from any other is handed to it. A
+        caller with no running loop and no owner to hand to drops the publish.
+        """
         payload = orjson.dumps(event).decode()
         try:
-            loop = asyncio.get_running_loop()
+            loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
         except RuntimeError:
+            loop = None
+        owner = self._owner
+        if owner is None or owner.is_closed():
+            if loop is None:
+                return
+            self._owner = owner = loop
+        if owner is not loop:
+            if owner.is_running():
+                asyncio.run_coroutine_threadsafe(self.add(run_id, payload), owner)
             return
-        task = loop.create_task(self.add(run_id, payload))
+        task = owner.create_task(self.add(run_id, payload))
         self._pending.add(task)
         task.add_done_callback(self._pending.discard)
 
@@ -94,11 +111,28 @@ class ValkeyRunBus:
                 yield event
 
     def _redis(self) -> Any:
+        if self._owner is None:
+            self._owner = asyncio.get_running_loop()
         if self._client is None:
             from ar_common.valkey import valkey_client  # noqa: PLC0415
 
             self._client = valkey_client(self.url, socket_connect_timeout=1, socket_timeout=2)
         return self._client
+
+
+def process_bus(settings: object) -> ValkeyRunBus | None:
+    """The bus a process publishes run events on, or None where they stay in the process.
+
+    Every process that runs a turn needs it, not only the one that serves the stream: a
+    worker that wrote its events only to its own store left a reader with nothing until
+    the step was saved, so an answer arrived all at once instead of as it was written.
+    """
+    from ar_common.settings import uses_shared_process_state  # noqa: PLC0415
+
+    env = getattr(settings, "env", None)
+    if env is None or not uses_shared_process_state(env):
+        return None
+    return ValkeyRunBus(str(getattr(settings, "valkey_url", "")))
 
 
 def _key(run_id: uuid.UUID) -> str:

@@ -80,6 +80,11 @@ async def _prepare_store() -> object:
         allow_loopback=loopback_allowed(settings),
     )
     store.model_gateway_url = str(getattr(settings, "model_gateway_url", "") or "")
+    from ar_domain.runs.event_bus import process_bus  # noqa: PLC0415
+
+    # The turns run here, so their events, an answer's text included, are published from
+    # here as they happen. Each activity's unit takes the bus from this store.
+    store.event_bus = process_bus(settings)
     from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
 
     configure_gateway(store, env=str(getattr(settings, "env", "dev")))
