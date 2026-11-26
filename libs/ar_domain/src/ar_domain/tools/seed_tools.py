@@ -419,10 +419,11 @@ def _knowledge_server(store: Any) -> None:
                             "type": "array",
                             "items": {
                                 "type": "string",
-                                "description": "A knowledge document id to restrict the search to.",
+                                "description": "A document to restrict the search to: its "
+                                "title or address as a passage shows it, or its id.",
                             },
-                            "description": "Search only these documents. Omit to search the "
-                            "collections.",
+                            "description": "Search only these documents. A name that matches "
+                            "no document is ignored. Omit to search the collections.",
                         },
                     },
                     "required": ["query"],
