@@ -1,20 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { CodeSample } from "@/components/common/code-sample";
 import { ActionStatus } from "@/components/common/detail-state";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
+import { ConfirmDialog } from "@/components/models/dialogs";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { clearCachedSession, loadSession } from "@/lib/session";
 import { exactOrigins } from "@/lib/widget-origins";
 
-type Agent = { id: string; name: string };
+type Agent = {
+  id: string;
+  name: string;
+  slug?: string;
+  status?: string;
+  visibility?: string;
+  publishedVersion?: number | null;
+};
 type Post = { id: string; body: string; status?: string };
 type Integration = {
   id: string;
@@ -24,13 +35,40 @@ type Integration = {
   statusDetail?: string;
   identitiesCount?: number;
   recentPosts?: Post[];
+  config?: Record<string, unknown>;
+  defaultAgent?: { id: string; name: string } | null;
+  agentRouting?: unknown[];
+};
+type Limits = {
+  maxMessages: string;
+  maxMessageChars: string;
+  sessionsPerMinute: string;
+  sessionsPerClientPerMinute: string;
+  sessionMinutes: string;
 };
 
 const MODE_KEY = "ar-settings-mode";
+// What the server applies when a limit is left as it is.
+const LIMITS: Limits = {
+  maxMessages: "30",
+  maxMessageChars: "2000",
+  sessionsPerMinute: "60",
+  sessionsPerClientPerMinute: "10",
+  sessionMinutes: "30",
+};
 
 function whole(value: string, fallback: number): number {
   const number = Math.floor(Number(value));
   return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function numberText(value: unknown, fallback: string, divide = 1): string {
+  return typeof value === "number" && value > 0 ? String(Math.round(value / divide)) : fallback;
+}
+
+function originsOf(config: Record<string, unknown>): string {
+  const raw = config.allowedOrigins ?? config.allowed_origins;
+  return Array.isArray(raw) ? raw.map(String).join("\n") : "";
 }
 
 export function ChannelsScreen() {
@@ -40,42 +78,48 @@ export function ChannelsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [editing, setEditing] = useState<Integration | null>(null);
   const [name, setName] = useState("");
   const [kind, setKind] = useState("slack");
   const [token, setToken] = useState("");
+  // The second credential a kind needs: Slack's signing secret, Teams' app id, a mailbox user.
+  const [second, setSecond] = useState("");
   const [origins, setOrigins] = useState("");
   const [access, setAccess] = useState("signed");
   const [visitorEmail, setVisitorEmail] = useState("");
   const [visitorNotice, setVisitorNotice] = useState("");
-  // What the server applies when a limit is left as it is.
-  const [limits, setLimits] = useState({
-    maxMessages: "30",
-    maxMessageChars: "2000",
-    sessionsPerMinute: "60",
-    sessionsPerClientPerMinute: "10",
-    sessionMinutes: "30",
-  });
+  const [limits, setLimits] = useState<Limits>(LIMITS);
+  const [showSources, setShowSources] = useState(true);
   const anyone = kind === "widget" && access === "public";
-  const [embed, setEmbed] = useState("");
+  const [embed, setEmbed] = useState<{ id: string; public: boolean } | null>(null);
   const [routing, setRouting] = useState("");
   const [agentId, setAgentId] = useState("");
   const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<Integration | null>(null);
+  const [removing, setRemoving] = useState<Integration | null>(null);
+  // Whether this workspace may have widgets at all, and whether this person may change that.
+  const [widgetOn, setWidgetOn] = useState<boolean | null>(null);
+  const [manageTenant, setManageTenant] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [page, agentPage] = await Promise.all([
+      const [page, agentPage, session] = await Promise.all([
         api<{ items: Integration[] }>("/api/v1/channel-integrations"),
         api<{ items: Agent[] }>("/api/v1/agents"),
+        loadSession(),
       ]);
       const list = page.items ?? [];
       setRows(list);
       const people = agentPage.items ?? [];
       setAgents(people);
-      setAgentId((current) => current || people[0]?.id || "");
+      setAgentId(
+        (current) => current || people.find((agent) => agent.status !== "archived")?.id || "",
+      );
+      setWidgetOn(session.features?.widget === true);
+      setManageTenant((session.permissions ?? []).includes("tenant:manage"));
       setSelected(null);
       if (list[0]) {
         const detail = await api<Integration>(`/api/v1/channel-integrations/${list[0].id}`);
@@ -98,63 +142,191 @@ export function ChannelsScreen() {
     window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
   }
 
-  async function createChannel() {
+  function resetForm() {
+    setEditing(null);
+    setName("");
+    setKind("slack");
+    setToken("");
+    setSecond("");
+    setOrigins("");
+    setAccess("signed");
+    setVisitorEmail("");
+    setVisitorNotice("");
+    setLimits(LIMITS);
+    setShowSources(true);
+    setRouting("");
+    setAgentId(agents.find((agent) => agent.status !== "archived")?.id ?? "");
+  }
+
+  async function startEdit(id: string) {
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const requestedOrigins = origins.split(/[\s,]+/).filter(Boolean);
-      const allowedOrigins = exactOrigins(requestedOrigins);
-      if (
-        kind === "widget" &&
-        (!allowedOrigins.length || allowedOrigins.length !== new Set(requestedOrigins).size)
-      )
-        throw new Error(t("invalidOrigins"));
-      const credentials =
-        kind === "slack"
-          ? { botToken: token, signingSecret: "demo-signing-secret" }
-          : kind === "teams"
-            ? { appId: "app", appPassword: token }
-            : kind === "email"
-              ? { username: "agent", password: token }
-              : anyone
-                ? {}
-                : { widgetSecret: token };
-      const created = await api<Integration>("/api/v1/channel-integrations", {
-        method: "POST",
-        body: JSON.stringify({
-          kind,
-          name,
-          defaultAgentId: agentId || undefined,
-          credentials,
-          agentRouting: advanced && routing ? JSON.parse(routing) : [],
-          config:
-            kind === "widget"
-              ? anyone
-                ? {
-                    allowedOrigins,
-                    access: "public",
-                    visitorEmail: visitorEmail.trim(),
-                    notice: visitorNotice.trim(),
-                    maxMessages: whole(limits.maxMessages, 30),
-                    maxMessageChars: whole(limits.maxMessageChars, 2000),
-                    sessionsPerMinute: whole(limits.sessionsPerMinute, 60),
-                    sessionsPerClientPerMinute: whole(limits.sessionsPerClientPerMinute, 10),
-                    sessionSeconds: whole(limits.sessionMinutes, 30) * 60,
-                  }
-                : { allowedOrigins }
-              : { command: "/agent", allowedChannelIds: [] },
-        }),
-      });
-      setEmbed(
-        kind === "widget"
-          ? `<script src="${window.location.origin}/widget.js" data-integration="${created.id}"></script>`
-          : "",
-      );
-      setName("");
+      const detail = await api<Integration>(`/api/v1/channel-integrations/${id}`);
+      const config = detail.config ?? {};
+      setEditing(detail);
+      setName(detail.name);
+      setKind(detail.kind);
       setToken("");
+      setSecond("");
+      setOrigins(originsOf(config));
+      setAccess(config.access === "public" ? "public" : "signed");
+      setVisitorEmail(String(config.visitorEmail ?? ""));
+      setVisitorNotice(String(config.notice ?? ""));
+      setLimits({
+        maxMessages: numberText(config.maxMessages, LIMITS.maxMessages),
+        maxMessageChars: numberText(config.maxMessageChars, LIMITS.maxMessageChars),
+        sessionsPerMinute: numberText(config.sessionsPerMinute, LIMITS.sessionsPerMinute),
+        sessionsPerClientPerMinute: numberText(
+          config.sessionsPerClientPerMinute,
+          LIMITS.sessionsPerClientPerMinute,
+        ),
+        sessionMinutes: numberText(config.sessionSeconds, LIMITS.sessionMinutes, 60),
+      });
+      setShowSources(config.showSources !== false);
+      setRouting(detail.agentRouting?.length ? JSON.stringify(detail.agentRouting) : "");
+      setAgentId(detail.defaultAgent?.id ?? "");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function widgetConfig(): Record<string, unknown> {
+    const requested = origins.split(/[\s,]+/).filter(Boolean);
+    const allowedOrigins = exactOrigins(requested);
+    if (!allowedOrigins.length || allowedOrigins.length !== new Set(requested).size)
+      throw new Error(t("invalidOrigins"));
+    if (!anyone) return { allowedOrigins, showSources };
+    return {
+      allowedOrigins,
+      showSources,
+      access: "public",
+      visitorEmail: visitorEmail.trim(),
+      notice: visitorNotice.trim(),
+      maxMessages: whole(limits.maxMessages, 30),
+      maxMessageChars: whole(limits.maxMessageChars, 2000),
+      sessionsPerMinute: whole(limits.sessionsPerMinute, 60),
+      sessionsPerClientPerMinute: whole(limits.sessionsPerClientPerMinute, 10),
+      sessionSeconds: whole(limits.sessionMinutes, 30) * 60,
+    };
+  }
+
+  /** The credentials typed in, or null when none were (an edit then keeps the saved ones). */
+  function credentials(): Record<string, string> | null {
+    if (anyone) return editing ? null : {};
+    if (!token && !second) return null;
+    if (kind !== "widget" && (!token || !second)) throw new Error(t("bothCredentials"));
+    if (kind === "slack") return { botToken: token, signingSecret: second };
+    if (kind === "teams") return { appId: second, appPassword: token };
+    if (kind === "email") return { username: second, password: token };
+    return { widgetSecret: token };
+  }
+
+  async function saveChannel() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const config = kind === "widget" ? widgetConfig() : undefined;
+      const secrets = credentials();
+      const agentRouting = advanced && routing ? JSON.parse(routing) : undefined;
+      if (editing) {
+        await api<Integration>(`/api/v1/channel-integrations/${editing.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            name,
+            defaultAgentId: agentId || null,
+            ...(config ? { config } : {}),
+            ...(secrets ? { credentials: secrets } : {}),
+            ...(agentRouting ? { agentRouting } : {}),
+          }),
+        });
+        setEmbed(null);
+      } else {
+        const created = await api<Integration>("/api/v1/channel-integrations", {
+          method: "POST",
+          body: JSON.stringify({
+            kind,
+            name,
+            defaultAgentId: agentId || undefined,
+            credentials: secrets ?? {},
+            agentRouting: agentRouting ?? [],
+            config: config ?? { command: "/agent", allowedChannelIds: [] },
+          }),
+        });
+        setEmbed(kind === "widget" ? { id: created.id, public: anyone } : null);
+      }
+      resetForm();
       setNotice(t("saved"));
       await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setStatus(row: Integration, status: "active" | "disabled") {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/v1/channel-integrations/${row.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setNotice(t(status === "disabled" ? "turnedOff" : "turnedOn", { name: row.name }));
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(row: Integration) {
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/v1/channel-integrations/${row.id}`, { method: "DELETE" });
+      if (editing?.id === row.id) resetForm();
+      if (embed?.id === row.id) setEmbed(null);
+      setNotice(t("deleted", { name: row.name }));
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    }
+  }
+
+  async function switchWidget(next: boolean) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const saved = await api<{ settings?: { features?: { widget?: boolean } } }>(
+        "/api/v1/tenant",
+        { method: "PATCH", body: JSON.stringify({ settings: { features: { widget: next } } }) },
+      );
+      setWidgetOn(saved.settings?.features?.widget === true);
+      // The shell reads features from the session; read it again on the next screen.
+      clearCachedSession();
+      setNotice(t(next ? "widgetTurnedOn" : "widgetTurnedOff"));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function showInstall(id: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const detail = await api<Integration>(`/api/v1/channel-integrations/${id}`);
+      setEmbed({ id, public: detail.config?.access === "public" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
@@ -194,6 +366,28 @@ export function ChannelsScreen() {
     }
   }
 
+  const chosen = agents.find((agent) => agent.id === agentId);
+  const widgetBlocked = kind === "widget" && widgetOn === false && !editing;
+  const secondLabel =
+    kind === "slack" ? t("signingSecret") : kind === "teams" ? t("appId") : t("mailboxUser");
+
+  const secondField =
+    kind === "widget" ? null : (
+      <>
+        <label className="mt-3 block text-sm" htmlFor="channel-second">
+          {secondLabel}
+        </label>
+        <Input
+          autoComplete="off"
+          className="mt-1 max-w-md"
+          id="channel-second"
+          onChange={(event) => setSecond(event.target.value)}
+          type={kind === "slack" ? "password" : "text"}
+          value={second}
+        />
+      </>
+    );
+
   return (
     <AppShell>
       <ActionStatus busy={busy} />
@@ -211,23 +405,64 @@ export function ChannelsScreen() {
             </Button>
           </p>
         ) : null}
-        {notice ? <p className="mb-3 text-sm text-[var(--muted-foreground)]">{notice}</p> : null}
+        {notice ? (
+          <p className="mb-3 text-sm text-[var(--muted-foreground)]" role="status">
+            {notice}
+          </p>
+        ) : null}
+
+        {widgetOn !== null ? (
+          <section
+            aria-labelledby="widget-feature-title"
+            className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
+          >
+            <div className="min-w-0">
+              <h2 className="text-base font-medium" id="widget-feature-title">
+                {t("widgetFeature")}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {t(widgetOn ? "widgetFeatureOn" : "widgetFeatureOff")}
+              </p>
+            </div>
+            {manageTenant ? (
+              <Button
+                onClick={() => void switchWidget(!widgetOn)}
+                type="button"
+                variant={widgetOn ? "outline" : "default"}
+              >
+                {t(widgetOn ? "widgetTurnOff" : "widgetTurnOn")}
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t("widgetAskAdmin")}</p>
+            )}
+          </section>
+        ) : null}
 
         {embed && (
           <section
             className="mb-6 rounded-xl border border-border bg-card p-4"
             aria-label={t("embedTitle")}
           >
-            <h2 className="text-base font-medium">{t("embedTitle")}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{t("embedHelp")}</p>
-            <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-3 text-xs">
-              {embed}
-            </pre>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-medium">{t("embedTitle")}</h2>
+              <Button onClick={() => setEmbed(null)} type="button" variant="ghost">
+                {t("close")}
+              </Button>
+            </div>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              {t(embed.public ? "embedHelpPublic" : "embedHelp")}
+            </p>
+            <div className="mt-3">
+              <CodeSample
+                title={t("embedCode")}
+                value={`<script src="${window.location.origin}/widget.js" data-integration="${embed.id}"></script>`}
+              />
+            </div>
           </section>
         )}
         <ManagementLayout
           title={t("listTitle")}
-          formTitle={t("create")}
+          formTitle={editing ? t("editTitle", { name: editing.name }) : t("create")}
           form={
             <section className="space-y-1">
               <label className="mt-3 block text-sm" htmlFor="channel-name">
@@ -244,6 +479,7 @@ export function ChannelsScreen() {
               </label>
               <select
                 className="mt-1 max-w-md rounded-lg border border-[var(--border)] bg-[var(--card)] p-2 text-sm"
+                disabled={!!editing}
                 id="channel-kind"
                 onChange={(event) => setKind(event.target.value)}
                 value={kind}
@@ -253,6 +489,11 @@ export function ChannelsScreen() {
                 <option value="email">Email</option>
                 <option value="widget">Widget</option>
               </select>
+              {widgetBlocked ? (
+                <p className="mt-2 max-w-md text-sm text-[var(--destructive)]" role="alert">
+                  {t(manageTenant ? "widgetOffTurnOn" : "widgetOffAsk")}
+                </p>
+              ) : null}
               {kind === "widget" && (
                 <div className="mt-3">
                   <label className="block text-sm" htmlFor="widget-access">
@@ -329,16 +570,29 @@ export function ChannelsScreen() {
                 </div>
               ) : (
                 <>
+                  {kind === "slack" ? null : secondField}
                   <label className="mt-3 block text-sm" htmlFor="channel-token">
-                    {kind === "widget" ? t("widgetSecret") : t("token")}
+                    {kind === "widget"
+                      ? t("widgetSecret")
+                      : kind === "slack"
+                        ? t("token")
+                        : t("password")}
                   </label>
                   <Input
+                    aria-describedby={editing ? "channel-token-keep" : undefined}
+                    autoComplete="new-password"
                     className="mt-1 max-w-md"
                     id="channel-token"
                     onChange={(event) => setToken(event.target.value)}
                     type="password"
                     value={token}
                   />
+                  {editing ? (
+                    <p className="mt-1 text-xs text-muted-foreground" id="channel-token-keep">
+                      {t("keepSecret")}
+                    </p>
+                  ) : null}
+                  {kind === "slack" ? secondField : null}
                 </>
               )}
               {kind === "widget" && (
@@ -355,6 +609,20 @@ export function ChannelsScreen() {
                     placeholder="https://portal.example.com"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">{t("originsHelp")}</p>
+                  <label className="mt-3 flex items-start gap-2 text-sm">
+                    <input
+                      checked={showSources}
+                      className="mt-1"
+                      onChange={(event) => setShowSources(event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span>
+                      {t("showSources")}
+                      <span className="block text-xs text-muted-foreground">
+                        {t("showSourcesHelp")}
+                      </span>
+                    </span>
+                  </label>
                 </div>
               )}
               {advanced || kind === "widget" ? (
@@ -363,17 +631,41 @@ export function ChannelsScreen() {
                     {t("agent")}
                   </label>
                   <select
+                    aria-describedby={chosen ? "channel-agent-hint" : undefined}
                     className="mt-1 max-w-md rounded-lg border border-[var(--border)] bg-[var(--card)] p-2 text-sm"
                     id="channel-agent"
                     onChange={(event) => setAgentId(event.target.value)}
                     value={agentId}
                   >
-                    {agents.map((agent) => (
-                      <option key={agent.id} value={agent.id}>
-                        {agent.name}
-                      </option>
-                    ))}
+                    {agentId && !chosen ? (
+                      <option value={agentId}>{t("agentUnknown")}</option>
+                    ) : null}
+                    {agents
+                      .filter((agent) => agent.status !== "archived" || agent.id === agentId)
+                      .map((agent) => (
+                        <option key={agent.id} value={agent.id}>
+                          {agent.slug ? `${agent.name} (${agent.slug})` : agent.name}
+                        </option>
+                      ))}
                   </select>
+                  {chosen ? (
+                    <p
+                      className="mt-1 max-w-md text-xs text-muted-foreground"
+                      id="channel-agent-hint"
+                    >
+                      {chosen.publishedVersion
+                        ? t("agentVersion", { version: chosen.publishedVersion })
+                        : t("agentUnpublished")}{" "}
+                      {chosen.visibility && chosen.visibility !== "tenant" ? (
+                        <>
+                          {t("agentNotShared")}{" "}
+                          <Link className="underline" href={`/agents/${chosen.id}`}>
+                            {t("agentOpen", { name: chosen.name })}
+                          </Link>
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
                   {advanced && (
                     <>
                       <label className="mt-3 block text-sm" htmlFor="channel-routing">
@@ -393,14 +685,20 @@ export function ChannelsScreen() {
                   )}
                 </div>
               ) : null}
-              <Button
-                className="mt-4"
-                disabled={busy || !name}
-                onClick={() => void createChannel()}
-                type="button"
-              >
-                {t("save")}
-              </Button>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  disabled={busy || !name || widgetBlocked}
+                  onClick={() => void saveChannel()}
+                  type="button"
+                >
+                  {editing ? t("saveChanges") : t("save")}
+                </Button>
+                {editing ? (
+                  <Button onClick={resetForm} type="button" variant="outline">
+                    {t("cancelEdit")}
+                  </Button>
+                ) : null}
+              </div>
             </section>
           }
         >
@@ -416,20 +714,62 @@ export function ChannelsScreen() {
             {rows.map((row) => (
               <li className="p-4" key={row.id}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-base font-medium">{row.name}</h2>
                     <p className="text-sm text-[var(--muted-foreground)]">
                       {row.kind} · {t("status")} {row.status} · {row.identitiesCount ?? 0}{" "}
                       {t("identities")}
+                      {row.defaultAgent ? ` · ${t("agent")} ${row.defaultAgent.name}` : ""}
                     </p>
                   </div>
-                  <Button
-                    onClick={() => void testConnection(row.id)}
-                    type="button"
-                    variant="outline"
-                  >
-                    {t("test")}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      aria-label={t("editNamed", { name: row.name })}
+                      onClick={() => void startEdit(row.id)}
+                      type="button"
+                      variant="outline"
+                    >
+                      {t("edit")}
+                    </Button>
+                    {row.kind === "widget" ? (
+                      <Button
+                        aria-label={t("installNamed", { name: row.name })}
+                        onClick={() => void showInstall(row.id)}
+                        type="button"
+                        variant="outline"
+                      >
+                        {t("install")}
+                      </Button>
+                    ) : null}
+                    <Button
+                      aria-label={t("testNamed", { name: row.name })}
+                      onClick={() => void testConnection(row.id)}
+                      type="button"
+                      variant="outline"
+                    >
+                      {t("test")}
+                    </Button>
+                    <Button
+                      aria-label={t(row.status === "disabled" ? "turnOnNamed" : "turnOffNamed", {
+                        name: row.name,
+                      })}
+                      onClick={() =>
+                        void setStatus(row, row.status === "disabled" ? "active" : "disabled")
+                      }
+                      type="button"
+                      variant="ghost"
+                    >
+                      {t(row.status === "disabled" ? "turnOn" : "turnOff")}
+                    </Button>
+                    <Button
+                      aria-label={t("deleteNamed", { name: row.name })}
+                      onClick={() => setRemoving(row)}
+                      type="button"
+                      variant="ghost"
+                    >
+                      {t("delete")}
+                    </Button>
+                  </div>
                 </div>
               </li>
             ))}
@@ -469,6 +809,17 @@ export function ChannelsScreen() {
           ) : null}
         </ManagementLayout>
       </fieldset>
+      <ConfirmDialog
+        body={t("deleteBody", { name: removing?.name ?? "" })}
+        confirmLabel={t("delete")}
+        onClose={() => setRemoving(null)}
+        onConfirm={async () => {
+          if (removing) await remove(removing);
+          setRemoving(null);
+        }}
+        open={removing !== null}
+        title={t("deleteTitle", { name: removing?.name ?? "" })}
+      />
     </AppShell>
   );
 }

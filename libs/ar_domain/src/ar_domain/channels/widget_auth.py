@@ -106,6 +106,40 @@ def public_access(config: object) -> dict[str, Any] | None:
     }
 
 
+def show_sources(config: object) -> bool:
+    """Whether the widget shows the sources an answer cites. On unless turned off.
+
+    A tenant whose agent answers from documents it does not want named to visitors turns
+    it off (``showSources: false``); the widget then receives no citation at all.
+    """
+    if not isinstance(config, dict):
+        return True
+    raw = config.get("showSources", config.get("show_sources"))
+    return raw is not False
+
+
+def without_sources(conversation: dict[str, Any]) -> dict[str, Any]:
+    """A conversation with every cited source taken out of its messages."""
+    messages = conversation.get("messages")
+    if not isinstance(messages, list):
+        return conversation
+
+    def bare(message: object) -> object:
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(message, dict) or not isinstance(content, list):
+            return message
+        return {
+            **message,
+            "content": [
+                part
+                for part in content
+                if not (isinstance(part, dict) and part.get("type") == "citation_ref")
+            ],
+        }
+
+    return {**conversation, "messages": [bare(message) for message in messages]}
+
+
 def allows_visitors(definition: object) -> bool:
     """Whether an agent's published definition lets people who are not signed in chat."""
     channels = definition.get("channels") if isinstance(definition, dict) else None

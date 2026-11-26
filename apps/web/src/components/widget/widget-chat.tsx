@@ -19,6 +19,8 @@ import {
 } from "@/lib/stream/reducer";
 import { exactOrigins } from "@/lib/widget-origins";
 
+import { WidgetSources } from "./widget-sources";
+
 type Message = Record<string, unknown> & { id: string; role: string; text: string };
 type Session = {
   integrationId: string;
@@ -473,7 +475,14 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
                   {message.role === "user" ? t("you") : t("assistant")}
                 </p>
                 {message.role === "assistant" ? (
-                  <MessageBody message={message} onFollowup={setDraft} text={message.text || ""} />
+                  <>
+                    <MessageBody
+                      message={message}
+                      onFollowup={setDraft}
+                      text={message.text || ""}
+                    />
+                    <WidgetSources message={message} />
+                  </>
                 ) : (
                   <MessageBody message={message} text={message.text || ""} />
                 )}
