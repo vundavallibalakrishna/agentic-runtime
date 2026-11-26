@@ -24,12 +24,16 @@ from ar_common.errors import (
     NotFoundError,
     RateLimitedError,
     UnauthenticatedError,
+    ValidationFailedError,
 )
+from ar_common.settings import get_settings
 from ar_common.time import utcnow
 from ar_contracts.widget import WidgetConversationBody, WidgetMessageBody, WidgetSessionBody
 from ar_domain.channels.posts import load_credentials
 from ar_domain.channels.widget_auth import (
     allowed_origins,
+    allows_visitors,
+    client_address,
     public_access,
     verify_registered_token,
 )
@@ -50,6 +54,7 @@ async def widget_frame(integration_id: uuid.UUID, request: Request) -> dict[str,
         # Whether a visitor starts a session themselves, and what they are told first.
         "access": "signed" if public is None else "public",
         "notice": "" if public is None else public["notice"],
+        "max_message_chars": None if public is None else public["max_message_chars"],
     }
 
 
@@ -118,7 +123,11 @@ async def _admit_visitor(
     address. A session costs nothing until it sends a message, and each may send only so
     many, so these two counts bound what a script can spend."""
     limiter = request.app.state.rate_limiter
-    address = request.client.host if request.client else "unknown"
+    address = client_address(
+        request.client.host if request.client else "unknown",
+        request.headers.get("x-forwarded-for", ""),
+        get_settings().trusted_proxy_cidrs,
+    )
     for key, limit in (
         (f"widget:{integration_id}", int(str(public["sessions_per_minute"]))),
         (f"widget:{integration_id}:{address}", int(str(public["sessions_per_client"]))),
@@ -144,6 +153,8 @@ async def widget_context(
             agent = chat(request)._pick_agent(data.tenant_id, data.user_id, agent_id)
         except ArError:
             continue
+        if data.widget_public and not _open_to_visitors(request, agent):
+            continue
         agents.append({"id": str(agent_id), "name": agent["name"]})
     return {
         "integration_id": data.widget_integration_id,
@@ -162,6 +173,11 @@ async def widget_conversation(
 ) -> dict[str, object]:
     row = integration(request, data.widget_integration_id)
     if body.agent_id not in agent_ids(row):
+        raise NotFoundError()
+    if data.widget_public and not _open_to_visitors(
+        request, chat(request).agents.get(body.agent_id)
+    ):
+        # The agent's owner has not opened it to people who are not signed in.
         raise NotFoundError()
     conversation = chat(request).create_conversation(data.tenant_id, data.user_id, body.agent_id)
     data.widget_conversation_id = uuid.UUID(str(conversation["id"]))
@@ -198,7 +214,7 @@ async def widget_send(
 ) -> dict[str, object]:
     check_conversation(request, data, conversation_id)
     if data.widget_public:
-        await _count_message(request, data)
+        await _count_message(request, data, body.text)
     return await m2.post_message(
         conversation_id,
         m2.MessageBody(
@@ -234,10 +250,23 @@ async def widget_upload(
     )
 
 
-async def _count_message(request: Request, data: SessionData) -> None:
-    """A visitor's session sends only as many messages as its widget allows."""
+def _open_to_visitors(request: Request, agent: object) -> bool:
+    """Whether the agent's published version lets anonymous visitors chat with it."""
+    if not isinstance(agent, dict):
+        return False
+    version_id = agent.get("published_version_id")
+    version = chat(request).versions.get(version_id) if version_id is not None else None
+    return allows_visitors(version.get("definition") if isinstance(version, dict) else None)
+
+
+async def _count_message(request: Request, data: SessionData, text: str) -> None:
+    """A visitor's session sends only as many messages as its widget allows, each no
+    longer than it allows."""
     public = public_access(integration(request, data.widget_integration_id).get("config"))
     most = int(str(public["max_messages"])) if public is not None else 0
+    longest = int(str(public["max_message_chars"])) if public is not None else 0
+    if len(text) > longest:
+        raise ValidationFailedError(f"A message here can be at most {longest} characters.")
     if data.widget_messages >= most:
         raise RateLimitedError(
             "This chat has reached its limit. Start a new chat to carry on.", retry_after=60

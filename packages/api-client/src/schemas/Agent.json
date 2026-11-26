@@ -76,6 +76,11 @@
           "default": false,
           "title": "Widget",
           "type": "boolean"
+        },
+        "public": {
+          "default": false,
+          "title": "Public",
+          "type": "boolean"
         }
       },
       "title": "ChannelFlags",
@@ -914,7 +919,8 @@
         "teams": false,
         "email": false,
         "api": true,
-        "widget": false
+        "widget": false,
+        "public": false
       }
     },
     "taskTemplates": {

@@ -115,8 +115,10 @@ decides it.
 ## 6. Put the chat on your own site
 
 The workspace's **Channels** screen creates a widget and gives a script tag to paste into
-your page. Your server signs a short-lived token for each signed-in person; the signing
-secret never reaches the browser. See [Embed the chat](embed.md).
+your page. A widget is either open to anyone who visits, with limits on what a visitor
+can send, or for people your site has signed in, for whom your server signs a short-lived
+token. See [Embed the chat](embed.md), and [PHP and CMS sites](php-cms.md) for WordPress,
+Drupal, Joomla and plain PHP.
 
 ## 7. Let the agent call your platform
 

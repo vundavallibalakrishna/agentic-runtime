@@ -25,6 +25,7 @@ ORDER = (
     "without-the-console",
     "webhooks",
     "embed",
+    "php-cms",
     "a2a",
     "known-differences",
 )

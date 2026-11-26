@@ -158,6 +158,9 @@ class ChannelFlags(_Model):
     email: bool = False
     api: bool = True
     widget: bool = False
+    # Whether people who have not signed in may chat with this agent, through a widget
+    # that is open to anyone. Off unless the agent's owner turns it on.
+    public: bool = False
 
 
 class TaskTemplateSpec(_Model):

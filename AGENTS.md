@@ -48,6 +48,7 @@ The owner set these on 6 November 2026 after a run on an empty database showed h
 | `libs/ar_domain` | All business logic and the Alembic migrations |
 | `libs/ar_common`, `ar_contracts`, `ar_connector_sdk`, `ar_testing`, `ar_client` | Shared basics; cross-process models; connector SDK; test fixtures and the model stand-in tests use; generated Python client |
 | `policies/`, `deploy/`, `evals/` | OPA Rego; Compose and Helm; golden and red-team suites |
+| `integrations/` | Code a customer runs on their own site to embed the chat (PHP token helper, WordPress plugin) |
 | `docs/` | Specs, plan, decisions and test evidence |
 
 The canonical list of deployables and modules is [service-decomposition](docs/02-architecture/service-decomposition.md). How the running system fits together: [docs/architecture/README.md](docs/architecture/README.md). Stack and exact versions: [docs/stack.md](docs/stack.md).
@@ -106,6 +107,7 @@ Things that catch people out:
 - **Contracts first**: cross-process models live in `ar_contracts`; the OpenAPI document and TS client are generated (`make gen`), never hand-written.
 - **Commits**: Conventional Commits, with the task id in the body (`Task: M4-T03`) when the change belongs to a task. CI checks the pull request title.
 - **Docs move with code**: if the work reveals a spec gap, update the spec in the same PR and, if it is a decision, add an entry to [open-questions](docs/open-questions.md) with the default you applied.
+- **The developer notes move with the API**: the notes under `docs/agent-api` are what an integrator follows, in the repository and in the product (Settings → Developers). A change that adds, renames or removes a call an outside system uses (the agent API under `/v1`, the widget, files, knowledge, service accounts and keys), or changes how one behaves, updates the note in the same pull request and runs `make gen`. CI runs `scripts/check_developer_notes.py`: every address a note names must exist in the API, and every such call must be named in a note.
 - **No guessing**: when a spec is silent, apply the default in open-questions; if none exists, choose the safest option (deny, fail closed, smallest scope), document it in open-questions, and continue.
 
 ## Never-skip rules

@@ -24,6 +24,7 @@ export type Definition = {
   output?: { jsonSchema?: Record<string, unknown> };
   skills?: string[];
   knowledge?: { collections?: string[] };
+  channels?: { public?: boolean; [channel: string]: boolean | undefined };
   subagents?: {
     allowed?: string[];
     maxDepth?: number;

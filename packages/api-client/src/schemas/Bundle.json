@@ -175,7 +175,8 @@
             "teams": false,
             "email": false,
             "api": true,
-            "widget": false
+            "widget": false,
+            "public": false
           }
         },
         "taskTemplates": {
@@ -266,6 +267,11 @@
         "widget": {
           "default": false,
           "title": "Widget",
+          "type": "boolean"
+        },
+        "public": {
+          "default": false,
+          "title": "Public",
           "type": "boolean"
         }
       },

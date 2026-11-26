@@ -311,6 +311,7 @@ jobs:
       - run: uv run python scripts/check_certification_cases.py
       - run: uv run python scripts/check_capability_matrix.py
       - run: uv run python scripts/check_api_catalogue.py
+      - run: uv run python scripts/check_developer_notes.py
       - run: uv run python scripts/check_docs.py
       - name: no placeholder markers
         run: |

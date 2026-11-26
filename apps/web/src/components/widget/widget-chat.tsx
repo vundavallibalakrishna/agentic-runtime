@@ -36,6 +36,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
   );
   // What a public widget tells a visitor before the chat starts, and the visitor's yes.
   const [notice, setNotice] = useState("");
+  const [longest, setLongest] = useState(0);
   const [visitor, setVisitor] = useState(false);
   const accept = useRef<(() => void) | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -146,10 +147,12 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
       try {
         const policy = await request<{
           allowedOrigins: string[];
+          maxMessageChars?: number | null;
           access?: string;
           notice?: string;
         }>(`/integrations/${integrationId}`, { signal: controller.signal });
         origins = exactOrigins(policy.allowedOrigins);
+        setLongest(policy.maxMessageChars ?? 0);
         if (controller.signal.aborted) return;
         if (window.parent === window || !origins.length) throw new Error(t("embedOnly"));
         setVisitor(policy.access === "public");
@@ -559,6 +562,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
               id="widget-message"
               rows={2}
               className="w-full resize-none bg-transparent text-sm outline-none"
+              maxLength={longest || undefined}
               placeholder={t("placeholder")}
               value={draft}
               disabled={!agentId || busy}

@@ -168,6 +168,15 @@ async def test_session_updates_preserve_expiry(monkeypatch: pytest.MonkeyPatch) 
     assert await store.get(key) is None
 
 
+def _open(store: object, agent_id: str, *, public: bool = True) -> None:
+    """Let anonymous visitors chat with the agent, as its owner would before publishing."""
+    agent = store.agents[uuid.UUID(agent_id)]  # type: ignore[attr-defined]
+    version = store.versions[agent["published_version_id"]]  # type: ignore[attr-defined]
+    definition = dict(version["definition"])
+    definition["channels"] = {**dict(definition.get("channels") or {}), "public": public}
+    version["definition"] = definition
+
+
 @pytest.fixture
 def public_widget(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, str, str]:
     """A widget anyone may open: visitors act as one account the tenant names."""
@@ -181,6 +190,7 @@ def public_widget(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, str, str
     agent_id = next(
         str(agent["id"]) for agent in store.agents.values() if agent["slug"] == "assistant"
     )
+    _open(store, agent_id)
     row = ChannelBook(store).create(
         actor,
         {
@@ -192,6 +202,7 @@ def public_widget(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, str, str
                 "visitorEmail": "admin@dev.local",
                 "allowedOrigins": ["https://site.example"],
                 "maxMessages": 2,
+                "maxMessageChars": 40,
                 "sessionsPerClientPerMinute": 3,
                 "notice": "Messages are kept to improve answers.",
             },
@@ -352,3 +363,61 @@ def test_a_widget_that_is_not_public_still_needs_the_hosts_token(
         client.post("/api/v1/widget/sessions", json={"integrationId": integration_id}).status_code
         == 401
     )
+
+
+def test_a_public_widget_reaches_only_agents_opened_to_visitors(
+    public_widget: tuple[TestClient, str, str],
+) -> None:
+    """Putting an agent behind a public widget is not enough: its owner must open it."""
+    client, integration_id, agent_id = public_widget
+    _open(client.app.state.chat, agent_id, public=False)
+    headers = _visit(client, integration_id)
+    assert client.get("/api/v1/widget/session").json()["agents"] == []
+    refused = client.post(
+        "/api/v1/widget/conversations", json={"agentId": agent_id}, headers=headers
+    )
+    assert refused.status_code == 404
+
+
+def test_a_visitors_message_can_be_only_so_long(
+    public_widget: tuple[TestClient, str, str],
+) -> None:
+    client, integration_id, agent_id = public_widget
+    frame = client.get(f"/api/v1/widget/integrations/{integration_id}").json()
+    assert frame["maxMessageChars"] == 40
+    headers = _visit(client, integration_id)
+    conversation_id = client.post(
+        "/api/v1/widget/conversations", json={"agentId": agent_id}, headers=headers
+    ).json()["id"]
+    long = client.post(
+        f"/api/v1/widget/conversations/{conversation_id}/messages",
+        json={"text": "x" * 41},
+        headers=headers,
+    )
+    assert long.status_code == 422
+    assert "at most 40 characters" in long.json()["detail"]
+    # A message that was refused is not one of the session's messages.
+    for _ in range(2):
+        assert (
+            client.post(
+                f"/api/v1/widget/conversations/{conversation_id}/messages",
+                json={"text": "short"},
+                headers=headers,
+            ).status_code
+            == 202
+        )
+
+
+def test_visitors_behind_the_installs_proxy_are_counted_apart() -> None:
+    from ar_domain.channels.widget_auth import client_address
+
+    ours = "127.0.0.0/8,10.0.0.0/8"
+    # The web app and an ingress are in front: the visitor is the address they report.
+    assert client_address("127.0.0.1", "203.0.113.7, 10.0.0.4", ours) == "203.0.113.7"
+    # A caller that is not one of the proxies is itself, whatever it writes in the header.
+    assert client_address("198.51.100.9", "203.0.113.7", ours) == "198.51.100.9"
+    # A proxy that names nobody, or names nonsense, is counted as itself.
+    assert client_address("127.0.0.1", "", ours) == "127.0.0.1"
+    assert client_address("127.0.0.1", "not-an-address", ours) == "127.0.0.1"
+    # A visitor cannot hide behind an address they added in front of the real one.
+    assert client_address("127.0.0.1", "1.2.3.4, 203.0.113.7", ours) == "203.0.113.7"

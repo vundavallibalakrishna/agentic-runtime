@@ -369,6 +369,7 @@ export type Teams = boolean;
 export type Email = boolean;
 export type Api = boolean;
 export type Widget = boolean;
+export type Public = boolean;
 export type Id = string;
 export type Prompt = string;
 /**
@@ -558,6 +559,7 @@ export interface ChannelFlags {
   email?: Email;
   api?: Api;
   widget?: Widget;
+  public?: Public;
 }
 /**
  * A reusable reading task. Core ships none; an agent or a pack names them.
@@ -604,6 +606,7 @@ export interface ChannelFlags1 {
   email?: Email;
   api?: Api;
   widget?: Widget;
+  public?: Public;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema

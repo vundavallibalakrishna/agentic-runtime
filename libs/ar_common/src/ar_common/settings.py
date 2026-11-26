@@ -239,6 +239,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_SMTP_STARTTLS",
         "AR_SMTP_USERNAME",
         "AR_SSE_MAX_PER_USER",
+        "AR_TRUSTED_PROXY_CIDRS",
         "AR_STEP_UP_TTL_S",
         "AR_TEMPORAL_ADDRESS",
         "AR_TEMPORAL_NAMESPACE",
@@ -331,6 +332,10 @@ class BaseServiceSettings(BaseSettings):
     # Whether a tool, a connector or a model provider may reach this machine's own
     # addresses (127.0.0.0/8, localhost). An install decides; the default is no.
     egress_allow_loopback: bool = False
+    # The addresses of the proxies in front of the API (the web app, an ingress). A request
+    # from one of them is counted against the visitor it names in ``X-Forwarded-For``; a
+    # request from anywhere else is counted against its own address, whatever it claims.
+    trusted_proxy_cidrs: str = "127.0.0.0/8,::1/128"
     # Whether ``*`` (reach any host) is honoured in a sandbox egress allowlist. An install
     # decides; the default is no, so an allowlist must name its hosts.
     egress_allow_wildcard: bool = False
