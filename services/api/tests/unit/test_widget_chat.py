@@ -421,3 +421,90 @@ def test_visitors_behind_the_installs_proxy_are_counted_apart() -> None:
     assert client_address("127.0.0.1", "not-an-address", ours) == "127.0.0.1"
     # A visitor cannot hide behind an address they added in front of the real one.
     assert client_address("127.0.0.1", "1.2.3.4, 203.0.113.7", ours) == "203.0.113.7"
+
+
+def _cited_conversation(client: TestClient, integration_id: str, agent_id: str) -> str:
+    """A widget conversation whose reply cites one web page."""
+    _login(client, integration_id)
+    headers = _headers(client)
+    conversation_id = client.post(
+        "/api/v1/widget/conversations", json={"agentId": agent_id}, headers=headers
+    ).json()["id"]
+    sent = client.post(
+        f"/api/v1/widget/conversations/{conversation_id}/messages",
+        json={"text": "Which industries do you serve?"},
+        headers=headers,
+    )
+    assert sent.status_code == 202, sent.text
+    client.get(f"/api/v1/widget/runs/{sent.json()['run']['id']}/events")
+    store = client.app.state.chat
+    reply = next(
+        row
+        for row in store.messages.values()
+        if str(row["conversation_id"]) == conversation_id and row.get("role") == "assistant"
+    )
+    card = {"index": 1, "title": "Industries", "uri": "https://example.test/industries/"}
+    reply["content"] = [
+        *(reply.get("content") or []),
+        {"type": "citation_ref", "index": 1, "citation": card},
+    ]
+    return conversation_id
+
+
+def _parts(client: TestClient, conversation_id: str) -> list[str]:
+    saved = client.get(f"/api/v1/widget/conversations/{conversation_id}").json()
+    return [
+        part.get("type")
+        for message in saved["messages"]
+        for part in message.get("content") or []
+        if isinstance(part, dict)
+    ]
+
+
+def test_a_widget_shows_the_sources_an_answer_cites_unless_turned_off(
+    widget_client: tuple[TestClient, str, str],
+) -> None:
+    client, integration_id, agent_id = widget_client
+    conversation_id = _cited_conversation(client, integration_id, agent_id)
+    assert "citation_ref" in _parts(client, conversation_id)
+
+    store = client.app.state.chat
+    actor = Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS)
+    ChannelBook(store).patch(
+        actor,
+        uuid.UUID(integration_id),
+        {"config": {"allowedOrigins": ["https://portal.example"], "showSources": False}},
+    )
+    # The visitor receives no source at all, not one the screen merely hides.
+    assert "citation_ref" not in _parts(client, conversation_id)
+
+
+def test_taking_sources_out_leaves_the_rest_of_each_message() -> None:
+    from ar_domain.channels.widget_auth import show_sources, without_sources
+
+    conversation = {
+        "id": "c1",
+        "messages": [
+            {"id": "m1", "text": "Hi", "content": [{"type": "text", "text": "Hi"}]},
+            {
+                "id": "m2",
+                "text": "Banks [1]",
+                "content": [
+                    {"type": "text", "text": "Banks [1]"},
+                    {"type": "citation_ref", "index": 1, "citation": {"title": "Industries"}},
+                ],
+            },
+            {"id": "m3", "text": "No content parts"},
+        ],
+    }
+    stripped = without_sources(conversation)
+    assert [m["content"] for m in stripped["messages"][:2]] == [
+        [{"type": "text", "text": "Hi"}],
+        [{"type": "text", "text": "Banks [1]"}],
+    ]
+    assert stripped["messages"][2] == {"id": "m3", "text": "No content parts"}
+    assert conversation["messages"][1]["content"][1]["type"] == "citation_ref"  # not changed
+    assert show_sources({}) is True
+    assert show_sources({"showSources": False}) is False
+    assert show_sources({"show_sources": False}) is False
+    assert show_sources(None) is True

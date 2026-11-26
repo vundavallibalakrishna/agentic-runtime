@@ -66,7 +66,11 @@ describe("channel screens", () => {
     let sent: Record<string, unknown> = {};
     server.use(
       http.get("*/api/v1/auth/session", () =>
-        HttpResponse.json({ permissions: ["channels:manage"], user: { displayName: "Admin" } }),
+        HttpResponse.json({
+          permissions: ["channels:manage"],
+          features: { widget: true },
+          user: { displayName: "Admin" },
+        }),
       ),
       http.get("*/api/v1/channel-integrations", () => HttpResponse.json({ items: [] })),
       http.get("*/api/v1/agents", () =>
@@ -100,6 +104,7 @@ describe("channel screens", () => {
     expect(sent.credentials).toEqual({});
     expect(sent.config).toEqual({
       allowedOrigins: ["https://www.acme.example"],
+      showSources: true,
       access: "public",
       visitorEmail: "visitor@acme.example",
       notice: "",
@@ -109,6 +114,170 @@ describe("channel screens", () => {
       sessionsPerClientPerMinute: 10,
       sessionSeconds: 600,
     });
+  });
+
+  it("turns website chat on for the workspace before a widget can be saved", async () => {
+    let patched: Record<string, unknown> = {};
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({
+          permissions: ["channels:manage", "tenant:manage"],
+          features: { widget: false },
+          user: { displayName: "Admin" },
+        }),
+      ),
+      http.get("*/api/v1/channel-integrations", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/agents", () =>
+        HttpResponse.json({ items: [{ id: "a1", name: "Assistant" }] }),
+      ),
+      http.patch("*/api/v1/tenant", async ({ request }) => {
+        patched = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ settings: { features: { widget: true } } });
+      }),
+    );
+    render(wrap(<ChannelsScreen />));
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Website" } });
+    fireEvent.change(screen.getByLabelText("Kind"), { target: { value: "widget" } });
+    expect(screen.getByRole("alert").textContent).toContain("Turn it on above");
+    const save = screen.getByRole("button", { name: "Save channel" }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Turn on" }));
+    await waitFor(() => expect(patched).toEqual({ settings: { features: { widget: true } } }));
+    expect(await screen.findByText("Website and portal chat is on.")).toBeTruthy();
+    expect(save.disabled).toBe(false);
+  });
+
+  it("someone who cannot change the workspace is told whom to ask", async () => {
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({ permissions: ["channels:manage"], features: { widget: false } }),
+      ),
+      http.get("*/api/v1/channel-integrations", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/agents", () => HttpResponse.json({ items: [] })),
+    );
+    render(wrap(<ChannelsScreen />));
+    expect(await screen.findByText("Ask a workspace administrator to change this.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Turn on" })).toBeNull();
+  });
+
+  it("edits a saved widget and keeps its secret when none is typed", async () => {
+    let patched: Record<string, unknown> = {};
+    const widget = {
+      id: "w1",
+      kind: "widget",
+      name: "Portal",
+      status: "active",
+      defaultAgent: { id: "a2", name: "Helper" },
+      config: { allowedOrigins: ["https://portal.example"], showSources: false },
+    };
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({ permissions: ["channels:manage"], features: { widget: true } }),
+      ),
+      http.get("*/api/v1/channel-integrations", () => HttpResponse.json({ items: [widget] })),
+      http.get("*/api/v1/channel-integrations/w1", () => HttpResponse.json(widget)),
+      http.get("*/api/v1/agents", () =>
+        HttpResponse.json({
+          items: [
+            { id: "a1", name: "Helper", slug: "helper", visibility: "tenant", publishedVersion: 3 },
+            { id: "a2", name: "Helper", slug: "helper-2", visibility: "private" },
+          ],
+        }),
+      ),
+      http.patch("*/api/v1/channel-integrations/w1", async ({ request }) => {
+        patched = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(widget);
+      }),
+    );
+    render(wrap(<ChannelsScreen />));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Portal" }));
+    expect(await screen.findByRole("heading", { name: "Edit Portal" })).toBeTruthy();
+    expect((screen.getByLabelText("Kind") as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Allowed portal origins") as HTMLTextAreaElement).value).toBe(
+      "https://portal.example",
+    );
+    const sources = screen.getByRole("checkbox", { name: /see the sources/ }) as HTMLInputElement;
+    expect(sources.checked).toBe(false);
+    // Two agents of one name are told apart, and the private one says why it may fail.
+    const agent = screen.getByLabelText("Agent") as HTMLSelectElement;
+    expect([...agent.options].map((option) => option.text)).toEqual([
+      "Helper (helper)",
+      "Helper (helper-2)",
+    ]);
+    expect(agent.value).toBe("a2");
+    expect(screen.getByText(/Only some people can use this agent/)).toBeTruthy();
+    fireEvent.change(agent, { target: { value: "a1" } });
+    fireEvent.click(sources);
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(patched).toEqual({
+        name: "Portal",
+        defaultAgentId: "a1",
+        config: { allowedOrigins: ["https://portal.example"], showSources: true },
+      }),
+    );
+  });
+
+  it("turns off and deletes a channel after asking", async () => {
+    const calls: string[] = [];
+    const slack = { id: "s1", kind: "slack", name: "Team Slack", status: "active" };
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({ permissions: ["channels:manage"], features: {} }),
+      ),
+      http.get("*/api/v1/channel-integrations", () => HttpResponse.json({ items: [slack] })),
+      http.get("*/api/v1/channel-integrations/s1", () => HttpResponse.json(slack)),
+      http.get("*/api/v1/agents", () => HttpResponse.json({ items: [] })),
+      http.patch("*/api/v1/channel-integrations/s1", async ({ request }) => {
+        calls.push(`patch ${JSON.stringify(await request.json())}`);
+        return HttpResponse.json(slack);
+      }),
+      http.delete("*/api/v1/channel-integrations/s1", () => {
+        calls.push("delete");
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(wrap(<ChannelsScreen />));
+    fireEvent.click(await screen.findByRole("button", { name: "Turn off Team Slack" }));
+    await waitFor(() => expect(calls).toEqual(['patch {"status":"disabled"}']));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete Team Slack" }));
+    expect(await screen.findByText(/This cannot be undone/)).toBeTruthy();
+    expect(calls).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(calls).toContain("delete"));
+  });
+
+  it("saves the Slack secrets typed in and offers no archived agent", async () => {
+    let sent: Record<string, unknown> = {};
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({ permissions: ["channels:manage"], features: {} }),
+      ),
+      http.get("*/api/v1/channel-integrations", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/agents", () =>
+        HttpResponse.json({
+          items: [
+            { id: "old", name: "Helper", slug: "helper-old", status: "archived" },
+            { id: "a1", name: "Helper", slug: "helper", status: "published" },
+          ],
+        }),
+      ),
+      http.post("*/api/v1/channel-integrations", async ({ request }) => {
+        sent = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ id: "s1", kind: "slack", name: "Team" });
+      }),
+    );
+    render(wrap(<ChannelsScreen />));
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Team" } });
+    fireEvent.change(screen.getByLabelText("Bot token"), { target: { value: "xoxb-1" } });
+    fireEvent.change(screen.getByLabelText("Signing secret"), { target: { value: "sign-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    const agent = (await screen.findByLabelText("Agent")) as HTMLSelectElement;
+    expect([...agent.options].map((option) => option.value)).toEqual(["a1"]);
+    fireEvent.click(screen.getByRole("button", { name: "Save channel" }));
+    await waitFor(() => expect(sent.kind).toBe("slack"));
+    expect(sent.credentials).toEqual({ botToken: "xoxb-1", signingSecret: "sign-1" });
+    expect(sent.defaultAgentId).toBe("a1");
   });
 
   it("shows the channel error state", async () => {

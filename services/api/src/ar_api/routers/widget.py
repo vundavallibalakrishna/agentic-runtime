@@ -35,7 +35,9 @@ from ar_domain.channels.widget_auth import (
     allows_visitors,
     client_address,
     public_access,
+    show_sources,
     verify_registered_token,
+    without_sources,
 )
 
 router = APIRouter()
@@ -200,9 +202,12 @@ async def widget_messages(
     from ar_domain.durable.hydrate import load_jobs_for_conversation  # noqa: PLC0415
 
     await load_jobs_for_conversation(chat(request), data.tenant_id, conversation_id)
-    return chat(request).get_conversation(
+    conversation = chat(request).get_conversation(
         data.tenant_id, data.user_id, conversation_id, read_all=False
     )
+    if show_sources(integration(request, data.widget_integration_id).get("config")):
+        return conversation
+    return without_sources(conversation)
 
 
 @router.post(
