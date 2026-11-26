@@ -55,7 +55,7 @@ describe("tool screens", () => {
         <ToolCallCard
           call={{
             qualifiedName: "documents.extract",
-            status: "succeeded",
+            status: "failed",
             error: { message: "The extraction was not JSON." },
             presentation: { kind: "error", message: "The extraction was not JSON." },
           }}
@@ -63,6 +63,7 @@ describe("tool screens", () => {
         />,
       ),
     );
+    expect(screen.getByText("Extract")).toBeTruthy();
     expect(screen.getByText("Didn't finish")).toBeTruthy();
     expect(screen.getByText("The extraction was not JSON.")).toBeTruthy();
     expect(screen.getByText("TCK-1001")).toBeTruthy();
@@ -317,6 +318,29 @@ describe("tool screens", () => {
     expect(await screen.findByRole("heading", { name: "Tickets" })).toBeTruthy();
     expect(screen.getByText("tickets.create_ticket")).toBeTruthy();
     expect(screen.getByLabelText("Short name")).toBeTruthy();
+  });
+
+  it("shows a failed, timed-out, or rejected tool call as failed", () => {
+    for (const status of ["failed", "timed_out", "rejected", "upstream_timeout"]) {
+      const { unmount } = render(
+        wrap(
+          <ToolCallCard
+            call={{
+              qualifiedName: "documents.extract",
+              status,
+              error: { code: status, message: "the tool gateway returned 422" },
+            }}
+            label="Tool call"
+          />,
+        ),
+      );
+      const card = screen.getByTestId("tool-call");
+      expect(card.textContent).toContain("Extract");
+      expect(card.textContent).toContain("Didn't finish");
+      expect(card.textContent).not.toContain("Done");
+      expect(card.textContent).toContain("the tool gateway returned 422");
+      unmount();
+    }
   });
 
   it("keeps a submitted tool visible when a different reviewer is required", async () => {

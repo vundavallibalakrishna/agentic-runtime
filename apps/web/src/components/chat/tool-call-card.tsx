@@ -293,6 +293,12 @@ const STATUS_LABELS: Record<
   completed: "statusDone",
   running: "statusWorking",
   failed: "statusFailed",
+  denied: "statusFailed",
+  rejected: "statusFailed",
+  expired: "statusFailed",
+  timed_out: "statusFailed",
+  timeout: "statusFailed",
+  upstream_timeout: "statusFailed",
   budget_exceeded: "statusFailed",
   cancelled: "statusStopped",
   awaiting_approval: "statusWaiting",
@@ -309,6 +315,8 @@ function failureOf(
   call: Record<string, unknown>,
   presentation: Record<string, unknown>,
 ): { status: string; message: string } {
+  // The label is the tool result's status. An error on the call is shown beside it
+  // and does not change a status the result already named.
   const raw = text(call.status ?? "");
   const error = call.error;
   const fromError =
@@ -316,14 +324,7 @@ function failureOf(
       ? text((error as { message?: string }).message)
       : text(error);
   const fromPresentation = text(presentation.kind) === "error" ? text(presentation.message) : "";
-  const message = fromError || fromPresentation;
-  const marked =
-    call.isError === true ||
-    call.is_error === true ||
-    text(presentation.kind) === "error" ||
-    Boolean(fromError);
-  const succeeded = raw === "succeeded" || raw === "completed" || raw === "";
-  return { status: marked && succeeded ? "failed" : raw || (marked ? "failed" : ""), message };
+  return { status: raw, message: fromError || fromPresentation };
 }
 
 function friendlyStatus(

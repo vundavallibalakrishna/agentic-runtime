@@ -272,11 +272,12 @@ def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> 
         },
     )
     text = str(result.get("result_preview") or "")
-    if result.get("status") != "succeeded":
+    result_status = str(result.get("status") or "failed")
+    if result_status != "succeeded":
         error = result.get("error")
         detail = str(error.get("message") or "") if isinstance(error, dict) else ""
         text = f"The approved tool call did not run: {detail or text or 'no reason was given'}"
-    if _continue_loop(run, text):
+    if _continue_loop(run, text, status=result_status, error=result.get("error")):
         run["status"] = "running"
         release(run)
         run["step_kind"] = "tools"
@@ -327,7 +328,13 @@ def _fold_input(run: dict[str, object], text: str) -> None:
     write_worker_loop(run, state)
 
 
-def _continue_loop(run: dict[str, object], text: str) -> bool:
+def _continue_loop(
+    run: dict[str, object],
+    text: str,
+    *,
+    status: str = "succeeded",
+    error: object = None,
+) -> bool:
     """Append the approved result onto a checkpointed loop so the next step is the model."""
     from ar_domain.tools.worker_loop import (  # noqa: PLC0415
         read_worker_loop,
@@ -367,13 +374,14 @@ def _continue_loop(run: dict[str, object], text: str) -> bool:
     if not isinstance(previews, list):
         previews = []
         state["previews"] = previews
-    previews.append(
-        {
-            "qualified_name": call_name.replace("__", "."),
-            "status": "succeeded",
-            "result_preview": text,
-        }
-    )
+    preview: dict[str, object] = {
+        "qualified_name": call_name.replace("__", "."),
+        "status": status,
+        "result_preview": text,
+    }
+    if error is not None:
+        preview["error"] = error
+    previews.append(preview)
     write_worker_loop(run, state)
     return True
 

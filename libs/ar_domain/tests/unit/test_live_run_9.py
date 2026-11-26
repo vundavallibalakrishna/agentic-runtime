@@ -16,7 +16,7 @@ from ar_domain.runs.dispatch import _step_timeout_s
 from ar_domain.tools.agent_loop import _tool_limit_s
 from ar_domain.tools.gateway_client import _body, _timeout
 from ar_domain.tools.pipeline import ToolPipeline, _call_key, caller_wait_s, resolved_timeout_s
-from ar_domain.tools.resume import fail_interrupted_tool
+from ar_domain.tools.resume import _continue_loop, fail_interrupted_tool
 from ar_testing.demo import demo_store
 
 
@@ -66,6 +66,40 @@ def test_extract_timeout_cap_reaches_the_callers(monkeypatch: pytest.MonkeyPatch
         {"files__list": {"qualified_name": "files.list", "timeout_s": 30}},
     )
     assert 599 <= short <= 600
+
+
+def test_a_failed_approved_call_keeps_its_status_on_the_reply() -> None:
+    run = {
+        "checkpoint": {
+            "worker_loop": {
+                "opened": True,
+                "messages": [],
+                "pending_calls": [{"id": "c1", "name": "documents__extract"}],
+                "pending_index": 0,
+                "previews": [],
+            }
+        }
+    }
+    assert _continue_loop(
+        run,
+        "The approved tool call did not run: the tool gateway returned 422",
+        status="failed",
+        error={"code": "gateway_unavailable", "message": "the tool gateway returned 422"},
+    )
+    checkpoint = run["checkpoint"]
+    assert isinstance(checkpoint, dict)
+    state = checkpoint["worker_loop"]
+    assert isinstance(state, dict)
+    previews = state["previews"]
+    assert isinstance(previews, list)
+    preview = previews[0]
+    assert isinstance(preview, dict)
+    assert preview["qualified_name"] == "documents.extract"
+    assert preview["status"] == "failed"
+    assert preview["error"] == {
+        "code": "gateway_unavailable",
+        "message": "the tool gateway returned 422",
+    }
 
 
 def test_an_interrupted_tool_fails_instead_of_staying_on_the_approval_message() -> None:
