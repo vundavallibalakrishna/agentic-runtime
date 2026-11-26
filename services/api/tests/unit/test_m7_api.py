@@ -57,6 +57,11 @@ def test_library_search_is_scoped_and_cross_tenant_is_404() -> None:
     body = payroll.json()
     assert body["debug"]["backend"] == "memory"
     assert any(hit["title"] == "Payroll calendar" for hit in body["hits"])
+    # Each stage says how long it took, so a slow search names its slow stage.
+    timings = body["timingsMs"]
+    assert {"refresh", "embed", "store", "rerank", "verify", "total"} <= set(timings)
+    assert all(isinstance(value, (int, float)) and value >= 0 for value in timings.values())
+    assert timings["total"] >= timings["store"]
     member = _client(
         user="member",
         permissions=frozenset({"knowledge:read"}),
