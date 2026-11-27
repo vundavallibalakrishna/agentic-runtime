@@ -22,13 +22,12 @@ from ar_domain.knowledge.pipeline import ingest_or_enqueue, stored_bytes
 from ar_domain.knowledge.raw import revisions_of
 from ar_domain.knowledge.searching import search as run_search
 from ar_domain.knowledge.store import memory_index
-from ar_domain.knowledge.store_types import SUPPORTED_DIMS, DeleteFilter, PhysicalCollectionSpec
+from ar_domain.knowledge.store_types import SUPPORTED_DIMS, PhysicalCollectionSpec
 from ar_domain.knowledge.syncing import (
     acl_sync,
     delete_document,
     finish_job,
     open_job,
-    reindex,
     sync_source,
 )
 from ar_domain.knowledge.syncutil import run_sync
@@ -249,32 +248,59 @@ class KnowledgeBook:
         )
         return {"id": str(collection_id), "status": "deleted"}
 
-    def reindex_collection(
+    async def reindex_collection(
         self, actor: Actor, collection_id: uuid.UUID, body: dict[str, object]
     ) -> dict[str, object]:
+        """Queue a re-index with the settings asked for, and return its job id at once.
+
+        The settings are checked here, so a mistake is answered now, and travel with the
+        job. The collection keeps the settings and the index it is searched with until
+        the ingest worker has built the new version (``knowledge.reindexing``).
+        """
+        from ar_domain.knowledge.dispatch import request_reindex  # noqa: PLC0415
+
         row = self._managed(actor, collection_id)
-        previous_store = str(row.get("store_collection") or "")
-        if body.get("embedding_alias"):
-            self._change_model(actor, row, str(body["embedding_alias"]))
-        if isinstance(body.get("chunking"), dict):
-            row["chunking"] = {**_chunking(body["chunking"]), **_sizes(row.get("chunking"))}
-        if body.get("text_search_config") in {"simple", "english"}:
-            row["text_search_config"] = body["text_search_config"]
-        if body.get("target_backend") in {"pgvector", "qdrant"}:
-            row["pending_backend"] = body["target_backend"]
-        job = reindex(self.store, row, actor_id=actor.user_id)
-        self._drop_old_vectors(row, previous_store)
+        target = self._reindex_target(actor, row, body)
+        job = await request_reindex(self.store, row, target, actor_id=actor.user_id)
         return {"job_id": str(job["id"])}
 
-    def _change_model(self, actor: Actor, row: dict[str, object], alias: str) -> None:
-        """Point a collection at the model ``alias`` names now, before it is re-indexed."""
+    def _reindex_target(
+        self, actor: Actor, row: dict[str, object], body: dict[str, object]
+    ) -> dict[str, object]:
+        """The collection settings a re-index builds its new version with."""
+        backend = body.get("target_backend")
+        if backend and backend != str(row.get("store_backend") or "pgvector"):
+            raise ValidationFailedError(
+                "moving a collection to another vector store is a store migration, not a re-index"
+            )
+        target: dict[str, object] = {
+            "embedding_alias": row.get("embedding_alias"),
+            "embedding_model": row.get("embedding_model"),
+            "embedding_model_id": row.get("embedding_model_id"),
+            "store_collection": row.get("store_collection"),
+            "text_search_config": row.get("text_search_config") or "simple",
+            "chunking": _sizes(row.get("chunking")) | _chunk_settings(row.get("chunking")),
+        }
+        if body.get("embedding_alias"):
+            target.update(self._model_fields(actor, row, str(body["embedding_alias"])))
+        if isinstance(body.get("chunking"), dict):
+            target["chunking"] = {**_chunking(body["chunking"]), **_sizes(target["chunking"])}
+        if body.get("text_search_config") in {"simple", "english"}:
+            target["text_search_config"] = body["text_search_config"]
+        model_id = target.get("embedding_model_id")
+        target["embedding_model_id"] = None if model_id is None else str(model_id)
+        return target
+
+    def _model_fields(self, actor: Actor, row: dict[str, object], alias: str) -> dict[str, object]:
+        """The collection fields of the model ``alias`` names now, for a re-index into it."""
         model = choose_model(self.store, actor.tenant_id, alias)
         dims = int(model["dims"])  # type: ignore[call-overload]
         if dims not in SUPPORTED_DIMS:
             raise _too_wide(dims)
+        store_collection = row.get("store_collection")
         if dims != collection_dims(row):
             # Vectors of another length live in another physical collection.
-            row["store_collection"] = run_sync(
+            store_collection = run_sync(
                 memory_index(self.store).ensure_collection(
                     PhysicalCollectionSpec(
                         tenant_id=actor.tenant_id,
@@ -284,30 +310,17 @@ class KnowledgeBook:
                     )
                 )
             )
-        row.update(model)
         raw = row.get("chunking")
         chunking = dict(raw) if isinstance(raw, dict) else {}
         chunking.pop("request_dims", None)
         chunking.pop("embedding_model", None)
-        row["chunking"] = {**chunking, **_sizes(model)}
-
-    def _drop_old_vectors(self, row: dict[str, object], previous_store: str) -> None:
-        """After a re-index into another physical collection, empty the one it left."""
-        if not previous_store or previous_store == str(row.get("store_collection") or ""):
-            return
-        index = memory_index(self.store)
-        for document in self.store.knowledge_documents.values():
-            if document.get("collection_id") != row["id"]:
-                continue
-            run_sync(
-                index.delete(
-                    previous_store,
-                    DeleteFilter(
-                        tenant_id=uuid.UUID(str(document["tenant_id"])),
-                        document_id=uuid.UUID(str(document["id"])),
-                    ),
-                )
-            )
+        return {
+            "embedding_alias": model["embedding_alias"],
+            "embedding_model": model["embedding_model"],
+            "embedding_model_id": model["embedding_model_id"],
+            "store_collection": store_collection,
+            "chunking": {**chunking, **_sizes(model)},
+        }
 
     def list_sources(self, actor: Actor, collection_id: uuid.UUID) -> list[dict[str, object]]:
         self._visible(actor, collection_id)
@@ -656,6 +669,7 @@ class KnowledgeBook:
             }
             for row in self.store.document_chunks.values()
             if row.get("document_id") == document["id"]
+            and int(row.get("index_version") or 1) == _in_use(collection)
         ]
         rows.sort(key=lambda item: int(item["ordinal"]))
         return rows
@@ -911,6 +925,7 @@ class KnowledgeBook:
 
     def _document_view(self, row: dict[str, object]) -> dict[str, object]:
         source = self.store.knowledge_sources.get(row.get("source_id"), {})
+        collection = self.store.knowledge_collections.get(row.get("collection_id"))
         acl = row.get("acl_principals")
         return {
             "id": str(row["id"]),
@@ -934,6 +949,7 @@ class KnowledgeBook:
                 1
                 for chunk in self.store.document_chunks.values()
                 if chunk.get("document_id") == row.get("id")
+                and int(chunk.get("index_version") or 1) == _in_use(collection)
             ),
         }
 
@@ -964,6 +980,17 @@ def _embedding_fields(
         raise _too_wide(asked)
     alias = str(body.get("embedding_alias") or EMBED_ALIAS)
     return choose_model(store, tenant_id, alias, dimensions=asked)
+
+
+def _in_use(collection: object) -> int:
+    """The version of a collection's index that searches read. A re-index builds the next."""
+    raw = collection.get("index_version") if isinstance(collection, dict) else None
+    return int(raw or 1)
+
+
+def _chunk_settings(source: object) -> dict[str, object]:
+    """A collection's chunking as it is stored, with every key it has."""
+    return {str(key): value for key, value in source.items()} if isinstance(source, dict) else {}
 
 
 def _sizes(source: object) -> dict[str, object]:

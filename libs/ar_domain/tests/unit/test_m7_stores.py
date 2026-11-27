@@ -30,7 +30,6 @@ from ar_ingest.activities import (
     bind_store,
     delete_document_activity,
     migrate_activity,
-    reindex_activity,
     sync_source_activity,
 )
 from ar_testing.demo import demo_store
@@ -479,10 +478,6 @@ def test_migrate_and_sync_activities_record_the_switch() -> None:
     assert synced["status"]
     acl = asyncio.run(acl_sync_activity({"source_id": str(source_id)}))
     assert acl["status"]
-    reindexed = asyncio.run(
-        reindex_activity({"collection_id": str(collection_id), "embedding_alias": "embed"})
-    )
-    assert reindexed["job_id"]
     deleted = asyncio.run(delete_document_activity({"document_id": str(document_id)}))
     assert deleted["status"] == "deleted"
     with pytest.raises(Exception):
