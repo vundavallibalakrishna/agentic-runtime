@@ -419,6 +419,49 @@ def _within(rows: list[dict[str, object]], bound: set[str] | None) -> list[dict[
     return [row for row in rows if str(row.get("slug") or "").lower() in bound]
 
 
+def _get_document(
+    store: Any, book: Any, actor: Any, arguments: dict[str, object], bound: set[str] | None
+) -> dict[str, object]:
+    """A page of a document's text (spec 08 §6): ``offset`` and ``limit`` in characters.
+
+    The document is named by id, or by the title or address a passage showed, among the
+    collections the agent may read. The reply says where the next page starts.
+    """
+    visible = _within(book.list_collections(actor), bound)
+    named = _resolve_document_ids(
+        [arguments.get("document_id")], store, [row.get("id") for row in visible]
+    )
+    if not named:
+        return _error("not_found", "document was not found")
+    document_id = uuid.UUID(named[0])
+    try:
+        document = book.get_document(actor, document_id)
+    except ValueError, TypeError, ArError:
+        return _error("not_found", "document was not found")
+    if not _document_within(store, document, bound):
+        return _error("not_found", "document was not found")
+    page = book.document_text(
+        actor,
+        document_id,
+        offset=_whole(arguments.get("offset")),
+        max_chars=_whole(arguments.get("limit")),
+    )
+    page["summary"] = document.get("summary") or ""
+    more = page.get("next_offset")
+    tail = (
+        f"\n\n[More text follows: call again with offset {more}.]"
+        if isinstance(more, int)
+        else "\n\n[End of the document.]"
+    )
+    heading = f"{page.get('title') or ''} ({page.get('uri') or ''})".strip()
+    body = str(page.get("text") or "") or str(document.get("summary") or "")
+    return {"text": f"{heading}\n\n{body}{tail}", "structured": page, "is_error": False}
+
+
+def _whole(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 0
+
+
 def _document_within(store: Any, document: dict[str, object], bound: set[str] | None) -> bool:
     if bound is None:
         return True
@@ -449,17 +492,7 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         text = "\n".join(lines) or "No collections."
         return {"text": text, "structured": {"collections": rows}, "is_error": False}
     if name == "get_document":
-        try:
-            document = book.get_document(actor, uuid.UUID(str(arguments.get("document_id"))))
-        except ValueError, TypeError, ArError:
-            return _error("not_found", "document was not found")
-        if not _document_within(store, document, bound):
-            return _error("not_found", "document was not found")
-        return {
-            "text": str(document.get("summary") or document.get("title") or ""),
-            "structured": document,
-            "is_error": False,
-        }
+        return _get_document(store, book, actor, arguments, bound)
     if name != "search":
         return _error("unknown_tool", f"unknown tool {name}")
     collections = _within(book.list_collections(actor), bound)
