@@ -1692,6 +1692,9 @@ class ChatBehaviour:
         from ar_domain.usage.service import UsageBook  # noqa: PLC0415
 
         UsageBook(self).assert_run(tenant_id, user_id, agent_id)
+        # Refuse before anything is written: a message whose run is then refused would
+        # be saved without its run and fail the whole unit's save.
+        self._assert_run_capacity(tenant_id)
         explicit = bool(
             file_ids or collection_ids or items or task_template.strip() or attachment_ids
         )
@@ -1875,6 +1878,17 @@ class ChatBehaviour:
         self._evict()
         return {"message": self._public(user_message), "run": self._public(run)}
 
+    def _assert_run_capacity(self, tenant_id: uuid.UUID) -> None:
+        """Raise ``max_concurrent_runs`` when the tenant cannot start one more run."""
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+        active = sum(
+            1
+            for item in self.runs.values()
+            if item.get("tenant_id") == tenant_id and run_is_active(str(item.get("status")))
+        )
+        guard(self, tenant_id, "max_concurrent_runs", 1, current=active)
+
     def _new_run(
         self,
         tenant_id: uuid.UUID,
@@ -1888,17 +1902,11 @@ class ChatBehaviour:
         on_behalf_of: uuid.UUID | None = None,
     ) -> dict[str, object]:
         from ar_domain.conversations.triggers import RUN_TRIGGERS  # noqa: PLC0415
-        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
 
         if trigger not in RUN_TRIGGERS:
             raise ArError(ErrorCode.VALIDATION_FAILED, "That run trigger is not allowed.")
 
-        active = sum(
-            1
-            for item in self.runs.values()
-            if item.get("tenant_id") == tenant_id and run_is_active(str(item.get("status")))
-        )
-        guard(self, tenant_id, "max_concurrent_runs", 1, current=active)
+        self._assert_run_capacity(tenant_id)
         now = utcnow()
         run = {
             "id": run_id,

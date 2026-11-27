@@ -98,6 +98,7 @@ async def score_eval_case(store: Any, eval_run_id: uuid.UUID, case_id: str) -> b
     except Exception as exc:  # noqa: BLE001 - one case that cannot run is a failed case
         from ar_domain.tools.logic import raised_at  # noqa: PLC0415
 
+        end_eval_agent_runs(store, eval_run_id, case_id=str(case.get("id")))
         outcome = {"output_text": "", "latency_ms": 0, "cost_micros": 0}
         scores = {
             "case_error": {
@@ -142,6 +143,7 @@ def finish_eval_run(store: Any, eval_run_id: uuid.UUID) -> dict[str, object]:
             outcome = {"output_text": "", "latency_ms": 0, "cost_micros": 0}
             saved = _save_result(store, row, case, outcome, missing, False)
         results.append(saved)
+    end_eval_agent_runs(store, eval_run_id)
     baseline = _baseline(store, row.get("baseline_eval_run_id"))
     summary = summarise(gate, results, baseline)
     row["summary"] = summary
@@ -179,12 +181,43 @@ def fail_eval_run(store: Any, eval_run_id: uuid.UUID, reason: str) -> dict[str, 
     from ar_common.logging import get_logger  # noqa: PLC0415
 
     get_logger(__name__).error("eval_run_failed", eval_run_id=str(eval_run_id), error_type=reason)
+    end_eval_agent_runs(store, eval_run_id)
     row["status"] = "failed"
     row["finished_at"] = utcnow()
     RUNS.labels(status="failed", trigger=str(row.get("trigger") or "manual")).inc()
     if row.get("trigger") == "publish_gate":
         _finish_gate(store, row, False)
     return _summary(row)
+
+
+def end_eval_agent_runs(store: Any, eval_run_id: uuid.UUID, *, case_id: str | None = None) -> int:
+    """End the agent runs an eval run (or one of its cases) left working. How many.
+
+    An eval run's agent runs live in the process that scores the case, not in a
+    workflow of their own. A case that breaks, or a process that stops, would leave them
+    working for ever, and working runs count against the tenant's run limit.
+    """
+    from ar_domain.conversations.logic import run_is_active  # noqa: PLC0415
+
+    ended = 0
+    for run in list(getattr(store, "runs", {}).values()):
+        if not isinstance(run, dict) or run.get("trigger") != "eval":
+            continue
+        context = run.get("eval_context")
+        if not isinstance(context, dict) or context.get("eval_run_id") != str(eval_run_id):
+            continue
+        if case_id is not None and context.get("case_id") != case_id:
+            continue
+        if not run_is_active(str(run.get("status"))):
+            continue
+        run["status"] = "failed"
+        run["ended_at"] = utcnow()
+        run["error"] = {
+            "code": "eval_case_ended",
+            "message": "The eval case this run belonged to ended before the run did.",
+        }
+        ended += 1
+    return ended
 
 
 def eval_concurrency() -> int:
@@ -266,6 +299,7 @@ async def _run_case(
     raw_mocks = case.get("tool_mocks")
     mocks: list[object] = raw_mocks if isinstance(raw_mocks, list) else []
     context = {
+        "eval_run_id": str(eval_run.get("id")),
         "suite_id": str(eval_run.get("suite_id")),
         "case_id": str(case.get("id")),
         "tool_mocks": mocks,

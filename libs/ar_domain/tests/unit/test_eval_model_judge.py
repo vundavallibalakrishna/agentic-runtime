@@ -259,3 +259,74 @@ def test_scoring_a_case_twice_keeps_one_result(stand_in: StandIn) -> None:
     assert again is True
     assert len([r for r in store.eval_results.values() if r["eval_run_id"] == run_id]) == 1
     assert finish_eval_run(store, run_id)["pass_rate"] == 1
+
+
+def test_a_case_that_breaks_ends_the_agent_runs_it_left_working(
+    stand_in: StandIn, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ar_domain.conversations.logic import run_is_active
+    from ar_domain.evals import runner
+
+    store = demo_store(allow_loopback=True)
+    stand_in.script("judge-leftover", _scripts(ANSWER))
+    stand_in.connect(store, demo_id("tenant"), script_set="judge-leftover")
+    real = runner._run_case
+
+    async def breaks_after_starting(
+        store_: object, row: dict[str, object], case: dict[str, object]
+    ) -> dict[str, object]:
+        if case.get("name") != "support hours 1":
+            return await real(store_, row, case)  # type: ignore[arg-type]
+        # The agent run the case started, still working when the case breaks.
+        run_id = uuid.uuid4()
+        store.runs[run_id] = {
+            "id": run_id,
+            "tenant_id": demo_id("tenant"),
+            "trigger": "eval",
+            "status": "running",
+            "eval_context": {"eval_run_id": str(row["id"]), "case_id": str(case["id"])},
+        }
+        raise RuntimeError("the store went away mid-case")
+
+    monkeypatch.setattr(runner, "_run_case", breaks_after_starting)
+    _run(store)
+    left = [
+        run
+        for run in store.runs.values()
+        if run.get("trigger") == "eval" and run_is_active(str(run.get("status")))
+    ]
+    assert left == []
+    ended = [
+        run
+        for run in store.runs.values()
+        if (run.get("error") or {}).get("code") == "eval_case_ended"
+    ]
+    assert len(ended) == 1
+
+
+def test_a_refused_run_writes_no_message() -> None:
+    from types import SimpleNamespace
+
+    from ar_common.errors import PlanLimitReachedError
+
+    store = demo_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    created = AgentLifecycle(store).create(
+        _actor(), slug="limited", name="Limited", description="x"
+    )
+    agent_id = uuid.UUID(str(created["id"]))
+    AgentLifecycle(store).publish(_actor(), agent_id, change_note="first")
+    conversation = store.create_conversation(tenant, user, agent_id)
+    before = len(store.messages)
+    from ar_domain.identity import plan_limits
+
+    original = plan_limits.load_limits
+    plan_limits.load_limits = lambda _store, _tenant: SimpleNamespace(max_concurrent_runs=0)  # type: ignore[assignment]
+    try:
+        with pytest.raises(PlanLimitReachedError):
+            store.post_message(
+                tenant, user, uuid.UUID(str(conversation["id"])), "hello", schedule=False
+            )
+    finally:
+        plan_limits.load_limits = original  # type: ignore[assignment]
+    assert len(store.messages) == before
