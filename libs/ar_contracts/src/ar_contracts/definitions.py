@@ -144,6 +144,8 @@ class OutputSpec(_Model):
     json_schema: dict[str, object] = Field(default_factory=dict)
     followups: bool = False
     followup_count: int = Field(default=3, ge=1, le=6)
+    # The longest answer, in words. None leaves the length to the instructions.
+    max_words: int | None = Field(default=None, ge=10, le=5000)
 
 
 class AssuranceSpec(_Model):

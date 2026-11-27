@@ -21,7 +21,7 @@ export type Definition = {
       }
     >;
   }[];
-  output?: { jsonSchema?: Record<string, unknown> };
+  output?: { jsonSchema?: Record<string, unknown>; maxWords?: number | null };
   skills?: string[];
   knowledge?: { collections?: string[] };
   channels?: { public?: boolean; [channel: string]: boolean | undefined };

@@ -2834,17 +2834,34 @@
       "EvalImportBody": {
         "properties": {
           "fileId": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fileid"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "fileId"
-        ],
-        "title": "EvalImportBody"
+        "title": "EvalImportBody",
+        "description": "A stored eval dataset file, or the dataset's text itself. Exactly one."
       },
       "EvalRunBody": {
         "properties": {

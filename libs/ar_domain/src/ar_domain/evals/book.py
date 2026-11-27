@@ -189,6 +189,12 @@ class EvalBook:
         text = blob.decode("utf-8", errors="replace") if isinstance(blob, bytes) else str(blob)
         return self._import_text(actor, suite_id, text)
 
+    def import_text(self, actor: Actor, suite_id: uuid.UUID, text: str) -> dict[str, object]:
+        """Cases from a dataset's text: JSONL, one case a line, or a YAML list."""
+        self._need(actor, "evals:manage")
+        self._suite(actor, suite_id)
+        return self._import_text(actor, suite_id, text)
+
     def case_from_conversation(
         self, actor: Actor, suite_id: uuid.UUID, body: dict[str, object]
     ) -> dict[str, object]:
@@ -318,6 +324,9 @@ class EvalBook:
                     "run_id": row.get("run_id"),
                 }
             )
+        # Cases finish in any order when several run at once; they are listed as the
+        # run selected them.
+        found.sort(key=lambda item: str(item["case"].get("name") or ""))  # type: ignore[attr-defined]
         return found
 
     def cancel(self, actor: Actor, eval_run_id: uuid.UUID) -> dict[str, object]:

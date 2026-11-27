@@ -361,6 +361,7 @@ export type Showreasoning = boolean;
 export type Grounding = "off" | "preferred" | "strict";
 export type Followups = boolean;
 export type Followupcount = number;
+export type Maxwords = number | null;
 export type Recordmode = "off" | "on";
 export type Piimasking = boolean;
 export type Injectionclassifier = boolean;
@@ -543,6 +544,7 @@ export interface OutputSpec {
   jsonSchema?: Jsonschema;
   followups?: Followups;
   followupCount?: Followupcount;
+  maxWords?: Maxwords;
 }
 export interface Jsonschema {
   [k: string]: unknown;
@@ -672,6 +674,7 @@ export interface OutputSpec1 {
   jsonSchema?: Jsonschema;
   followups?: Followups;
   followupCount?: Followupcount;
+  maxWords?: Maxwords;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
