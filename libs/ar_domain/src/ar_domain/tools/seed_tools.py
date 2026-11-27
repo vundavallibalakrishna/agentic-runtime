@@ -433,15 +433,29 @@ def _knowledge_server(store: Any) -> None:
             tool_row(
                 "get_document",
                 "Read a document",
-                "Read the summary of one knowledge document the person can access, by id. "
-                "Returns its title and summary, not its full text; use documents.read for that.",
+                "Read the text of one knowledge document the person can access, a page at "
+                "a time. Use it when a passage shows the right document but not all of what "
+                "is needed, such as a full list or every section of a page.",
                 {
                     "type": "object",
                     "properties": {
                         "document_id": {
                             "type": "string",
-                            "description": "The id of the document, from knowledge.search.",
-                        }
+                            "description": "The document: its id, or the title or address "
+                            "shown with one of its passages.",
+                        },
+                        "offset": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "The character to start from. A page that is not "
+                            "the last says which offset comes next.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 20000,
+                            "description": "The most characters to return. Omit for 20000.",
+                        },
                     },
                     "required": ["document_id"],
                 },

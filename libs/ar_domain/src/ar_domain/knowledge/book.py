@@ -603,6 +603,42 @@ class KnowledgeBook:
         ][-10:]
         return view
 
+    def document_text(
+        self, actor: Actor, document_id: uuid.UUID, *, offset: int = 0, max_chars: int = 0
+    ) -> dict[str, object]:
+        """A document's indexed text, for anyone who may read it, a part at a time.
+
+        The text is the document's passages in order, with the overlap between one passage
+        and the next removed. ``max_chars`` is at most ``DOCUMENT_PAGE_MAX`` (spec 08 §6), the
+        default; ``next_offset`` is where the following part starts, or None at the end.
+        """
+
+        document, collection = self._document(actor, document_id)
+        version = str(collection.get("index_version") or 1)
+        rows = sorted(
+            (
+                row
+                for row in self.store.document_chunks.values()
+                if isinstance(row, dict)
+                and row.get("document_id") == document["id"]
+                and str(row.get("index_version") or 1) == version
+            ),
+            key=lambda row: str(row.get("ordinal") or 0).zfill(9),
+        )
+        text = _joined([str(row.get("text") or "") for row in rows])
+        size = min(max_chars, DOCUMENT_PAGE_MAX) if max_chars > 0 else DOCUMENT_PAGE_MAX
+        start = min(max(offset, 0), len(text))
+        end = min(start + size, len(text))
+        return {
+            "id": str(document["id"]),
+            "title": document.get("title"),
+            "uri": document.get("uri"),
+            "text": text[start:end],
+            "offset": start,
+            "next_offset": end if end < len(text) else None,
+            "total_chars": len(text),
+        }
+
     def chunks(self, actor: Actor, document_id: uuid.UUID) -> list[dict[str, object]]:
         document, collection = self._document(actor, document_id)
         if not can_manage(actor, collection):
@@ -957,3 +993,33 @@ def _chunking(value: object) -> dict[str, object]:
         "overlap_pct": overlap,
         "contextual": bool(raw.get("contextual") or False),
     }
+
+
+# The largest page of a document's text one read returns (spec 08 §6, knowledge.get_document).
+DOCUMENT_PAGE_MAX = 20_000
+
+
+def _joined(passages: list[str]) -> str:
+    """Passages in order as one text, without the words each repeats from the one before.
+
+    Chunking repeats the end of a passage at the start of the next (``overlap_pct``). The
+    longest end of the text so far that the next passage starts with is dropped from it.
+    """
+    out = ""
+    for passage in passages:
+        piece = passage.strip()
+        if not piece:
+            continue
+        if not out:
+            out = piece
+            continue
+        tail = out[-len(piece) :]
+        overlap = 0
+        for size in range(min(len(tail), len(piece)), 0, -1):
+            if piece.startswith(tail[-size:]):
+                overlap = size
+                break
+        rest = piece[overlap:].lstrip()
+        if rest:
+            out = f"{out}\n{rest}" if overlap == 0 else f"{out} {rest}"
+    return out
