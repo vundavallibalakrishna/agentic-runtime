@@ -114,6 +114,7 @@ Query `suite_id`, `agent_id`, `status`.
 #### GET /api/v1/eval-runs/{eval_run_id}/results
 Items `EvalResult {case: {id, name, tags}, passed, scores, output_text, latency_ms, cost_micros, run_id}`.
 #### POST /api/v1/eval-runs/{eval_run_id}:cancel
+Marks the run `cancelled` and cancels its workflow (`eval-{eval_run_id}`), so no further case is run or judged.
 #### GET /api/v1/feedback
 `evals:manage`. Thumbs-down/up feedback across the tenant for agents the caller can edit: `{message_id, conversation_id, agent, rating, reasons, comment, created_at}` (conversation content visible only if the caller can view the conversation or the user shared it; otherwise only metadata).
 
