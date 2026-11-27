@@ -1031,7 +1031,7 @@ def _chunking(value: object) -> dict[str, object]:
         raise ValidationFailedError("chunking is outside the allowed range")
     from ar_domain.knowledge.index_text import chunking_with_text_version  # noqa: PLC0415
 
-    body = {
+    body: dict[str, object] = {
         "target_tokens": target,
         "overlap_pct": overlap,
         "contextual": bool(raw.get("contextual") or False),

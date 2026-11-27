@@ -90,8 +90,12 @@ def summarise(
             coverage.append(fact)
         if pages is not None:
             recall.append(pages)
-        tags = item.get("tags")
-        names = [str(tag) for tag in tags] if isinstance(tags, list) and tags else ["uncategorised"]
+        case_tags = item.get("tags")
+        names = (
+            [str(tag) for tag in case_tags]
+            if isinstance(case_tags, list) and case_tags
+            else ["uncategorised"]
+        )
         for tag in names:
             bucket = by_category.setdefault(
                 tag,
@@ -104,16 +108,12 @@ def summarise(
                     "retrieval_recall": [],
                 },
             )
-            bucket["cases"] = int(bucket["cases"]) + 1
-            bucket[grade] = int(bucket[grade]) + 1
+            bucket["cases"] = _as_int(bucket.get("cases")) + 1
+            bucket[grade] = _as_int(bucket.get(grade)) + 1
             if fact is not None:
-                held = bucket["fact_coverage"]
-                if isinstance(held, list):
-                    held.append(fact)
+                _as_floats(bucket.get("fact_coverage")).append(fact)
             if pages is not None:
-                held = bucket["retrieval_recall"]
-                if isinstance(held, list):
-                    held.append(pages)
+                _as_floats(bucket.get("retrieval_recall")).append(pages)
     return {
         "cases": cases,
         "passed": ok,
@@ -299,6 +299,14 @@ def _cosine(left: Mapping[str, int], right: Mapping[str, int]) -> float:
     if left_norm == 0 or right_norm == 0:
         return 0.0
     return dot / (left_norm * right_norm)
+
+
+def _as_int(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _as_floats(value: object) -> list[float]:
+    return value if isinstance(value, list) else []
 
 
 def _case_grade(ok: bool, scores: Mapping[str, object]) -> str:  # noqa: FBT001

@@ -90,7 +90,10 @@ def repeated_in_collection(store: Any, collection: dict[str, object]) -> set[str
     share, min_chars = block_settings(collection)
     if share <= 0:
         return set()
-    version = int(collection.get("index_version") or 1)
+    raw_version = collection.get("index_version")
+    version = 1
+    if isinstance(raw_version, int) and not isinstance(raw_version, bool):
+        version = raw_version
     collection_id = collection.get("id")
     documents = getattr(store, "knowledge_documents", {})
     in_collection = {

@@ -472,7 +472,7 @@ def _search_for_agent(
         found = book.search(actor, body)
         return found if isinstance(found, dict) else {}
     alias = planner_alias(store, actor.tenant_id, definition)
-    return run_sync(_planned_search, store, actor, body, definition, alias, arguments)
+    return run_sync(_planned_search(store, actor, body, definition, alias, arguments))
 
 
 def _definition(store: Any, arguments: dict[str, object]) -> dict[str, object] | None:
@@ -521,7 +521,8 @@ async def _planned_search(  # noqa: PLR0917
     planned = await plan_search_queries(store, actor.tenant_id, alias, query, earlier)
     queries = planned or [query]
     collection_ids = _uuids(body.get("collection_ids"))
-    top_k = body.get("top_k") if isinstance(body.get("top_k"), int) else 8
+    raw_top = body.get("top_k")
+    top_k = raw_top if isinstance(raw_top, int) and not isinstance(raw_top, bool) else 8
     named = _uuids(body.get("document_ids")) or None
     candidate = body.get("candidate_k")
     per_document = body.get("max_per_document")
