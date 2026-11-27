@@ -277,7 +277,9 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_VAULT_TOKEN` | (dev) | Token auth | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_VECTOR_BACKEND` | `pgvector` | Retrieval backend for new knowledge collections and migration target: `pgvector` \| `qdrant` | [spec 10](../03-specs/10-knowledge.md#11-configuration), [ADR-0009](../02-architecture/adr/ADR-0009-retrieval-stores.md) |
 | `AR_VECTOR_MIGRATION_RETAIN_HOURS` | `24` | Rollback window after a retrieval backend switch | [spec 10](../03-specs/10-knowledge.md#9-migrating-between-backends) |
+| `AR_VECTOR_PG_CONNECT_TIMEOUT_S` | `10` | Seconds to wait for the database to accept a new connection for a knowledge search on pgvector. A search that waits longer fails as `retrieval_unavailable` | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_VECTOR_PG_EF_SEARCH` | `100` | `hnsw.ef_search` for knowledge searches on pgvector | [spec 10](../03-specs/10-knowledge.md#73-hybrid-query-one-sql-statement-per-search) |
+| `AR_VECTOR_PG_POOL_SIZE` | `5` | Connections kept open for knowledge searches on pgvector, per event loop, and as many again opened under load. Before, each search opened and closed its own connection with a two-second limit, which failed when the database was busy | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_VECTOR_PG_READ_DSN` | (unset) | Optional read-replica DSN for knowledge searches on pgvector | [spec 10](../03-specs/10-knowledge.md#11-configuration), [scaling](scaling.md) |
 | `AR_WEBHOOK_ALLOW_PRIVATE` | `false` | Allow webhook targets in private ranges (dev only) | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_WEBHOOK_SWEEP_GRACE_S` | `120` | Extra seconds after a delivery is due before the sweep retries it while Temporal is up | [spec 20](../03-specs/20-notifications-events.md) |

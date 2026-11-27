@@ -1,12 +1,14 @@
 """pgvector RetrievalStore adapter. Spec: docs/03-specs/10-knowledge.md §7."""
 
+import asyncio
 import os
+import threading
 import time
+import weakref
 from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
 
 from ar_domain.knowledge.store import StoreError, StoreUnavailable, UnsupportedDims
 from ar_domain.knowledge.store_types import (
@@ -293,11 +295,7 @@ class PgVectorStore:
         dsn = dsn or self.dsn
         if not dsn:
             raise StoreUnavailable("pgvector dsn is not configured")
-        # NullPool: an engine built here belongs to one event loop (a per-call retrieval
-        # store on a run_sync worker loop), so it must not keep connections pooled past the
-        # call — each connection is opened and closed around its use and nothing lingers.
-        engine = create_async_engine(dsn, poolclass=NullPool, connect_args={"timeout": 2})
-        factory = async_sessionmaker(engine, expire_on_commit=False)
+        factory = _loop_sessions(dsn)
         if read and os.environ.get("AR_VECTOR_PG_READ_DSN", "").strip():
             self._read_factory = factory
         else:
@@ -305,6 +303,45 @@ class PgVectorStore:
             if read:
                 self._read_factory = factory
         return factory()
+
+
+# An asyncpg connection belongs to the event loop that opened it, so each loop has its
+# own pool, kept while the loop lives and dropped with it. Every search on that loop
+# reuses the pool: a store is made per call (``active_index``), and opening a new
+# connection for each search failed under load when the database was slow to accept.
+_POOLS: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, dict[str, async_sessionmaker[AsyncSession]]
+] = weakref.WeakKeyDictionary()
+_POOLS_LOCK = threading.Lock()
+
+
+def _loop_sessions(dsn: str) -> async_sessionmaker[AsyncSession]:
+    """The session factory for ``dsn`` on the running loop, made once per loop."""
+    loop = asyncio.get_running_loop()
+    with _POOLS_LOCK:
+        per_loop = _POOLS.setdefault(loop, {})
+        factory = per_loop.get(dsn)
+        if factory is None:
+            engine = create_async_engine(
+                dsn,
+                pool_size=_env_whole("AR_VECTOR_PG_POOL_SIZE", 5),
+                max_overflow=_env_whole("AR_VECTOR_PG_POOL_SIZE", 5),
+                pool_pre_ping=True,
+                pool_recycle=300,
+                connect_args={"timeout": _env_whole("AR_VECTOR_PG_CONNECT_TIMEOUT_S", 10)},
+            )
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+            per_loop[dsn] = factory
+        return factory
+
+
+def _env_whole(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    try:
+        value = int(raw) if raw else default
+    except ValueError:
+        value = default
+    return value if value > 0 else default
 
 
 def build_hybrid_sql(*, dims: int, configs: list[str]) -> str:
