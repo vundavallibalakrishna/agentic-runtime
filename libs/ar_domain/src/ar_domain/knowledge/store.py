@@ -141,17 +141,24 @@ def active_index(holder: object) -> RetrievalStore:
     """pgvector when this process is bound to Postgres, otherwise the memory index.
 
     A SQLAlchemy asyncpg engine's connection pool is bound to the event loop it was made
-    on, so the process's shared ``durable_engine`` cannot be used from another loop. Each
-    call gets a store; its connections come from a pool kept per event loop
-    (``store_pgvector._loop_sessions``), so searches on one loop reuse connections.
+    on. On that loop the store searches through the process's pooled ``durable_engine``,
+    so a search does not open a connection of its own. On another loop (a tool call's
+    short-lived loop, as in ``db.engine.engine_here``) it opens one connection for the call
+    and closes it, so nothing stays open after that loop ends.
     """
     engine = getattr(holder, "durable_engine", None)
     if getattr(holder, "durable", False) and engine is not None:
+        from sqlalchemy.ext.asyncio import AsyncEngine  # noqa: PLC0415
+
         from ar_domain.knowledge.store_pgvector import PgVectorStore  # noqa: PLC0415
 
         return cast(
             "RetrievalStore",
-            PgVectorStore(dsn=engine.url.render_as_string(hide_password=False)),
+            PgVectorStore(
+                dsn=engine.url.render_as_string(hide_password=False),
+                engine=engine if isinstance(engine, AsyncEngine) else None,
+                loop=getattr(holder, "durable_loop", None),
+            ),
         )
     return memory_index(holder)
 

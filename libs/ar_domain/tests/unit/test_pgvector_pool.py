@@ -1,10 +1,13 @@
-"""Knowledge searches on one event loop share a connection pool. Proof: unit."""
+"""Knowledge searches use the process's pooled engine on its loop. Proof: unit."""
 
 import asyncio
 from typing import TYPE_CHECKING
 
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import NullPool
+
 from ar_domain.knowledge import store_pgvector
-from ar_domain.knowledge.store_pgvector import PgVectorStore, _loop_sessions
+from ar_domain.knowledge.store_pgvector import PgVectorStore
 
 if TYPE_CHECKING:
     import pytest
@@ -12,39 +15,48 @@ if TYPE_CHECKING:
 DSN = "postgresql+asyncpg://reader:secret@db.example:5432/app"
 
 
-def test_searches_on_one_loop_share_a_pool_and_each_loop_has_its_own() -> None:
-    async def two_stores() -> tuple[object, object]:
-        first = PgVectorStore(dsn=DSN)
-        second = PgVectorStore(dsn=DSN)
-        one = await first._connect(read=True)
-        other = await second._connect(read=True)
-        await one.close()
-        await other.close()
-        return one.bind, other.bind
+def test_on_the_engines_own_loop_a_search_uses_the_shared_pool() -> None:
+    async def session_bind() -> tuple[object, object]:
+        shared = create_async_engine(DSN)
+        store = PgVectorStore(dsn=DSN, engine=shared, loop=asyncio.get_running_loop())
+        session = await store._connect(read=True)
+        bind = session.bind
+        await session.close()
+        return bind, shared
 
-    left = asyncio.run(two_stores())
-    right = asyncio.run(two_stores())
-    assert left[0] is left[1]
-    assert right[0] is right[1]
-    assert left[0] is not right[0]
+    bind, shared = asyncio.run(session_bind())
+    assert bind is shared
 
 
-def test_the_pool_is_sized_and_waits_as_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("AR_VECTOR_PG_POOL_SIZE", "3")
+def test_on_another_loop_a_search_opens_one_connection_and_keeps_none() -> None:
+    shared = create_async_engine(DSN)
+
+    async def elsewhere() -> object:
+        other_loop = asyncio.new_event_loop()
+        store = PgVectorStore(dsn=DSN, engine=shared, loop=other_loop)
+        session = await store._connect(read=True)
+        bind = session.bind
+        await session.close()
+        other_loop.close()
+        return bind
+
+    bind = asyncio.run(elsewhere())
+    assert bind is not shared
+    assert isinstance(bind.pool, NullPool)  # type: ignore[attr-defined]
+
+
+def test_without_a_shared_engine_the_store_keeps_no_pool() -> None:
+    async def alone() -> object:
+        session = await PgVectorStore(dsn=DSN)._connect(read=True)
+        bind = session.bind
+        await session.close()
+        return bind
+
+    assert isinstance(asyncio.run(alone()).pool, NullPool)  # type: ignore[attr-defined]
+
+
+def test_the_connect_wait_is_a_setting(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_VECTOR_PG_CONNECT_TIMEOUT_S", "7")
-
-    async def made() -> object:
-        return _loop_sessions(DSN.replace("app", "other")).kw["bind"]
-
-    engine = asyncio.run(made())
-    pool = engine.pool  # type: ignore[attr-defined]
-    assert pool.size() == 3
-    assert engine.dialect.create_connect_args(engine.url)  # type: ignore[attr-defined]
     assert store_pgvector._env_whole("AR_VECTOR_PG_CONNECT_TIMEOUT_S", 10) == 7
-
-
-def test_a_bad_setting_falls_back_to_the_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("AR_VECTOR_PG_POOL_SIZE", "many")
-    assert store_pgvector._env_whole("AR_VECTOR_PG_POOL_SIZE", 5) == 5
-    monkeypatch.setenv("AR_VECTOR_PG_POOL_SIZE", "0")
-    assert store_pgvector._env_whole("AR_VECTOR_PG_POOL_SIZE", 5) == 5
+    monkeypatch.setenv("AR_VECTOR_PG_CONNECT_TIMEOUT_S", "soon")
+    assert store_pgvector._env_whole("AR_VECTOR_PG_CONNECT_TIMEOUT_S", 10) == 10

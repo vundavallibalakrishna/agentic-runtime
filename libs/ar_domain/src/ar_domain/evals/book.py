@@ -336,6 +336,9 @@ class EvalBook:
             raise ArError(ErrorCode.INVALID_STATE, "eval run is already finished")
         row["status"] = "cancelled"
         row["finished_at"] = utcnow()
+        # The row alone does not stop the workflow: its next steps would still load the
+        # tenant and call models. Cancel the workflow too.
+        _cancel_workflow(self.store, eval_run_id)
         self._audit(actor, "eval_run.cancelled", eval_run_id, {})
         RUNS.labels(status="cancelled", trigger=str(row.get("trigger") or "manual")).inc()
         return self._run_view(row)
@@ -543,6 +546,31 @@ class EvalBook:
     @staticmethod
     def _visible(row: object, tenant_id: uuid.UUID) -> bool:
         return isinstance(row, dict) and row.get("tenant_id") == tenant_id
+
+
+def _cancel_workflow(store: Any, run_id: uuid.UUID) -> bool:
+    """Ask Temporal to cancel ``eval-{run_id}``. False when there is no client to ask."""
+    client = getattr(store, "temporal_client", None)
+    handle_for = getattr(client, "get_workflow_handle", None)
+    if not callable(handle_for):
+        return False
+
+    async def _go() -> None:
+        try:
+            await handle_for(f"eval-{run_id}").cancel()
+        except Exception:  # noqa: BLE001 - a workflow already ended has nothing to cancel
+            return
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(_go())
+        return True
+    task = loop.create_task(_go())
+    tasks = getattr(store, "tasks", None)
+    if isinstance(tasks, list):
+        tasks.append(task)
+    return True
 
 
 def _schedule_eval(store: Any, run_id: uuid.UUID) -> bool:
