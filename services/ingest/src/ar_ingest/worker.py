@@ -24,7 +24,10 @@ from ar_ingest.activities import (
     ingest_document_activity,
     migrate_activity,
     parse_library_activity,
-    reindex_activity,
+    reindex_abandon_activity,
+    reindex_documents_activity,
+    reindex_prepare_activity,
+    reindex_switch_activity,
     sync_source_activity,
 )
 from ar_ingest.main import TASK_QUEUE
@@ -62,7 +65,10 @@ def ingest_activities() -> list[Callable[..., Any]]:
         sync_source_activity,
         acl_sync_activity,
         delete_document_activity,
-        reindex_activity,
+        reindex_prepare_activity,
+        reindex_documents_activity,
+        reindex_switch_activity,
+        reindex_abandon_activity,
         migrate_activity,
         audit_activity,
     ]

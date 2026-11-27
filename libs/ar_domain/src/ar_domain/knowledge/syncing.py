@@ -1,4 +1,6 @@
-"""Source sync, ACL sync, reindex and delete. Activities call the same functions."""
+"""Source sync, ACL sync and delete. Activities call the same functions.
+
+A re-index is in ``knowledge.reindexing``."""
 
 import asyncio
 import hashlib
@@ -12,12 +14,7 @@ from ar_domain.audit.memory import remember
 from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.access import as_uuid
 from ar_domain.knowledge.fetchers import fetch_bytes, list_acl_changes, list_changes, map_item_acl
-from ar_domain.knowledge.pipeline import (
-    embedding_error,
-    ingest_document,
-    ingest_document_async,
-    stored_bytes,
-)
+from ar_domain.knowledge.pipeline import ingest_document_async
 from ar_domain.knowledge.raw import keep_raw
 from ar_domain.knowledge.site import NotModified
 from ar_domain.knowledge.store import memory_index
@@ -41,7 +38,11 @@ def open_job(
     source_id: uuid.UUID | None,
     kind: str,
     triggered_by: str,
+    status: str = "running",
+    workflow_id: str = "",
 ) -> dict[str, object]:
+    """Open a job. ``workflow_id`` is the workflow that does it, when it is not the
+    default one named after the job."""
     job_id = new_id()
     now = utcnow()
     row = {  # type: ignore[var-annotated]
@@ -50,13 +51,13 @@ def open_job(
         "source_id": source_id,
         "collection_id": collection_id,
         "kind": kind,
-        "status": "running",
-        "temporal_workflow_id": f"{kind}-{job_id}",
+        "status": status,
+        "temporal_workflow_id": workflow_id or f"{kind}-{job_id}",
         "stats": {"seen": 0, "added": 0, "updated": 0, "unchanged": 0, "deleted": 0, "failed": 0},
         "error": None,
         "failures": [],
         "triggered_by": triggered_by,
-        "started_at": now,
+        "started_at": now if status == "running" else None,
         "finished_at": None,
         "created_at": now,
     }
@@ -208,61 +209,6 @@ def acl_sync(store: Any, source: dict[str, object], *, actor_id: object) -> dict
             detail={"acl": principals},
         )
     finish_job(job, status="succeeded")
-    return job
-
-
-def reindex(store: Any, collection: dict[str, object], *, actor_id: object) -> dict[str, object]:
-    """Blue/green: keep serving the old version until every document is reindexed."""
-    job = open_job(
-        store,
-        tenant_id=as_uuid(collection["tenant_id"]),
-        collection_id=as_uuid(collection["id"]),
-        source_id=None,
-        kind="reindex",
-        triggered_by="manual",
-    )
-    previous = int(collection.get("index_version") or 1)  # type: ignore[call-overload]
-    collection["index_version"] = previous
-    pending = previous + 1
-    for document in _collection_documents(store, collection["id"]):
-        if document.get("status") == "deleted":
-            continue
-        raw = stored_bytes(store, as_uuid(document["id"]))
-        document["status"] = "pending"
-        document["version_hash"] = ""
-        collection["index_version"] = pending
-        try:
-            ingest_document(store, as_uuid(document["id"]), raw)
-        except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
-            # The version in use keeps answering; the job says why the new one stopped.
-            collection["index_version"] = previous
-            finish_job(job, status="failed", error=embedding_error(exc))
-            raise
-        collection["index_version"] = previous
-        _stats(job)["updated"] = int(_stats(job)["updated"]) + 1  # type: ignore[call-overload]
-    collection["index_version"] = pending
-    index = memory_index(store)
-    for document in _collection_documents(store, collection["id"]):
-        run_sync(
-            index.delete(
-                str(collection.get("store_collection")),
-                DeleteFilter(
-                    tenant_id=as_uuid(document["tenant_id"]),
-                    document_id=as_uuid(document["id"]),
-                    index_version=previous,
-                ),
-            )
-        )
-    finish_job(job, status="succeeded")
-    remember(
-        store,
-        tenant_id=collection["tenant_id"],
-        actor_id=actor_id,
-        action="collection.reindexed",
-        target_type="knowledge_collection",
-        target_id=collection["id"],
-        detail={"index_version": pending},
-    )
     return job
 
 

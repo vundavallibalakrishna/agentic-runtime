@@ -32,7 +32,7 @@ Endpoints served by `api`; ingestion runs on `ingest-worker` (`services/ingest`,
 409 if bound by a published agent version. Otherwise starts deletion (`DeleteDocumentWorkflow` per document in batches, then `RetrievalStore.drop_collection`) and returns `202`.
 
 #### POST /api/v1/knowledge/collections/{collection_id}:reindex
-Body `{embedding_alias?, chunking?, text_search_config?}`. Starts `ReindexCollectionWorkflow` (§4.5). Response `202 {job_id}`.
+Body `{embedding_alias?, chunking?, text_search_config?}`. Checks the settings (an `embedding_alias` is resolved and its model asked for one vector), saves an `ingestion_jobs` row (`kind` `reindex`, `status` `queued`), starts `ReindexCollectionWorkflow` (§4.5) on the ingest worker and returns `202 {job_id}` without reading or embedding anything. The collection row keeps its current settings and `index_version` until the workflow switches it; the settings asked for travel with the workflow. `409` while a re-index of the collection is queued or running; `503 unavailable` when no workflow engine is connected (nothing would run it); `422` for a `target_backend` other than the collection's own (moving to another vector store is §9, not a re-index). The job's `status`, `stats` (`seen`, `updated`, `failed`), `failures` and `error` say how it went ([OQ-210](../open-questions.md)).
 
 #### GET /api/v1/knowledge/collections/{collection_id}/sources
 #### POST /api/v1/knowledge/collections/{collection_id}/sources
@@ -104,7 +104,14 @@ Connector `list_acl_changes(cursor)` → per document new external principal set
 `RetrievalStore.delete` by `document_id`, delete chunks, mark document `deleted`, delete raw/parsed files (S3), audit.
 
 ### 4.5 `ReindexCollectionWorkflow(collection_id, new_settings)` id `reindex-{collection_id}`
-Signature `ReindexCollectionWorkflow(collection_id, new_settings, target_backend: str | None = None)`. Blue/green: `ensure_collection` for the target (new `index_version`; new `store_collection` when dims or backend change), re-chunk/re-embed all documents (from parsed files, no refetch) with concurrency 8 — or, when only `target_backend` is given, copy vectors (§9) — then in one transaction switch `knowledge_collections.index_version`/`store_backend`/`store_collection`/`embedding_model_id`/`text_search_config`, then delete the old version's entries (after `AR_VECTOR_MIGRATION_RETAIN_HOURS` when the backend changed). Retrieval during reindex uses the old index.
+Input `{tenant_id, collection_id, job_id, target, actor_id}`, where `target` is the collection's `embedding_alias`, `embedding_model`, `embedding_model_id`, `store_collection` (new when the model's vector length differs), `text_search_config` and `chunking` as they will be after the switch. The workflow id allows one re-index of a collection at a time across API replicas. Blue/green, as activities on the ingest worker (`ar_domain.knowledge.reindexing`), each reading the rows it needs from the database first:
+
+1. `reindex_prepare`: the job becomes `running`; the new version is `index_version + 1`; the documents are those the version in use holds (`status` `indexed`).
+2. `reindex_documents`, one activity per batch of 20 documents, run one after another, heartbeating per document: each document is parsed again from its stored file (no refetch) and chunked and embedded with `target` into the new version. Only the new version's passages of that document are replaced, so a batch tried again ends in the same place and the version in use keeps its passages, vectors and document rows. A document whose stored file is missing or cannot be parsed is recorded in the job's `failures` and fails the re-index (switching without it would drop it from search).
+3. `reindex_switch`: a document indexed by its own ingest while the re-index ran (which replaced only the version in use) is written into the new version first; then one write sets the collection's `index_version` and `target` fields and every document's `indexed_at` (so a process holding an older copy reloads it); then the old version's vectors are deleted through the store that holds them (`active_index` on a database-backed install) and its `document_chunks` rows are deleted; the job is `succeeded` and `collection.reindexed` is audited. The replaced version is kept on the job, so a switch tried again deletes the right one.
+4. On a failure of any step (after its retries; an embedding model that is not configured is not retried): `reindex_abandon` deletes what was written for the new version and marks the job `failed` with the reason (`embedding_unconfigured: …`, `embedding_failed: …`, or how many documents could not be read, with up to 20 of their ids in `stats.unreadable`). The collection is not changed.
+
+Retrieval during reindex uses the old index. Moving a collection to another vector store is `MigrateRetrievalStoreWorkflow` (§9), not this workflow.
 
 ## 5. Connectors (`ar_domain.knowledge.fetchers`)
 

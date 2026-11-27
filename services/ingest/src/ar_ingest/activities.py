@@ -8,7 +8,7 @@ from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
 from ar_domain.knowledge.pipeline import embedding_error, ingest_document_async, needs_admin
-from ar_domain.knowledge.syncing import acl_sync, delete_document, reindex
+from ar_domain.knowledge.syncing import acl_sync, delete_document
 from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfiguredError
 from ar_domain.readmodel.activity import repository_activity
 
@@ -228,17 +228,121 @@ async def delete_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
     return {"status": "deleted"}
 
 
-@activity.defn(name="reindex_collection")
+def _reindex_ids(payload: dict[str, Any]) -> tuple[uuid.UUID, uuid.UUID]:
+    return uuid.UUID(str(payload["collection_id"])), uuid.UUID(str(payload["job_id"]))
+
+
+def _target(payload: dict[str, Any]) -> dict[str, Any]:
+    target = payload.get("target")
+    return target if isinstance(target, dict) else {}
+
+
+def _reindex_error(exc: Exception) -> ApplicationError:
+    from ar_domain.knowledge.reindexing import ReindexFailedError  # noqa: PLC0415
+
+    if isinstance(exc, ReindexFailedError):
+        return ApplicationError(exc.reason, type="reindex_failed", non_retryable=exc.final)
+    return ApplicationError(type(exc).__name__, type=type(exc).__name__)
+
+
+@activity.defn(name="reindex_prepare")
 @repository_activity(process_store)
-async def reindex_activity(payload: dict[str, Any]) -> dict[str, Any]:
+async def reindex_prepare_activity(payload: dict[str, Any]) -> dict[str, Any]:
+    """Start a re-index job: the version to build and the documents to put in it."""
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.durable.hydrate import reload_collection  # noqa: PLC0415
+    from ar_domain.knowledge.reindexing import ReindexFailedError, prepare  # noqa: PLC0415
+
     store = _store()
-    collection = store.knowledge_collections[uuid.UUID(str(payload["collection_id"]))]
-    if payload.get("embedding_alias"):
-        collection["embedding_alias"] = payload["embedding_alias"]
-    if payload.get("target_backend"):
-        collection["pending_backend"] = payload["target_backend"]
-    job = reindex(store, collection, actor_id=payload.get("actor_id"))
-    return {"job_id": str(job["id"]), "index_version": collection.get("index_version")}
+    collection_id, job_id = _reindex_ids(payload)
+    await reload_collection(store, collection_id)
+    try:
+        plan = prepare(store, collection_id, job_id)
+    except ReindexFailedError as exc:
+        raise _reindex_error(exc) from exc
+    await flush_store(store)
+    return plan
+
+
+@activity.defn(name="reindex_documents")
+@repository_activity(process_store)
+async def reindex_documents_activity(payload: dict[str, Any]) -> dict[str, Any]:
+    """Write one batch of documents into the version a re-index is building."""
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.durable.hydrate import reload_collection  # noqa: PLC0415
+    from ar_domain.knowledge.reindexing import build  # noqa: PLC0415
+
+    store = _store()
+    collection_id, job_id = _reindex_ids(payload)
+    await reload_collection(store, collection_id)
+    try:
+        written = await build(
+            store,
+            collection_id=collection_id,
+            job_id=job_id,
+            target=_target(payload),
+            version=int(payload["version"]),
+            document_ids=[uuid.UUID(str(item)) for item in payload.get("document_ids") or []],
+            beat=activity.heartbeat,
+        )
+    except Exception as exc:
+        raise _reindex_error(exc) from exc
+    finally:
+        # The job's failures are kept whether or not the batch got to its end.
+        await flush_store(store)
+    return {"written": written}
+
+
+@activity.defn(name="reindex_switch")
+@repository_activity(process_store)
+async def reindex_switch_activity(payload: dict[str, Any]) -> dict[str, Any]:
+    """Put the version a re-index built in use and delete the one it replaces."""
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.durable.hydrate import reload_collection  # noqa: PLC0415
+    from ar_domain.knowledge.reindexing import switch  # noqa: PLC0415
+
+    store = _store()
+    collection_id, job_id = _reindex_ids(payload)
+    await reload_collection(store, collection_id)
+    try:
+        job = await switch(
+            store,
+            collection_id=collection_id,
+            job_id=job_id,
+            target=_target(payload),
+            version=int(payload["version"]),
+            actor_id=payload.get("actor_id"),
+            beat=activity.heartbeat,
+        )
+    except Exception as exc:
+        raise _reindex_error(exc) from exc
+    finally:
+        await flush_store(store)
+    return {"job_id": str(job["id"]), "status": str(job["status"])}
+
+
+@activity.defn(name="reindex_abandon")
+@repository_activity(process_store)
+async def reindex_abandon_activity(payload: dict[str, Any]) -> dict[str, Any]:
+    """End a re-index that cannot finish. The version in use keeps answering."""
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.durable.hydrate import reload_collection  # noqa: PLC0415
+    from ar_domain.knowledge.reindexing import abandon  # noqa: PLC0415
+
+    store = _store()
+    collection_id, job_id = _reindex_ids(payload)
+    await reload_collection(store, collection_id)
+    version = payload.get("version")
+    job = await abandon(
+        store,
+        collection_id=collection_id,
+        job_id=job_id,
+        target=_target(payload),
+        version=None if version is None else int(version),
+        reason=str(payload.get("error") or ""),
+    )
+    await flush_store(store)
+    return {"job_id": str(job["id"]), "status": str(job["status"])}
 
 
 @activity.defn(name="migrate_store")

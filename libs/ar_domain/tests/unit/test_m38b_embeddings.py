@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 import uuid
 from pathlib import Path
 
@@ -303,7 +304,16 @@ def test_reindexing_with_an_alias_moves_the_collection_to_that_alias_model() -> 
     with respx.mock:
         respx.route(host="127.0.0.1").pass_through()
         respx.post(f"{BASE}/embeddings").mock(side_effect=_answer(size=1024))
-        book.reindex_collection(_actor(), collection_id, {"embedding_alias": "embed-next"})
+        queued = asyncio.run(
+            book.reindex_collection(_actor(), collection_id, {"embedding_alias": "embed-next"})
+        )
+        # The collection keeps its model until the ingest worker switches it.
+        job = store.ingestion_jobs[uuid.UUID(queued["job_id"])]
+        deadline = time.monotonic() + 60
+        while job["status"] in {"queued", "running"} and time.monotonic() < deadline:
+            time.sleep(0.05)
+    assert job["status"] == "succeeded", job.get("error")
+    row = store.knowledge_collections[collection_id]
     assert row["embedding_model"] == "embed-next"
     assert row["embedding_model_id"] == second
     assert row["embedding_alias"] == "embed-next"

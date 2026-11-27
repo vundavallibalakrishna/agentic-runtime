@@ -20,7 +20,8 @@ from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.knowledge.members import add_member, refresh_document
 from ar_domain.knowledge.pipeline import stored_bytes
-from ar_domain.knowledge.syncing import reindex, sync_source
+from ar_domain.knowledge.reindexing import build, prepare, switch
+from ar_domain.knowledge.syncing import open_job, sync_source
 from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
@@ -158,15 +159,76 @@ def test_a_full_sync_of_an_unchanged_page_keeps_the_document_and_adds_no_version
     assert len(_revisions(book, document_id)) == 1
 
 
-def test_a_collection_is_reindexed_from_the_stored_bytes(site: Any) -> None:
-    store, book, _source, document_id = _watched(site)
-    collection = store.knowledge_collections[
-        store.knowledge_documents[document_id]["collection_id"]
-    ]
+async def test_a_reindex_builds_from_the_stored_bytes_while_the_old_version_answers(
+    site: Any,
+) -> None:
+    store, book, source, document_id = _watched(site)
+    collection_id = uuid.UUID(str(store.knowledge_documents[document_id]["collection_id"]))
+    collection = store.knowledge_collections[collection_id]
     # Nothing but the file store holds the bytes: a process that did not fetch them reads it.
     store.blobs.clear()
-    reindex(store, collection, actor_id=None)
+    job = open_job(
+        store,
+        tenant_id=demo_id("tenant"),
+        collection_id=collection_id,
+        source_id=None,
+        kind="reindex",
+        triggered_by="manual",
+        status="queued",
+    )
+    job_id = uuid.UUID(str(job["id"]))
+    target = {"chunking": {**collection["chunking"], "contextual": True}}
+    plan = prepare(store, collection_id, job_id)
+    assert plan["version"] == 2
+    assert job["status"] == "running"
+    await build(
+        store,
+        collection_id=collection_id,
+        job_id=job_id,
+        target=target,
+        version=2,
+        document_ids=[uuid.UUID(str(item)) for item in plan["document_ids"]],  # type: ignore[attr-defined]
+    )
+    # Half way: the collection is searched as it was, from version 1, which is whole.
+    assert collection["index_version"] == 1
+    assert collection["chunking"]["contextual"] is False
+    versions = {
+        row["index_version"]
+        for row in store.document_chunks.values()
+        if row["document_id"] == document_id
+    }
+    assert versions == {1, 2}
+    assert [row["ordinal"] for row in book.chunks(_actor(), document_id)] == [0]
+    found = book.search(
+        _actor(), {"query": "What is the limit?", "collection_ids": [collection_id]}
+    )
+    assert found["hits"]
     assert store.knowledge_documents[document_id]["status"] == "indexed"
+
+    # A sync that reads the page again while the re-index runs replaces only the version in
+    # use. The switch writes that document into the new version before it switches.
+    site.page = (b"<h1>Notice</h1><p>The limit is 12.</p>", '"b"')
+    sync_source(store, source, mode="full", actor_id=None)
+    assert {
+        row["index_version"]
+        for row in store.document_chunks.values()
+        if row["document_id"] == document_id
+    } == {1}
+    await switch(
+        store,
+        collection_id=collection_id,
+        job_id=job_id,
+        target=target,
+        version=2,
+        actor_id=None,
+    )
+    assert collection["index_version"] == 2
+    assert collection["chunking"]["contextual"] is True
+    passages = [row for row in store.document_chunks.values() if row["document_id"] == document_id]
+    assert {row["index_version"] for row in passages} == {2}
+    assert "12" in " ".join(str(row["text"]) for row in passages)
+    assert job["status"] == "succeeded"
+    assert job["stats"]["updated"] == 1  # type: ignore[index]
     assert book.chunks(_actor(), document_id)
 
 
