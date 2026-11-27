@@ -438,7 +438,9 @@ def _get_document(
         document = book.get_document(actor, document_id)
     except ValueError, TypeError, ArError:
         return _error("not_found", "document was not found")
-    if not _document_within(store, document, bound):
+    # The view the book returns has no collection id; the stored row does.
+    stored = getattr(store, "knowledge_documents", {}).get(document_id)
+    if not isinstance(stored, dict) or not _document_within(store, stored, bound):
         return _error("not_found", "document was not found")
     page = book.document_text(
         actor,
