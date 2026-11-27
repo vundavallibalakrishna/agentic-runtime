@@ -249,7 +249,9 @@ WITH targets(collection_id, index_version) AS (
   SELECT chunk_id, row_number() OVER (ORDER BY score DESC, chunk_id) AS rank FROM (
     SELECT ce.chunk_id, ts_rank_cd(ce.tsv, qq.query, 32) AS score
     FROM chunk_embeddings ce JOIN targets t USING (collection_id, index_version),
-         (SELECT websearch_to_tsquery('simple', :text) AS query) qq
+         (SELECT COALESCE(NULLIF(regexp_replace(
+            websearch_to_tsquery('simple', :text)::text, ' & ', ' | ', 'g'),
+            '')::tsquery, ''::tsquery) AS query) qq
     WHERE ce.tsv @@ qq.query AND ce.tenant_id = :tenant_id
       AND ce.acl && :principals::text[] AND ce.classification = ANY(:allowed::text[])
     ORDER BY score DESC, ce.chunk_id LIMIT :lexical_k) l
@@ -263,7 +265,7 @@ LIMIT :fused_k;
 ```
 
 - The example shows dims 1024. The dims literal is interpolated from the supported-dims allowlist (never from input) so the planner matches the partial index; every other value is a bound parameter.
-- The tsquery is `websearch_to_tsquery(cfg, :text)` OR-combined (`||`) over the distinct `text_search_config`s of the targets. Allowed configs: `simple` (default; language-neutral, suits mixed Indian-language corpora) and `english`.
+- The tsquery is `websearch_to_tsquery(cfg, :text)` with the AND between lexemes rewritten to OR (`regexp_replace` of `' & '` to `' | '`), then OR-combined (`||`) over the distinct `text_search_config`s of the targets. A passage that shares any remaining lexeme is a lexical hit; `ts_rank_cd` orders them. The config's dictionary drops stop words (`english` does; `simple` keeps every token). A quoted phrase stays a phrase. Allowed configs: `simple` (default; language-neutral, suits mixed Indian-language corpora) and `english`. An empty query after stop-word removal matches no row, and the dense branch still answers.
 - `ts_rank_cd(…, 32)` (cover density, normalised `rank/(rank+1)`) is the BM25-style lexical score; only its rank order enters RRF.
 - The builder is `store_pgvector.build_hybrid_sql()`; unit tests assert the tenant, ACL and classification predicates are present in both branches and the dims literal comes from the allowlist.
 
