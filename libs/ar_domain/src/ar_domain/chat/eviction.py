@@ -8,7 +8,7 @@ runs are kept. A row that has not been flushed yet is kept too.
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
@@ -100,30 +100,41 @@ def _protected(store: Any) -> set[object]:
 
 
 def _trim_messages(store: Any, protected: set[object], limit: int) -> int:
-    messages = getattr(store, "messages", None)
-    if not isinstance(messages, dict):
-        return 0
-    removed = 0
-    while len(messages) > limit:
-        target = _oldest(store, protected, messages, "conversation_id")
-        if target is None:
-            break
-        removed += _drop_matching(messages, "conversation_id", target)
-        _mark(store, target)
-    return removed
+    return _trim_by_conversation(store, protected, getattr(store, "messages", None), limit)
 
 
 def _trim_runs(store: Any, protected: set[object], limit: int) -> int:
-    runs = getattr(store, "runs", None)
-    if not isinstance(runs, dict):
+    return _trim_by_conversation(store, protected, getattr(store, "runs", None), limit)
+
+
+def _trim_by_conversation(store: Any, protected: set[object], bucket: object, limit: int) -> int:
+    """Drop whole conversations' rows, oldest conversation first, until the bucket fits.
+
+    One pass groups the rows that may go by conversation, so a trim reads the bucket once
+    however many conversations it drops. A store loaded with a whole tenant's history is
+    trimmed on every message, so a scan per dropped conversation does not finish.
+    """
+    if not isinstance(bucket, dict) or len(bucket) <= limit:
         return 0
+    droppable: dict[object, list[object]] = {}
+    for key, row in bucket.items():
+        if isinstance(row, dict) and _can_drop(bucket, key):
+            droppable.setdefault(row.get("conversation_id"), []).append(key)
+    conversations = getattr(store, "conversations", {})
+    order = list(conversations) if isinstance(conversations, dict) else []
     removed = 0
-    while len(runs) > limit:
-        target = _oldest(store, protected, runs, "conversation_id")
-        if target is None:
+    for conversation_id in order:
+        if len(bucket) <= limit:
             break
-        removed += _drop_matching(runs, "conversation_id", target)
-        _mark(store, target)
+        if conversation_id in protected:
+            continue
+        keys = droppable.pop(conversation_id, None)
+        if not keys:
+            continue
+        for key in keys:
+            _drop_key(bucket, key)
+            removed += 1
+        _mark(store, conversation_id)
     return removed
 
 
@@ -133,21 +144,17 @@ def _trim_events(store: Any, protected: set[object], limit: int) -> int:
     if not isinstance(events, dict):
         return 0
     removed = 0
-    while len(events) > limit:
-        dropped = False
-        for key in list(events):
-            run = runs.get(key) if isinstance(runs, dict) else None
-            conversation_id = run.get("conversation_id") if isinstance(run, dict) else None
-            if conversation_id in protected or not _can_drop(events, key):
-                continue
-            _drop_key(events, key)
-            removed += 1
-            dropped = True
-            if isinstance(conversation_id, uuid.UUID):
-                _mark(store, conversation_id)
+    for key in list(events):
+        if len(events) <= limit:
             break
-        if not dropped:
-            break
+        run = runs.get(key) if isinstance(runs, dict) else None
+        conversation_id = run.get("conversation_id") if isinstance(run, dict) else None
+        if conversation_id in protected or not _can_drop(events, key):
+            continue
+        _drop_key(events, key)
+        removed += 1
+        if isinstance(conversation_id, uuid.UUID):
+            _mark(store, conversation_id)
     return removed
 
 
@@ -157,42 +164,11 @@ def _trim_blobs(store: Any, limit: int) -> int:
     if not isinstance(blobs, dict):
         return 0
     removed = 0
-    while _blob_bytes(blobs) > limit and blobs:
-        blobs.pop(next(iter(blobs)), None)
-        removed += 1
-    return removed
-
-
-def _oldest(
-    store: Any, protected: set[object], bucket: dict[object, object], field: str
-) -> object | None:
-    conversations = getattr(store, "conversations", {})
-    order = list(conversations) if isinstance(conversations, dict) else []
-    seen: set[object] = set()
-    for conversation_id in order:
-        if conversation_id in protected or conversation_id in seen:
-            continue
-        if not any(
-            isinstance(row, dict) and row.get(field) == conversation_id for row in bucket.values()
-        ):
-            continue
-        if not any(
-            isinstance(row, dict) and row.get(field) == conversation_id and _can_drop(bucket, key)
-            for key, row in bucket.items()
-        ):
-            continue
-        return cast("object", conversation_id)
-    return None
-
-
-def _drop_matching(bucket: dict[object, object], field: str, conversation_id: object) -> int:
-    removed = 0
-    for key, row in list(bucket.items()):
-        if not isinstance(row, dict) or row.get(field) != conversation_id:
-            continue
-        if not _can_drop(bucket, key):
-            continue
-        _drop_key(bucket, key)
+    held = _blob_bytes(blobs)
+    while held > limit and blobs:
+        value = blobs.pop(next(iter(blobs)), None)
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            held -= len(value)
         removed += 1
     return removed
 
