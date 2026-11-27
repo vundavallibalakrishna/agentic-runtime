@@ -1846,6 +1846,9 @@ def _with_trace(store: Any, answer: str, run: dict[str, object]) -> list[dict[st
 def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> None:
     retrieval = run.get("retrieval")
     if isinstance(retrieval, dict):
+        from ar_domain.knowledge.retrieved import retrieval_record  # noqa: PLC0415
+
+        record = retrieval_record(str(retrieval.get("query") or ""), retrieval)
         store._emit(
             run,
             "knowledge.retrieved",
@@ -1853,6 +1856,8 @@ def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> Non
                 "message_id": str(assistant_id),
                 "used_chars": retrieval.get("used_chars"),
                 "hits": len(retrieval.get("hits") or []),
+                "passages": record["passages"] if isinstance(record, dict) else [],
+                "query": record["query"] if isinstance(record, dict) else "",
             },
         )
     loaded = run.get("loaded_skill")

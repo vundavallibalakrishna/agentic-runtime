@@ -32,7 +32,11 @@ def passed(scores: Mapping[str, Mapping[str, object]]) -> bool:
     """
     if not scores:
         return False
-    judging = [item for item in scores.values() if str(item.get("verdict") or "") != "not_judged"]
+    judging = [
+        item
+        for item in scores.values()
+        if str(item.get("verdict") or "") not in {"not_judged", "measured"}
+    ]
     if not judging:
         return False
     return all(bool(item.get("passed")) for item in judging)
@@ -71,11 +75,54 @@ def summarise(
     allowance = _float(gate.get("max_regression_pct"), 5.0)
     gate_passed = cases > 0 and rate + 1e-9 >= minimum and regression_pct <= allowance and must_ok
     mean = _mean(results)
+    grades = {"pass": 0, "weak": 0, "fail": 0}
+    by_category: dict[str, dict[str, object]] = {}
+    coverage: list[float] = []
+    recall: list[float] = []
+    for item in results:
+        scores = item.get("scores")
+        bag = scores if isinstance(scores, dict) else {}
+        grade = _case_grade(bool(item.get("passed")), bag)
+        grades[grade] = grades.get(grade, 0) + 1
+        fact = _fact_coverage(bag)
+        pages = _recall_score(bag)
+        if fact is not None:
+            coverage.append(fact)
+        if pages is not None:
+            recall.append(pages)
+        tags = item.get("tags")
+        names = [str(tag) for tag in tags] if isinstance(tags, list) and tags else ["uncategorised"]
+        for tag in names:
+            bucket = by_category.setdefault(
+                tag,
+                {
+                    "cases": 0,
+                    "pass": 0,
+                    "weak": 0,
+                    "fail": 0,
+                    "fact_coverage": [],
+                    "retrieval_recall": [],
+                },
+            )
+            bucket["cases"] = int(bucket["cases"]) + 1
+            bucket[grade] = int(bucket[grade]) + 1
+            if fact is not None:
+                held = bucket["fact_coverage"]
+                if isinstance(held, list):
+                    held.append(fact)
+            if pages is not None:
+                held = bucket["retrieval_recall"]
+                if isinstance(held, list):
+                    held.append(pages)
     return {
         "cases": cases,
         "passed": ok,
         "pass_rate": rate,
         "mean_scores": mean,
+        "fact_coverage": _avg(coverage),
+        "retrieval_recall": _avg(recall),
+        "grades": grades,
+        "by_category": {tag: _finish_bucket(bucket) for tag, bucket in by_category.items()},
         "cost_micros": costs,
         "p95_latency_ms": _p95(latencies),
         "gate_passed": gate_passed,
@@ -252,6 +299,60 @@ def _cosine(left: Mapping[str, int], right: Mapping[str, int]) -> float:
     if left_norm == 0 or right_norm == 0:
         return 0.0
     return dot / (left_norm * right_norm)
+
+
+def _case_grade(ok: bool, scores: Mapping[str, object]) -> str:  # noqa: FBT001
+    """Pass when the case passed. Weak when the only miss is a partial fact list."""
+    if ok:
+        return "pass"
+    judges = [
+        item
+        for name, item in scores.items()
+        if name.startswith("llm_judge_") and isinstance(item, dict)
+    ]
+    if judges and all(item.get("grade") == "weak" for item in judges):
+        others = [
+            item
+            for name, item in scores.items()
+            if isinstance(item, dict)
+            and not name.startswith("llm_judge_")
+            and str(item.get("verdict") or "") not in {"not_judged", "measured"}
+        ]
+        if all(bool(item.get("passed")) for item in others):
+            return "weak"
+    return "fail"
+
+
+def _fact_coverage(scores: Mapping[str, object]) -> float | None:
+    values = [
+        float(item["fact_coverage"])
+        for item in scores.values()
+        if isinstance(item, dict) and isinstance(item.get("fact_coverage"), int | float)
+    ]
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
+def _recall_score(scores: Mapping[str, object]) -> float | None:
+    item = scores.get("retrieval_recall")
+    if isinstance(item, dict) and isinstance(item.get("score"), int | float):
+        return float(item["score"])
+    return None
+
+
+def _avg(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return round(sum(values) / len(values), 4)
+
+
+def _finish_bucket(bucket: dict[str, object]) -> dict[str, object]:
+    facts = bucket.pop("fact_coverage")
+    pages = bucket.pop("retrieval_recall")
+    bucket["fact_coverage"] = _avg(facts if isinstance(facts, list) else [])
+    bucket["retrieval_recall"] = _avg(pages if isinstance(pages, list) else [])
+    return bucket
 
 
 def _mean(results: list[dict[str, object]]) -> dict[str, float]:

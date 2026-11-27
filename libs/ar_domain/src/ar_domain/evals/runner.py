@@ -95,6 +95,9 @@ async def score_eval_case(store: Any, eval_run_id: uuid.UUID, case_id: str) -> b
         outcome = await _run_case(store, row, case)
         scores = grade(_list(case.get("assertions")), outcome)
         await _judge(store, row, case, outcome, scores)
+        measured = _retrieval_recall(case, outcome)
+        if measured is not None:
+            scores["retrieval_recall"] = measured
     except Exception as exc:  # noqa: BLE001 - one case that cannot run is a failed case
         from ar_domain.tools.logic import raised_at  # noqa: PLC0415
 
@@ -394,9 +397,61 @@ def _outcome(store: Any, run_ids: list[uuid.UUID], raw_input: object) -> dict[st
         "cost_micros": cost,
         "steps": steps,
         "citations": citations,
+        "retrieved": _retrieved(store, run_ids, calls),
         "denied": sum(1 for row in calls if row.get("status") == "denied"),
         "run_id": run_ids[-1],
         "grounding": _grounding_report(raw_input),
+    }
+
+
+def _retrieved(
+    store: Any, run_ids: list[uuid.UUID], calls: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    """Passage ids from each search tool call and from the run's own retrieval."""
+    from ar_domain.knowledge.retrieved import retrieval_record  # noqa: PLC0415
+
+    passages: list[dict[str, object]] = []
+    for call in calls:
+        record = call.get("retrieval")
+        rows = record.get("passages") if isinstance(record, dict) else None
+        if isinstance(rows, list):
+            passages.extend(row for row in rows if isinstance(row, dict))
+    for run_id in run_ids:
+        run = store.runs.get(run_id)
+        retrieval = run.get("retrieval") if isinstance(run, dict) else None
+        if not isinstance(retrieval, dict):
+            continue
+        record = retrieval_record(str(retrieval.get("query") or ""), retrieval)
+        rows = record.get("passages") if isinstance(record, dict) else None
+        if isinstance(rows, list):
+            passages.extend(row for row in rows if isinstance(row, dict))
+    return passages
+
+
+def _retrieval_recall(
+    case: dict[str, object], outcome: dict[str, object]
+) -> dict[str, object] | None:
+    """Share of the case's expected pages that were retrieved. No model call."""
+    from ar_domain.knowledge.retrieved import retrieval_recall  # noqa: PLC0415
+
+    raw = case.get("input")
+    pages = raw.get("expected_pages", raw.get("expectedPages")) if isinstance(raw, dict) else None
+    if not isinstance(pages, list):
+        return None
+    expected = [str(item) for item in pages]
+    retrieved = outcome.get("retrieved")
+    passages = (
+        [row for row in retrieved if isinstance(row, dict)] if isinstance(retrieved, list) else []
+    )
+    measured = retrieval_recall(expected, passages)
+    if measured is None:
+        return None
+    score, found, total = measured
+    return {
+        "passed": score == 1.0,
+        "score": round(score, 4),
+        "verdict": "measured",
+        "detail": f"{found} of {total} pages",
     }
 
 

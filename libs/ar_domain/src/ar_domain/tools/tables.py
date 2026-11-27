@@ -351,6 +351,8 @@ class ToolCall(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'"))
     idempotency_key: Mapped[str] = mapped_column(Text, nullable=False)
     result_preview: Mapped[str | None] = mapped_column(Text)
+    # Passage and document ids a search returned, with scores and rank. No passage text.
+    retrieval: Mapped[dict[str, object] | None] = mapped_column(JSONB)
     result_file_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("files.id", name="fk_tool_calls_result", ondelete="SET NULL", use_alter=True),

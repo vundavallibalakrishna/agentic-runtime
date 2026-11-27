@@ -203,13 +203,29 @@ def _result(items: list[dict[str, object]], *, passed: bool, detail: str) -> dic
     musts = [item for item in items if item["kind"] == "must"]
     met = sum(1 for item in musts if item["verdict"] == "stated")
     score = (met / len(musts)) if musts else (1.0 if passed else 0.0)
+    rounded = round(score, 4)
     return {
         "passed": passed,
-        "score": round(score, 4),
+        "score": rounded,
+        "fact_coverage": rounded,
+        "grade": _grade(passed=passed, score=rounded, items=items),
         "detail": detail,
         "verdict": "judged" if items and all(i["verdict"] != "failed" for i in items) else "failed",
         "items": items,
     }
+
+
+def _grade(*, passed: bool, score: float, items: list[dict[str, object]]) -> str:
+    """Pass, weak or fail from the facts alone. A partial fact list is weak."""
+    if any(item["verdict"] == "failed" for item in items):
+        return "fail"
+    if any(item["kind"] == "must_not" and item["verdict"] == "stated" for item in items):
+        return "fail"
+    if passed:
+        return "pass"
+    if score > 0:
+        return "weak"
+    return "fail"
 
 
 def judge_case(
