@@ -294,3 +294,41 @@ def test_cancelling_a_run_cancels_its_workflow() -> None:
     view = book.cancel(actor, uuid.UUID(str(queued["id"])))
     assert view["status"] == "cancelled"
     assert cancelled == [f"eval-{queued['id']}"]
+
+
+def test_a_conversation_is_judged_on_every_answer_not_only_the_last() -> None:
+    transcript = [
+        {"user": "is it hosted?", "assistant": "Both cloud and on-premises are offered."},
+        {"user": "support hours on premium?", "assistant": "Premium cloud lists 16x5 support."},
+        {"user": "how do I see a demo?", "assistant": "Use the Request a Demo form."},
+    ]
+    asked: list[str] = []
+
+    def ask(task: str, evidence: str) -> str | None:
+        asked.append(evidence)
+        if "16x5" in task:
+            return '{"verdict":"stated","quote":"Premium cloud lists 16x5 support."}'
+        if "on-premises" in task:
+            return '{"verdict":"stated","quote":"Both cloud and on-premises are offered."}'
+        return '{"verdict":"not_stated","quote":""}'
+
+    result = judge_answer(
+        "Use the Request a Demo form.",
+        ["Both cloud and on-premises deployment are offered.", "Premium lists 16x5 support."],
+        ["Says 24x7 support."],
+        ask,
+        model_id="m1",
+        transcript=transcript,
+    )
+    assert result["passed"] is True
+    assert "Turn 2, the assistant answered" in asked[0]
+    single = judge_answer(
+        "Use the Request a Demo form.",
+        ["Premium lists 16x5 support."],
+        [],
+        ask,
+        model_id="m1",
+        transcript=transcript[-1:],
+    )
+    # One turn: only that answer is the evidence, and its words hold no such quote.
+    assert single["passed"] is False
