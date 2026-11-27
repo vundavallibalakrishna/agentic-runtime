@@ -210,13 +210,16 @@ async def _results(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
             :id, :tenant_id, :eval_run_id, :case_id, :run_id, :passed, CAST(:scores AS jsonb),
             :output_text, :latency_ms, :cost_micros, :created_at
         )
-        ON CONFLICT (id) DO UPDATE SET
+        ON CONFLICT (eval_run_id, case_id) DO UPDATE SET
+            run_id = EXCLUDED.run_id,
             passed = EXCLUDED.passed,
             scores = EXCLUDED.scores,
             output_text = EXCLUDED.output_text,
             latency_ms = EXCLUDED.latency_ms,
             cost_micros = EXCLUDED.cost_micros
     """
+    # One result a case in a run. A retried batch may score a case again under a new id
+    # after an earlier attempt's partial save already stored one; the later answer wins.
     for row in rows:
         result_id = as_uuid(row.get("id"))
         tenant_id = as_uuid(row.get("tenant_id"))
