@@ -169,6 +169,8 @@ async def _retrieve(
                 definition, "max_per_document", "maxPerDocument"
             ),
             context_chars=_optional_int(definition, "context_chars", "contextChars"),
+            plan=_wants_plan(definition),
+            planner_alias=_planner_alias(store, tenant, definition),
         )
     except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
         detail = str(exc.detail or exc)
@@ -308,6 +310,18 @@ def _definition(store: Any, run: dict[str, object]) -> dict[str, object] | None:
         return None
     definition = version.get("definition")
     return definition if isinstance(definition, dict) else None
+
+
+def _wants_plan(definition: dict[str, object]) -> bool:
+    from ar_domain.knowledge.planning import wants_plan  # noqa: PLC0415
+
+    return wants_plan(definition)
+
+
+def _planner_alias(store: Any, tenant_id: uuid.UUID, definition: dict[str, object]) -> str:
+    from ar_domain.knowledge.planning import planner_alias  # noqa: PLC0415
+
+    return planner_alias(store, tenant_id, definition)
 
 
 def _optional_int(definition: dict[str, object], *names: str) -> int | None:

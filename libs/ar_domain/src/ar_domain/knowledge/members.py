@@ -210,6 +210,8 @@ async def retrieve(
     candidate_k: int | None = None,
     max_passages_per_document: int | None = None,
     context_chars: int | None = None,
+    plan: bool = False,
+    planner_alias: str | None = None,
 ) -> dict[str, object]:
     """Hybrid search trimmed to the prompt budget. The trace lists every chunk used.
 
@@ -226,13 +228,23 @@ async def retrieve(
     # A follow-up ("what got better for them?") names nothing to search for. What the
     # person said before does, so each earlier turn, newest first, is one more query;
     # fusion keeps the new message's own best passage first.
-    for text in reversed([item.strip() for item in earlier or [] if item.strip()]):
-        if text not in queries:
-            queries.append(text)
+    prior = [item.strip() for item in earlier or [] if item.strip()]
+    planned: list[str] | None = None
+    if plan and planner_alias:
+        from ar_domain.knowledge.planning import plan_search_queries  # noqa: PLC0415
+
+        planned = await plan_search_queries(store, actor.tenant_id, planner_alias, query, prior)
+    if planned:
+        queries = planned
+    else:
+        for text in reversed(prior):
+            if text not in queries:
+                queries.append(text)
     ranked: list[list[dict[str, object]]] = []
     found: dict[str, object] = {}
-    for item in queries:
-        found = await search_async(
+
+    async def _one(item: str) -> dict[str, object]:
+        return await search_async(
             store,
             actor,
             query=item,
@@ -243,6 +255,11 @@ async def retrieve(
             candidate_k=candidate_k,
             max_passages_per_document=max_passages_per_document,
         )
+
+    import asyncio  # noqa: PLC0415
+
+    found_rows = await asyncio.gather(*(_one(item) for item in queries))
+    for found in found_rows:
         raw_hits = found.get("hits")
         ranked.append(
             [hit for hit in raw_hits if isinstance(hit, dict)] if isinstance(raw_hits, list) else []
@@ -275,6 +292,7 @@ async def retrieve(
     trace = {
         "query": query[:500],
         "queries": [item[:200] for item in queries] if len(queries) > 1 else [],
+        "planned": bool(planned),
         "collection_ids": [str(item) for item in collection_ids],
         "embedding_model": model,
         "rerank_model": str(found.get("rerank_model") or ""),

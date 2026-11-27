@@ -460,6 +460,129 @@ def _get_document(
     return {"text": f"{heading}\n\n{body}{tail}", "structured": page, "is_error": False}
 
 
+def _search_for_agent(
+    store: Any, book: Any, actor: Any, body: dict[str, object], arguments: dict[str, object]
+) -> dict[str, object]:
+    """One search, or a few planned queries run together and merged."""
+    from ar_domain.knowledge.planning import planner_alias, wants_plan  # noqa: PLC0415
+    from ar_domain.knowledge.syncutil import run_sync  # noqa: PLC0415
+
+    definition = _definition(store, arguments)
+    if not wants_plan(definition):
+        found = book.search(actor, body)
+        return found if isinstance(found, dict) else {}
+    alias = planner_alias(store, actor.tenant_id, definition)
+    return run_sync(_planned_search, store, actor, body, definition, alias, arguments)
+
+
+def _definition(store: Any, arguments: dict[str, object]) -> dict[str, object] | None:
+    version = getattr(store, "versions", {}).get(arguments.get("_agent_version_id"))
+    definition = version.get("definition") if isinstance(version, dict) else None
+    return definition if isinstance(definition, dict) else None
+
+
+def _uuids(value: object) -> list[uuid.UUID]:
+    if not isinstance(value, list):
+        return []
+    found: list[uuid.UUID] = []
+    for item in value:
+        if isinstance(item, uuid.UUID):
+            found.append(item)
+            continue
+        try:
+            found.append(uuid.UUID(str(item)))
+        except ValueError, TypeError:
+            continue
+    return found
+
+
+async def _planned_search(  # noqa: PLR0917
+    store: Any,
+    actor: Any,
+    body: dict[str, object],
+    definition: dict[str, object] | None,
+    alias: str,
+    arguments: dict[str, object],
+) -> dict[str, object]:
+    import asyncio  # noqa: PLC0415
+
+    from ar_domain.knowledge.planning import plan_search_queries  # noqa: PLC0415
+    from ar_domain.knowledge.retrieval import diversify, max_per_document  # noqa: PLC0415
+    from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
+    from ar_domain.workspace.turn import _context_turns, earlier_user_turns  # noqa: PLC0415
+
+    query = str(body.get("query") or "")
+    run_id = arguments.get("_run_id")
+    runs = getattr(store, "runs", {})
+    run = runs.get(run_id) if isinstance(runs, dict) else None
+    earlier: list[str] = []
+    if isinstance(run, dict) and isinstance(definition, dict):
+        earlier = earlier_user_turns(store, run, _context_turns(definition))
+    planned = await plan_search_queries(store, actor.tenant_id, alias, query, earlier)
+    queries = planned or [query]
+    collection_ids = _uuids(body.get("collection_ids"))
+    top_k = body.get("top_k") if isinstance(body.get("top_k"), int) else 8
+    named = _uuids(body.get("document_ids")) or None
+    candidate = body.get("candidate_k")
+    per_document = body.get("max_per_document")
+    bar = body.get("min_score")
+
+    async def one(text: str) -> dict[str, object]:
+        found = await search_async(
+            store,
+            actor,
+            query=text,
+            collection_ids=collection_ids,
+            top_k=top_k,
+            debug=False,
+            min_score=bar if isinstance(bar, float) else None,
+            document_ids=named,
+            candidate_k=candidate if isinstance(candidate, int) else None,
+            max_passages_per_document=per_document if isinstance(per_document, int) else None,
+        )
+        return found if isinstance(found, dict) else {}
+
+    rows = await asyncio.gather(*(one(text) for text in queries))
+    ranked: list[list[dict[str, object]]] = []
+    for row in rows:
+        hits = row.get("hits")
+        chosen = [hit for hit in hits if isinstance(hit, dict)] if isinstance(hits, list) else []
+        ranked.append(chosen)
+    merged = diversify(
+        _round_robin(ranked),
+        top_k=top_k,
+        per_document=max_per_document(per_document if isinstance(per_document, int) else None),
+    )
+    last = rows[-1] if rows else {}
+    answerable = any(bool(row.get("answerable")) for row in rows) and bool(merged)
+    result: dict[str, object] = {
+        "hits": merged,
+        "answerable": answerable,
+        "queries": queries,
+        "embedding_model": last.get("embedding_model") or "",
+        "rerank_model": last.get("rerank_model") or "",
+        "scored": last.get("scored"),
+    }
+    return result
+
+
+def _round_robin(ranked: list[list[dict[str, object]]]) -> list[dict[str, object]]:
+    merged: list[dict[str, object]] = []
+    seen: set[str] = set()
+    depth = max((len(hits) for hits in ranked), default=0)
+    for rank in range(depth):
+        for hits in ranked:
+            if rank >= len(hits):
+                continue
+            hit = hits[rank]
+            key = str(hit.get("chunk_id") or id(hit))
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(hit)
+    return merged
+
+
 def _retrieval_limits(store: Any, arguments: dict[str, object]) -> dict[str, int]:
     """The calling agent's retrieval pool and per-document cap, when it sets them."""
     version = getattr(store, "versions", {}).get(arguments.get("_agent_version_id"))
@@ -546,7 +669,7 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
             body["document_ids"] = named
         limits = _retrieval_limits(store, arguments)
         body.update(limits)
-        found = book.search(actor, body)
+        found = _search_for_agent(store, book, actor, body, arguments)
     except (ValueError, TypeError, ArError) as exc:
         return _error("validation_failed", str(exc))
     raw_hits = found.get("hits")
