@@ -30,32 +30,46 @@ The runtime never calls tools directly except control tools; all other tools go 
 class AgentRunWorkflow:
     @workflow.run
     async def run(self, inp: RunWorkflowInput) -> RunResult:
-        ctx = await act(start_run, inp.run_id)            # status running, emits run.started; returns RunStartInfo (budget, flags, depth)
-        self.usage = RunUsage.zero(); self.deadline = workflow.now() + ctx.budget.max_wall_clock_s
-        if ctx.memory_enabled:  await act(recall_memory, inp.run_id)          # emits memory.recalled
-        if ctx.auto_retrieve:   await act(auto_retrieve_knowledge, inp.run_id)
+        ctx = await act(
+            start_run, inp.run_id
+        )  # status running, emits run.started; returns RunStartInfo (budget, flags, depth)
+        self.usage = RunUsage.zero()
+        self.deadline = workflow.now() + ctx.budget.max_wall_clock_s
+        if ctx.memory_enabled:
+            await act(recall_memory, inp.run_id)  # emits memory.recalled
+        if ctx.auto_retrieve:
+            await act(auto_retrieve_knowledge, inp.run_id)
         model_failures = 0
         while True:
-            self.check_budget_and_cancel()                # raises BudgetExceeded / Cancelled
-            if await act(needs_compaction, inp.run_id):   # cheap estimate
-                await act(compact_context, inp.run_id)    # emits context.compacted
+            self.check_budget_and_cancel()  # raises BudgetExceeded / Cancelled
+            if await act(needs_compaction, inp.run_id):  # cheap estimate
+                await act(compact_context, inp.run_id)  # emits context.compacted
             try:
-                step = await act(model_step, ModelStepInput(run_id=inp.run_id, step_seq=self.next_seq(),
-                                  use_fast_alias=model_failures >= 2 and ctx.degrade_to_fast))
+                step = await act(
+                    model_step,
+                    ModelStepInput(
+                        run_id=inp.run_id,
+                        step_seq=self.next_seq(),
+                        use_fast_alias=model_failures >= 2 and ctx.degrade_to_fast,
+                    ),
+                )
                 model_failures = 0
             except ActivityError as e:
                 model_failures += 1
-                if model_failures > 3 or non_retryable(e): raise
+                if model_failures > 3 or non_retryable(e):
+                    raise
                 continue
             self.usage.add(step.usage)
-            if not step.tool_calls:                       # final answer
+            if not step.tool_calls:  # final answer
                 break
             self.check_budget_and_cancel(pending_tool_calls=len(step.tool_calls))
             await self.run_tool_batch(inp.run_id, step.tool_calls, ctx)
-        return await act(finalize_run, FinalizeInput(run_id=inp.run_id, outcome="completed", usage=self.usage))
+        return await act(
+            finalize_run, FinalizeInput(run_id=inp.run_id, outcome="completed", usage=self.usage)
+        )
 ```
 
-- `run_tool_batch`: runs up to `budget.max_parallel_tool_calls` concurrently (`asyncio.gather` over activities / child workflows). Each item:
+- `run_tool_batch`: runs up to `budget.max_parallel_tool_calls` concurrently (`asyncio.gather`). The default is 3 (`runs.logic.DEFAULT_RUN_BUDGET`); an agent sets its own in `budget`. A call that starts another agent, waits for a person, repairs its arguments, or maps a document runs alone. The others in the same reply run together. `max_tool_calls` stays 16, which is enough for several searches and the page reads that follow them. Each item:
   1. Control tools → handled in-workflow (§6, §7) after `act(evaluate_control_tool)` (policy + `tool_calls` row).
   2. Other tools → `act(execute_tool_call, {run_id, tool_call_id})`. Outcome statuses:
      - `succeeded|failed|denied` → done.

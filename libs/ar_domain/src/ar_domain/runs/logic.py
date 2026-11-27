@@ -15,8 +15,10 @@ from ar_domain.events.sign import sign_body
 # as output and once more as part of the next prompt.
 #
 # The values fit each other (OQ-149). `max_tool_calls` equals `max_steps`, so the step
-# limit is the one a run of single tool calls reaches. `max_wall_clock_s` is 16 model
-# steps of up to 12 seconds (192) and 16 tool calls of about 25 seconds (400).
+# limit is the one a run of single tool calls reaches. `max_parallel_tool_calls` is how
+# many independent calls (a search and a page read, for example) run at once.
+# `max_wall_clock_s` is 16 model steps of up to 12 seconds (192) and 16 tool calls of
+# about 25 seconds (400).
 # `max_cost_micros` is a backstop: cost bills the whole prompt on every step, so 16
 # steps under the token limit bill at most 16 x 80,000 input tokens, 3,840,000 micros
 # at 3 per million. The cap sits just above that and stops a run only when a model
@@ -27,7 +29,7 @@ DEFAULT_RUN_BUDGET: dict[str, int] = {
     "max_cost_micros": 4_000_000,
     "max_wall_clock_s": 600,
     "max_tool_calls": 16,
-    "max_parallel_tool_calls": 1,
+    "max_parallel_tool_calls": 3,
 }
 
 
