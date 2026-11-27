@@ -61,17 +61,18 @@ async def score_eval_case_activity(payload: dict[str, Any]) -> bool:
 @activity.defn(name="score_eval_cases")
 @repository_activity(process_store)
 async def score_eval_cases_activity(payload: dict[str, Any]) -> int:
-    """Score a batch of cases, several at once, in one load of the tenant. Passed count."""
+    """Score a batch of cases one after another in one load of the tenant. Passed count.
+
+    One unit is not safe for several agent runs at once: saving it failed on a message
+    whose run was not saved. Batches run side by side instead, each in its own unit.
+    """
     store = current_store()
     run_id = uuid.UUID(str(payload["eval_run_id"]))
-    gate_keeper = asyncio.Semaphore(eval_concurrency())
-
-    async def one(case_id: str) -> bool:
-        async with gate_keeper:
-            return await score_eval_case(store, run_id, case_id)
-
-    passed = await asyncio.gather(*(one(str(case_id)) for case_id in payload["case_ids"]))
-    return sum(1 for ok in passed if ok)
+    passed = 0
+    for case_id in payload["case_ids"]:
+        if await score_eval_case(store, run_id, str(case_id)):
+            passed += 1
+    return passed
 
 
 @activity.defn(name="finish_eval_run")
@@ -105,8 +106,9 @@ class EvalRunWorkflow:
     """Score a suite. The id is ``eval-{eval_run_id}`` on queue ``ar-eval``.
 
     Cases are scored in batches, one activity a batch: the activity loads the tenant
-    once and works on the batch's cases at the same time. A suite of any size finishes,
-    a case that breaks is saved as failed, and a retried batch skips scored cases.
+    once and scores its cases one after another; several batches run side by side. A
+    suite of any size finishes, a case that breaks is saved as failed, and a retried
+    batch skips scored cases.
     """
 
     @workflow.run
@@ -122,17 +124,25 @@ class EvalRunWorkflow:
             size = max(1, int(begun.get("concurrency") or 1))
             case_ids = [str(case_id) for case_id in begun.get("case_ids") or []]
             if workflow.patched(_BATCHES):
-                for start in range(0, len(case_ids), size):
-                    try:
-                        await workflow.execute_activity(
-                            score_eval_cases_activity,
-                            {**payload, "case_ids": case_ids[start : start + size]},
-                            start_to_close_timeout=_BATCH_LIMIT,
-                            retry_policy=RetryPolicy(maximum_attempts=2),
-                        )
-                    except ActivityError:
-                        # The finish step saves a case with no result as failed.
-                        continue
+                batches = [
+                    case_ids[start : start + size] for start in range(0, len(case_ids), size)
+                ]
+                lanes = asyncio.Semaphore(size)
+
+                async def batch(ids: list[str]) -> None:
+                    async with lanes:
+                        try:
+                            await workflow.execute_activity(
+                                score_eval_cases_activity,
+                                {**payload, "case_ids": ids},
+                                start_to_close_timeout=_BATCH_LIMIT,
+                                retry_policy=RetryPolicy(maximum_attempts=2),
+                            )
+                        except ActivityError:
+                            # The finish step saves a case with no result as failed.
+                            return
+
+                await asyncio.gather(*(batch(ids) for ids in batches))
                 return await workflow.execute_activity(
                     finish_eval_activity, payload, start_to_close_timeout=_STEP_LIMIT
                 )
