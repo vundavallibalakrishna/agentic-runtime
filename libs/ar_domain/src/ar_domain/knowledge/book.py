@@ -741,6 +741,10 @@ class KnowledgeBook:
             debug=bool(body.get("debug")),
             min_score=_bar(body.get("min_score", body.get("minScore"))),
             document_ids=_document_ids(body.get("document_ids", body.get("documentIds"))),
+            candidate_k=_optional_positive(body.get("candidate_k", body.get("candidateK"))),
+            max_passages_per_document=_optional_positive(
+                body.get("max_per_document", body.get("maxPerDocument"))
+            ),
         )
 
     def _upload_source(self, actor: Actor, collection: dict[str, object]) -> dict[str, object]:
@@ -1007,6 +1011,12 @@ def _too_wide(dims: int) -> ArError:
         f"unsupported_embedding_dims: the embedding model returns vectors of {dims} numbers "
         f"and a collection holds vectors of {sizes}",
     )
+
+
+def _optional_positive(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
 
 
 def _chunking(value: object) -> dict[str, object]:

@@ -17,7 +17,15 @@ from ar_domain.knowledge.embedding import (
 )
 from ar_domain.knowledge.fetchers import current_acl, map_item_acl
 from ar_domain.knowledge.metrics import SEARCH_HITS, SEARCH_SECONDS, UNANSWERABLE
-from ar_domain.knowledge.retrieval import answerable, apply_rerank
+from ar_domain.knowledge.retrieval import (
+    answerable,
+    apply_rerank,
+    diversify,
+    max_per_document,
+)
+from ar_domain.knowledge.retrieval import (
+    candidate_k as candidate_pool,
+)
 from ar_domain.knowledge.store import StoreUnavailable, active_index
 from ar_domain.knowledge.store_types import HybridQuery, SearchTarget
 from ar_domain.knowledge.syncutil import run_sync
@@ -38,6 +46,8 @@ def search(
     debug: bool,
     min_score: float | None = None,
     document_ids: list[uuid.UUID] | None = None,
+    candidate_k: int | None = None,
+    max_passages_per_document: int | None = None,
 ) -> dict[str, object]:
     """Sync wrapper for callers that are not already on the request loop."""
     return run_sync(
@@ -50,6 +60,8 @@ def search(
             debug=debug,
             min_score=min_score,
             document_ids=document_ids,
+            candidate_k=candidate_k,
+            max_passages_per_document=max_passages_per_document,
         )
     )
 
@@ -64,6 +76,8 @@ async def search_async(
     debug: bool,
     min_score: float | None = None,
     document_ids: list[uuid.UUID] | None = None,
+    candidate_k: int | None = None,
+    max_passages_per_document: int | None = None,
 ) -> dict[str, object]:
     """Hybrid search filtered by the caller's principals. Managers are not exempt."""
     clock = _Stages()
@@ -82,6 +96,8 @@ async def search_async(
     fused: list[Any] = []
     named = tuple(document_ids or ())
     bar = min_score if min_score is not None else retrieval_bar(store, actor.tenant_id, {})
+    pool = max(top_k, candidate_pool(candidate_k))
+    share = max_per_document(max_passages_per_document)
     # A question is embedded once for each model that indexed a searched collection.
     for group in _by_model(targets, collections):
         clock.lap("prepare")
@@ -94,7 +110,9 @@ async def search_async(
             targets=[target for target, _row in group],
             principals=principals(store, actor),
             allowed_classifications=readable_classes(store, actor),
-            fused_k=max(top_k, 20),
+            dense_k=pool,
+            lexical_k=pool,
+            fused_k=pool,
             document_ids=named,
         )
         try:
@@ -105,12 +123,14 @@ async def search_async(
     hits = [_hit(store, row) for row in fused]
     reranker = rerank_model(store, actor.tenant_id)
     reranked, rerank_ms, warning, scored = apply_rerank(
-        query, hits, top_k=top_k, min_score=bar, target=reranker
+        query, hits, top_k=pool, min_score=bar, target=reranker, window=pool
     )
     clock.lap("rerank")
     if bar is not None and not scored:
         reranked = [hit for hit in reranked if clears(hit, bar)]
-    verified = _late(store, actor, reranked, collections)
+    verified = diversify(
+        _late(store, actor, reranked, collections), top_k=top_k, per_document=share
+    )
     clock.lap("verify")
     timings = clock.done()
     # Scored passages answer the question when one clears the bar. Unscored ones are the

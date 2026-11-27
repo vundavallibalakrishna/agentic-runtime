@@ -98,7 +98,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DOCUMENT_MAX_PAGES` | `600` | Largest page count one file may have. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_OUTPUT_RESERVE` | `4096` | Tokens held back from the context window for the answer. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_READ_CHARS` | `12000` | Characters one documents.read call returns. | [document tasks](../09-plan/document-tasks.md) |
-| `AR_DOCUMENT_RETRIEVAL_BUDGET` | `12000` | Characters kept when no context window is registered. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_RETRIEVAL_BUDGET` | `30000` | Characters of retrieved passage text handed to the model when the agent sets no `knowledge.contextChars`. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_SEARCH_DOCUMENT_CAP` | `50` | Document ids one index search accepts. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_SEARCH_HITS` | `30` | Documents returned by one list page. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_SEARCH_SNIPPET_CHARS` | `240` | Characters in one search snippet. | [document tasks](../09-plan/document-tasks.md) |
@@ -147,6 +147,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_INVITATION_TTL_DAYS` | `7` | How long a mailed invitation can be accepted | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_KNOWLEDGE_FETCH_MAX_BYTES` | `2000000` | Characters kept from one fetched page. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_MIN_SCORE` | (unset) | Install default for chat retrieval. A chunk must clear this rerank or similarity score. The agent and the tenant can override it | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_KNOWLEDGE_CANDIDATE_K` | `60` | Passages fetched before fusion and the per-document cap. An agent may set `knowledge.candidateK`. | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_KNOWLEDGE_MAX_PASSAGES_PER_DOCUMENT` | `2` | How many selected passages may come from one document. An agent may set `knowledge.maxPerDocument`. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_RERANK_CANDIDATES` | `50` | Candidates passed to the reranker | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_SEARCH_MAX_HITS` | `20` | Hits one knowledge search returns. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_LLM_MAX_TOKENS` | `1024` | Default `max_tokens` for an OpenAI-compatible chat call when the model row sets no output limit. A case or a caller may ask for less. The model limit is the ceiling | [spec 04](../03-specs/04-model-gateway.md), [live-certification](../09-plan/live-certification.md) |

@@ -460,6 +460,26 @@ def _get_document(
     return {"text": f"{heading}\n\n{body}{tail}", "structured": page, "is_error": False}
 
 
+def _retrieval_limits(store: Any, arguments: dict[str, object]) -> dict[str, int]:
+    """The calling agent's retrieval pool and per-document cap, when it sets them."""
+    version = getattr(store, "versions", {}).get(arguments.get("_agent_version_id"))
+    definition = version.get("definition") if isinstance(version, dict) else None
+    knowledge = definition.get("knowledge") if isinstance(definition, dict) else None
+    if not isinstance(knowledge, dict):
+        return {}
+    limits: dict[str, int] = {}
+    for key, *names in (
+        ("candidate_k", "candidate_k", "candidateK"),
+        ("max_per_document", "max_per_document", "maxPerDocument"),
+    ):
+        for name in names:
+            raw = knowledge.get(name)
+            if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
+                limits[key] = raw
+                break
+    return limits
+
+
 def _whole(value: object) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 0
 
@@ -524,6 +544,8 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         named = _resolve_document_ids(arguments.get("document_ids"), store, raw_ids)
         if named:
             body["document_ids"] = named
+        limits = _retrieval_limits(store, arguments)
+        body.update(limits)
         found = book.search(actor, body)
     except (ValueError, TypeError, ArError) as exc:
         return _error("validation_failed", str(exc))

@@ -273,7 +273,7 @@ def test_compare_tables_and_long_retrieval() -> None:
     elapsed = time.perf_counter() - started
     assert elapsed < 2
     assert any(row["page"] == 250 for row in chosen)
-    assert sum(len(str(row["text"])) for row in chosen) <= 12_000
+    assert sum(len(str(row["text"])) for row in chosen) <= 30_000
     from ar_domain.documents.judgement import judge_items
 
     document = store.library_documents[uuid.UUID(str(right["id"]))]

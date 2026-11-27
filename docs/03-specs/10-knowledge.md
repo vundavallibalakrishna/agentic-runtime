@@ -203,6 +203,7 @@ class RetrievalStore(Protocol):
 4. `upsert` and `delete` are idempotent; `set_acl` is visible to the next `search` (read-your-writes).
 5. Errors map to `StoreUnavailable` (retryable) and `StoreError` (non-retryable); `knowledge.search` turns `StoreUnavailable` into tool error `retrieval_unavailable`.
 6. Adapters emit spans `ar.retrieval.{operation}` with attributes `ar.retrieval.backend`, `ar.retrieval.targets`, `ar.retrieval.candidates`.
+7. A search fetches `max(top_k, candidate_k)` passages (`AR_KNOWLEDGE_CANDIDATE_K`, default 60; an agent may set `knowledge.candidateK`) from each of the dense and lexical branches before fusion. The final selection keeps `top_k` and at most `max_per_document` passages from one document (`AR_KNOWLEDGE_MAX_PASSAGES_PER_DOCUMENT`, default 2; `knowledge.maxPerDocument`). The cross-encoder reranker stays off unless a rerank model is configured; when it is, it scores that same candidate pool. The passages placed in the prompt are cut at `knowledge.contextChars`, or `AR_DOCUMENT_RETRIEVAL_BUDGET` (default 30000) when the agent sets none.
 
 ### 6.4 Retrieval pipeline (`ar_domain.knowledge.retrieval`, backend-independent)
 

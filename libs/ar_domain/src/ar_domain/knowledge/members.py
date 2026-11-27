@@ -189,6 +189,9 @@ async def retrieve(
     top_k: int = 8,
     min_score: float | None = None,
     earlier: list[str] | None = None,
+    candidate_k: int | None = None,
+    max_passages_per_document: int | None = None,
+    context_chars: int | None = None,
 ) -> dict[str, object]:
     """Hybrid search trimmed to the prompt budget. The trace lists every chunk used.
 
@@ -197,6 +200,7 @@ async def retrieve(
     ``earlier`` is what the person said before in this conversation, each searched
     as well, so a follow-up finds what it refers to.
     """
+    from ar_domain.knowledge.retrieval import diversify, max_per_document  # noqa: PLC0415
     from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
     from ar_domain.knowledge.threshold import LIBRARY_MISS, clears  # noqa: PLC0415
 
@@ -218,6 +222,8 @@ async def retrieve(
             top_k=min(max(top_k, 1), _max_hits()),
             debug=True,
             min_score=min_score,
+            candidate_k=candidate_k,
+            max_passages_per_document=max_passages_per_document,
         )
         raw_hits = found.get("hits")
         ranked.append(
@@ -225,17 +231,23 @@ async def retrieve(
         )
     # Several queries may each bring a passage, so the count is bounded by the same
     # ceiling a single query has; the character budget below still applies.
-    fused = _fused(ranked)[: _max_hits() if len(queries) > 1 else None]
+    ceiling = _max_hits() if len(queries) > 1 else top_k
+    fused = diversify(
+        _fused(ranked),
+        top_k=min(max(ceiling, 1), _max_hits()),
+        per_document=max_per_document(max_passages_per_document),
+    )
     hits = [hit for hit in fused if clears(hit, min_score)]
+    budget = _context_budget(context_chars)
     kept: list[dict[str, object]] = []
     used = 0
     for hit in hits:
         text = str(hit.get("text") or hit.get("snippet") or "")
-        if used and used + len(text) > retrieval_budget():
+        if used and used + len(text) > budget:
             break
         used += len(text)
         kept.append(hit)
-        if used >= retrieval_budget():
+        if used >= budget:
             break
     model = ""
     if collection_ids:
@@ -248,7 +260,7 @@ async def retrieve(
         "collection_ids": [str(item) for item in collection_ids],
         "embedding_model": model,
         "rerank_model": str(found.get("rerank_model") or ""),
-        "budget_chars": retrieval_budget(),
+        "budget_chars": budget,
         "used_chars": used,
         "min_score": min_score,
         "below_threshold": min_score is not None and not kept,
@@ -258,6 +270,13 @@ async def retrieve(
     if not kept:
         body["answer"] = LIBRARY_MISS
     return body
+
+
+def _context_budget(context_chars: int | None) -> int:
+    """Characters of passage text the model is given. The agent may set its own."""
+    if isinstance(context_chars, int) and not isinstance(context_chars, bool) and context_chars > 0:
+        return context_chars
+    return retrieval_budget()
 
 
 def trace_hit(hit: dict[str, object]) -> dict[str, object]:

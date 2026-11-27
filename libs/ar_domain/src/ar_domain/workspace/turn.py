@@ -164,6 +164,11 @@ async def _retrieve(
             top_k=_top_k(definition),
             min_score=retrieval_bar(store, tenant, definition),
             earlier=earlier_user_turns(store, run, _context_turns(definition)),
+            candidate_k=_optional_int(definition, "candidate_k", "candidateK"),
+            max_passages_per_document=_optional_int(
+                definition, "max_per_document", "maxPerDocument"
+            ),
+            context_chars=_optional_int(definition, "context_chars", "contextChars"),
         )
     except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
         detail = str(exc.detail or exc)
@@ -303,6 +308,18 @@ def _definition(store: Any, run: dict[str, object]) -> dict[str, object] | None:
         return None
     definition = version.get("definition")
     return definition if isinstance(definition, dict) else None
+
+
+def _optional_int(definition: dict[str, object], *names: str) -> int | None:
+    """A positive integer from ``knowledge``, or None when the agent leaves the default."""
+    knowledge = definition.get("knowledge")
+    if not isinstance(knowledge, dict):
+        return None
+    for name in names:
+        raw = knowledge.get(name)
+        if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
+            return raw
+    return None
 
 
 def _top_k(definition: dict[str, object]) -> int:

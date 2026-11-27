@@ -84,6 +84,14 @@ class KnowledgeSpec(_Model):
     context_turns: int = Field(default=2, ge=0, le=10)
     # Unset: the rerank model's own bar (``requestOptions.rerank.min_score``).
     min_score: float | None = Field(default=None, ge=0, le=1)
+    # Passages fetched before fusion and the per-document cap. Unset uses
+    # ``AR_KNOWLEDGE_CANDIDATE_K`` (60).
+    candidate_k: int | None = Field(default=None, ge=1, le=200)
+    # At most this many of the selected passages may come from one document.
+    max_per_document: int = Field(default=2, ge=1, le=20)
+    # Characters of passage text placed in the prompt. Unset uses
+    # ``AR_DOCUMENT_RETRIEVAL_BUDGET`` (30000).
+    context_chars: int | None = Field(default=None, ge=500, le=200_000)
 
 
 def _default_read_scopes() -> list[Literal["user", "agent", "team", "agent_user"]]:
