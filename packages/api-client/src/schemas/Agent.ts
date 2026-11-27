@@ -319,6 +319,7 @@ export type Fileids =
     ];
 export type Autoretrieve = boolean;
 export type Topk1 = number;
+export type Contextturns = number;
 export type Minscore = number | null;
 /**
  * @maxItems 30
@@ -473,6 +474,7 @@ export interface KnowledgeSpec {
   fileIds?: Fileids;
   autoRetrieve?: Autoretrieve;
   topK?: Topk1;
+  contextTurns?: Contextturns;
   minScore?: Minscore;
 }
 export interface MemorySpec {
@@ -637,6 +639,7 @@ export interface KnowledgeSpec1 {
   fileIds?: Fileids;
   autoRetrieve?: Autoretrieve;
   topK?: Topk1;
+  contextTurns?: Contextturns;
   minScore?: Minscore;
 }
 /**

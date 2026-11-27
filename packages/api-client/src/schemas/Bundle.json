@@ -74,6 +74,7 @@
             "fileIds": [],
             "autoRetrieve": false,
             "topK": 8,
+            "contextTurns": 2,
             "minScore": null
           }
         },
@@ -749,6 +750,13 @@
           "default": 8,
           "minimum": 1,
           "title": "Topk",
+          "type": "integer"
+        },
+        "contextTurns": {
+          "default": 2,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Contextturns",
           "type": "integer"
         },
         "minScore": {

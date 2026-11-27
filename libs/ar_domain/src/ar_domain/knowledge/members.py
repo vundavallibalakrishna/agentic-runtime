@@ -188,16 +188,25 @@ async def retrieve(
     *,
     top_k: int = 8,
     min_score: float | None = None,
+    earlier: list[str] | None = None,
 ) -> dict[str, object]:
     """Hybrid search trimmed to the prompt budget. The trace lists every chunk used.
 
     ``min_score`` drops chunks that do not clear it. Citations are only those chunks.
     When none do, ``answer`` says the library does not contain the answer.
+    ``earlier`` is what the person said before in this conversation, each searched
+    as well, so a follow-up finds what it refers to.
     """
     from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
     from ar_domain.knowledge.threshold import LIBRARY_MISS, clears  # noqa: PLC0415
 
     queries = message_queries(query)
+    # A follow-up ("what got better for them?") names nothing to search for. What the
+    # person said before does, so each earlier turn, newest first, is one more query;
+    # fusion keeps the new message's own best passage first.
+    for text in reversed([item.strip() for item in earlier or [] if item.strip()]):
+        if text not in queries:
+            queries.append(text)
     ranked: list[list[dict[str, object]]] = []
     found: dict[str, object] = {}
     for item in queries:

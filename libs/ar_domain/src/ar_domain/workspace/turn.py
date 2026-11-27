@@ -163,6 +163,7 @@ async def _retrieve(
             user_text,
             top_k=_top_k(definition),
             min_score=retrieval_bar(store, tenant, definition),
+            earlier=earlier_user_turns(store, run, _context_turns(definition)),
         )
     except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
         detail = str(exc.detail or exc)
@@ -183,6 +184,38 @@ async def _retrieve(
                 "code": "embedding_unconfigured",
             },
         }
+
+
+def earlier_user_turns(store: Any, run: dict[str, object], count: int) -> list[str]:
+    """The last ``count`` things the person said in this conversation before this turn."""
+    if count <= 0:
+        return []
+    conversation = run.get("conversation_id")
+    current = run.get("input_message_id")
+    messages = getattr(store, "messages", {})
+    if conversation is None or not isinstance(messages, dict):
+        return []
+    rows = [
+        message
+        for message in messages.values()
+        if isinstance(message, dict)
+        and message.get("conversation_id") == conversation
+        and message.get("id") != current
+        and message.get("role") == "user"
+        and message.get("status") in {None, "completed"}
+        and message.get("scope") != "run"
+        and str(message.get("text") or "").strip()
+    ]
+    rows.sort(key=lambda item: str(item.get("created_at") or ""))
+    return [str(message.get("text")).strip() for message in rows[-count:]]
+
+
+def _context_turns(definition: dict[str, object]) -> int:
+    knowledge = definition.get("knowledge")
+    if not isinstance(knowledge, dict):
+        return 2
+    raw = knowledge.get("context_turns", knowledge.get("contextTurns", 2))
+    return raw if isinstance(raw, int) and not isinstance(raw, bool) and raw >= 0 else 2
 
 
 def _append_system(

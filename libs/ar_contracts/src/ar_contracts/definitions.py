@@ -78,6 +78,10 @@ class KnowledgeSpec(_Model):
     file_ids: list[str] = Field(default_factory=list, max_length=20)
     auto_retrieve: bool = False
     top_k: int = Field(default=8, ge=1)
+    # How many earlier user turns of the conversation are searched as well as the new
+    # message, so a follow-up ("and the national one?") finds what it refers to.
+    # 0 searches with the new message alone.
+    context_turns: int = Field(default=2, ge=0, le=10)
     # Unset: the rerank model's own bar (``requestOptions.rerank.min_score``).
     min_score: float | None = Field(default=None, ge=0, le=1)
 
