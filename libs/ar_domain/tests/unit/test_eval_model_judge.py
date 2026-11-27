@@ -259,3 +259,38 @@ def test_scoring_a_case_twice_keeps_one_result(stand_in: StandIn) -> None:
     assert again is True
     assert len([r for r in store.eval_results.values() if r["eval_run_id"] == run_id]) == 1
     assert finish_eval_run(store, run_id)["pass_rate"] == 1
+
+
+def test_cancelling_a_run_cancels_its_workflow() -> None:
+    cancelled: list[str] = []
+
+    class _Handle:
+        def __init__(self, workflow_id: str) -> None:
+            self.workflow_id = workflow_id
+
+        async def cancel(self) -> None:
+            cancelled.append(self.workflow_id)
+
+    class _Client:
+        def get_workflow_handle(self, workflow_id: str) -> _Handle:
+            return _Handle(workflow_id)
+
+    store = demo_store()
+    actor = _actor()
+    book = EvalBook(store)
+    suite = book.create_suite(actor, {"name": "Cancel", "kind": "functional"})
+    book.create_case(
+        actor,
+        suite["id"],  # type: ignore[arg-type]
+        {
+            "name": "x",
+            "input": {"messages": ["hello"]},
+            "assertions": [{"type": "contains", "value": "hello"}],
+        },
+    )
+    store.defer_eval_runs = True  # type: ignore[attr-defined]
+    queued = book.start_run(actor, suite["id"], {"agent_version_ref": "published"})  # type: ignore[arg-type]
+    store.temporal_client = _Client()  # type: ignore[attr-defined]
+    view = book.cancel(actor, uuid.UUID(str(queued["id"])))
+    assert view["status"] == "cancelled"
+    assert cancelled == [f"eval-{queued['id']}"]

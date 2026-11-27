@@ -27,6 +27,9 @@ EVAL_QUEUE = "ar-eval"
 _CASE_LIMIT = timedelta(minutes=15)
 _STEP_LIMIT = timedelta(minutes=2)
 _PER_CASE = "eval-run-per-case"
+_BATCHES = "eval-run-batches"
+# A batch is scored in one activity, so the tenant is loaded once for its cases.
+_BATCH_LIMIT = timedelta(minutes=30)
 
 
 @activity.defn(name="execute_eval_run")
@@ -55,6 +58,23 @@ async def score_eval_case_activity(payload: dict[str, Any]) -> bool:
     )
 
 
+@activity.defn(name="score_eval_cases")
+@repository_activity(process_store)
+async def score_eval_cases_activity(payload: dict[str, Any]) -> int:
+    """Score a batch of cases one after another in one load of the tenant. Passed count.
+
+    One unit is not safe for several agent runs at once: saving it failed on a message
+    whose run was not saved. Batches run side by side instead, each in its own unit.
+    """
+    store = current_store()
+    run_id = uuid.UUID(str(payload["eval_run_id"]))
+    passed = 0
+    for case_id in payload["case_ids"]:
+        if await score_eval_case(store, run_id, str(case_id)):
+            passed += 1
+    return passed
+
+
 @activity.defn(name="finish_eval_run")
 @repository_activity(process_store)
 async def finish_eval_activity(payload: dict[str, Any]) -> dict[str, Any]:
@@ -75,6 +95,7 @@ EVAL_ACTIVITIES = [
     execute_eval_activity,
     begin_eval_activity,
     score_eval_case_activity,
+    score_eval_cases_activity,
     finish_eval_activity,
     fail_eval_activity,
 ]
@@ -84,8 +105,10 @@ EVAL_ACTIVITIES = [
 class EvalRunWorkflow:
     """Score a suite. The id is ``eval-{eval_run_id}`` on queue ``ar-eval``.
 
-    Each case is its own activity, several at a time, so a suite of any size finishes
-    and a case that times out is saved as failed instead of ending the run.
+    Cases are scored in batches, one activity a batch: the activity loads the tenant
+    once and scores its cases one after another; several batches run side by side. A
+    suite of any size finishes, a case that breaks is saved as failed, and a retried
+    batch skips scored cases.
     """
 
     @workflow.run
@@ -98,7 +121,32 @@ class EvalRunWorkflow:
             begun = await workflow.execute_activity(
                 begin_eval_activity, payload, start_to_close_timeout=_STEP_LIMIT
             )
-            gate_keeper = asyncio.Semaphore(max(1, int(begun.get("concurrency") or 1)))
+            size = max(1, int(begun.get("concurrency") or 1))
+            case_ids = [str(case_id) for case_id in begun.get("case_ids") or []]
+            if workflow.patched(_BATCHES):
+                batches = [
+                    case_ids[start : start + size] for start in range(0, len(case_ids), size)
+                ]
+                lanes = asyncio.Semaphore(size)
+
+                async def batch(ids: list[str]) -> None:
+                    async with lanes:
+                        try:
+                            await workflow.execute_activity(
+                                score_eval_cases_activity,
+                                {**payload, "case_ids": ids},
+                                start_to_close_timeout=_BATCH_LIMIT,
+                                retry_policy=RetryPolicy(maximum_attempts=2),
+                            )
+                        except ActivityError:
+                            # The finish step saves a case with no result as failed.
+                            return
+
+                await asyncio.gather(*(batch(ids) for ids in batches))
+                return await workflow.execute_activity(
+                    finish_eval_activity, payload, start_to_close_timeout=_STEP_LIMIT
+                )
+            gate_keeper = asyncio.Semaphore(size)
 
             async def one(case_id: str) -> None:
                 async with gate_keeper:
