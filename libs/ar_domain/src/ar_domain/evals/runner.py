@@ -387,6 +387,7 @@ def _outcome(store: Any, run_ids: list[uuid.UUID], raw_input: object) -> dict[st
             latency += max(int((ended - started).total_seconds() * 1000), 0)
     return {
         "output_text": answer,
+        "transcript": _transcript(store, run_ids),
         "status": str(last.get("status") or ""),
         "tool_calls": calls,
         "latency_ms": latency,
@@ -397,6 +398,24 @@ def _outcome(store: Any, run_ids: list[uuid.UUID], raw_input: object) -> dict[st
         "run_id": run_ids[-1],
         "grounding": _grounding_report(raw_input),
     }
+
+
+def _transcript(store: Any, run_ids: list[uuid.UUID]) -> list[dict[str, str]]:
+    """Each turn of the case: what the person said and what the agent answered."""
+    turns: list[dict[str, str]] = []
+    for run_id in run_ids:
+        run = store.runs.get(run_id)
+        if not isinstance(run, dict):
+            continue
+        said = store.messages.get(run.get("input_message_id"))
+        answered = store.messages.get(run.get("assistant_message_id"))
+        turns.append(
+            {
+                "user": str(said.get("text") or "") if isinstance(said, dict) else "",
+                "assistant": str(answered.get("text") or "") if isinstance(answered, dict) else "",
+            }
+        )
+    return turns
 
 
 def _uuid(value: object) -> uuid.UUID:
