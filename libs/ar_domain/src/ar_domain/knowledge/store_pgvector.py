@@ -2,13 +2,17 @@
 
 import asyncio
 import os
-import threading
 import time
-import weakref
 from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import NullPool
 
 from ar_domain.knowledge.store import StoreError, StoreUnavailable, UnsupportedDims
 from ar_domain.knowledge.store_types import (
@@ -39,8 +43,17 @@ class PgVectorStore:
         supported_dims=SUPPORTED_DIMS,
     )
 
-    def __init__(self, dsn: str = "") -> None:
+    def __init__(
+        self,
+        dsn: str = "",
+        *,
+        engine: AsyncEngine | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
+    ) -> None:
+        """``engine`` is the process's pooled engine and ``loop`` the loop it pools on."""
         self.dsn = dsn
+        self._engine = engine
+        self._engine_loop = loop
         self._session_factory: async_sessionmaker[AsyncSession] | None = None
         self._read_factory: async_sessionmaker[AsyncSession] | None = None
 
@@ -295,8 +308,20 @@ class PgVectorStore:
         dsn = dsn or self.dsn
         if not dsn:
             raise StoreUnavailable("pgvector dsn is not configured")
-        factory = _loop_sessions(dsn)
-        if read and os.environ.get("AR_VECTOR_PG_READ_DSN", "").strip():
+        if not (read and read_dsn) and self._on_engine_loop():
+            # The process's own pooled engine: no new connection for each search.
+            factory = async_sessionmaker(self._engine, expire_on_commit=False)
+        else:
+            # Another loop (a tool call's short-lived loop) or the read replica: one
+            # connection for this store, closed when its session closes, so nothing is
+            # left open when the loop ends.
+            engine = create_async_engine(
+                dsn,
+                poolclass=NullPool,
+                connect_args={"timeout": _env_whole("AR_VECTOR_PG_CONNECT_TIMEOUT_S", 10)},
+            )
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+        if read and read_dsn:
             self._read_factory = factory
         else:
             self._session_factory = factory
@@ -304,35 +329,13 @@ class PgVectorStore:
                 self._read_factory = factory
         return factory()
 
-
-# An asyncpg connection belongs to the event loop that opened it, so each loop has its
-# own pool, kept while the loop lives and dropped with it. Every search on that loop
-# reuses the pool: a store is made per call (``active_index``), and opening a new
-# connection for each search failed under load when the database was slow to accept.
-_POOLS: weakref.WeakKeyDictionary[
-    asyncio.AbstractEventLoop, dict[str, async_sessionmaker[AsyncSession]]
-] = weakref.WeakKeyDictionary()
-_POOLS_LOCK = threading.Lock()
-
-
-def _loop_sessions(dsn: str) -> async_sessionmaker[AsyncSession]:
-    """The session factory for ``dsn`` on the running loop, made once per loop."""
-    loop = asyncio.get_running_loop()
-    with _POOLS_LOCK:
-        per_loop = _POOLS.setdefault(loop, {})
-        factory = per_loop.get(dsn)
-        if factory is None:
-            engine = create_async_engine(
-                dsn,
-                pool_size=_env_whole("AR_VECTOR_PG_POOL_SIZE", 5),
-                max_overflow=_env_whole("AR_VECTOR_PG_POOL_SIZE", 5),
-                pool_pre_ping=True,
-                pool_recycle=300,
-                connect_args={"timeout": _env_whole("AR_VECTOR_PG_CONNECT_TIMEOUT_S", 10)},
-            )
-            factory = async_sessionmaker(engine, expire_on_commit=False)
-            per_loop[dsn] = factory
-        return factory
+    def _on_engine_loop(self) -> bool:
+        if self._engine is None or self._engine_loop is None:
+            return False
+        try:
+            return asyncio.get_running_loop() is self._engine_loop
+        except RuntimeError:
+            return False
 
 
 def _env_whole(name: str, default: int) -> int:
