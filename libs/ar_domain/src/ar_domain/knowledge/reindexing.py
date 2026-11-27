@@ -14,6 +14,7 @@ each function here is one idempotent activity of that workflow.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import TYPE_CHECKING, Any
 
@@ -27,7 +28,7 @@ from ar_domain.knowledge.store_types import DeleteFilter
 from ar_domain.knowledge.syncing import _fail, _index_of, _stats, finish_job
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
 
 # The collection fields a re-index changes, written together at the switch.
@@ -119,7 +120,7 @@ async def build(
         document = store.knowledge_documents.get(document_id)
         if not isinstance(document, dict) or document.get("status") == "deleted":
             continue
-        reason = await _write(store, document, view, version)
+        reason = await _beating(beat, _write(store, document, view, version))
         if reason:
             _fail(job, str(document.get("external_id") or document_id), reason)
             failed.append(document_id)
@@ -136,6 +137,28 @@ async def build(
         )[:20]
         raise ReindexFailedError(_unreadable(len(failed)), final=True)
     return written
+
+
+# How often a re-index tells Temporal it is alive while one document is written. Well under
+# the activity's heartbeat timeout, so one slow document never reads as a dead worker.
+BEAT_EVERY_S = 30.0
+
+
+async def _beating[T](beat: Callable[[], object] | None, work: Awaitable[T]) -> T:
+    """Await ``work``, calling ``beat`` every ``BEAT_EVERY_S`` seconds until it ends."""
+    if not callable(beat):
+        return await work
+
+    async def tick() -> None:
+        while True:
+            await asyncio.sleep(BEAT_EVERY_S)
+            beat()
+
+    ticker = asyncio.create_task(tick())
+    try:
+        return await work
+    finally:
+        ticker.cancel()
 
 
 async def switch(

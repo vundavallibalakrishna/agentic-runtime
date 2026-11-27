@@ -4,6 +4,7 @@ Activities are idempotent. The dev API runs them inline; Temporal activities
 call the same functions.
 """
 
+import asyncio
 import hashlib
 import uuid
 from typing import TYPE_CHECKING
@@ -100,7 +101,9 @@ async def index_into_version(
     and the embedding errors for a model that cannot embed them.
     """
     document = store.knowledge_documents[document_id]
-    markdown = _parse(document, raw)
+    # Parsing a large file (OCR of a scanned PDF) takes minutes of CPU. It runs off the
+    # event loop, so the activity that called this can keep telling Temporal it is alive.
+    markdown = await asyncio.to_thread(_parse, document, raw)
     passages = await _passages(store, building, markdown, _summary(markdown))
     await _replace_chunks(store, document, building, passages, version, keep_others=True)
 
