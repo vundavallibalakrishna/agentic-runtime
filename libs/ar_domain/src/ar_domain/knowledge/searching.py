@@ -91,6 +91,9 @@ async def search_async(
     targets, collections = _targets(store, actor, collection_ids)
     if not targets:
         return {"hits": [], "answerable": False}
+    from ar_domain.knowledge.index_text import queue_stale_reindex  # noqa: PLC0415
+
+    await queue_stale_reindex(store, collections)
     refuse_embedding_mismatch(store, collections)
     index = active_index(store)
     fused: list[Any] = []

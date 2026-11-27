@@ -21,6 +21,7 @@ from ar_domain.knowledge.acl import collection_acl
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.knowledge.chunker import ChunkDraft, chunk_markdown, token_count
 from ar_domain.knowledge.embedding import embed_for_collection
+from ar_domain.knowledge.index_text import indexed_text
 from ar_domain.knowledge.pipeline import _stats, stored_bytes
 from ar_domain.knowledge.raw import keep_raw
 from ar_domain.knowledge.store import active_index
@@ -88,7 +89,12 @@ async def add_member(
         # Text that was typed or pasted has no other home: keep it, so it can be re-indexed.
         keep_raw(store, document, str(body.get("text") or "").encode(), mime_type="text/plain")
     drafts = _drafts(passages)
-    vectors = embed_for_collection(store, collection, [item.text for item in drafts])
+    title = str(document.get("title") or "")
+    vectors = embed_for_collection(
+        store,
+        collection,
+        [indexed_text(title, list(item.heading_path), item.text) for item in drafts],
+    )
     await _write_chunks(store, collection, document, drafts, vectors, passages=passages)
     _stats(store, collection)
     remember(
@@ -585,7 +591,9 @@ async def _write_chunks(
                 source_id=document["source_id"],
                 index_version=version,
                 dense=vector,
-                lexical_text=draft.text,
+                lexical_text=indexed_text(
+                    str(document.get("title") or ""), list(draft.heading_path), draft.text
+                ),
                 text_search_config=str(collection.get("text_search_config") or "simple"),
                 acl=_principals(document.get("acl_principals")),
                 classification=str(document.get("classification") or "internal"),

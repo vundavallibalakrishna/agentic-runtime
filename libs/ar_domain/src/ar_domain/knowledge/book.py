@@ -287,6 +287,10 @@ class KnowledgeBook:
             target["chunking"] = {**_chunking(body["chunking"]), **_sizes(target["chunking"])}
         if body.get("text_search_config") in {"simple", "english"}:
             target["text_search_config"] = body["text_search_config"]
+        from ar_domain.knowledge.index_text import chunking_with_text_version  # noqa: PLC0415
+
+        held = target.get("chunking")
+        target["chunking"] = chunking_with_text_version(held if isinstance(held, dict) else {})
         model_id = target.get("embedding_model_id")
         target["embedding_model_id"] = None if model_id is None else str(model_id)
         return target
@@ -1025,11 +1029,15 @@ def _chunking(value: object) -> dict[str, object]:
     overlap = int(raw.get("overlap_pct") or 12)
     if target < 128 or target > 2048 or overlap < 0 or overlap > 30:
         raise ValidationFailedError("chunking is outside the allowed range")
-    return {
-        "target_tokens": target,
-        "overlap_pct": overlap,
-        "contextual": bool(raw.get("contextual") or False),
-    }
+    from ar_domain.knowledge.index_text import chunking_with_text_version  # noqa: PLC0415
+
+    return chunking_with_text_version(
+        {
+            "target_tokens": target,
+            "overlap_pct": overlap,
+            "contextual": bool(raw.get("contextual") or False),
+        }
+    )
 
 
 # The largest page of a document's text one read returns (spec 08 §6, knowledge.get_document).
