@@ -5,6 +5,7 @@ import os
 import subprocess
 import uuid
 
+import orjson
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -16,7 +17,6 @@ from ar_domain.durable.flush import flush_store
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.identity.seed import apply
 from ar_domain.routines.book import RoutineBook
-from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 
 pytestmark = pytest.mark.integration
 
@@ -99,6 +99,8 @@ async def test_only_the_old_default_is_replaced(database_url: str) -> None:
             {"new": _REVISION._NEW, "old": _REVISION._OLD},
         )
     after = await _budgets(engine, [old_id, set_id])
-    assert after[old_id] == DEFAULT_RUN_BUDGET
+    # The revision keeps the budget it wrote. Later changes to the live default do not
+    # rewrite a migration that has already run.
+    assert after[old_id] == orjson.loads(_REVISION._NEW)
     assert after[set_id] == custom
     await engine.dispose()
