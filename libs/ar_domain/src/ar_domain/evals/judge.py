@@ -55,11 +55,18 @@ def judge_answer(
     *,
     model_id: str,
     question: str = "",
+    transcript: list[dict[str, str]] | None = None,
 ) -> dict[str, object]:
     """The assertion result: passed, the share of ``must`` met, and one row a statement.
 
     It passes when every ``must`` statement is stated and no ``must_not`` statement is.
+    With a ``transcript`` of more than one turn the judge reads the whole conversation:
+    a statement may be made in any of the assistant's answers, and the quote is looked
+    for in all of them. A case's statements cover every turn, not only the last.
     """
+    turns = [turn for turn in transcript or [] if isinstance(turn, dict)]
+    if len(turns) > 1:
+        answer = "\n\n".join(str(turn.get("assistant") or "") for turn in turns)
     wanted = [("must", text.strip()) for text in must if text.strip()]
     wanted += [("must_not", text.strip()) for text in must_not if text.strip()]
     if not wanted:
@@ -70,8 +77,13 @@ def judge_answer(
             for kind, text in wanted
         ]
         return _result(items, passed=False, detail="no judge model is configured")
-    evidence = _evidence(question, answer)
-    prompts = [(f"{_TASK}\nStatement: {text}", evidence) for _kind, text in wanted]
+    if len(turns) > 1:
+        evidence = _conversation(turns)
+        task = _TASK + " " + _MANY_TURNS
+    else:
+        evidence = _evidence(question, answer)
+        task = _TASK
+    prompts = [(f"{task}\nStatement: {text}", evidence) for _kind, text in wanted]
     answers = ask_each(ask, prompts)
     JUDGE_CALLS.inc(len(prompts))
     items = [
@@ -83,6 +95,26 @@ def judge_answer(
     clean = not any(item["verdict"] == "stated" for item in items if item["kind"] == "must_not")
     detail = _detail(items)
     return _result(items, passed=met and clean and not failed, detail=detail)
+
+
+_MANY_TURNS = (
+    "The conversation has several turns. The statement counts as stated when any of the "
+    "assistant's answers states it; quote that answer's words."
+)
+
+
+def _conversation(turns: list[dict[str, str]]) -> str:
+    parts = []
+    for number, turn in enumerate(turns, start=1):
+        parts.append(
+            f"Turn {number}, the visitor said:\n"
+            + wrap_untrusted(source="eval_question", content=str(turn.get("user") or ""))
+        )
+        parts.append(
+            f"Turn {number}, the assistant answered:\n"
+            + wrap_untrusted(source="agent_answer", content=str(turn.get("assistant") or ""))
+        )
+    return "\n\n".join(parts)
 
 
 def _evidence(question: str, answer: str) -> str:
@@ -200,7 +232,18 @@ def judge_case(
         ask,
         model_id=model_id,
         question=question,
+        transcript=_turns(outcome.get("transcript")),
     )
+
+
+def _turns(value: object) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    return [
+        {"user": str(turn.get("user") or ""), "assistant": str(turn.get("assistant") or "")}
+        for turn in value
+        if isinstance(turn, dict)
+    ]
 
 
 class _SchemaAsk:
