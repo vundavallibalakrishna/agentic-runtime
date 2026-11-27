@@ -101,3 +101,18 @@ def test_passages_are_joined_without_the_repeated_overlap() -> None:
     assert _joined(["one two three four", "three four five six"]) == "one two three four five six"
     assert _joined(["alpha", "beta"]) == "alpha\nbeta"
     assert _joined(["", "only"]) == "only"
+
+
+def test_an_agent_bound_to_its_collection_can_read_a_document_in_it() -> None:
+    store, actor, title = _setup()
+    version_id = uuid.uuid4()
+    store.versions[version_id] = {  # type: ignore[attr-defined]
+        "id": version_id,
+        "definition": {"knowledge": {"collections": ["site"]}},
+    }
+    bound = _call(store, actor, document_id=title, _agent_version_id=version_id)
+    assert bound["is_error"] is False
+    assert "Item number 60:" in str(bound["text"])
+    store.versions[version_id]["definition"] = {"knowledge": {"collections": ["other"]}}  # type: ignore[attr-defined]
+    elsewhere = _call(store, actor, document_id=title, _agent_version_id=version_id)
+    assert elsewhere["is_error"] is True
