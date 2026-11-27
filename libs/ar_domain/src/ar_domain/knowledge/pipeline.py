@@ -10,6 +10,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from ar_common.time import utcnow
+from ar_domain.knowledge.boilerplate import block_settings, repeated_in_collection, without_repeated
 from ar_domain.knowledge.chunker import chunk_markdown
 from ar_domain.knowledge.embedding import embed_for_collection
 from ar_domain.knowledge.index_text import indexed_text, passage_context
@@ -62,13 +63,14 @@ async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) 
     document["summary"] = _summary(markdown)
     document["status"] = "embedding"
     try:
-        drafts, vectors = await _passages(
+        drafts, vectors, dropped = await _passages(
             store,
             collection,
             markdown,
             str(document["summary"]),
             title=str(document.get("title") or ""),
         )
+        document["repeated_blocks_dropped"] = dropped
     except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
         # The document says why it is not searchable, and the caller is told the same.
         document["status"] = "failed"
@@ -109,10 +111,11 @@ async def index_into_version(
     # Parsing a large file (OCR of a scanned PDF) takes minutes of CPU. It runs off the
     # event loop, so the activity that called this can keep telling Temporal it is alive.
     markdown = await asyncio.to_thread(_parse, document, raw)
-    passages = await _passages(
+    drafts, vectors, dropped = await _passages(
         store, building, markdown, _summary(markdown), title=str(document.get("title") or "")
     )
-    await _replace_chunks(store, document, building, passages, version, keep_others=True)
+    document["repeated_blocks_dropped"] = dropped
+    await _replace_chunks(store, document, building, (drafts, vectors), version, keep_others=True)
 
 
 def _parse(document: dict[str, object], raw: bytes) -> str:
@@ -132,24 +135,29 @@ async def _passages(
     summary: str,
     *,
     title: str = "",
-) -> tuple[list[Any], list[list[float]]]:
-    """The passages of a document and the vectors of their indexed text.
+) -> tuple[list[Any], list[list[float]], int]:
+    """The passages of a document, their vectors, and how many repeated blocks were dropped.
 
     The stored passage is the passage itself. The vector is of the title, the heading
-    path and the passage, so a section is found with the page it belongs to.
+    path and the passage, so a section is found with the page it belongs to. A block
+    that repeats across the collection is not part of either.
     """
     chunking = collection.get("chunking") if isinstance(collection.get("chunking"), dict) else {}
     target = int(chunking.get("target_tokens", 512)) if isinstance(chunking, dict) else 512
     overlap = int(chunking.get("overlap_pct", 12)) if isinstance(chunking, dict) else 12
+    _share, min_chars = block_settings(collection)
+    markdown, dropped = without_repeated(
+        markdown, repeated_in_collection(store, collection), min_chars=min_chars
+    )
     with INGEST_STAGE.labels(stage="chunk").time():
         drafts = chunk_markdown(markdown, target_tokens=target, overlap_pct=overlap)
-    if not drafts:
+    if not drafts and not dropped:
         drafts = chunk_markdown(markdown or summary or " ", target_tokens=target)
     texts = [indexed_text(title, list(draft.heading_path), draft.text) for draft in drafts]
     await refresh_registry(store)
     with INGEST_STAGE.labels(stage="embed").time():
         vectors = embed_for_collection(store, collection, texts)
-    return drafts, vectors
+    return drafts, vectors, dropped
 
 
 def _inline_max_bytes() -> int:
@@ -414,4 +422,5 @@ def _stats(store: Any, collection: dict[str, object]) -> None:
         "chunks": len(chunks),
         "bytes": sum(int(row.get("size_bytes") or 0) for row in documents),
         "failed": sum(1 for row in documents if row.get("status") == "failed"),
+        "repeated_blocks": sum(int(row.get("repeated_blocks_dropped") or 0) for row in documents),
     }

@@ -140,6 +140,8 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_KNOWLEDGE_CANDIDATE_K",
         "AR_KNOWLEDGE_FETCH_MAX_BYTES",
         "AR_KNOWLEDGE_MAX_PASSAGES_PER_DOCUMENT",
+        "AR_KNOWLEDGE_REPEATED_BLOCK_MIN_CHARS",
+        "AR_KNOWLEDGE_REPEATED_BLOCK_SHARE",
         "AR_KNOWLEDGE_RERANK_CANDIDATES",
         "AR_KNOWLEDGE_SEARCH_MAX_HITS",
         "AR_LOGIN_LOCKOUT_S",
@@ -508,6 +510,10 @@ class BaseServiceSettings(BaseSettings):
     knowledge_candidate_k: int = Field(default=60, ge=1)
     # How many of the selected passages may come from one document.
     knowledge_max_passages_per_document: int = Field(default=2, ge=1)
+    # A block in at least this share of a collection's documents is not indexed.
+    # 0 disables the check. A collection's chunking.repeated_block_share overrides it.
+    knowledge_repeated_block_share: float = Field(default=0.3, ge=0, le=1)
+    knowledge_repeated_block_min_chars: int = Field(default=80, ge=1)
     # ``expiresAfterSeconds`` on an upload. The bounds match the Files API.
     file_expiry_min_seconds: int = Field(default=3600, ge=1)
     file_expiry_max_seconds: int = Field(default=2_592_000, ge=1)

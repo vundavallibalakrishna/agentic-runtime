@@ -18,6 +18,7 @@ from ar_domain.audit.memory import remember
 from ar_domain.documents.chunk import retrieval_budget
 from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.acl import collection_acl
+from ar_domain.knowledge.boilerplate import block_settings, repeated_in_collection, without_repeated
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.knowledge.chunker import ChunkDraft, chunk_markdown, token_count
 from ar_domain.knowledge.embedding import embed_for_collection
@@ -88,6 +89,17 @@ async def add_member(
     if kind in {"upload", "text"}:
         # Text that was typed or pasted has no other home: keep it, so it can be re-indexed.
         keep_raw(store, document, str(body.get("text") or "").encode(), mime_type="text/plain")
+    _share, min_chars = block_settings(collection)
+    repeated = repeated_in_collection(store, collection)
+    cleaned: list[dict[str, str]] = []
+    dropped = 0
+    for item in passages:
+        text, gone = without_repeated(str(item.get("text") or ""), repeated, min_chars=min_chars)
+        dropped += gone
+        if text.strip():
+            cleaned.append({**item, "text": text})
+    passages = cleaned
+    document["repeated_blocks_dropped"] = dropped
     drafts = _drafts(passages)
     title = str(document.get("title") or "")
     vectors = embed_for_collection(

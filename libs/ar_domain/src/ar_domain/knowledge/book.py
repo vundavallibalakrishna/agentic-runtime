@@ -1031,13 +1031,15 @@ def _chunking(value: object) -> dict[str, object]:
         raise ValidationFailedError("chunking is outside the allowed range")
     from ar_domain.knowledge.index_text import chunking_with_text_version  # noqa: PLC0415
 
-    return chunking_with_text_version(
-        {
-            "target_tokens": target,
-            "overlap_pct": overlap,
-            "contextual": bool(raw.get("contextual") or False),
-        }
-    )
+    body = {
+        "target_tokens": target,
+        "overlap_pct": overlap,
+        "contextual": bool(raw.get("contextual") or False),
+    }
+    for key in ("repeated_block_share", "repeated_block_min_chars"):
+        if key in raw:
+            body[key] = raw[key]
+    return chunking_with_text_version(body)
 
 
 # The largest page of a document's text one read returns (spec 08 §6, knowledge.get_document).

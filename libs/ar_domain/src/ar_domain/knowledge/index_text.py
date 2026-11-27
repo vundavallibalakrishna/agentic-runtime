@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 # Bump when the embedded or lexical text of a passage changes shape.
-INDEX_TEXT_VERSION = 2
+INDEX_TEXT_VERSION = 3
 
 
 def passage_context(title: str, heading_path: list[str]) -> str:
