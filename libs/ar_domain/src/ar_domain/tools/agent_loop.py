@@ -1122,16 +1122,28 @@ def _remaining(limits: dict[str, int], started: float) -> float:
 
 
 def _configured_max_tokens(definition: dict[str, object] | None) -> int | None:
-    """``model.params.max_output_tokens`` when the agent sets it."""
+    """``model.params.max_output_tokens`` when the agent sets it.
+
+    Otherwise an agent with ``output.maxWords`` gets a ceiling well above that length, so
+    an answer that ignores the rule cannot run on, and one that keeps it is never cut.
+    """
     model = definition.get("model") if isinstance(definition, dict) else None
     params = model.get("params") if isinstance(model, dict) else None
-    if not isinstance(params, dict):
-        return None
-    for key in ("max_output_tokens", "maxOutputTokens"):
-        value = params.get(key)
-        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
-            return value
-    return None
+    if isinstance(params, dict):
+        for key in ("max_output_tokens", "maxOutputTokens"):
+            value = params.get(key)
+            if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                return value
+    from ar_domain.workspace.turn import max_words  # noqa: PLC0415
+
+    words = max_words(definition)
+    return max(_LENGTH_FLOOR_TOKENS, words * _TOKENS_PER_WORD_CEILING) if words else None
+
+
+# About 1.3 tokens a word in English prose, plus citations and markup; four is far above
+# what a kept limit needs, so the ceiling only stops an answer that ignored it.
+_TOKENS_PER_WORD_CEILING = 4
+_LENGTH_FLOOR_TOKENS = 256
 
 
 def _model_window(store: Any, run: dict[str, object]) -> int | None:
