@@ -164,7 +164,7 @@ spec:
 | `budget.*` | int | each ≤ the tenant cap in `tenants.settings.run_budget_caps` |
 | `context.compaction_threshold` | number | 0.4..0.9 |
 | `output.citations` | enum | `required` forces the model to cite or say it found nothing |
-| `output.maxWords` | int or null | The longest answer, in words (10 to 5000). The runtime adds the rule as the last block of the system prompt, after any knowledge passages and right before the person's message (`workspace.turn.length_rule`); a rule at the top of a long prompt was ignored. Unless `model.params.maxOutputTokens` is set, the model's output is capped at four tokens a word (at least 256), far above a kept limit, so only an answer that ignores it is cut. Set on the agent's Configure tab as "Longest answer, in words". |
+| `output.maxWords` | int or null | The longest answer, in words (10 to 5000). The runtime adds the rule as the last block of the system prompt, after any knowledge passages and right before the person's message (`workspace.turn.length_rule`); a rule at the top of a long prompt was ignored. The rule tells the model to cover every part the question asks for, compressing the wording rather than dropping a part, and to say explicitly what was left out. Unless `model.params.maxOutputTokens` is set, the model's output is capped at four tokens a word (at least 256), far above a kept limit, so only an answer that ignores it is cut. Set on the agent's Configure tab as "Longest answer, in words". |
 
 Resolution at **publish**: `tools[].version` ranges are resolved to concrete `tool_server_versions` ids and every included tool to a `tool_versions.id`; these resolved ids are written to `agent_version_bindings` and into `definition.resolved` (read-only block added by the server):
 

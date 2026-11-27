@@ -297,9 +297,9 @@ def length_rule(definition: dict[str, object] | None) -> str:
     if words is None:
         return ""
     return (
-        f"Length: your answer is at most {words} words. Lead with the direct answer, keep "
-        "only what the question needs, and keep each citation. When the question asks for "
-        "more than fits, cover the most important parts and say what you left out."
+        f"Length: your answer is at most {words} words. Lead with the direct answer and keep "
+        "each citation. Cover every part the question asks for. When that does not fit, "
+        "compress the wording rather than dropping a part, and say explicitly what you left out."
     )
 
 
