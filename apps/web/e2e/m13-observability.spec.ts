@@ -50,9 +50,36 @@ test("observability, evaluations and platform health stay accessible", async ({ 
   await expect(injection).toBeVisible();
   await injection.getByRole("button", { name: "Run suite" }).click();
   await expect(page.getByText("tool-output-injection")).toBeVisible({ timeout: 20_000 });
+  await page.getByText("tool-output-injection").click();
+  await expect(page.getByRole("heading", { name: "Answer" }).first()).toBeVisible();
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
   await capture(page, "evals");
+
+  // A suite's cases come from a file: one JSON case a line, judged by a model.
+  const suiteName = `Imported ${Date.now()}`;
+  await page.getByLabel("Name").fill(suiteName);
+  await page.getByRole("button", { name: "New suite" }).click();
+  const imported = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: suiteName }) });
+  await expect(imported).toBeVisible();
+  const line = JSON.stringify({
+    name: "support hours",
+    input: { messages: ["what support hours does the premium cloud have"] },
+    assertions: [
+      { type: "llm_judge", must: ["Premium lists 16x5 support."], mustNot: ["Says 24x7."] },
+    ],
+  });
+  await imported.getByLabel("Import cases").setInputFiles({
+    name: "cases.jsonl",
+    mimeType: "application/json",
+    buffer: Buffer.from(`${line}\n`),
+  });
+  await expect(page.getByText("1 case imported.")).toBeVisible();
+  await expect(imported.getByText("Cases 1")).toBeVisible();
+  const afterImport = await new AxeBuilder({ page }).analyze();
+  expect(afterImport.violations).toEqual([]);
 
   await page.goto("/platform/health");
   await expect(page.getByRole("heading", { name: "Platform health" })).toBeVisible();

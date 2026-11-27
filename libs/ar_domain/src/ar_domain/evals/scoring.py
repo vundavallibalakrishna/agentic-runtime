@@ -104,8 +104,14 @@ def _one(item: Mapping[str, object], outcome: Mapping[str, object]) -> dict[str,
         return _similarity(
             text, str(item.get("reference") or ""), _float(item.get("threshold"), 0.8)
         )
-    if kind in {"llm_judge", "lexical_overlap"}:
+    if kind == "lexical_overlap":
         return _overlap(text, item)
+    if kind == "llm_judge" and "rubric" in item and not (item.get("must") or item.get("must_not")):
+        # Written before the model judge: a rubric only, scored as overlap as it always was.
+        return _overlap(text, item)
+    if kind == "llm_judge":
+        # The runner asks the judge model and replaces this. Unjudged, it never passes.
+        return {"passed": False, "score": 0.0, "detail": "not judged", "verdict": "failed"}
     if kind == "max_latency_ms":
         return _limit(_int(outcome.get("latency_ms")), _int(item.get("value")), "latency")
     if kind == "max_cost_micros":

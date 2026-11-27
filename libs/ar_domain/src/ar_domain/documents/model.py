@@ -211,8 +211,10 @@ class ModelAsk:
     ) -> str | None:
         return ask_model(self._store, self._tenant_id, self._alias, task, evidence, schema)
 
-    def many(self, prompts: list[tuple[str, str]]) -> list[str | None]:
-        return ask_model_many(self._store, self._tenant_id, self._alias, prompts)
+    def many(
+        self, prompts: list[tuple[str, str]], schema: dict[str, object] | None = None
+    ) -> list[str | None]:
+        return ask_model_many(self._store, self._tenant_id, self._alias, prompts, schema=schema)
 
 
 def ask_each(ask: Any, prompts: list[tuple[str, str]]) -> list[str | None]:

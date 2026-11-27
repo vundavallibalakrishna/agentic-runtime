@@ -91,7 +91,8 @@ def sync_detailed(
 
     Args:
         suite_id (UUID):
-        body (EvalImportBody):
+        body (EvalImportBody): A stored eval dataset file, or the dataset's text itself. Exactly
+            one.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -127,7 +128,8 @@ def sync(
 
     Args:
         suite_id (UUID):
-        body (EvalImportBody):
+        body (EvalImportBody): A stored eval dataset file, or the dataset's text itself. Exactly
+            one.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -157,7 +159,8 @@ async def asyncio_detailed(
 
     Args:
         suite_id (UUID):
-        body (EvalImportBody):
+        body (EvalImportBody): A stored eval dataset file, or the dataset's text itself. Exactly
+            one.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -191,7 +194,8 @@ async def asyncio(
 
     Args:
         suite_id (UUID):
-        body (EvalImportBody):
+        body (EvalImportBody): A stored eval dataset file, or the dataset's text itself. Exactly
+            one.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
