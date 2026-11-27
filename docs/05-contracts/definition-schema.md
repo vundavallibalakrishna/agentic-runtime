@@ -74,6 +74,7 @@ spec:
   taskTemplates: []            # optional named tasks: id, prompt, items, outputSchema, strategy
     autoRetrieve: false        # true = run knowledge.search on the user message before the first model call
     topK: 8
+    contextTurns: 2            # earlier user turns searched as well, so a follow-up finds what it refers to; 0 = the new message only
     minScore: 0.30             # answerability threshold after rerank (0..1)
   skills: [mttr-report]
   memory:
@@ -148,6 +149,7 @@ spec:
 | `knowledge.collections` | slug[] | ≤ 20; caller must be able to see each at save time |
 | `knowledge.fileIds` | string[] | ≤ 20 public file ids in the tenant; publish fails if one is missing |
 | `taskTemplates` | object[] | ≤ 30. Each has `id`, `prompt`, `items`, `outputSchema` and an optional `strategy`. Core ships none. |
+| `knowledge.context_turns` | integer | 0..10, default 2. Before the first model call the new message is searched, and so is each of the person's last `context_turns` earlier messages in the conversation, newest first; the hits are fused with the new message's best passage first. 0 searches the new message alone |
 | `knowledge.min_score` | number or null | 0..1; unset takes the rerank model's own bar (`requestOptions.rerank.min_score`, [spec 04](../03-specs/04-model-gateway.md)) |
 | `skills` | slug[] | ≤ 30; published skills. A `slug@^1` constraint resolves at publish ([spec 14](../03-specs/14-skills.md)) |
 | `memory.read_scopes` | enum[] | subset of `user`, `agent`, `team`, `agent_user` |

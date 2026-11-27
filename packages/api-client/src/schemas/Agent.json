@@ -156,6 +156,13 @@
           "title": "Topk",
           "type": "integer"
         },
+        "contextTurns": {
+          "default": 2,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Contextturns",
+          "type": "integer"
+        },
         "minScore": {
           "anyOf": [
             {
@@ -818,6 +825,7 @@
         "fileIds": [],
         "autoRetrieve": false,
         "topK": 8,
+        "contextTurns": 2,
         "minScore": null
       }
     },
