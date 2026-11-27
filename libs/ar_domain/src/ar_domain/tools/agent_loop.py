@@ -1421,6 +1421,10 @@ def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], 
     endpoint = turn.get("endpoint_id")
     model = turn.get("answered_model")
     resolved = turn.get("resolved_model_id")
+    named = turn.get("model_alias")
+    alias = (
+        named.strip() if isinstance(named, str) and named.strip() else model_alias_for(store, run)
+    )
     if isinstance(resolved, str) and resolved:
         run["resolved_model_id"] = resolved
     if isinstance(model, str) and model:
@@ -1428,13 +1432,24 @@ def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], 
         assistant = store.messages.get(run.get("assistant_message_id"))
         if isinstance(assistant, dict):
             assistant["answered_model"] = model
-            assistant["model_alias"] = model_alias_for(store, run)
+            assistant["model_alias"] = alias
             registry = turn.get("model_id")
             if registry:
                 assistant["model_id"] = registry
                 run["model_id"] = registry
             if isinstance(resolved, str) and resolved:
                 assistant["resolved_model_id"] = resolved
+    trace = run.get("model_trace")
+    rows = list(trace) if isinstance(trace, list) else []
+    step_model = {
+        "step": step,
+        "model_alias": alias,
+        "model": str(model or ""),
+        "resolved_model_id": str(resolved or ""),
+    }
+    rows.append(step_model)
+    run["model_trace"] = rows
+    store._emit(run, "model.called", step_model)
     if turn.get("fallback") is True:
         store._emit(
             run,
@@ -1446,10 +1461,7 @@ def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], 
         )
     if not isinstance(endpoint, str) or not endpoint:
         return
-    trace = run.get("model_trace")
-    rows = list(trace) if isinstance(trace, list) else []
-    rows.append({"step": step, "endpoint_id": endpoint, "model": str(model or "")})
-    run["model_trace"] = rows
+    step_model["endpoint_id"] = endpoint
     _audit(
         store,
         run,

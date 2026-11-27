@@ -2470,7 +2470,10 @@ class ChatBehaviour:
         if run.get("context_error") == "context_length_exceeded":
             self._fail_context(run, conversation, assistant)
             return
-        self._emit(run, "run.started", {"model_alias": "reasoning"})
+        from ar_domain.tools.agent_loop import model_alias_for  # noqa: PLC0415
+
+        alias = model_alias_for(self, run)
+        self._emit(run, "run.started", {"model_alias": alias})
         if self.durable_engine is not None:
             from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
@@ -2479,9 +2482,9 @@ class ChatBehaviour:
         self._emit(
             run,
             "message.started",
-            {"message_id": str(assistant_id), "role": "assistant", "model_alias": "reasoning"},
+            {"message_id": str(assistant_id), "role": "assistant", "model_alias": alias},
         )
-        from ar_domain.tools.agent_loop import model_alias_for, read_budget, run_agent_loop  # noqa: PLC0415
+        from ar_domain.tools.agent_loop import read_budget, run_agent_loop  # noqa: PLC0415
 
         # Nothing but the agent loop decides the answer: the model chooses every tool
         # call, a delegation and a skill included (M38a-T04, T04a).
@@ -2758,6 +2761,7 @@ class ChatBehaviour:
                 response_format=response_format,
             )
             outcome["fallback"] = index > 0
+            outcome["model_alias"] = model_alias
             if outcome.get("retryable") and index + 1 < len(targets):
                 last = outcome
                 continue
@@ -2901,9 +2905,10 @@ class ChatBehaviour:
             parsed["response_format_fallback"] = True
         elif shaped is not None:
             parsed["response_format_sent"] = True
-        if upstream and upstream != "reasoning":
-            parsed["resolved_model_id"] = upstream
-            parsed["answered_model"] = resolved_model_label(upstream)
+        real = str(model_row.get("upstream_model") or "").strip()
+        if real:
+            parsed["resolved_model_id"] = real
+            parsed["answered_model"] = resolved_model_label(real)
             registry = model_row.get("id")
             if registry is not None:
                 parsed["model_id"] = str(registry)
