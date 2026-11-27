@@ -247,3 +247,49 @@ async def test_typed_text_is_kept_so_it_can_be_indexed_again() -> None:
     refreshed = await refresh_document(store, actor, document_id)
     assert refreshed["result"] == "indexed"
     assert len(KnowledgeBook(store).get_document(actor, document_id)["revisions"]) == 1  # type: ignore[arg-type]
+
+
+async def test_a_slow_document_keeps_the_reindex_beating(
+    site: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Parsing runs off the event loop, and the re-index beats while one document is written."""
+    import time
+
+    from ar_domain.knowledge import pipeline, reindexing
+
+    store, _book, _source, document_id = _watched(site)
+    collection_id = uuid.UUID(str(store.knowledge_documents[document_id]["collection_id"]))
+    collection = store.knowledge_collections[collection_id]
+    job = open_job(
+        store,
+        tenant_id=demo_id("tenant"),
+        collection_id=collection_id,
+        source_id=None,
+        kind="reindex",
+        triggered_by="manual",
+        status="queued",
+    )
+    job_id = uuid.UUID(str(job["id"]))
+    plan = prepare(store, collection_id, job_id)
+    real = pipeline._parse
+
+    def slow(document: dict[str, object], raw: bytes) -> str:
+        # A blocking parse, like OCR of a scanned PDF: it must not hold the event loop.
+        time.sleep(0.4)
+        return real(document, raw)
+
+    monkeypatch.setattr(pipeline, "_parse", slow)
+    monkeypatch.setattr(reindexing, "BEAT_EVERY_S", 0.05)
+    beats: list[float] = []
+    written = await build(
+        store,
+        collection_id=collection_id,
+        job_id=job_id,
+        target={"chunking": dict(collection["chunking"])},
+        version=int(plan["version"]),  # type: ignore[call-overload]
+        document_ids=[uuid.UUID(str(item)) for item in plan["document_ids"]],  # type: ignore[attr-defined]
+        beat=lambda: beats.append(time.monotonic()),
+    )
+    assert written == 1
+    # Beats came while the one document was being parsed, not only after it.
+    assert len(beats) >= 4
