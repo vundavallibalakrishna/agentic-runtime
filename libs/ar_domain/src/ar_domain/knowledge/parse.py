@@ -4,6 +4,13 @@ Docling is the layout parser. ``extract_bytes`` covers a format Docling cannot
 read, and a process that does not have Docling installed.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any
+
 
 class ParseError(Exception):
     """Non-retryable parse failure. ``code`` is ``unsupported_format`` or ``too_large``."""
@@ -32,11 +39,7 @@ def parse_bytes(data: bytes, *, mime_type: str, name: str, max_bytes: int) -> st
                 pass
         code = "too_large" if exc.code == "too_many_pages" else "unsupported_format"
         raise ParseError(code, exc.message) from exc
-    parts = [
-        _as_markdown(passage.page, passage.heading, passage.level, passage.text)
-        for passage in extracted.passages
-        if passage.text.strip()
-    ]
+    parts = _sections(extracted.passages)
     parts.extend(
         f"<!-- page:{table.page} -->\n\n{table.csv_text}"
         for table in extracted.tables
@@ -45,19 +48,37 @@ def parse_bytes(data: bytes, *, mime_type: str, name: str, max_bytes: int) -> st
     return "\n\n".join(parts)
 
 
-def _as_markdown(page: int, heading: str, level: int, text: str) -> str:
-    """One passage as markdown, with its heading level when the text does not already show it."""
-    body = text.strip()
-    name = heading.strip()
-    marks = "#" * max(1, min(level or 1, 6))
-    if name and body.startswith(name):
-        rest = body[len(name) :].lstrip()
-        body = f"{marks} {name}"
-        if rest:
-            body = f"{body}\n\n{rest}"
-    elif name and not body.startswith("#"):
-        body = f"{marks} {name}\n\n{body}"
-    return f"<!-- page:{page} -->\n\n{body}"
+def _sections(passages: list[Any]) -> list[str]:
+    """The passages as markdown: a heading once where its section starts, a page mark where
+    the page changes.
+
+    The layout parser gives one passage a paragraph, each naming the heading it sits under.
+    Writing that heading above every paragraph made each paragraph a section of its own, so
+    the chunker cut a document into one passage a sentence.
+    """
+    parts: list[str] = []
+    heading: tuple[str, int] | None = None
+    page: int | None = None
+    for passage in passages:
+        body = passage.text.strip()
+        if not body:
+            continue
+        if passage.page != page:
+            page = passage.page
+            parts.append(f"<!-- page:{page} -->")
+        name = passage.heading.strip()
+        level = max(1, min(passage.level or 1, 6))
+        if name and body.startswith(name):
+            body = body[len(name) :].lstrip()
+        elif not name or body.startswith("#"):
+            parts.append(body)
+            continue
+        if (name, level) != heading:
+            heading = (name, level)
+            parts.append(f"{'#' * level} {name}")
+        if body:
+            parts.append(body)
+    return parts
 
 
 def csv_markdown(raw: str) -> str:

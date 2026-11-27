@@ -266,9 +266,18 @@ def test_markdown_text_added_to_knowledge_keeps_its_sections() -> None:
     text = (
         "# Policy\n\n## Access\n\nApproved by the duty manager.\n\n## Retention\n\nKept 7 years.\n"
     )
-    passages = _plain(text, "Policy")
-    assert [row["heading"] for row in passages] == ["Policy / Access", "Policy / Retention"]
-    assert "duty manager" in passages[0]["text"]
+    # Two short sections are one passage, filed under the heading they share, and each
+    # keeps its own heading as a line of the text.
+    [passage] = _plain(text, "Policy")
+    assert passage["heading"] == "Policy"
+    assert "Access\n\nApproved by the duty manager." in passage["text"]
+    assert "Retention\n\nKept 7 years." in passage["text"]
+    # A section too long to share a passage is not joined: it keeps its own heading.
+    long_text = text.replace("Approved by the duty manager.", "Approved by the duty manager. " * 80)
+    long_passages = _plain(long_text, "Policy")
+    assert len(long_passages) > 1
+    assert long_passages[0]["heading"] == "Policy / Access"
+    assert "Kept 7 years." in long_passages[-1]["text"]
     assert _plain("<p>Hello   <b>world</b></p>", "Note")[0]["text"] == "Hello world"
 
 

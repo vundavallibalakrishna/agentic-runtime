@@ -120,7 +120,7 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
         raise ExtractError("unsupported", "The layout parser returned no document.")
     for item, level in items(with_groups=True):
         kind = type(item).__name__
-        if kind == "GroupItem":
+        if _is_group(item):
             # Only a spreadsheet's sheet names its content. The parser's other groups
             # ("header-1", lists, slides) are its own structure, not words in the document.
             if str(getattr(item, "label", "")).rsplit(".", 1)[-1].lower() == "sheet":
@@ -132,7 +132,7 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
         page = _page(item)
         page_max = max(page_max, page)
         if kind == "TitleItem":
-            text = _label(item)
+            text = _words(item)
             if text:
                 title = text
                 section = text
@@ -150,7 +150,7 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
             last_text = ""
             continue
         if kind == "SectionHeaderItem":
-            text = _label(item)
+            text = _words(item)
             heading_level = getattr(item, "level", None)
             resolved = heading_level if isinstance(heading_level, int) else int(level or 1)
             if text:
@@ -186,7 +186,9 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
                 )
             last_text = ""
             continue
-        text = _label(item)
+        # Only an item's own words are text. A picture with no caption has none, and the
+        # parser's name for its kind ("picture") is not in the document.
+        text = _words(item)
         if not text:
             continue
         ordinal += 1
@@ -213,6 +215,16 @@ def _from_docling(document: object, filename: str, media_type: str) -> Extracted
         tables=tables,
         metadata={"parser": "docling"},
     )
+
+
+def _is_group(item: object) -> bool:
+    """A group of the parser's own, including its list and inline groups."""
+    return any(cls.__name__ == "GroupItem" for cls in type(item).__mro__)
+
+
+def _words(item: object) -> str:
+    value = getattr(item, "text", None)
+    return value.strip() if isinstance(value, str) else ""
 
 
 def _label(item: object) -> str:
