@@ -58,11 +58,12 @@ export const test = base.extend<{ freshTenantOnRetry: undefined }>({
  */
 export async function openToolCall(page: Page, what: string | RegExp | Locator, timeout = 20_000) {
   const wanted = typeof what === "string" || what instanceof RegExp ? page.getByText(what) : what;
-  // Attached, not visible: it is inside a closed tool call until it is opened below.
-  await expect(wanted.first()).toBeAttached({ timeout });
+  // A closed tool call draws its details only once it is opened, so the cards are opened
+  // until what was asked for appears in one of them.
+  await expect(page.getByTestId("tool-call").first()).toBeAttached({ timeout });
   await expect(async () => {
     await page.getByTestId("tool-call").evaluateAll((cards) => {
-      for (const card of cards) card.setAttribute("open", "");
+      for (const card of cards) if (!card.hasAttribute("open")) card.setAttribute("open", "");
     });
     await expect(wanted.first()).toBeVisible({ timeout: 1_000 });
     // Still open after the reply has had time to finish and draw itself again.

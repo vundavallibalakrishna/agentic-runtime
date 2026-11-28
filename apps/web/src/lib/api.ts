@@ -19,8 +19,12 @@ export class ApiError extends Error {
 }
 
 /** A 429 is a pause, not a signed-out session. */
+/** Too many requests, as opposed to another 429 such as a used-up quota, which says what it is. */
 export function isRateLimited(error: unknown): boolean {
-  return error instanceof ApiError && (error.status === 429 || error.code === "rate_limited");
+  return (
+    error instanceof ApiError &&
+    (error.code === "rate_limited" || (error.status === 429 && !error.code))
+  );
 }
 
 function csrfToken(): string {

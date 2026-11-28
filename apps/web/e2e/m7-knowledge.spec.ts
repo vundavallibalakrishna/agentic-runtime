@@ -56,17 +56,26 @@ test("company library answers only from documents the reader can open", async ({
   await capture(page, "search");
 
   await page.goto("/chat?agent=librarian");
-  await expect(page.locator("#agent-picker option:checked")).toHaveText("Librarian");
+  await page.getByText("Chat options", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Agent: Librarian", exact: true })).toBeVisible();
   await page.getByLabel("Message").fill("When does the visitor desk open?");
   await page.getByRole("button", { name: "Send" }).click();
-  const citation = page.getByRole("button", { name: /Visitor guide/ });
-  await expect(citation).toBeVisible({ timeout: 30_000 });
+  // The reply marks its sources inline; they open from its sources button.
+  const sources = page.getByRole("button", { name: /^\d+ sources?$/ }).first();
+  await expect(sources).toBeVisible({ timeout: 30_000 });
+  await sources.click();
+  const citation = page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Visitor guide/ })
+    .first();
   await citation.click();
   await expect(page.getByRole("dialog")).toContainText("08:30");
   await capture(page, "citation");
   await page.getByRole("button", { name: "Close" }).click();
+  // Why opens the reply's claim checks, or says it has none.
   await page.getByRole("button", { name: "Why" }).click();
-  await expect(page.locator("pre").last()).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Grounding details" })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "Dev Admin" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();

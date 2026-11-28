@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render as renderView, screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -22,6 +22,15 @@ function installToolCatalogue() {
   );
 }
 
+function renderExpanded(content: ReactNode) {
+  const view = renderView(content);
+  for (const card of screen.queryAllByTestId("tool-call")) {
+    (card as HTMLDetailsElement).open = true;
+    fireEvent(card, new Event("toggle"));
+  }
+  return view;
+}
+
 function wrap(children: ReactNode) {
   return (
     <NextIntlClientProvider locale="en" messages={messages}>
@@ -36,7 +45,7 @@ describe("tool screens", () => {
   });
 
   it("shows a tool result and a connect link", () => {
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -50,7 +59,7 @@ describe("tool screens", () => {
     );
     expect(screen.getByText("Create Ticket")).toBeTruthy();
     expect(screen.getByText("Done")).toBeTruthy();
-    render(
+    renderView(
       wrap(
         <ToolCallCard
           call={{
@@ -67,7 +76,7 @@ describe("tool screens", () => {
     expect(screen.getByText("Didn't finish")).toBeTruthy();
     expect(screen.getByText("The extraction was not JSON.")).toBeTruthy();
     expect(screen.getByText("TCK-1001")).toBeTruthy();
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -82,7 +91,7 @@ describe("tool screens", () => {
     expect(screen.getByRole("link", { name: "Connect account" }).getAttribute("href")).toBe(
       "https://tickets.example/authorize",
     );
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -104,7 +113,7 @@ describe("tool screens", () => {
     expect(screen.getByRole("link", { name: "Download summary.txt" }).getAttribute("href")).toBe(
       "/api/v1/files/file-1/content",
     );
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -126,7 +135,7 @@ describe("tool screens", () => {
     expect(screen.getByText("SELECT count(*) FROM public.stores")).toBeTruthy();
     expect(screen.getByText("2992")).toBeTruthy();
     expect(screen.getByText("Showing a sample. The full result was truncated.")).toBeTruthy();
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -148,7 +157,7 @@ describe("tool screens", () => {
       screen.getByText("SELECT * FROM (PIVOT sales ON quarter USING sum(amount) GROUP BY region)"),
     ).toBeTruthy();
     expect(screen.getByText("417")).toBeTruthy();
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -182,7 +191,7 @@ describe("tool screens", () => {
     expect(
       screen.getByRole("link", { name: "Download sample_items.csv" }).getAttribute("href"),
     ).toBe("/api/v1/files/file-3/content");
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -199,7 +208,7 @@ describe("tool screens", () => {
     );
     expect(screen.getByText("scan.pdf. 2 of 4")).toBeTruthy();
     expect(screen.getByRole("progressbar")).toBeTruthy();
-    render(
+    renderExpanded(
       wrap(
         <JobList
           jobs={[
@@ -219,7 +228,7 @@ describe("tool screens", () => {
   });
 
   it("shows what a cross-check found, and says so when it found nothing", () => {
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -260,7 +269,7 @@ describe("tool screens", () => {
     // The card shows the findings, not the text written for the model.
     expect(screen.queryByText(/Places where Stock count/)).toBeNull();
     cleanup();
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -314,7 +323,7 @@ describe("tool screens", () => {
         }),
       ),
     );
-    render(wrap(<ToolsScreen />));
+    renderExpanded(wrap(<ToolsScreen />));
     expect(await screen.findByRole("heading", { name: "Tickets" })).toBeTruthy();
     expect(screen.getByText("tickets.create_ticket")).toBeTruthy();
     expect(screen.getByLabelText("Short name")).toBeTruthy();
@@ -322,7 +331,7 @@ describe("tool screens", () => {
 
   it("shows a failed, timed-out, or rejected tool call as failed", () => {
     for (const status of ["failed", "timed_out", "rejected", "upstream_timeout"]) {
-      const { unmount } = render(
+      const { unmount } = renderView(
         wrap(
           <ToolCallCard
             call={{
@@ -362,7 +371,7 @@ describe("tool screens", () => {
         HttpResponse.json({ detail: "four_eyes" }, { status: 403 }),
       ),
     );
-    render(wrap(<ToolsScreen />));
+    renderExpanded(wrap(<ToolsScreen />));
     // The form starts empty: nothing is filled in for the person.
     expect((screen.getByLabelText("Short name") as HTMLInputElement).value).toBe("");
     fireEvent.change(screen.getByLabelText("Short name"), { target: { value: "echo" } });
@@ -382,7 +391,7 @@ describe("tool screens", () => {
       http.get("*/api/v1/tool-servers", () => new HttpResponse(null, { status: 500 })),
       http.get("*/api/v1/tool-calls", () => new HttpResponse(null, { status: 500 })),
     );
-    render(wrap(<ToolsScreen />));
+    renderExpanded(wrap(<ToolsScreen />));
     expect(await screen.findByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
@@ -403,7 +412,7 @@ describe("tool screens", () => {
       http.get("*/api/v1/service-connections", () => HttpResponse.json({ items: [] })),
       http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
     );
-    render(wrap(<ConnectionsScreen />));
+    renderView(wrap(<ConnectionsScreen />));
     expect(await screen.findByRole("heading", { name: "Tickets" })).toBeTruthy();
     expect(screen.getByText("Connected")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Warehouse" })).toBeTruthy();

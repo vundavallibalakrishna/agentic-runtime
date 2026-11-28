@@ -1,10 +1,21 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { api } from "@/lib/api";
+import { type ComponentProps, useMemo, useState } from "react";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableScroll,
+} from "@/components/ui/table";
+import { formatDataValue } from "@/lib/format";
+
+import { CitationDetails } from "./citation-details";
 
 export type CitationChip = {
   index: number;
@@ -14,6 +25,8 @@ export type CitationChip = {
   documentId?: string;
   anchor?: string;
   page?: number | string;
+  pageFrom?: number;
+  pageTo?: number;
   charFrom?: number;
   charTo?: number;
   verified?: boolean;
@@ -51,15 +64,50 @@ export function readingOf(message: Record<string, unknown>): Record<string, unkn
 
 export function ReadingNote({ reading }: { reading: Record<string, unknown> | null }) {
   const t = useTranslations("chat");
-  if (!reading) return null;
+  const tools = [
+    ...new Set(
+      Array.isArray(reading?.tools)
+        ? reading.tools.filter(
+            (value): value is string => typeof value === "string" && Boolean(value.trim()),
+          )
+        : [],
+    ),
+  ];
+  const pagination = usePagedRows(tools);
+  const scalar = (value: unknown) =>
+    typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+  const strategy = scalar(reading?.strategy);
+  const coverage = scalar(reading?.coverage);
+  const scope = scalar(reading?.scope);
+  const context = [
+    strategy ? t("readingStrategy", { value: strategy }) : "",
+    coverage ? t("readingCoverage", { value: coverage }) : "",
+    scope ? t("readingScope", { value: scope }) : "",
+  ].filter(Boolean);
+  if (!reading || (!tools.length && !context.length)) return null;
   return (
-    <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-      {t("readingPlan", {
-        strategy: String(reading.strategy || ""),
-        coverage: String(reading.coverage || ""),
-        scope: String(reading.scope || ""),
-      })}
-    </p>
+    <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+      {context.length ? <p>{context.join(" · ")}</p> : null}
+      {tools.length ? (
+        <details className="mt-1">
+          <summary className="cursor-pointer">
+            {t("toolsUsedCount", { count: tools.length })}
+          </summary>
+          <ul className="mt-2 space-y-1">
+            {pagination.rows.map((tool) => (
+              <li className="break-all" key={tool}>
+                {tool}
+              </li>
+            ))}
+          </ul>
+          {tools.length > pagination.pageSize ? (
+            <div className="mt-3">
+              <ListPagination {...pagination} compact />
+            </div>
+          ) : null}
+        </details>
+      ) : null}
+    </div>
   );
 }
 
@@ -70,145 +118,128 @@ export function reviewsOf(message: Record<string, unknown>): Record<string, unkn
     if (!part || typeof part !== "object") continue;
     const row = part as { type?: string; rows?: unknown };
     if (row.type === "review" && Array.isArray(row.rows)) {
-      return row.rows.filter((item) => item && typeof item === "object") as Record<
-        string,
-        unknown
-      >[];
+      return row.rows.filter(
+        (item) => item && typeof item === "object" && !Array.isArray(item),
+      ) as Record<string, unknown>[];
     }
   }
   return [];
 }
 
 export function ReviewTable({ rows }: { rows: Record<string, unknown>[] }) {
+  const t = useTranslations("chat");
+  const [open, setOpen] = useState(false);
   if (rows.length === 0) return null;
-  const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
   return (
-    <div className="mt-3 overflow-x-auto rounded-xl border border-[var(--border)]">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-[var(--muted)] text-xs text-[var(--muted-foreground)]">
-          <tr>
-            {columns.map((column) => (
-              <th className="px-3 py-2 font-medium" key={column}>
-                {column}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr
-              className="border-t border-[var(--border)]"
-              key={String(row.anchor || row.id || index)}
-            >
-              {columns.map((column) => (
-                <td className="px-3 py-2" key={column}>
-                  {String(row[column] ?? "")}
-                </td>
+    <details
+      className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="cursor-pointer text-sm font-medium">
+        {t("reviewRowsSummary", { count: rows.length })}
+      </summary>
+      {open ? <ReviewRows rows={rows} /> : null}
+    </details>
+  );
+}
+
+function ReviewRows({ rows }: { rows: Record<string, unknown>[] }) {
+  const t = useTranslations("chat");
+  const [query, setQuery] = useState("");
+  const columns = useMemo(() => [...new Set(rows.flatMap((row) => Object.keys(row)))], [rows]);
+  const columnPage = usePagedRows(columns);
+  const matching = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return rows.flatMap((row, offset) =>
+      !needle ||
+      Object.values(row).some((value) =>
+        formatDataValue(value).toLocaleLowerCase().includes(needle),
+      )
+        ? [{ row, offset }]
+        : [],
+    );
+  }, [rows, query]);
+  const pagination = usePagedRows(matching, query);
+  return (
+    <div className="mt-4 space-y-3">
+      <p className="text-xs text-[var(--muted-foreground)]">{t("reviewRowsHelp")}</p>
+      <Input
+        type="search"
+        aria-label={t("reviewRowsSearch")}
+        placeholder={t("reviewRowsSearch")}
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      {!matching.length ? (
+        <p role="status" className="text-sm">
+          {t("reviewRowsNoMatches")}
+        </p>
+      ) : null}
+      {columns.length > columnPage.pageSize ? (
+        <div className="space-y-2 rounded-lg bg-[var(--muted)] p-3">
+          <p className="text-xs font-medium">{t("reviewColumns")}</p>
+          <ListPagination {...columnPage} compact label={t("reviewColumns")} />
+        </div>
+      ) : null}
+      {matching.length > 0 && columns.length > 0 ? (
+        <TableScroll
+          label={t("reviewRowsTitle")}
+          className="max-h-96 rounded-lg border border-[var(--border)]"
+        >
+          <Table aria-label={t("reviewRowsTitle")}>
+            <TableHeader>
+              <TableRow>
+                {columnPage.rows.map((column) => (
+                  <TableHead scope="col" className="min-w-32 max-w-96 break-words" key={column}>
+                    {column}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pagination.rows.map(({ row, offset }) => (
+                <TableRow key={offset}>
+                  {columnPage.rows.map((column) => (
+                    <TableCell key={column} className="min-w-32 max-w-96 align-top">
+                      <ReviewCell value={row[column]} />
+                    </TableCell>
+                  ))}
+                </TableRow>
               ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+            </TableBody>
+          </Table>
+        </TableScroll>
+      ) : null}
+      {columns.length === 0 ? <p className="text-sm">{t("reviewRowsNoFields")}</p> : null}
+      <ListPagination {...pagination} label={t("reviewRowsTitle")} />
     </div>
   );
 }
 
-export function CitationList({
-  citations,
-  conversationId,
-  messageId,
-}: {
-  citations: CitationChip[];
-  conversationId?: string;
-  messageId?: string;
-}) {
+function ReviewCell({ value }: { value: unknown }) {
   const t = useTranslations("chat");
-  const [open, setOpen] = useState<CitationChip | null>(null);
-  const [why, setWhy] = useState("");
-  if (citations.length === 0) {
-    return null;
-  }
-  return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      {citations.map((citation) => {
-        const verified = citation.verified === true || citation.status === "supported";
-        return (
-          <span className="group relative" key={`${citation.index}-${citation.title}`}>
-            <Button
-              className="h-7 px-2 text-xs font-normal"
-              onClick={() => setOpen(citation)}
-              type="button"
-              variant="outline"
-            >
-              {t("citation", { index: citation.index, title: citation.title || t("source") })}
-              {verified ? (
-                <span className="ml-1 text-[var(--muted-foreground)]">{t("verified")}</span>
-              ) : null}
-            </Button>
-            {citation.snippet ? (
-              <span
-                className="pointer-events-none absolute bottom-full left-0 z-10 mb-1 hidden w-64 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2 text-left text-xs leading-relaxed shadow-[var(--shadow-composer)] group-hover:block"
-                role="tooltip"
-              >
-                {citation.snippet}
-              </span>
-            ) : null}
-          </span>
-        );
-      })}
-      {conversationId && messageId && !messageId.startsWith("local-") ? (
-        <Button
-          className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
-          onClick={() => {
-            void api<Record<string, unknown>>(
-              `/api/v1/conversations/${conversationId}/messages/${messageId}/grounding`,
-            )
-              .then((report) => setWhy(JSON.stringify(report.claims ?? report, null, 2)))
-              .catch(() => setWhy(t("whyEmpty")));
-          }}
-          type="button"
-          variant="ghost"
-        >
-          {t("why")}
-        </Button>
-      ) : null}
+  const [open, setOpen] = useState(false);
+  const text = formatDataValue(value);
+  return text.length > 240 ? (
+    <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="cursor-pointer whitespace-pre-wrap break-words">
+        {text.slice(0, 240)}…{" "}
+        <span className="text-xs text-[var(--muted-foreground)]">{t("reviewCellExpand")}</span>
+      </summary>
       {open ? (
-        <Dialog
-          open={!!open}
-          onOpenChange={(next) => {
-            if (!next) setOpen(null);
-          }}
-        >
-          <DialogContent title={open.title || t("source")}>
-            {open.anchor ? (
-              <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-                {open.page ? `p.${open.page} ` : ""}
-                {open.anchor}
-              </p>
-            ) : null}
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{open.snippet}</p>
-            {open.documentId ? (
-              <a
-                className="mt-2 inline-block text-sm underline"
-                href={`/documents/${open.documentId}${open.anchor ? `#${open.anchor}` : ""}`}
-              >
-                {open.title || t("source")}
-              </a>
-            ) : null}
-            {open.uri ? (
-              <p className="mt-2 break-all text-xs text-[var(--muted-foreground)]">{open.uri}</p>
-            ) : null}
-            <Button className="mt-4" onClick={() => setOpen(null)} type="button" variant="outline">
-              {t("closePreview")}
-            </Button>
-          </DialogContent>
-        </Dialog>
+        <TableScroll label={t("reviewCellValue")} className="mt-2 max-h-64">
+          <pre className="whitespace-pre-wrap break-words text-xs">{text}</pre>
+        </TableScroll>
       ) : null}
-      {why ? (
-        <pre className="mt-2 w-full overflow-auto rounded-lg bg-[var(--muted)] p-3 text-xs">
-          {why}
-        </pre>
-      ) : null}
-    </div>
+    </details>
+  ) : (
+    <span className="whitespace-pre-wrap break-words">{text}</span>
+  );
+}
+
+export function CitationList(props: ComponentProps<typeof CitationDetails>) {
+  return (
+    <CitationDetails key={`${props.conversationId ?? ""}:${props.messageId ?? ""}`} {...props} />
   );
 }

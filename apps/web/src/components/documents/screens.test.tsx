@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render as renderView, screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -13,6 +13,15 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/documents",
   useRouter: () => ({ push: () => undefined }),
 }));
+
+function renderExpanded(content: ReactNode) {
+  const view = renderView(content);
+  for (const card of screen.queryAllByTestId("tool-call")) {
+    (card as HTMLDetailsElement).open = true;
+    fireEvent(card, new Event("toggle"));
+  }
+  return view;
+}
 
 function wrap(children: ReactNode) {
   return (
@@ -50,7 +59,7 @@ describe("document library", () => {
         }),
       ),
     );
-    render(wrap(<LibraryScreen />));
+    renderExpanded(wrap(<LibraryScreen />));
     const title = await screen.findByRole("link", { name: "Access" });
     expect(title.getAttribute("href")).toBe("/documents/doc-1");
     const row = title.closest("tr");
@@ -80,7 +89,7 @@ describe("document library", () => {
         }),
       ),
     );
-    render(wrap(<LibraryScreen />));
+    renderView(wrap(<LibraryScreen />));
     const earlier = (await screen.findByLabelText("Earlier document")) as HTMLSelectElement;
     const later = screen.getByLabelText("Later document") as HTMLSelectElement;
     expect((screen.getByRole("button", { name: "Compare" }) as HTMLButtonElement).disabled).toBe(
@@ -107,7 +116,7 @@ describe("document library", () => {
       http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
       http.get("*/api/v1/library-documents", () => HttpResponse.json({ items: [] })),
     );
-    render(wrap(<LibraryScreen />));
+    renderExpanded(wrap(<LibraryScreen />));
     expect(
       await screen.findByText(
         "No documents yet. Upload a PDF, document, spreadsheet, presentation, text file or image.",
@@ -116,7 +125,7 @@ describe("document library", () => {
   });
 
   it("shows each agent a reply called, with its task, its answer and a way in", () => {
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{
@@ -157,7 +166,7 @@ describe("document library", () => {
   });
 
   it("renders a cited check", () => {
-    render(
+    renderExpanded(
       wrap(
         <ToolCallCard
           call={{

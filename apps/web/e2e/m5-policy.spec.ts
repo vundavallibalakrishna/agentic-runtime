@@ -51,7 +51,8 @@ test("approve a pet", async ({ page }) => {
   });
   await signIn(page);
   await page.goto("/chat?agent=desk");
-  await expect(page.locator("#agent-picker option:checked")).toHaveText("Desk");
+  await page.getByText("Chat options", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Agent: Desk", exact: true })).toBeVisible();
   await page.getByLabel("Message").fill("Create a pet named Fido");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("Waiting for approval before this tool runs.").first()).toBeVisible({
@@ -157,7 +158,8 @@ test("delete a pet behind the new policy", async ({ page }) => {
   await page.goto(`/chat?agent=desk&conversation=${conversation}`);
   await openToolCall(page, /Created pet \d+\./);
   await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible();
-  await expect(page.locator("#agent-picker option:checked")).toHaveText("Desk");
+  await page.getByText("Chat options", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Agent: Desk", exact: true })).toBeVisible();
   await page.getByLabel("Message").fill("Delete pet 1");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("Waiting for approval before this tool runs.").first()).toBeVisible({

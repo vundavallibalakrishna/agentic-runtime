@@ -40,7 +40,11 @@ test("a failed run is shown as one, with its reason and a way to try again", asy
   try {
     await page.goto("/chat");
     const main = page.getByRole("main");
-    await main.getByRole("combobox", { name: "Model" }).selectOption(alias);
+    await main.getByText("Chat options", { exact: true }).click();
+    await main.getByRole("button", { name: /^Model:/ }).click();
+    const modelPicker = page.getByRole("dialog", { name: "Model", exact: true });
+    await modelPicker.getByRole("searchbox").fill(alias);
+    await modelPicker.getByRole("button", { name: alias, exact: true }).click();
     await main.getByLabel("Message").fill("Say hello in three words.");
     await main.getByRole("button", { name: "Send" }).click();
 

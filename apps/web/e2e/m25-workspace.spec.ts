@@ -160,8 +160,16 @@ test("knowledge, memory, skills and a cited chat", async ({ page }) => {
     .fill("Write the weekly status note. What is the north dock code?");
   await page.locator("#composer").press("Enter");
   await expect(page.getByText(/Loaded skill/)).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("button", { name: /Dock/ })).toBeVisible();
+  // The cited dock note is listed in the reply's sources.
+  await page
+    .getByRole("button", { name: /^\d+ sources?$/ })
+    .last()
+    .click();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: /Dock/ }).first(),
+  ).toBeVisible();
   await capture(page, "chat");
+  await page.keyboard.press("Escape");
 
   const axe = await new AxeBuilder({ page }).analyze();
   expect(

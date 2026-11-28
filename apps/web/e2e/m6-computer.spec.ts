@@ -38,7 +38,10 @@ async function capture(page: Page, name: string) {
 test("chart a spreadsheet and review computers", async ({ page }) => {
   await signIn(page);
   await page.goto("/chat?agent=revenue-analyst");
-  await expect(page.locator("#agent-picker option:checked")).toHaveText("Revenue analyst");
+  await page.getByText("Chat options", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Agent: Revenue analyst", exact: true }),
+  ).toBeVisible();
   await page.getByLabel("Message").fill("Analyse the attached CSV and chart revenue by month");
   await page.getByRole("button", { name: "Send" }).click();
   await openToolCall(page, "revenue-by-month.png", 30_000);

@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
+import { Input } from "@/components/ui/input";
+import { TableScroll } from "@/components/ui/table";
+import { formatDataValue as text } from "@/lib/format";
 
 type FileRow = { fileId?: string; file_id?: string; name?: string };
 type Hit = { title?: string; url?: string; snippet?: string };
@@ -148,7 +152,10 @@ function Crosscheck({ presentation }: { presentation: Record<string, unknown> })
                       className="whitespace-pre-wrap text-xs text-[var(--muted-foreground)]"
                       key={`${anchor}-${text(quote.quote)}`}
                     >
-                      <a className="underline" href={`/documents/${documentId}#${anchor}`}>
+                      <a
+                        className="underline"
+                        href={`/documents/${encodeURIComponent(documentId)}#${encodeURIComponent(anchor)}`}
+                      >
                         {anchor}
                       </a>{" "}
                       {text(quote.quote)}
@@ -234,14 +241,42 @@ function SampleFacts({ facts }: { facts: unknown }) {
 function Block({ className, children }: { className: string; children: ReactNode }) {
   return (
     // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs keyboard focus
-    <pre className={className} tabIndex={0}>
+    <pre className={`max-h-80 overflow-auto break-words ${className}`} tabIndex={0}>
       {children}
     </pre>
   );
 }
 
-function text(value: unknown) {
-  return value == null ? "" : String(value);
+function SavedDiff({ before, after }: { before: unknown; after: unknown }) {
+  const t = useTranslations("chat");
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      <div>
+        <p className="text-xs text-[var(--muted-foreground)]">{t("resultBefore")}</p>
+        <TableScroll label={t("resultBefore")} className="max-h-64">
+          <p className="whitespace-pre-wrap break-words text-xs">{text(before)}</p>
+        </TableScroll>
+      </div>
+      <div>
+        <p className="text-xs text-[var(--muted-foreground)]">{t("resultAfter")}</p>
+        <TableScroll label={t("resultAfter")} className="max-h-64">
+          <p className="whitespace-pre-wrap break-words text-xs">{text(after)}</p>
+        </TableScroll>
+      </div>
+    </div>
+  );
+}
+
+function resultValues(presentation: Record<string, unknown>, kind: string): unknown[] {
+  const value =
+    kind === "compare"
+      ? presentation.changes
+      : kind === "rewrite"
+        ? presentation.hunks
+        : ["judge", "check", "missing"].includes(kind) && Array.isArray(presentation.claims)
+          ? presentation.claims
+          : presentation.rows;
+  return Array.isArray(value) ? value : [];
 }
 
 function presentationOf(call: Record<string, unknown>) {
@@ -321,7 +356,11 @@ function failureOf(
   const error = call.error;
   const fromError =
     error && typeof error === "object"
-      ? text((error as { message?: string }).message)
+      ? text(
+          (error as { message?: unknown; detail?: unknown; code?: unknown }).message ??
+            (error as { detail?: unknown }).detail ??
+            (error as { code?: unknown }).code,
+        )
       : text(error);
   const fromPresentation = text(presentation.kind) === "error" ? text(presentation.message) : "";
   return { status: raw, message: fromError || fromPresentation };
@@ -340,7 +379,7 @@ function friendlyStatus(
 export function ToolCallCard({ call, label }: { call: Record<string, unknown>; label: string }) {
   const t = useTranslations("chat");
   const qualified = text(call.qualifiedName ?? call.qualified_name ?? "tool");
-  const presentation = presentationOf(call);
+  const presentation = useMemo(() => presentationOf(call), [call]);
   const called = presentation.kind === "agents";
   const name = called ? t("calledAgents") : friendlyName(qualified, t);
   const failure = failureOf(call, presentation);
@@ -348,7 +387,6 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
   const preview = text(call.resultPreview ?? call.result_preview ?? "");
   const approvalId = text(call.approvalId ?? call.approval_id ?? "");
   const waiting = text(call.status ?? "") === "awaiting_approval";
-  const kind = text(presentation.kind);
   const error = call.error;
   const connect =
     error && typeof error === "object"
@@ -358,16 +396,65 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
             "",
         )
       : "";
+  const needsAction = waiting || Boolean(connect);
+  const [expanded, setExpanded] = useState(needsAction);
+  const [query, setQuery] = useState("");
+  const kind = text(presentation.kind);
+  const argumentText =
+    call.arguments && typeof call.arguments === "object" && Object.keys(call.arguments).length === 0
+      ? ""
+      : text(call.arguments);
+
   const files = filesOf(presentation);
   const hits = Array.isArray(presentation.results) ? (presentation.results as Hit[]) : [];
   const progress = progressOf(presentation);
+
+  useEffect(() => {
+    if (needsAction) setExpanded(true);
+  }, [needsAction]);
+  // Original offsets keep identical saved rows distinct when paging and filtering.
+  const resultRows = useMemo(
+    () =>
+      resultValues(presentation, kind).map((value, offset) => ({
+        value,
+        key: `row-${offset}`,
+      })),
+    [presentation, kind],
+  );
+  const matchingRows = useMemo(
+    () =>
+      resultRows.filter(
+        (row) =>
+          !query.trim() ||
+          text(row.value).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+      ),
+    [resultRows, query],
+  );
+  const pagination = usePagedRows(matchingRows, `${text(call.id)}::${qualified}::${query}`);
+  const savedRewriteText =
+    kind === "rewrite" &&
+    resultRows.length === 0 &&
+    (presentation.original != null || presentation.proposed != null);
+  const pagedOutput = [
+    "query",
+    "table",
+    "pivot",
+    "sample",
+    "judge",
+    "check",
+    "missing",
+    "compare",
+    "rewrite",
+  ].includes(kind);
+
   return (
     // One line until a person opens it. It starts open only when it needs them: an approval
     // to give, or an account to connect.
     <details
       className="mt-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-sm"
       data-testid="tool-call"
-      open={waiting || Boolean(connect)}
+      open={expanded}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
     >
       <summary className="cursor-pointer select-none text-xs">
         <span className="sr-only">{label} </span>
@@ -380,290 +467,349 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           <span className="mt-1 block text-[var(--destructive)]">{failure.message}</span>
         ) : null}
       </summary>
-      {text(call.arguments) ? (
-        <details className="mt-2">
-          <summary className="cursor-pointer text-[var(--muted-foreground)]">
-            {t("toolDetails")}
-          </summary>
-          <Block className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
-            {text(call.arguments)}
-          </Block>
-        </details>
-      ) : null}
-      <ToolTimeline call={call} />
-      {progress ? <JobMeter progress={progress} /> : null}
-      {kind === "code" || kind === "shell" ? (
-        <div className="mt-2 space-y-2">
-          <Block className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">
-            {text(presentation.command)}
-          </Block>
-          <p>
-            {t("exitCode")} {text(presentation.exitCode ?? presentation.exit_code)}
+      {expanded ? (
+        <>
+          <p className="mt-2 break-all text-xs text-[var(--muted-foreground)]">
+            {t("toolIdentifier")}: {qualified}
           </p>
-          {text(presentation.stdout) ? (
-            <Block className="overflow-x-auto whitespace-pre-wrap text-xs">
-              {text(presentation.stdout)}
-            </Block>
+          {argumentText ? (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-[var(--muted-foreground)]">
+                {t("toolDetails")}
+              </summary>
+              <Block className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
+                {argumentText}
+              </Block>
+            </details>
           ) : null}
-          {text(presentation.stderr) ? (
-            <Block className="overflow-x-auto whitespace-pre-wrap text-xs text-[var(--destructive)]">
-              {text(presentation.stderr)}
-            </Block>
+          <ToolTimeline call={call} />
+          {progress ? <JobMeter progress={progress} /> : null}
+          {pagedOutput ? (
+            <div className="mt-2 space-y-2">
+              {resultRows.length > 0 ? (
+                <Input
+                  type="search"
+                  aria-label={t("toolResultSearch")}
+                  placeholder={t("toolResultSearch")}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              ) : null}
+              {!matchingRows.length && !savedRewriteText ? (
+                <p className="text-[var(--muted-foreground)]">
+                  {t(query ? "toolNoResultMatches" : "toolNoResultRows")}
+                </p>
+              ) : null}
+            </div>
           ) : null}
-        </div>
-      ) : null}
-      {kind === "fetch" ? (
-        <div className="mt-2">
-          <p className="font-medium">{text(presentation.title)}</p>
-          <p className="text-[var(--muted-foreground)]">{text(presentation.url)}</p>
-          <p className="mt-1 whitespace-pre-wrap">{text(presentation.snippet)}</p>
-        </div>
-      ) : null}
-      {kind === "search" ? (
-        <ul className="mt-2 space-y-2">
-          {hits.map((hit) => (
-            <li key={`${hit.url}-${hit.title}`}>
-              <p className="font-medium">{hit.title}</p>
-              <p className="text-[var(--muted-foreground)]">{hit.url}</p>
-              <p>{hit.snippet}</p>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {kind === "http" || kind === "mcp" || kind === "openapi" || kind === "described" ? (
-        <div className="mt-2">
-          <p>
-            {text(presentation.method)} {text(presentation.url)}
-          </p>
-          <p>
-            {t("httpStatus")} {text(presentation.status)}
-          </p>
-          {text(presentation.snippet) ? (
-            <Block className="mt-1 overflow-x-auto whitespace-pre-wrap text-xs">
-              {text(presentation.snippet)}
-            </Block>
+          {kind === "code" || kind === "shell" ? (
+            <div className="mt-2 space-y-2">
+              <Block className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">
+                {text(presentation.command)}
+              </Block>
+              <p>
+                {t("exitCode")} {text(presentation.exitCode ?? presentation.exit_code)}
+              </p>
+              {text(presentation.stdout) ? (
+                <Block className="overflow-x-auto whitespace-pre-wrap text-xs">
+                  {text(presentation.stdout)}
+                </Block>
+              ) : null}
+              {text(presentation.stderr) ? (
+                <Block className="overflow-x-auto whitespace-pre-wrap text-xs text-[var(--destructive)]">
+                  {text(presentation.stderr)}
+                </Block>
+              ) : null}
+            </div>
           ) : null}
-        </div>
-      ) : null}
-      {kind === "sample" ? <SampleFacts facts={presentation.sample} /> : null}
-      {kind === "query" || kind === "table" || kind === "pivot" || kind === "sample" ? (
-        <div className="mt-2">
-          {text(presentation.sql) ? (
-            <Block className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">
-              {text(presentation.sql)}
-            </Block>
+          {kind === "fetch" ? (
+            <div className="mt-2">
+              <p className="font-medium">{text(presentation.title)}</p>
+              <p className="text-[var(--muted-foreground)]">{text(presentation.url)}</p>
+              <p className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-words">
+                {text(presentation.snippet)}
+              </p>
+            </div>
           ) : null}
-          <table className="mt-2 w-full text-left text-xs">
-            <thead>
-              <tr>
-                {(Array.isArray(presentation.columns) ? presentation.columns : []).map((column) => (
-                  <th className="border-b border-[var(--border)] pr-2" key={text(column)}>
-                    {text(typeof column === "object" ? (column as { name?: string }).name : column)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(Array.isArray(presentation.rows) ? presentation.rows : []).map((row) => {
-                const cells = Array.isArray(row) ? row : [];
-                const key = cells.map((cell) => text(cell)).join("|");
+          {kind === "search" ? (
+            <ul className="mt-2 space-y-2">
+              {hits.map((hit) => (
+                <li key={`${hit.url}-${hit.title}`}>
+                  <p className="font-medium">{hit.title}</p>
+                  <p className="text-[var(--muted-foreground)]">{hit.url}</p>
+                  <p>{hit.snippet}</p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {kind === "http" || kind === "mcp" || kind === "openapi" || kind === "described" ? (
+            <div className="mt-2">
+              <p>
+                {text(presentation.method)} {text(presentation.url)}
+              </p>
+              <p>
+                {t("httpStatus")} {text(presentation.status)}
+              </p>
+              {text(presentation.snippet) ? (
+                <Block className="mt-1 overflow-x-auto whitespace-pre-wrap text-xs">
+                  {text(presentation.snippet)}
+                </Block>
+              ) : null}
+            </div>
+          ) : null}
+          {kind === "sample" ? <SampleFacts facts={presentation.sample} /> : null}
+          {kind === "query" || kind === "table" || kind === "pivot" || kind === "sample" ? (
+            <div className="mt-2 min-w-0 max-w-full">
+              {text(presentation.sql) ? (
+                <Block className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">
+                  {text(presentation.sql)}
+                </Block>
+              ) : null}
+              <TableScroll label={t("toolResultTable")} className="mt-2 max-w-full">
+                <table aria-label={t("toolResultTable")} className="w-full text-left text-xs">
+                  <thead>
+                    <tr>
+                      {(Array.isArray(presentation.columns) ? presentation.columns : []).map(
+                        (column) => (
+                          <th className="border-b border-[var(--border)] pr-2" key={text(column)}>
+                            {text(
+                              typeof column === "object"
+                                ? (column as { name?: string }).name
+                                : column,
+                            )}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagination.rows.map((row) => {
+                      const cells = (Array.isArray(row.value) ? row.value : []).map(
+                        (value, column) => ({ value, key: `cell-${column}` }),
+                      );
+                      return (
+                        <tr key={row.key}>
+                          {cells.map((cell) => (
+                            <td className="border-b border-[var(--border)] pr-2" key={cell.key}>
+                              {text(cell.value)}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </TableScroll>
+            </div>
+          ) : null}
+          {kind === "summary" ||
+          kind === "check" ||
+          kind === "judge" ||
+          kind === "gaps" ||
+          kind === "missing" ? (
+            <ul className="mt-2 space-y-2">
+              {pagination.rows.map((item) => {
+                const row =
+                  item.value && typeof item.value === "object"
+                    ? (item.value as Record<string, unknown>)
+                    : {};
+                const citation =
+                  row.citation && typeof row.citation === "object"
+                    ? (row.citation as Record<string, unknown>)
+                    : row;
+                const anchor = text(citation.anchor);
+                const documentId = text(
+                  citation.documentId ??
+                    citation.document_id ??
+                    presentation.documentId ??
+                    presentation.document_id,
+                );
+                const label = text(row.text ?? row.requirement);
                 return (
-                  <tr key={key || text(row)}>
-                    {cells.map((cell) => (
-                      <td
-                        className="border-b border-[var(--border)] pr-2"
-                        key={`${key}-${text(cell)}`}
+                  <li key={item.key} className="min-w-0 break-words">
+                    <p>{label}</p>
+                    {text(row.verdict) ? (
+                      <p className="text-[var(--muted-foreground)]">
+                        {text(row.verdict)} {text(row.confidence)}
+                      </p>
+                    ) : null}
+                    {anchor ? (
+                      <a
+                        className="underline"
+                        href={`/documents/${encodeURIComponent(documentId)}#${encodeURIComponent(anchor)}`}
                       >
-                        {text(cell)}
-                      </td>
-                    ))}
-                  </tr>
+                        {anchor}
+                      </a>
+                    ) : null}
+                    {text(row.reason) ? (
+                      <p className="text-[var(--muted-foreground)]">{text(row.reason)}</p>
+                    ) : null}
+                  </li>
                 );
               })}
-            </tbody>
-          </table>
-          {presentation.truncated ? (
+            </ul>
+          ) : null}
+          {kind === "compare" || kind === "rewrite" ? (
+            <div className="mt-2 space-y-3">
+              {kind === "rewrite" ? (
+                <>
+                  {text(presentation.instruction) ? (
+                    <p className="whitespace-pre-wrap break-words">
+                      {text(presentation.instruction)}
+                    </p>
+                  ) : null}
+                  {text(presentation.status) ? (
+                    <p className="text-[var(--muted-foreground)]">{text(presentation.status)}</p>
+                  ) : null}
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    {t("savedProposalReadOnly")}
+                  </p>
+                </>
+              ) : null}
+              {savedRewriteText ? (
+                <SavedDiff before={presentation.original} after={presentation.proposed} />
+              ) : null}
+              <ul className="divide-y divide-[var(--border)]">
+                {pagination.rows.map((item) => {
+                  const row =
+                    item.value && typeof item.value === "object"
+                      ? (item.value as Record<string, unknown>)
+                      : {};
+                  return (
+                    <li key={item.key} className="py-3 space-y-2">
+                      <p className="break-words font-medium">
+                        {[text(row.op), text(row.heading)].filter(Boolean).join(" · ")}
+                      </p>
+                      <SavedDiff before={row.before} after={row.after} />
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+          {kind === "crosscheck" ? <Crosscheck presentation={presentation} /> : null}
+          {kind === "agents" ? <CalledAgents presentation={presentation} /> : null}
+          {kind === "redact" ? (
+            <Block className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
+              {text(presentation.redacted)}
+            </Block>
+          ) : null}
+          {pagedOutput && resultRows.length > 0 ? (
+            <div className="mt-3">
+              <ListPagination {...pagination} compact />
+            </div>
+          ) : null}
+          {pagedOutput && presentation.truncated === true ? (
             <p className="mt-1 text-[var(--muted-foreground)]">{t("truncated")}</p>
           ) : null}
-        </div>
-      ) : null}
-      {kind === "summary" ||
-      kind === "check" ||
-      kind === "judge" ||
-      kind === "gaps" ||
-      kind === "missing" ? (
-        <ul className="mt-2 space-y-2">
-          {(Array.isArray(presentation.claims)
-            ? presentation.claims
-            : Array.isArray(presentation.rows)
-              ? presentation.rows
-              : []
-          ).map((item: unknown) => {
-            const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-            const citation =
-              row.citation && typeof row.citation === "object"
-                ? (row.citation as Record<string, unknown>)
-                : row;
-            const anchor = text(citation.anchor);
-            const documentId = text(
-              citation.documentId ??
-                citation.document_id ??
-                presentation.documentId ??
-                presentation.document_id,
-            );
-            const label = text(row.text ?? row.requirement);
-            return (
-              <li key={`${label}-${anchor}`}>
-                <p>{label}</p>
-                {text(row.verdict) ? (
-                  <p className="text-[var(--muted-foreground)]">
-                    {text(row.verdict)} {text(row.confidence)}
-                  </p>
-                ) : null}
-                {anchor ? (
-                  <a className="underline" href={`/documents/${documentId}#${anchor}`}>
-                    {anchor}
+          {kind === "extract" ? (
+            <ul className="mt-2 space-y-1">
+              {(Array.isArray(presentation.fields) ? presentation.fields : []).map((item) => {
+                const row =
+                  item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+                return (
+                  <li key={text(row.field)}>
+                    {text(row.field)}: {row.value == null ? text(row.reason) : text(row.value)}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+          {kind === "chart" ? (
+            <p
+              className="mt-2 text-xs text-[var(--muted-foreground)]"
+              data-testid="chart-reference"
+            >
+              {text(presentation.title) || t("toolChart")}
+              {files.map((file) => {
+                const id = text(file.fileId ?? file.file_id);
+                const name = text(file.name) || id;
+                return id ? (
+                  <a className="ml-2 underline" href={`/api/v1/files/${id}/content`} key={id}>
+                    {name}
                   </a>
-                ) : null}
-                {text(row.reason) ? (
-                  <p className="text-[var(--muted-foreground)]">{text(row.reason)}</p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-      {kind === "compare" ? (
-        <ul className="mt-2 space-y-2">
-          {(Array.isArray(presentation.changes) ? presentation.changes : []).map((item) => {
-            const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-            const key = `${text(row.op)}-${text(row.heading)}`;
-            return (
-              <li key={key}>
-                <p className="font-medium">
-                  {text(row.op)} {text(row.heading)}
-                </p>
-                <p className="whitespace-pre-wrap text-xs">{text(row.before)}</p>
-                <p className="whitespace-pre-wrap text-xs">{text(row.after)}</p>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-      {kind === "crosscheck" ? <Crosscheck presentation={presentation} /> : null}
-      {kind === "agents" ? <CalledAgents presentation={presentation} /> : null}
-      {kind === "rewrite" ? (
-        <div className="mt-2">
-          <p>{text(presentation.instruction)}</p>
-          <p className="text-[var(--muted-foreground)]">{text(presentation.status)}</p>
-        </div>
-      ) : null}
-      {kind === "redact" ? (
-        <Block className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
-          {text(presentation.redacted)}
-        </Block>
-      ) : null}
-      {kind === "extract" ? (
-        <ul className="mt-2 space-y-1">
-          {(Array.isArray(presentation.fields) ? presentation.fields : []).map((item) => {
-            const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-            return (
-              <li key={text(row.field)}>
-                {text(row.field)}: {row.value == null ? text(row.reason) : text(row.value)}
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-      {kind === "chart" ? (
-        <p className="mt-2 text-xs text-[var(--muted-foreground)]" data-testid="chart-reference">
-          {text(presentation.title) || t("toolChart")}
-          {files.map((file) => {
-            const id = text(file.fileId ?? file.file_id);
-            const name = text(file.name) || id;
-            return id ? (
-              <a className="ml-2 underline" href={`/api/v1/files/${id}/content`} key={id}>
-                {name}
-              </a>
-            ) : (
-              <span className="ml-2" key={name}>
-                {name}
-              </span>
-            );
-          })}
-        </p>
-      ) : null}
-      {kind !== "chart" &&
-        files
-          .filter((file) => isImageName(text(file.name)))
-          .map((file) => {
-            const id = text(file.fileId ?? file.file_id);
-            return id ? (
-              <img
-                alt={text(file.name) || text(presentation.title) || "image"}
-                className="mt-2 max-w-full rounded-lg border border-[var(--border)]"
-                key={id}
-                src={`/api/v1/files/${id}/content`}
-              />
-            ) : null;
-          })}
-      {files.filter((file) => !isImageName(text(file.name))).length > 0 ? (
-        <ul className="mt-2 space-y-1">
-          {files
-            .filter((file) => !isImageName(text(file.name)))
-            .map((file) => {
-              const id = text(file.fileId ?? file.file_id);
-              return (
-                <li key={id || file.name}>
-                  {id ? (
-                    <a className="underline" href={`/api/v1/files/${id}/content`}>
-                      {t("downloadFile", { name: file.name || id })}
-                    </a>
-                  ) : (
-                    <span>{file.name}</span>
-                  )}
-                </li>
-              );
-            })}
-        </ul>
-      ) : null}
-      {kind !== "code" &&
-      kind !== "shell" &&
-      kind !== "fetch" &&
-      kind !== "search" &&
-      kind !== "http" &&
-      kind !== "mcp" &&
-      kind !== "openapi" &&
-      kind !== "described" &&
-      kind !== "query" &&
-      kind !== "table" &&
-      kind !== "pivot" &&
-      kind !== "sample" &&
-      kind !== "chart" &&
-      kind !== "summary" &&
-      kind !== "check" &&
-      kind !== "judge" &&
-      kind !== "gaps" &&
-      kind !== "missing" &&
-      kind !== "compare" &&
-      kind !== "crosscheck" &&
-      kind !== "agents" &&
-      kind !== "rewrite" &&
-      kind !== "redact" &&
-      kind !== "extract" &&
-      kind !== "document" &&
-      preview ? (
-        <p className="mt-1 whitespace-pre-wrap">{preview}</p>
-      ) : null}
-      {waiting && approvalId ? (
-        <a className="mt-2 inline-block underline" href={`/approvals/${approvalId}`}>
-          {t("reviewApproval")}
-        </a>
-      ) : null}
-      {connect ? (
-        <a className="mt-2 inline-block underline" href={connect}>
-          {t("connectAccount")}
-        </a>
+                ) : (
+                  <span className="ml-2" key={name}>
+                    {name}
+                  </span>
+                );
+              })}
+            </p>
+          ) : null}
+          {kind !== "chart" &&
+            files
+              .filter((file) => isImageName(text(file.name)))
+              .map((file) => {
+                const id = text(file.fileId ?? file.file_id);
+                return id ? (
+                  // biome-ignore lint/performance/noImgElement: authenticated same-origin file content must retain the browser session.
+                  <img
+                    alt={text(file.name) || text(presentation.title) || "image"}
+                    className="mt-2 max-w-full rounded-lg border border-[var(--border)]"
+                    key={id}
+                    src={`/api/v1/files/${id}/content`}
+                  />
+                ) : null;
+              })}
+          {files.filter((file) => !isImageName(text(file.name))).length > 0 ? (
+            <ul className="mt-2 space-y-1">
+              {files
+                .filter((file) => !isImageName(text(file.name)))
+                .map((file) => {
+                  const id = text(file.fileId ?? file.file_id);
+                  return (
+                    <li key={id || file.name}>
+                      {id ? (
+                        <a className="underline" href={`/api/v1/files/${id}/content`}>
+                          {t("downloadFile", { name: file.name || id })}
+                        </a>
+                      ) : (
+                        <span>{file.name}</span>
+                      )}
+                    </li>
+                  );
+                })}
+            </ul>
+          ) : null}
+          {kind !== "code" &&
+          kind !== "shell" &&
+          kind !== "fetch" &&
+          kind !== "search" &&
+          kind !== "http" &&
+          kind !== "mcp" &&
+          kind !== "openapi" &&
+          kind !== "described" &&
+          kind !== "query" &&
+          kind !== "table" &&
+          kind !== "pivot" &&
+          kind !== "sample" &&
+          kind !== "chart" &&
+          kind !== "summary" &&
+          kind !== "check" &&
+          kind !== "judge" &&
+          kind !== "gaps" &&
+          kind !== "missing" &&
+          kind !== "compare" &&
+          kind !== "crosscheck" &&
+          kind !== "agents" &&
+          kind !== "rewrite" &&
+          kind !== "redact" &&
+          kind !== "extract" &&
+          kind !== "document" &&
+          preview ? (
+            <p className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-words">{preview}</p>
+          ) : null}
+          {waiting && approvalId ? (
+            <a className="mt-2 inline-block underline" href={`/approvals/${approvalId}`}>
+              {t("reviewApproval")}
+            </a>
+          ) : null}
+          {connect ? (
+            <a className="mt-2 inline-block underline" href={connect}>
+              {t("connectAccount")}
+            </a>
+          ) : null}
+        </>
       ) : null}
     </details>
   );
