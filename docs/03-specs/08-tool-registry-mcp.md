@@ -168,7 +168,7 @@ Temporal Schedule `tool-drift-check` hourly (`AR_TOOL_DRIFT_INTERVAL`, default `
 
 | Tool | Input | Output / behaviour |
 |---|---|---|
-| `knowledge.search` | `{query: string, collections?: [slug], top_k?: 1..20 (default definition.knowledge.top_k), filters?: {source_ids?, modified_after?, mime_types?}}` | Hits `[{index, document_id, chunk_id, title, uri, snippet, score, collection}]`; ACL-filtered for the run's user ([spec 10](10-knowledge.md)); registers citation indices with the run |
+| `knowledge.search` | `{query: string, collections?: [slug], top_k?: 1..`AR_KNOWLEDGE_SEARCH_MAX_HITS` (default definition.knowledge.topK, else `AR_KNOWLEDGE_TOP_K`, 16), filters?: {source_ids?, modified_after?, mime_types?}}` | Hits `[{index, document_id, chunk_id, title, uri, snippet, score, collection}]`; ACL-filtered for the run's user ([spec 10](10-knowledge.md)); registers citation indices with the run |
 | `knowledge.get_document` | `{document_id, offset?: int, limit?: int (chars, ≤ 20000)}` | Text page of a document the user can read |
 | `knowledge.list_collections` | `{}` | Collections bound to the agent and readable by the user |
 | `memory.search` | `{query, scopes?: [user, agent, team, agent_user], top_k?: ≤ 20}` | Facts visible to the run ([spec 11](11-memory.md)) |

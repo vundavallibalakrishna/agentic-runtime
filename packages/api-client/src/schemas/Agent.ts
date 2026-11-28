@@ -318,7 +318,7 @@ export type Fileids =
       string
     ];
 export type Autoretrieve = boolean;
-export type Topk1 = number;
+export type Topk1 = number | null;
 export type Contextturns = number;
 export type Minscore = number | null;
 export type Candidatek = number | null;

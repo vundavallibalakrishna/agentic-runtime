@@ -733,9 +733,14 @@ class KnowledgeBook:
         raw_ids = body.get("collection_ids")
         if not isinstance(raw_ids, list) or not raw_ids:
             raise ValidationFailedError("collection_ids is required")
-        top_k = _whole_number(body.get("top_k", body.get("topK")), 8)
-        if top_k < 1 or top_k > 20:
-            raise ValidationFailedError("top_k must be between 1 and 20")
+        from ar_common.settings import get_settings  # noqa: PLC0415
+        from ar_domain.knowledge.retrieval import result_count  # noqa: PLC0415
+
+        most = int(get_settings().knowledge_search_max_hits)
+        asked = body.get("top_k", body.get("topK"))
+        top_k = _whole_number(asked, result_count())
+        if top_k < 1 or top_k > most:
+            raise ValidationFailedError(f"top_k must be between 1 and {most}")
         return run_search(
             self.store,
             actor,

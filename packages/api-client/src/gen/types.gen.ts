@@ -2759,7 +2759,7 @@ export type SearchBody = {
     /**
      * Topk
      */
-    topK?: number;
+    topK?: number | null;
     /**
      * Minscore
      */

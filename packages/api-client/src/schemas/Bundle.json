@@ -73,7 +73,7 @@
             "collections": [],
             "fileIds": [],
             "autoRetrieve": false,
-            "topK": 8,
+            "topK": null,
             "contextTurns": 2,
             "minScore": null,
             "candidateK": null,
@@ -752,10 +752,17 @@
           "type": "boolean"
         },
         "topK": {
-          "default": 8,
-          "minimum": 1,
-          "title": "Topk",
-          "type": "integer"
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topk"
         },
         "contextTurns": {
           "default": 2,

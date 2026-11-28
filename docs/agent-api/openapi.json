@@ -5564,9 +5564,16 @@
             "title": "Documentids"
           },
           "topK": {
-            "type": "integer",
-            "title": "Topk",
-            "default": 8
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topk"
           },
           "minScore": {
             "anyOf": [

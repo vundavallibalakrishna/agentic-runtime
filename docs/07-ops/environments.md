@@ -153,7 +153,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_KNOWLEDGE_REPEATED_BLOCK_SHARE` | `0.3` | A paragraph in at least this share of a collection's documents is left out of the passages. 0 disables it. `chunking.repeated_block_share` overrides it. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_REPEATED_BLOCK_MIN_CHARS` | `80` | Shortest paragraph that can be treated as a repeated block. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_RERANK_CANDIDATES` | `50` | Candidates passed to the reranker | [spec 10](../03-specs/10-knowledge.md) |
-| `AR_KNOWLEDGE_SEARCH_MAX_HITS` | `20` | Hits one knowledge search returns. | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_KNOWLEDGE_SEARCH_MAX_HITS` | `20` | The most hits one knowledge search may return, whatever the caller asks. | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_KNOWLEDGE_TOP_K` | `16` | Hits one knowledge search returns when neither the caller nor the agent (`knowledge.topK`) names a number. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_LLM_MAX_TOKENS` | `1024` | Default `max_tokens` for an OpenAI-compatible chat call when the model row sets no output limit. A case or a caller may ask for less. The model limit is the ceiling | [spec 04](../03-specs/04-model-gateway.md), [live-certification](../09-plan/live-certification.md) |
 | `AR_LOGIN_LOCKOUT_S` | `300` | How long a locked sign-in stays locked. State is in Valkey | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_LOGIN_MAX_ATTEMPTS` | `10` | Failed sign-ins before the shared lockout | [spec 01](../03-specs/01-api-bff.md) |

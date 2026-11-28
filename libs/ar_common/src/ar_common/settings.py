@@ -145,6 +145,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_KNOWLEDGE_REPEATED_BLOCK_SHARE",
         "AR_KNOWLEDGE_RERANK_CANDIDATES",
         "AR_KNOWLEDGE_SEARCH_MAX_HITS",
+        "AR_KNOWLEDGE_TOP_K",
         "AR_LOGIN_LOCKOUT_S",
         "AR_LOGIN_MAX_ATTEMPTS",
         "AR_LLM_MAX_TOKENS",
@@ -507,6 +508,9 @@ class BaseServiceSettings(BaseSettings):
     ingest_inline_max_bytes: int = Field(default=256 * 1024, ge=1)
     knowledge_fetch_max_bytes: int = Field(default=2_000_000, ge=1)
     knowledge_search_max_hits: int = Field(default=20, ge=1)
+    # Passages one search returns when neither the caller nor the agent (knowledge.topK)
+    # names a number. At 8, a question that needs three or four pages often lost one.
+    knowledge_top_k: int = Field(default=16, ge=1)
     # Passages fetched before fusion and the per-document cap. The final answer
     # still keeps only ``top_k`` (and the character budget).
     knowledge_candidate_k: int = Field(default=60, ge=1)

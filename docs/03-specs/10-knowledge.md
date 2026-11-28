@@ -76,7 +76,7 @@ Uploads only (source-synced documents are deleted at the source); starts `Delete
 #### POST /api/v1/knowledge/jobs/{job_id}:cancel
 
 #### POST /api/v1/knowledge/search
-`knowledge:read`. Retrieval playground as the caller. Body `{query, collection_ids: [uuid] (≥ 1), top_k?: ≤ 20, debug?: bool}` → `{hits: [Hit], answerable: bool, debug?: {backend, dense: [...], lexical: [...], fused: [...], store_ms, rerank_ms, total_ms}}`. `Hit {document_id, chunk_id, collection_id, title, uri, snippet, score, rerank_score, similarity, page_from, page_to, heading_path}`. `similarity` is the cosine between the question and the passage from the dense search (null for a passage found by words alone), so an unscored search can still say how close each passage is; the Knowledge screen shows it as a percentage when no rerank model scored the hits. Every search also returns `timingsMs`: milliseconds spent in each stage (`refresh`, reloading what other processes indexed; `prepare`; `embed`, the question's embedding; `store`, the hybrid query; `rerank`; `verify`, late access checks) and `total`. The same stages are `ar_knowledge_search_seconds{stage}` samples and one `knowledge_search_timed` log line per search, with no query or passage text, so a slow search says which stage was slow (the `knowledge.search` tool and automatic retrieval both go through it).
+`knowledge:read`. Retrieval playground as the caller. Body `{query, collection_ids: [uuid] (≥ 1), top_k?: ≤ AR_KNOWLEDGE_SEARCH_MAX_HITS (20), unset uses AR_KNOWLEDGE_TOP_K (16), debug?: bool}` → `{hits: [Hit], answerable: bool, debug?: {backend, dense: [...], lexical: [...], fused: [...], store_ms, rerank_ms, total_ms}}`. `Hit {document_id, chunk_id, collection_id, title, uri, snippet, score, rerank_score, similarity, page_from, page_to, heading_path}`. `similarity` is the cosine between the question and the passage from the dense search (null for a passage found by words alone), so an unscored search can still say how close each passage is; the Knowledge screen shows it as a percentage when no rerank model scored the hits. Every search also returns `timingsMs`: milliseconds spent in each stage (`refresh`, reloading what other processes indexed; `prepare`; `embed`, the question's embedding; `store`, the hybrid query; `rerank`; `verify`, late access checks) and `total`. The same stages are `ar_knowledge_search_seconds{stage}` samples and one `knowledge_search_timed` log line per search, with no query or passage text, so a slow search says which stage was slow (the `knowledge.search` tool and automatic retrieval both go through it).
 
 ## 4. Ingestion workflows (`ingest-worker`)
 
@@ -348,7 +348,7 @@ Readiness: `api`, `ingest-worker`, `runtime-worker` and `mcp-gateway` report not
 
 ## 12. Limits
 
-Per plan: `max_knowledge_documents` (default 100k), `max_knowledge_bytes` (default 50 GiB). Per collection: sources ≤ 20. Query `top_k` ≤ 20. Upload batch ≤ 100 files.
+Per plan: `max_knowledge_documents` (default 100k), `max_knowledge_bytes` (default 50 GiB). Per collection: sources ≤ 20. Query `top_k` ≤ `AR_KNOWLEDGE_SEARCH_MAX_HITS` (20). Upload batch ≤ 100 files.
 
 ## 13. Metrics
 

@@ -152,6 +152,7 @@ spec:
 | `taskTemplates` | object[] | ≤ 30. Each has `id`, `prompt`, `items`, `outputSchema` and an optional `strategy`. Core ships none. |
 | `knowledge.context_turns` | integer | 0..10, default 2. Before the first model call the new message is searched, and so is each of the person's last `context_turns` earlier messages in the conversation, newest first; the hits are fused with the new message's best passage first. 0 searches the new message alone |
 | `knowledge.min_score` | number or null | 0..1; unset takes the rerank model's own bar (`requestOptions.rerank.min_score`, [spec 04](../03-specs/04-model-gateway.md)) |
+| `knowledge.topK` | int or null | ≥ 1. Passages one search returns, for the retrieval before a turn and for the `knowledge.search` tool when the model names no number. Unset uses `AR_KNOWLEDGE_TOP_K` (16); never more than `AR_KNOWLEDGE_SEARCH_MAX_HITS` (20) |
 | `knowledge.candidateK` | int or null | 1..200. Passages fetched before fusion and the per-document cap. Unset uses `AR_KNOWLEDGE_CANDIDATE_K` (60). The answer still keeps `knowledge.topK` |
 | `knowledge.maxPerDocument` | int | 1..20, default 2. How many of the selected passages may come from one document |
 | `knowledge.contextChars` | int or null | 500..200000. Characters of passage text placed in the prompt. Unset uses `AR_DOCUMENT_RETRIEVAL_BUDGET` (30000) |

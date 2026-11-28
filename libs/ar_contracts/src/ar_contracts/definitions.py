@@ -77,7 +77,8 @@ class KnowledgeSpec(_Model):
     collections: list[str] = Field(default_factory=list, max_length=20)
     file_ids: list[str] = Field(default_factory=list, max_length=20)
     auto_retrieve: bool = False
-    top_k: int = Field(default=8, ge=1)
+    # Passages one search returns. Unset uses ``AR_KNOWLEDGE_TOP_K`` (16).
+    top_k: int | None = Field(default=None, ge=1)
     # How many earlier user turns of the conversation are searched as well as the new
     # message, so a follow-up ("and the national one?") finds what it refers to.
     # 0 searches with the new message alone.
