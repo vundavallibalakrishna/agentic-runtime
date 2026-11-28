@@ -1,5 +1,6 @@
 "use client";
 
+import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -28,22 +29,26 @@ export function FeedbackButtons({ messageId, initial }: { messageId: string; ini
   return (
     <div className="flex items-center gap-1">
       <Button
+        aria-label={t("feedbackUp")}
+        title={t("feedbackUp")}
         aria-pressed={rating === "up"}
-        className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+        className="size-8 p-0 text-[var(--muted-foreground)]"
         onClick={() => void send("up")}
         type="button"
         variant="ghost"
       >
-        {t("feedbackUp")}
+        <ThumbsUp size={14} aria-hidden="true" />
       </Button>
       <Button
+        aria-label={t("feedbackDown")}
+        title={t("feedbackDown")}
         aria-pressed={rating === "down"}
-        className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+        className="size-8 p-0 text-[var(--muted-foreground)]"
         onClick={() => void send("down")}
         type="button"
         variant="ghost"
       >
-        {t("feedbackDown")}
+        <ThumbsDown size={14} aria-hidden="true" />
       </Button>
       {error ? <span className="text-xs text-[var(--destructive)]">{error}</span> : null}
     </div>

@@ -3,11 +3,13 @@
 import { createParser } from "eventsource-parser";
 import { ArrowUp, MessageSquare, Paperclip, RotateCcw, Square } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { type Attached, AttachmentList } from "@/components/chat/attachment-list";
 import { MessageBody } from "@/components/chat/message-body";
 import { PlanChecklist } from "@/components/chat/plan-checklist";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
+import { ReferencePicker } from "@/components/common/reference-picker";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { shouldResumeStatus, streamHeaders, waitForResume } from "@/lib/stream/reconnect";
@@ -32,6 +34,10 @@ type Session = {
 };
 
 export function WidgetChat({ integrationId }: { integrationId: string }) {
+  return <WidgetConversation key={integrationId} integrationId={integrationId} />;
+}
+
+function WidgetConversation({ integrationId }: { integrationId: string }) {
   const t = useTranslations("widget");
   const [phase, setPhase] = useState<"loading" | "waiting" | "notice" | "ready" | "error">(
     "loading",
@@ -47,6 +53,9 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState<Attached[]>([]);
+  const uploadRequest = useRef<AbortController | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [stream, setStream] = useState<StreamState>(emptyStream);
@@ -56,9 +65,13 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
   const bottom = useRef<HTMLDivElement>(null);
   const busy = stream.status === "streaming";
 
+  const newestFirst = useMemo(() => [...messages].reverse(), [messages]);
+  const history = usePagedRows(newestFirst, conversationId);
+
   const csrfToken = useRef("");
   const parentOrigin = useRef("");
   const [expired, setExpired] = useState(false);
+  const blocked = busy || uploading || recovering || expired || !agentId;
   const request = useCallback(
     async function request<T>(
       path: string,
@@ -87,6 +100,10 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
     let authenticating = false;
     let timer: ReturnType<typeof setTimeout>;
     setPhase("loading");
+    setSession(null);
+    setAgentId("");
+    csrfToken.current = "";
+    parentOrigin.current = "";
     setError("");
 
     async function authenticate(event: MessageEvent) {
@@ -129,6 +146,8 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
       setAgentId(context.agents[0]?.id ?? "");
       setConversationId("");
       setMessages([]);
+      setDraft("");
+      setAttachments([]);
       setStream(emptyStream);
       setExpired(false);
       setPhase("ready");
@@ -152,7 +171,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
           maxMessageChars?: number | null;
           access?: string;
           notice?: string;
-        }>(`/integrations/${integrationId}`, { signal: controller.signal });
+        }>(`/integrations/${encodeURIComponent(integrationId)}`, { signal: controller.signal });
         origins = exactOrigins(policy.allowedOrigins);
         setLongest(policy.maxMessageChars ?? 0);
         if (controller.signal.aborted) return;
@@ -179,21 +198,29 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
         }, 15000);
       } catch (failure) {
         if (controller.signal.aborted) return;
-        setError(failure instanceof Error ? failure.message : t("connectFailed"));
+        setError(
+          failure instanceof ApiError && failure.status === 404
+            ? t("unavailable")
+            : failure instanceof Error
+              ? failure.message
+              : t("connectFailed"),
+        );
         setPhase("error");
       }
     })();
     return () => {
       controller.abort();
       active.current?.abort();
+      uploadRequest.current?.abort();
       clearTimeout(timer);
       window.removeEventListener("message", authenticate);
     };
   }, [integrationId, attempt, t, request]);
 
   useEffect(() => {
-    if (messages.length || stream.text) bottom.current?.scrollIntoView({ block: "end" });
-  }, [messages.length, stream.text]);
+    if (history.page === 1 && (messages.length || stream.text))
+      bottom.current?.scrollIntoView({ block: "end" });
+  }, [history.page, messages.length, stream.text]);
 
   useEffect(() => {
     function close(event: KeyboardEvent) {
@@ -206,6 +233,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
 
   async function followRun(runId: string, id: string, controller: AbortController) {
     run.current = runId;
+    history.setPage(1);
     setStream({ ...emptyStream, status: "streaming" });
     let latest: StreamState = { ...emptyStream, status: "streaming" };
     let attempt = 0;
@@ -264,6 +292,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
   }
 
   async function recover() {
+    if (recovering || busy || uploading) return;
     if (expired || !conversationId) {
       setAttempt((current) => current + 1);
       return;
@@ -271,6 +300,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
     const controller = new AbortController();
     active.current?.abort();
     active.current = controller;
+    setRecovering(true);
     setError("");
     try {
       const saved = await request<{ messages: Message[]; activeRunId: string | null }>(
@@ -296,22 +326,29 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
       setStream((current) => ({ ...current, status: "failed" }));
     } finally {
       if (active.current === controller) run.current = "";
+      if (!controller.signal.aborted) setRecovering(false);
     }
   }
 
   async function onUpload(files: FileList) {
-    for (const file of Array.from(files)) {
-      const body = new FormData();
-      body.set("upload", file);
-      body.set("mime_type", file.type);
-      try {
+    if (phase !== "ready" || blocked || uploadRequest.current) return;
+    const controller = new AbortController();
+    uploadRequest.current = controller;
+    setUploading(true);
+    setError("");
+    try {
+      for (const file of Array.from(files)) {
+        const body = new FormData();
+        body.set("upload", file);
+        body.set("mime_type", file.type);
         const response = await fetch("/api/v1/widget/files", {
           method: "POST",
           credentials: "include",
+          signal: controller.signal,
           headers: csrfToken.current ? { "x-csrf-token": csrfToken.current } : {},
           body,
         });
-        if (!response.ok) throw new Error(t("requestFailed"));
+        if (!response.ok) throw new ApiError(t("requestFailed"), response.status);
         const saved = (await response.json()) as {
           id?: string;
           name?: string;
@@ -319,23 +356,38 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
           mime_type?: string;
           status?: string;
         };
-        const id = saved.id;
-        if (!id || (saved.status && saved.status !== "ready")) continue;
+        if (controller.signal.aborted) return;
+        if (!saved.id) throw new Error(t("requestFailed"));
+        if (saved.status && saved.status !== "ready")
+          throw new Error(t("fileNotReady", { name: file.name }));
         const attached: Attached = {
-          id,
+          id: saved.id,
           name: saved.name || file.name,
           mimeType: saved.mimeType || saved.mime_type || file.type,
         };
-        setAttachments((current) => [...current.filter((item) => item.id !== id), attached]);
-      } catch (failure) {
-        setError(failure instanceof Error ? failure.message : t("requestFailed"));
+        setAttachments((current) => [
+          ...current.filter((item) => item.id !== attached.id),
+          attached,
+        ]);
+      }
+    } catch (failure) {
+      if (controller.signal.aborted) return;
+      const isExpired = failure instanceof ApiError && failure.status === 401;
+      setExpired(isExpired);
+      setError(
+        isExpired ? t("expired") : failure instanceof Error ? failure.message : t("requestFailed"),
+      );
+    } finally {
+      if (uploadRequest.current === controller) {
+        uploadRequest.current = null;
+        if (!controller.signal.aborted) setUploading(false);
       }
     }
   }
 
   async function send() {
     const text = draft.trim();
-    if (!text || busy || !agentId) return;
+    if (!text || phase !== "ready" || blocked || uploadRequest.current) return;
     const controller = new AbortController();
     active.current?.abort();
     active.current = controller;
@@ -399,7 +451,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
   return (
     <main
       aria-label={t("title")}
-      className="flex h-dvh min-h-0 flex-col bg-background text-foreground"
+      className="flex h-dvh min-h-0 min-w-0 flex-col bg-background text-foreground"
     >
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div className="min-w-0">
@@ -411,10 +463,12 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
             variant="ghost"
             aria-label={t("newChat")}
             title={t("newChat")}
-            disabled={busy}
+            disabled={busy || uploading || recovering || expired}
             onClick={() => {
               setConversationId("");
               setMessages([]);
+              setDraft("");
+              setAttachments([]);
               setStream(emptyStream);
               setError("");
             }}
@@ -424,21 +478,23 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
         )}
       </header>
       {phase === "notice" ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-7 text-center">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-y-auto px-7 py-8 text-center">
           <MessageSquare size={28} className="text-muted-foreground" aria-hidden="true" />
           <h2 className="text-lg font-medium">{t("beforeYouStart")}</h2>
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">{notice}</p>
+          <p className="max-w-sm whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+            {notice}
+          </p>
           <Button onClick={() => accept.current?.()}>{t("startChat")}</Button>
         </div>
       ) : phase !== "ready" ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-7 text-center">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-y-auto px-7 py-8 text-center">
           <MessageSquare size={28} className="text-muted-foreground" aria-hidden="true" />
           <h2 className="text-lg font-medium">
             {phase === "error" ? t("cannotConnect") : t("connecting")}
           </h2>
           <p
             role={phase === "error" ? "alert" : "status"}
-            className="text-sm text-muted-foreground"
+            className="max-w-sm break-words text-sm leading-relaxed text-muted-foreground"
           >
             {error || t(visitor ? "starting" : "signingIn")}
           </p>
@@ -451,7 +507,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
       ) : (
         <>
           <div
-            className="min-h-0 flex-1 overflow-y-auto px-5 py-5"
+            className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-5"
             role="log"
             aria-label={t("conversation")}
             aria-live="polite"
@@ -469,7 +525,27 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
                 </p>
               </div>
             )}
-            {messages.map((message) => (
+            {messages.length > history.pageSize ? (
+              <div className="mb-5 rounded-lg border border-border p-3">
+                <ListPagination
+                  {...history}
+                  compact
+                  label={t("history")}
+                  previousLabel={t("newer")}
+                  nextLabel={t("older")}
+                />
+                {history.page > 1 ? (
+                  <Button
+                    className="mt-3 w-full"
+                    variant="ghost"
+                    onClick={() => history.setPage(1)}
+                  >
+                    {t("latest")}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {[...history.rows].reverse().map((message) => (
               <article key={message.id} className="mb-6 break-words">
                 <p className="mb-1 text-xs font-medium text-muted-foreground">
                   {message.role === "user" ? t("you") : t("assistant")}
@@ -488,7 +564,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
                 )}
               </article>
             ))}
-            {stream.text || stream.reasoning || stream.plan.length ? (
+            {history.page === 1 && (stream.text || stream.reasoning || stream.plan.length) ? (
               <article className="mb-6 break-words">
                 <p className="mb-1 text-xs font-medium text-muted-foreground">{t("assistant")}</p>
                 <PlanChecklist items={stream.plan} />
@@ -502,9 +578,9 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
                 />
               </article>
             ) : null}
-            {busy && !stream.text && (
+            {history.page === 1 && busy && !stream.text && (
               <p role="status" className="text-sm text-muted-foreground">
-                {t("thinking")}
+                {run.current ? t("thinking") : t("sending")}
               </p>
             )}
             <div ref={bottom} />
@@ -512,9 +588,15 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
           {error && (
             <div className="mx-5 mb-3 rounded-lg border border-border bg-muted p-3 text-sm">
               <p role="alert">{error}</p>
-              <button type="button" className="mt-2 underline" onClick={() => void recover()}>
-                {expired ? t("reconnect") : t("recover")}
-              </button>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3"
+                disabled={busy || uploading || recovering}
+                onClick={() => void recover()}
+              >
+                {recovering ? t("recovering") : expired ? t("reconnect") : t("recover")}
+              </Button>
             </div>
           )}
           <form
@@ -530,24 +612,20 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
             }}
           >
             {(session?.agents.length ?? 0) > 1 && (
-              <label className="mb-3 block text-xs text-muted-foreground">
-                {t("agent")}
-                <select
-                  className="ml-2 max-w-full rounded border border-border bg-background p-1 text-foreground"
+              <div className="mb-3">
+                <ReferencePicker
+                  label={t("agent")}
+                  items={session?.agents ?? []}
+                  required
+                  clearable={false}
                   value={agentId}
-                  disabled={busy || !!conversationId}
-                  onChange={(event) => setAgentId(event.target.value)}
-                >
-                  {session?.agents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  disabled={blocked || !!conversationId}
+                  onChange={setAgentId}
+                />
+              </div>
             )}
             <AttachmentList
-              busy={busy}
+              busy={busy || uploading || recovering || expired}
               files={attachments}
               onRemove={(id) =>
                 setAttachments((current) => current.filter((item) => item.id !== id))
@@ -557,6 +635,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
               aria-label={t("attach")}
               className="sr-only"
               multiple
+              disabled={blocked}
               onChange={(event) => {
                 if (event.target.files?.length) void onUpload(event.target.files);
                 event.target.value = "";
@@ -570,11 +649,12 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
             <textarea
               id="widget-message"
               rows={2}
-              className="w-full resize-none bg-transparent text-sm outline-none"
+              className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+              aria-describedby="widget-composer-hint"
               maxLength={longest || undefined}
               placeholder={t("placeholder")}
               value={draft}
-              disabled={!agentId || busy}
+              disabled={busy || recovering || expired || !agentId}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -583,11 +663,19 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
                 }
               }}
             />
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+            <p
+              role="status"
+              className={uploading || recovering ? "mt-2 text-xs text-muted-foreground" : "sr-only"}
+            >
+              {uploading ? t("uploading") : recovering ? t("recovering") : ""}
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 {visitor ? null : (
                   <Button
                     aria-label={t("attach")}
+                    className="size-9 shrink-0 p-0"
+                    disabled={blocked}
                     onClick={() => fileRef.current?.click()}
                     type="button"
                     variant="ghost"
@@ -595,14 +683,30 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
                     <Paperclip size={15} />
                   </Button>
                 )}
-                <p className="text-xs text-muted-foreground">{t("hint")}</p>
+                <p
+                  id="widget-composer-hint"
+                  className="min-w-0 text-[11px] leading-relaxed text-muted-foreground"
+                >
+                  {t("hint")}
+                </p>
               </div>
               {busy ? (
-                <Button type="button" onClick={() => void stop()} aria-label={t("stop")}>
+                <Button
+                  className="size-9 shrink-0 p-0"
+                  type="button"
+                  onClick={() => void stop()}
+                  disabled={!run.current}
+                  aria-label={run.current ? t("stop") : t("sending")}
+                >
                   <Square size={15} />
                 </Button>
               ) : (
-                <Button type="submit" disabled={!draft.trim() || !agentId} aria-label={t("send")}>
+                <Button
+                  className="size-9 shrink-0 p-0"
+                  type="submit"
+                  disabled={!draft.trim() || blocked}
+                  aria-label={t("send")}
+                >
                   <ArrowUp size={17} />
                 </Button>
               )}

@@ -19,6 +19,15 @@ export function formatCost(costMicros: number, currency?: string): string {
   }).format(costMicros / 1_000_000);
 }
 
+/** Preserve structured returned values instead of rendering [object Object]. */
+export function formatDataValue(value: unknown): string {
+  return value == null
+    ? ""
+    : typeof value === "object"
+      ? JSON.stringify(value, null, 2)
+      : String(value);
+}
+
 /** Display an instant in the viewer's time zone, including its zone label. */
 export function formatDateTime(value: string, locale?: string): string {
   const date = new Date(value);

@@ -3,212 +3,387 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
-import { BackButton, DetailState } from "@/components/common/detail-state";
+import { ToolCallCard } from "@/components/chat/tool-call-card";
+import { ActionStatus, BackButton, DetailState } from "@/components/common/detail-state";
+import { Facts } from "@/components/common/facts";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Meter } from "@/components/usage/meter";
 import { api } from "@/lib/api";
+import { formatCount } from "@/lib/format";
 
 import { durationLabel, liveStatuses } from "./format";
+import { RunEvents } from "./run-events";
 import { RunTraceGraph } from "./run-trace-graph";
 import { buildTrace } from "./trace";
+import { type Run, type Step, type Tool, useRunInspection } from "./use-run-inspection";
 
-type Run = {
-  id: string;
-  status?: string;
-  trigger?: string;
-  resultSummary?: string;
-  agentName?: string;
-  agentSlug?: string;
-  traceUrl?: string;
-  langfuseUrl?: string;
-  startedAt?: string | null;
-  endedAt?: string | null;
-  depth?: number;
-  usage?: { steps?: number; wallClockMs?: number; costMicros?: number; tokensOut?: number };
-  budget?: { maxSteps?: number; maxCostMicros?: number };
-  error?: { code?: string; message?: string };
-};
-
-type Step = { id?: string; kind?: string; detail?: { agent?: string } };
-type Tool = { id?: string; qualifiedName?: string; status?: string };
+type Activity =
+  | { key: string; label: string; source: "step"; step: Step }
+  | { key: string; label: string; source: "tool"; tool: Tool };
+const selectClass = "h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-sm";
 
 export function RunScreen() {
+  const { runId } = useParams<{ runId: string }>();
+  return <RunDetail key={runId} runId={runId} />;
+}
+
+function RunDetail({ runId }: { runId: string }) {
   const t = useTranslations("runs");
   const detail = useTranslations("detail");
-  const params = useParams<{ runId: string }>();
-  const runId = params.runId;
-  const [run, setRun] = useState<Run | null>(null);
-  const [children, setChildren] = useState<Run[]>([]);
-  const [steps, setSteps] = useState<Step[]>([]);
-  const [tools, setTools] = useState<Tool[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selected, setSelected] = useState("");
-
-  const load = useCallback(
-    async (quiet = false) => {
-      if (!quiet) {
-        setRun(null);
-        setLoading(true);
-      }
-      setError("");
-      try {
-        const [body, childPage, stepPage, toolPage] = await Promise.all([
-          api<Run>(`/api/v1/runs/${runId}`),
-          api<{ items: Run[] }>(`/api/v1/runs/${runId}/children`),
-          api<{ items: Step[] }>(`/api/v1/runs/${runId}/steps`),
-          api<{ items: Tool[] }>(`/api/v1/runs/${runId}/tool-calls`),
-        ]);
-        setRun(body);
-        setChildren(childPage.items ?? []);
-        setSteps(stepPage.items ?? []);
-        setTools(toolPage.items ?? []);
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : t("error"));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [runId, t],
+  const {
+    run,
+    setRun,
+    session,
+    children,
+    steps,
+    tools,
+    loading,
+    error,
+    sectionErrors,
+    refresh,
+    pause,
+  } = useRunInspection(runId, { includeChildren: true, includeIdentity: true });
+  const canCancel = Boolean(
+    run?.userId && run.userId === session?.user?.id && session?.permissions?.includes("chat:use"),
   );
-
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState("");
+  const [childQuery, setChildQuery] = useState("");
+  const [childStatus, setChildStatus] = useState("");
+  const [tab, setTab] = useState("activity");
+  const mounted = useRef(true);
+  const mutation = useRef(false);
   useEffect(() => {
-    void load();
-  }, [load]);
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
-  const live = liveStatuses.includes(run?.status || "");
-  useEffect(() => {
-    if (!live) return;
-    const timer = window.setInterval(() => void load(true), 2000);
-    return () => window.clearInterval(timer);
-  }, [live, load]);
-
-  const graph = run ? buildTrace({ run, children, steps, tools }) : { nodes: [], edges: [] };
-
+  async function cancel() {
+    if (mutation.current || !canCancel || !run || !liveStatuses.includes(run.status ?? "")) return;
+    mutation.current = true;
+    pause();
+    setBusy(true);
+    setActionError("");
+    setNotice("");
+    try {
+      const saved = await api<Run>(`/api/v1/runs/${run.id}:cancel`, { method: "POST" });
+      if (!mounted.current) return;
+      setRun(saved);
+      setNotice(t("cancelRecorded"));
+    } catch (caught) {
+      if (mounted.current) setActionError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      mutation.current = false;
+      if (mounted.current) {
+        setBusy(false);
+        refresh();
+      }
+    }
+  }
+  const activity = useMemo<Activity[]>(
+    () => [
+      ...steps.map(
+        (step, index): Activity => ({
+          key: `step-${step.id ?? index}`,
+          label: `${step.kind || t("stepDetail")}${step.detail?.agent ? ` · ${step.detail.agent}` : ""}`,
+          source: "step",
+          step,
+        }),
+      ),
+      ...tools.map(
+        (tool, index): Activity => ({
+          key: `tool-${tool.id ?? index}`,
+          label: tool.qualifiedName || t("toolsLabel"),
+          source: "tool",
+          tool,
+        }),
+      ),
+    ],
+    [steps, tools, t],
+  );
+  const matching = useMemo(
+    () =>
+      activity.filter(
+        (row) =>
+          (!kind || row.source === kind) &&
+          [row.key, row.label, row.source === "step" ? row.step.kind : row.tool.status].some(
+            (value) => value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+          ),
+      ),
+    [activity, kind, query],
+  );
+  const pagination = usePagedRows(matching, `${query}::${kind}`);
+  const filteredChildren = useMemo(
+    () =>
+      children.filter(
+        (child) =>
+          (!childStatus || child.status === childStatus) &&
+          [child.id, child.agentName, child.agentSlug, child.status].some((value) =>
+            value?.toLocaleLowerCase().includes(childQuery.trim().toLocaleLowerCase()),
+          ),
+      ),
+    [children, childQuery, childStatus],
+  );
+  const childPagination = usePagedRows(filteredChildren, `${childQuery}::${childStatus}`);
+  const graph = useMemo(
+    () =>
+      run
+        ? buildTrace({
+            run,
+            children: childPagination.rows,
+            steps: pagination.rows.flatMap((row) => (row.source === "step" ? [row.step] : [])),
+            tools: pagination.rows.flatMap((row) => (row.source === "tool" ? [row.tool] : [])),
+          })
+        : { nodes: [], edges: [] },
+    [run, childPagination.rows, pagination.rows],
+  );
+  const retry = refresh;
+  const statusLabel = (value: string) =>
+    t.has(`statuses.${value}`) ? t(`statuses.${value}`) : value;
   return (
     <AppShell>
       <PageHeader
-        body={t("traceBody")}
         title={t("traceTitle")}
+        body={t("traceBody")}
         actions={<BackButton href="/runs">{t("back")}</BackButton>}
       />
-      <DetailState loading={loading} error={error} onRetry={() => void load()} />
-      {!loading && run ? (
-        <section aria-label={t("trace")} className="min-w-0">
-          {run.resultSummary ? (
-            <div className="detail-panel mb-6">
-              <h2 className="mb-3 text-sm font-semibold">{detail("summary")}</h2>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{run.resultSummary}</p>
-            </div>
-          ) : null}
-          <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-[var(--muted-foreground)]">
-            <Badge tone={statusTone(run.status)}>{run.status}</Badge>
-            {run.trigger}
-            {durationLabel(run) ? ` · ${t("duration")} ${durationLabel(run)}` : ""}
-            {run.usage?.costMicros != null ? ` · ${t("cost")} ${run.usage.costMicros}` : ""}
-            {children.length ? ` · ${t("children", { count: children.length })}` : ""}
-          </p>
-          {run.error?.message ? <p className="mb-3 text-sm">{run.error.message}</p> : null}
-          {children.length ? (
-            <section className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-              <h2 className="mb-2 text-sm font-semibold">{t("tree")}</h2>
-              <ul className="space-y-2">
-                {children.map((child) => (
-                  <li key={child.id}>
-                    <Link className="text-sm underline" href={`/runs/${child.id}`}>
-                      {child.agentName || child.agentSlug || t("child")} · {child.status}
-                      {durationLabel(child) ? ` · ${durationLabel(child)}` : ""}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          <div className="mb-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-              <p className="text-sm text-[var(--muted-foreground)]">{t("stepsLabel")}</p>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--muted)]">
-                <div
-                  className="h-full bg-[var(--primary)]"
-                  style={{
-                    width: `${Math.min(100, ((run.usage?.steps ?? 0) / (run.budget?.maxSteps || 16)) * 100)}%`,
-                  }}
-                />
+      <DetailState loading={loading && !run} error={error} onRetry={retry} />
+      <ActionStatus busy={busy} notice={notice} />
+      {run ? (
+        <section aria-label={t("trace")} className="min-w-0 space-y-6">
+          <section className="detail-panel">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <Badge tone={statusTone(run.status)}>{statusLabel(run.status ?? "")}</Badge>
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <Button variant="outline" disabled={loading || busy} onClick={retry}>
+                  {t("refresh")}
+                </Button>
+                {run.traceUrl ? (
+                  <a className="underline" href={run.traceUrl}>
+                    {t("traceLink")}
+                  </a>
+                ) : null}
+                {run.langfuseUrl ? (
+                  <a className="underline" href={run.langfuseUrl}>
+                    {t("langfuseLink")}
+                  </a>
+                ) : null}
+                {canCancel && liveStatuses.includes(run.status ?? "") ? (
+                  <Button variant="outline" disabled={busy} onClick={() => void cancel()}>
+                    {busy ? t("cancelling") : t("cancel")}
+                  </Button>
+                ) : null}
               </div>
             </div>
-            <div className="flex flex-wrap gap-3 text-sm">
-              {run.traceUrl ? (
-                <a className="underline" href={run.traceUrl}>
-                  {t("traceLink")}
-                </a>
-              ) : null}
-              {run.langfuseUrl ? (
-                <a className="underline" href={run.langfuseUrl}>
-                  {t("langfuseLink")}
-                </a>
-              ) : null}
-              {run.status === "running" || run.status === "queued" ? (
-                <Button
-                  onClick={() => void api(`/api/v1/runs/${run.id}:cancel`, { method: "POST" })}
-                  type="button"
-                  variant="outline"
-                >
-                  {t("cancel")}
-                </Button>
-              ) : null}
-            </div>
-          </div>
-          {graph.nodes.length === 0 ? (
-            <p className="text-sm">{t("emptyTrace")}</p>
-          ) : (
-            <RunTraceGraph edges={graph.edges} nodes={graph.nodes} />
-          )}
-          <section className="detail-panel mt-6">
-            <h2 className="mb-4 text-sm font-semibold">{detail("activity")}</h2>
-            {steps.length === 0 && tools.length === 0 ? (
-              <EmptyState title={detail("noActivity")} />
-            ) : (
-              <ol className="divide-y divide-[var(--border)]">
-                {steps.map((step, index) => (
-                  <li className="py-3 text-sm" key={step.id ?? index}>
-                    <button onClick={() => setSelected(step.id || String(index))} type="button">
-                      {step.kind}
-                      {step.detail?.agent ? ` · ${step.detail.agent}` : ""}
-                    </button>
-                    {selected === (step.id || String(index)) ? (
-                      <pre className="mt-2 whitespace-pre-wrap text-xs text-[var(--muted-foreground)]">
-                        {JSON.stringify(step.detail ?? {}, null, 2)}
-                      </pre>
-                    ) : null}
-                  </li>
-                ))}
-                {tools.map((tool, index) => (
-                  <li className="py-3 text-sm" key={tool.id ?? index}>
-                    <button onClick={() => setSelected(tool.id || `tool-${index}`)} type="button">
-                      {tool.qualifiedName} · {tool.status}
-                    </button>
-                    {selected === (tool.id || `tool-${index}`) ? (
-                      <p className="mt-2 text-xs text-[var(--muted-foreground)]">{tool.status}</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ol>
-            )}
+            <Facts
+              items={[
+                { label: t("reference"), value: run.id },
+                { label: t("agent"), value: run.agentName || run.agentSlug },
+                { label: t("trigger"), value: run.trigger },
+                { label: t("duration"), value: durationLabel(run) },
+                {
+                  label: t("costMicros"),
+                  value: run.usage?.costMicros != null ? formatCount(run.usage.costMicros) : null,
+                },
+                {
+                  label: t("stepsLabel"),
+                  value: run.usage?.steps != null ? formatCount(run.usage.steps) : null,
+                },
+              ]}
+            />
+            {run.usage?.steps != null && run.budget?.maxSteps != null && run.budget.maxSteps > 0 ? (
+              <div className="mt-4">
+                <p className="mb-2 text-sm">
+                  {t("stepsBudget", {
+                    used: formatCount(run.usage.steps),
+                    limit: formatCount(run.budget.maxSteps),
+                  })}
+                </p>
+                <Meter used={run.usage.steps} limit={run.budget.maxSteps} label={t("stepsLabel")} />
+              </div>
+            ) : null}
+            {run.error?.message ? (
+              <p className="mt-4 break-words text-sm text-[var(--destructive)]">
+                {run.error.message}
+              </p>
+            ) : null}
+            {actionError ? (
+              <p role="alert" className="mt-4 break-words text-sm text-[var(--destructive)]">
+                {actionError}
+              </p>
+            ) : null}
           </section>
-          <ul className="mt-4 space-y-2">
-            {children.map((child) => (
-              <li className="text-sm" key={child.id}>
-                <Link className="underline" href={`/runs/${child.id}`}>
-                  {child.agentName || child.agentSlug || t("child")} · {child.status}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {run.resultSummary ? (
+            <section className="detail-panel">
+              <h2 className="mb-3 text-sm font-semibold">{detail("summary")}</h2>
+              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                {run.resultSummary}
+              </p>
+            </section>
+          ) : null}
+          {Object.values(sectionErrors).some(Boolean) ? (
+            <p role="status" className="text-sm text-[var(--muted-foreground)]">
+              {t("partialGraph")}
+            </p>
+          ) : null}
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList>
+              <TabsTrigger value="activity">{detail("activity")}</TabsTrigger>
+              <TabsTrigger value="children">{t("subagents")}</TabsTrigger>
+              <TabsTrigger value="events">{t("events")}</TabsTrigger>
+              <TabsTrigger value="graph">{t("graph")}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="activity">
+              <section aria-label={detail("activity")} className="detail-panel">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <Input
+                    type="search"
+                    className="min-w-0 shrink-0 sm:w-auto sm:flex-1"
+                    aria-label={t("activitySearch")}
+                    placeholder={t("activitySearch")}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                  <label className="flex items-center gap-2 text-sm">
+                    {t("activityKind")}
+                    <select
+                      className={selectClass}
+                      value={kind}
+                      onChange={(event) => setKind(event.target.value)}
+                    >
+                      <option value="">{t("allActivity")}</option>
+                      <option value="step">{t("stepsLabel")}</option>
+                      <option value="tool">{t("toolsLabel")}</option>
+                    </select>
+                  </label>
+                </div>
+                <DetailState
+                  loading={loading && !activity.length}
+                  error={sectionErrors.steps}
+                  onRetry={retry}
+                />
+                <DetailState loading={false} error={sectionErrors.tools} onRetry={retry} />
+                {!loading && !matching.length && !sectionErrors.steps && !sectionErrors.tools ? (
+                  <EmptyState
+                    compact
+                    title={query || kind ? t("noActivityMatches") : detail("noActivity")}
+                  />
+                ) : null}
+                <ol className="divide-y divide-[var(--border)]">
+                  {pagination.rows.map((row) => (
+                    <li key={row.key} className="py-3 text-sm">
+                      {row.source === "step" ? (
+                        <details>
+                          <summary className="cursor-pointer break-words font-medium">
+                            {row.label}
+                          </summary>
+                          <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-[var(--muted-foreground)]">
+                            {JSON.stringify(row.step.detail ?? {}, null, 2)}
+                          </pre>
+                        </details>
+                      ) : (
+                        <ToolCallCard call={row.tool} label={t("toolsLabel")} />
+                      )}
+                    </li>
+                  ))}
+                </ol>
+                {activity.length > 0 ? (
+                  <ListPagination {...pagination} label={detail("activity")} />
+                ) : null}
+              </section>
+            </TabsContent>
+            <TabsContent value="children">
+              <section aria-label={t("subagents")} className="detail-panel">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <Input
+                    type="search"
+                    className="min-w-0 shrink-0 sm:w-auto sm:flex-1"
+                    aria-label={t("childSearch")}
+                    placeholder={t("childSearch")}
+                    value={childQuery}
+                    onChange={(event) => setChildQuery(event.target.value)}
+                  />
+                  <label className="flex items-center gap-2 text-sm">
+                    {t("status")}
+                    <select
+                      className={selectClass}
+                      value={childStatus}
+                      onChange={(event) => setChildStatus(event.target.value)}
+                    >
+                      <option value="">{t("allStatuses")}</option>
+                      {[
+                        ...new Set(
+                          children.flatMap((child) => (child.status ? [child.status] : [])),
+                        ),
+                      ]
+                        .sort()
+                        .map((value) => (
+                          <option key={value} value={value}>
+                            {statusLabel(value)}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                </div>
+                <DetailState
+                  loading={loading && !children.length}
+                  error={sectionErrors.children}
+                  onRetry={retry}
+                />
+                {!loading && !filteredChildren.length && !sectionErrors.children ? (
+                  <EmptyState
+                    compact
+                    title={children.length ? t("noChildMatches") : t("noChildren")}
+                  />
+                ) : null}
+                <ul className="row-list">
+                  {childPagination.rows.map((child) => (
+                    <li key={child.id} className="space-y-2 p-4 text-sm">
+                      <Link
+                        className="break-words font-medium underline"
+                        href={`/runs/${child.id}`}
+                      >
+                        {child.agentName || child.agentSlug || t("child")}
+                      </Link>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge tone={statusTone(child.status)}>
+                          {statusLabel(child.status ?? "")}
+                        </Badge>
+                        {durationLabel(child)}
+                      </div>
+                      <p className="break-all text-xs text-[var(--muted-foreground)]">{child.id}</p>
+                    </li>
+                  ))}
+                </ul>
+                {children.length > 0 ? (
+                  <ListPagination {...childPagination} label={t("subagents")} />
+                ) : null}
+              </section>
+            </TabsContent>
+            <TabsContent value="events">
+              {tab === "events" ? <RunEvents runId={runId} /> : null}
+            </TabsContent>
+            <TabsContent value="graph">
+              <section aria-label={t("graph")} className="space-y-4">
+                <p className="text-sm text-[var(--muted-foreground)]">{t("graphHelp")}</p>
+                <RunTraceGraph nodes={graph.nodes} edges={graph.edges} />
+              </section>
+            </TabsContent>
+          </Tabs>
         </section>
       ) : null}
     </AppShell>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Background, ReactFlow } from "@xyflow/react";
+import { Background, Controls, ReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useEffect, useState } from "react";
 
@@ -45,6 +45,7 @@ export function RunTraceGraph({ nodes, edges }: { nodes: TraceNode[]; edges: Tra
         proOptions={{ hideAttribution: true }}
       >
         <Background />
+        <Controls showInteractive={false} />
       </ReactFlow>
     </div>
   );
