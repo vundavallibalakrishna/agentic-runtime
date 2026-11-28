@@ -5,14 +5,18 @@ Label: unit
 
 from __future__ import annotations
 
+import time
 import uuid
 
 import pytest
+from pydantic import ValidationError
 
-from ar_common.settings import get_settings
+from ar_common.settings import BaseServiceSettings, get_settings
+from ar_domain.runs.dispatch import _step_timeout_s
+from ar_domain.tools.agent_loop import _tool_limit_s
 from ar_domain.tools.gateway_client import _body, _timeout
-from ar_domain.tools.pipeline import ToolPipeline, _call_key, resolved_timeout_s
-from ar_domain.tools.resume import fail_interrupted_tool
+from ar_domain.tools.pipeline import ToolPipeline, _call_key, caller_wait_s, resolved_timeout_s
+from ar_domain.tools.resume import _continue_loop, fail_interrupted_tool
 from ar_testing.demo import demo_store
 
 
@@ -28,6 +32,74 @@ def test_extract_timeout_follows_the_setting_and_the_client_waits_past_it(
     version_id = uuid.uuid4()
     store = type("Store", (), {"tool_versions": {version_id: version}})()
     assert _timeout(store, {"tool_version_id": version_id}) == 520
+    assert caller_wait_s(version) == 520
+
+
+def test_extract_timeout_cap_reaches_the_callers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A long extract is a setting, and every wait in front of it is at least that long."""
+    made = BaseServiceSettings(document_extract_timeout_s=7200)
+    assert made.document_extract_timeout_s == 7200
+    with pytest.raises(ValidationError):
+        BaseServiceSettings(document_extract_timeout_s=7201)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "document_extract_timeout_s", 7200)
+    monkeypatch.setattr(settings, "tool_gateway_grace_s", 60)
+    version = {"qualified_name": "documents.extract", "timeout_s": 60}
+    assert resolved_timeout_s(version) == 7200
+    assert caller_wait_s(version) == 7260
+    version_id = uuid.uuid4()
+    store = type("Store", (), {"tool_versions": {version_id: version}})()
+    assert _timeout(store, {"tool_version_id": version_id}) == 7260
+    assert _step_timeout_s(store, {"agent_version_id": uuid.uuid4()}) >= 7260
+    started = time.monotonic()
+    limit = _tool_limit_s(
+        {"max_wall_clock_s": 600},
+        started,
+        {"name": "documents__extract"},
+        {"documents__extract": version},
+    )
+    assert limit >= 7260
+    short = _tool_limit_s(
+        {"max_wall_clock_s": 600},
+        started,
+        {"name": "files__list"},
+        {"files__list": {"qualified_name": "files.list", "timeout_s": 30}},
+    )
+    assert 599 <= short <= 600
+
+
+def test_a_failed_approved_call_keeps_its_status_on_the_reply() -> None:
+    run = {
+        "checkpoint": {
+            "worker_loop": {
+                "opened": True,
+                "messages": [],
+                "pending_calls": [{"id": "c1", "name": "documents__extract"}],
+                "pending_index": 0,
+                "previews": [],
+            }
+        }
+    }
+    assert _continue_loop(
+        run,
+        "The approved tool call did not run: the tool gateway returned 422",
+        status="failed",
+        error={"code": "gateway_unavailable", "message": "the tool gateway returned 422"},
+    )
+    checkpoint = run["checkpoint"]
+    assert isinstance(checkpoint, dict)
+    state = checkpoint["worker_loop"]
+    assert isinstance(state, dict)
+    previews = state["previews"]
+    assert isinstance(previews, list)
+    preview = previews[0]
+    assert isinstance(preview, dict)
+    assert preview["qualified_name"] == "documents.extract"
+    assert preview["status"] == "failed"
+    assert preview["error"] == {
+        "code": "gateway_unavailable",
+        "message": "the tool gateway returned 422",
+    }
 
 
 def test_an_interrupted_tool_fails_instead_of_staying_on_the_approval_message() -> None:

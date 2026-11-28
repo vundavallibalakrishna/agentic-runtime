@@ -61,10 +61,15 @@ class TurnWorkflow:
         if payload.get("steps") is True:
             return await self._steps(payload)
         if not self.cancelled:
+            # A turn that is one activity still has to outlive documents.extract.
+            # Starters put that budget on step_timeout_s. 1020 is the default
+            # budget (900) plus gateway grace (60) plus the step margin (60).
             self.turn = workflow.start_activity(
                 "execute_chat_turn",
                 payload,
-                start_to_close_timeout=timedelta(minutes=5),
+                start_to_close_timeout=timedelta(
+                    seconds=_count(payload.get("step_timeout_s"), 1020)
+                ),
                 heartbeat_timeout=timedelta(seconds=10),
                 cancellation_type=workflow.ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
                 retry_policy=RetryPolicy(maximum_attempts=3),

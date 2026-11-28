@@ -130,6 +130,18 @@ def _budget(store: object, run: object) -> dict[str, int]:
     return read_budget(definition, run if isinstance(run, dict) else None)
 
 
+def _extract_activity_floor_s() -> int:
+    """Seconds a step needs so a configured ``documents.extract`` can finish.
+
+    The gateway stops the tool at ``AR_DOCUMENT_EXTRACT_TIMEOUT_S``. The runtime client
+    waits that plus ``AR_TOOL_GATEWAY_GRACE_S``. The activity adds the same margin every
+    step already has, so it outlives the client, including a resume of an approved call.
+    """
+    from ar_domain.tools.pipeline import caller_wait_s  # noqa: PLC0415
+
+    return int(caller_wait_s({"qualified_name": "documents.extract"})) + _STEP_TIMEOUT_MARGIN_S
+
+
 def _step_timeout_s(store: object, run: object) -> int:
     """Seconds one step activity may take before the workflow gives it up.
 
@@ -137,10 +149,13 @@ def _step_timeout_s(store: object, run: object) -> int:
     one activity can last as long as the whole budget allows. The activity's own timeout
     has to be longer than that, or a slow tool ends the run as failed with nothing said,
     where the loop would have stopped it on the limit and kept what the run made.
+    A document extract may be configured longer than the wall clock. The activity is at
+    least that budget, plus the client grace and this margin.
     """
     if isinstance(run, dict) and run.get("trigger") == "research":
         return _RESEARCH_STEP_TIMEOUT_S
-    return max(1, int(_budget(store, run)["max_wall_clock_s"])) + _STEP_TIMEOUT_MARGIN_S
+    wall = max(1, int(_budget(store, run)["max_wall_clock_s"])) + _STEP_TIMEOUT_MARGIN_S
+    return max(wall, _extract_activity_floor_s())
 
 
 def _max_steps(store: object, run: object, text: str) -> int:

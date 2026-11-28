@@ -195,6 +195,7 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
         _stop_budget,
         _stop_error,
         _time_left,
+        _tool_limit_s,
         close_tools,
     )
     from ar_domain.tools.images import build_image_message  # noqa: PLC0415
@@ -353,7 +354,6 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
                     spent += 1
                 state["used_calls"] = spent
             retrying = _int(state.get("consecutive_errors")) > 0
-            limit_s = _time_left(limits, started)
             outcomes = await asyncio.gather(
                 *(
                     run_sync(
@@ -365,7 +365,7 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
                         by_name,
                         used + offset,
                         retry=retrying,
-                        limit_s=limit_s,
+                        limit_s=_tool_limit_s(limits, started, grouped, by_name),
                     )
                     for offset, grouped in enumerate(group)
                 )

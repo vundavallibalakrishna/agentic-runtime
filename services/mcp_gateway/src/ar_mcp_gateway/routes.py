@@ -36,6 +36,8 @@ class ExecuteBody(ApiModel):
     dry_run: bool = False
     synthetic: bool = False
     approval_id: uuid.UUID | None = None
+    # The held tool-call row an approved execution updates. A first call omits it.
+    tool_call_id: uuid.UUID | None = None
     args_hash: str = ""
     agent_id: uuid.UUID | None = None
     step: str | int | None = None
@@ -92,7 +94,9 @@ async def _offloaded(store: object, payload: dict[str, object]) -> dict[str, obj
 
     ``blocking`` only leaves the loop when the caller is inside ``run_sync``. Calling
     the pipeline directly from this handler ran those waits on the loop thread, so one
-    long extract froze health checks and every other agent.
+    long extract froze health checks and every other agent. ``limit_s`` is the tool's
+    resolved timeout, so ``documents.extract`` keeps ``AR_DOCUMENT_EXTRACT_TIMEOUT_S``
+    when that setting is longer than the timeout stored on the tool.
     """
     from ar_mcp_gateway.pipeline import _timeout_s  # noqa: PLC0415
 

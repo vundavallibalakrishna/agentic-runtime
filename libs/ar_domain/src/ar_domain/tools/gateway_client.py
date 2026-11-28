@@ -110,14 +110,11 @@ def _send(url: str, body: dict[str, object], timeout: float) -> httpx.Response:
 
 
 def _timeout(store: Any, request: dict[str, object]) -> float:
-    from ar_common.settings import get_settings  # noqa: PLC0415
-    from ar_domain.tools.pipeline import resolved_timeout_s  # noqa: PLC0415
+    from ar_domain.tools.pipeline import caller_wait_s  # noqa: PLC0415
 
     versions = getattr(store, "tool_versions", {})
     version = versions.get(request.get("tool_version_id")) if isinstance(versions, dict) else None
-    seconds = float(resolved_timeout_s(version if isinstance(version, dict) else None))
-    grace = float(get_settings().tool_gateway_grace_s)
-    return max(1.0, seconds + grace)
+    return caller_wait_s(version if isinstance(version, dict) else None)
 
 
 def _body(request: dict[str, object]) -> dict[str, object]:
