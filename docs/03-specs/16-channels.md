@@ -70,7 +70,11 @@ Body `{kind, name, config, credentials: {...} (stored as secret: Slack `bot_toke
 #### GET /api/v1/channel-integrations/{integration_id}
 The list item plus `recentPosts` (at most five, body truncated to 280 characters). Credentials are never returned.
 #### PATCH /api/v1/channel-integrations/{integration_id}
+Body: any of `{name, config, credentials, defaultAgentId, agentRouting, status}`. `config` replaces the saved config whole, so a client sends all of it. `credentials` replaces the saved secret whole and is left out to keep it. `status` is `active` or `disabled`; a disabled integration is left out of what the `channels` process loads, so it stops listening, and a disabled widget answers `404` to every widget call.
 #### DELETE /api/v1/channel-integrations/{integration_id}
+Removes the integration with its linked identities, threads and posts. Conversations already held are kept.
+
+**The Channels screen** (`/admin/channels`) creates an integration and, from each row, edits it (kind fixed; secret fields left empty keep the saved secret), shows a widget's install script again, tests it, turns it off or on, and deletes it after a confirmation. It also turns the tenant feature `widget` on or off (`PATCH /api/v1/tenant` `settings.features.widget`, permission `tenant:manage`); a widget cannot be saved while it is off. The agent list names each agent with its slug, and says when the chosen agent is unpublished or not shared with the whole tenant, which a channel's people need in order to reach it.
 #### POST /api/v1/channel-integrations/{integration_id}:test
 Calls `channels` `POST /internal/v1/integrations/{id}:test` (Slack `auth.test`, Teams token acquisition, IMAP login + SMTP NOOP) → `{ok, detail}`.
 
@@ -126,7 +130,7 @@ Permission `chat:use`, restricted widget session only. Returns `{integrationId, 
 Permission `chat:use`. Body `{agentId}` creates the session's conversation. An agent outside the integration allowlist returns `404`. Updating the session does not extend its expiry.
 
 #### GET /api/v1/widget/conversations/{conversation_id}
-Permission `chat:use`. Returns the bound conversation and messages. Unrelated conversations, owners or tenants return `404`.
+Permission `chat:use`. Returns the bound conversation and messages. Unrelated conversations, owners or tenants return `404`. Each assistant message keeps its `citation_ref` parts. The widget shows them on request: a **Sources** button under the answer opens a list with one line per page or document and the numbers the answer gave it; a source whose `uri` is an `http(s)` address is a link opened in a new tab outside the frame, any other source is named only. When the integration's `config.showSources` is `false` (default `true`) the `citation_ref` parts are removed from every message before it is returned (`channels/widget_auth.py` `without_sources`), so the widget receives no source at all.
 
 #### POST /api/v1/widget/conversations/{conversation_id}/messages
 Permission `chat:use`. Body `{text}` (1–32000 characters) starts the ordinary agent workflow and returns `202` with `{message, run}`.

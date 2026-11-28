@@ -161,7 +161,8 @@ async def delete_collection(collection_id: uuid.UUID, request: Request) -> dict[
 async def reindex_collection(
     collection_id: uuid.UUID, body: ReindexBody, request: Request
 ) -> dict[str, object]:
-    return _book(request).reindex_collection(actor(request), collection_id, dump(body))
+    # The re-index is queued on the ingest worker; this returns its job at once.
+    return await _book(request).reindex_collection(actor(request), collection_id, dump(body))
 
 
 @router.get(

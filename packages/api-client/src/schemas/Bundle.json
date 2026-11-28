@@ -74,7 +74,13 @@
             "fileIds": [],
             "autoRetrieve": false,
             "topK": 8,
-            "minScore": null
+            "contextTurns": 2,
+            "minScore": null,
+            "candidateK": null,
+            "maxPerDocument": 2,
+            "contextChars": null,
+            "planQueries": true,
+            "plannerAlias": null
           }
         },
         "skills": {
@@ -151,7 +157,8 @@
             "grounding": "off",
             "jsonSchema": {},
             "followups": false,
-            "followupCount": 3
+            "followupCount": 3,
+            "maxWords": null
           }
         },
         "assurance": {
@@ -750,6 +757,13 @@
           "title": "Topk",
           "type": "integer"
         },
+        "contextTurns": {
+          "default": 2,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Contextturns",
+          "type": "integer"
+        },
         "minScore": {
           "anyOf": [
             {
@@ -763,6 +777,58 @@
           ],
           "default": null,
           "title": "Minscore"
+        },
+        "candidateK": {
+          "anyOf": [
+            {
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidatek"
+        },
+        "maxPerDocument": {
+          "default": 2,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Maxperdocument",
+          "type": "integer"
+        },
+        "contextChars": {
+          "anyOf": [
+            {
+              "maximum": 200000,
+              "minimum": 500,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contextchars"
+        },
+        "planQueries": {
+          "default": true,
+          "title": "Planqueries",
+          "type": "boolean"
+        },
+        "plannerAlias": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planneralias"
         }
       },
       "title": "KnowledgeSpec",
@@ -1133,6 +1199,20 @@
           "minimum": 1,
           "title": "Followupcount",
           "type": "integer"
+        },
+        "maxWords": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 10,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxwords"
         }
       },
       "title": "OutputSpec",

@@ -74,6 +74,7 @@ spec:
   taskTemplates: []            # optional named tasks: id, prompt, items, outputSchema, strategy
     autoRetrieve: false        # true = run knowledge.search on the user message before the first model call
     topK: 8
+    contextTurns: 2            # earlier user turns searched as well, so a follow-up finds what it refers to; 0 = the new message only
     minScore: 0.30             # answerability threshold after rerank (0..1)
   skills: [mttr-report]
   memory:
@@ -116,6 +117,7 @@ spec:
     showReasoning: false
     followups: false            # ask for short next prompts after an answer
     followupCount: 3
+    maxWords: null              # longest answer in words (10 to 5000); null = no limit
   safety:
     piiMasking: false          # mask PII in prompts sent to the model (Presidio)
     injectionClassifier: true  # flag suspicious tool output (fast model)
@@ -148,7 +150,12 @@ spec:
 | `knowledge.collections` | slug[] | ≤ 20; caller must be able to see each at save time |
 | `knowledge.fileIds` | string[] | ≤ 20 public file ids in the tenant; publish fails if one is missing |
 | `taskTemplates` | object[] | ≤ 30. Each has `id`, `prompt`, `items`, `outputSchema` and an optional `strategy`. Core ships none. |
+| `knowledge.context_turns` | integer | 0..10, default 2. Before the first model call the new message is searched, and so is each of the person's last `context_turns` earlier messages in the conversation, newest first; the hits are fused with the new message's best passage first. 0 searches the new message alone |
 | `knowledge.min_score` | number or null | 0..1; unset takes the rerank model's own bar (`requestOptions.rerank.min_score`, [spec 04](../03-specs/04-model-gateway.md)) |
+| `knowledge.candidateK` | int or null | 1..200. Passages fetched before fusion and the per-document cap. Unset uses `AR_KNOWLEDGE_CANDIDATE_K` (60). The answer still keeps `knowledge.topK` |
+| `knowledge.maxPerDocument` | int | 1..20, default 2. How many of the selected passages may come from one document |
+| `knowledge.contextChars` | int or null | 500..200000. Characters of passage text placed in the prompt. Unset uses `AR_DOCUMENT_RETRIEVAL_BUDGET` (30000) |
+| `knowledge.planQueries` | bool | Default true. Before searching, one short model call rewrites the question and the recent turns into one to four search queries, which run together and are merged. Set false to search the question as asked. An agent with no collections never plans. The call uses `knowledge.plannerAlias` when set, otherwise `model.fastAlias` when that alias is connected, otherwise `model.alias` |
 | `skills` | slug[] | ≤ 30; published skills. A `slug@^1` constraint resolves at publish ([spec 14](../03-specs/14-skills.md)) |
 | `memory.read_scopes` | enum[] | subset of `user`, `agent`, `team`, `agent_user` |
 | `subagents.allowed` | slug[] | published agents; no cycles deeper than `max_depth` |
@@ -157,6 +164,7 @@ spec:
 | `budget.*` | int | each ≤ the tenant cap in `tenants.settings.run_budget_caps` |
 | `context.compaction_threshold` | number | 0.4..0.9 |
 | `output.citations` | enum | `required` forces the model to cite or say it found nothing |
+| `output.maxWords` | int or null | The longest answer, in words (10 to 5000). The runtime adds the rule as the last block of the system prompt, after any knowledge passages and right before the person's message (`workspace.turn.length_rule`); a rule at the top of a long prompt was ignored. The rule tells the model to cover every part the question asks for, compressing the wording rather than dropping a part, and to say explicitly what was left out. Unless `model.params.maxOutputTokens` is set, the model's output is capped at four tokens a word (at least 256), far above a kept limit, so only an answer that ignores it is cut. Set on the agent's Configure tab as "Longest answer, in words". |
 
 Resolution at **publish**: `tools[].version` ranges are resolved to concrete `tool_server_versions` ids and every included tool to a `tool_versions.id`; these resolved ids are written to `agent_version_bindings` and into `definition.resolved` (read-only block added by the server):
 
@@ -476,6 +484,7 @@ A new agent, routine, policy, or skill is valid with the defaults below. The UI 
 | `model.params.temperature` | `0.2` |
 | `model.degradeToFast` | `true` |
 | `output.citations` | `preferred` |
+| `output.maxWords` | none |
 | `output.grounding` | `off` |
 | `assurance.recordMode` | `off` |
 | `memory.enabled` | `false` |

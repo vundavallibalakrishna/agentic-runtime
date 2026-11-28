@@ -192,7 +192,7 @@ async def test_a_run_started_in_a_serving_process_is_queued_then_scored(
     assert finished["summary"]["pass_rate"] == 1
 
 
-def test_a_run_that_breaks_ends_as_failed(
+def test_a_case_that_breaks_is_a_failed_case_and_the_run_ends(
     stand_in: StandIn, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store, book, suite_id = _suite(
@@ -211,5 +211,13 @@ def test_a_run_that_breaks_ends_as_failed(
 
     monkeypatch.setattr(store, "post_message", broken)
     run = book.start_run(_actor(), suite_id, {"agent_version_ref": "published"})
-    assert run["status"] == "failed"
+    # One broken case does not end a suite of many; it is a failed case, so a gate fails.
+    assert run["status"] == "completed"
     assert run["finished_at"] is not None
+    summary = run["summary"]
+    assert isinstance(summary, dict)
+    assert summary["passed"] == 0
+    assert summary["gate_passed"] is False
+    (result,) = book.results(_actor(), run["id"])  # type: ignore[arg-type]
+    detail = result["scores"]["case_error"]["detail"]  # type: ignore[index]
+    assert detail.startswith("The case did not run: RuntimeError")

@@ -81,6 +81,73 @@ describe("detail flow failures", () => {
     expect(validate).not.toHaveBeenCalled();
   });
 
+  it("sets and clears the longest answer in words", async () => {
+    const drafts: Record<string, unknown>[] = [];
+    server.use(
+      http.get("*/api/v1/agents/agent", () =>
+        HttpResponse.json({
+          id: "agent",
+          name: "Helper",
+          canEdit: true,
+          draft: { definition: { instructions: "Answer.", output: { citations: "preferred" } } },
+        }),
+      ),
+      http.get("*/api/v1/agents/agent/versions", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/agents/agent/memory", () => HttpResponse.json({ items: [] })),
+      http.put("*/api/v1/agents/agent/versions/draft", async ({ request }) => {
+        drafts.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json({});
+      }),
+      http.patch("*/api/v1/agents/agent", () => HttpResponse.json({ id: "agent" })),
+    );
+    render(wrap(<AgentEditor />));
+    const words = (await screen.findByLabelText("Longest answer, in words")) as HTMLInputElement;
+    expect(words.value).toBe("");
+    fireEvent.change(words, { target: { value: "120" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(drafts).toHaveLength(1));
+    expect((drafts[0]?.definition as { output?: unknown } | undefined)?.output).toEqual({
+      citations: "preferred",
+      maxWords: 120,
+    });
+    fireEvent.change(words, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(drafts).toHaveLength(2));
+    expect((drafts[1]?.definition as { output?: unknown } | undefined)?.output).toEqual({
+      citations: "preferred",
+    });
+  });
+
+  it("shares an agent with the whole workspace from its page", async () => {
+    let patched: Record<string, unknown> = {};
+    server.use(
+      http.get("*/api/v1/agents/agent", () =>
+        HttpResponse.json({
+          id: "agent",
+          name: "Helper",
+          visibility: "private",
+          canEdit: true,
+          draft: { definition: { instructions: "Answer questions." } },
+        }),
+      ),
+      http.get("*/api/v1/agents/agent/versions", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/agents/agent/memory", () => HttpResponse.json({ items: [] })),
+      http.put("*/api/v1/agents/agent/versions/draft", () => HttpResponse.json({})),
+      http.patch("*/api/v1/agents/agent", async ({ request }) => {
+        patched = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ id: "agent" });
+      }),
+    );
+    render(wrap(<AgentEditor />));
+    const who = (await screen.findByLabelText("Who can use it")) as HTMLSelectElement;
+    expect(who.value).toBe("private");
+    // A team choice is offered only to an agent that already belongs to a team.
+    expect([...who.options].map((option) => option.value)).toEqual(["private", "tenant"]);
+    fireEvent.change(who, { target: { value: "tenant" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(patched).toEqual({ name: "Helper", visibility: "tenant" }));
+  });
+
   it("does not publish a skill after saving fails", async () => {
     const publish = vi.fn();
     server.use(

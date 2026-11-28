@@ -78,8 +78,27 @@ class KnowledgeSpec(_Model):
     file_ids: list[str] = Field(default_factory=list, max_length=20)
     auto_retrieve: bool = False
     top_k: int = Field(default=8, ge=1)
+    # How many earlier user turns of the conversation are searched as well as the new
+    # message, so a follow-up ("and the national one?") finds what it refers to.
+    # 0 searches with the new message alone.
+    context_turns: int = Field(default=2, ge=0, le=10)
     # Unset: the rerank model's own bar (``requestOptions.rerank.min_score``).
     min_score: float | None = Field(default=None, ge=0, le=1)
+    # Passages fetched before fusion and the per-document cap. Unset uses
+    # ``AR_KNOWLEDGE_CANDIDATE_K`` (60).
+    candidate_k: int | None = Field(default=None, ge=1, le=200)
+    # At most this many of the selected passages may come from one document.
+    max_per_document: int = Field(default=2, ge=1, le=20)
+    # Characters of passage text placed in the prompt. Unset uses
+    # ``AR_DOCUMENT_RETRIEVAL_BUDGET`` (30000).
+    context_chars: int | None = Field(default=None, ge=500, le=200_000)
+    # One short model call rewrites the question into a few search queries before
+    # the passages are fetched. Off skips that call. On by default for an agent
+    # that names collections; an agent with no library never plans.
+    plan_queries: bool = True
+    # Unset uses the agent's quick alias (``model.fastAlias``) when that alias is
+    # connected, and the agent's own alias otherwise.
+    planner_alias: str | None = None
 
 
 def _default_read_scopes() -> list[Literal["user", "agent", "team", "agent_user"]]:
@@ -140,6 +159,8 @@ class OutputSpec(_Model):
     json_schema: dict[str, object] = Field(default_factory=dict)
     followups: bool = False
     followup_count: int = Field(default=3, ge=1, le=6)
+    # The longest answer, in words. None leaves the length to the instructions.
+    max_words: int | None = Field(default=None, ge=10, le=5000)
 
 
 class AssuranceSpec(_Model):

@@ -80,6 +80,7 @@
 | 0071 | `approval_origin_optional` | `approvals.run_id`, `agent_id` and `tool_call_id` may be null so a system review is stored. A webhook redelivery may share the original event id. Downgrade refuses while one of those approval ids is empty |
 | 0072 | `service_users` | `users.kind` is `person` or `service`. Each service account has a user of the same id. Downgrade refuses while one of those users owns a row |
 | 0073 | `extraction_status` | `document_extractions.status`. Existing rows are `done`. Downgrade drops the column |
+| 0074 | `tool_call_retrieval` | Nullable `tool_calls.retrieval`: the passage and document ids a search returned, with score, query and rank. No passage text. Downgrade drops the column |
 | 0073 | `service_users` | `users.kind` (`person` or `service`), and a user row for each service account, so what a service account creates has an owner. Downgrade refuses while a service user owns a file, a conversation or a run |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.

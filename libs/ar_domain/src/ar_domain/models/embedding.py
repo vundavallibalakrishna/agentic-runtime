@@ -140,7 +140,9 @@ def embed(
     try:
         from ar_common.internal_http import client_for  # noqa: PLC0415
 
-        with client_for(target.base_url, timeout=_timeout(target), supplied=True) as http:
+        with client_for(
+            target.base_url, timeout=_timeout(target), supplied=True, reuse=True
+        ) as http:
             for start in range(0, len(rows), _BATCH):
                 embed_url = f"{target.base_url}/embeddings"
                 response = _post(
@@ -199,7 +201,7 @@ def rerank(target: ModelTarget, query: str, documents: Sequence[str]) -> list[fl
     try:
         from ar_common.internal_http import client_for  # noqa: PLC0415
 
-        with client_for(url, timeout=_timeout(target), supplied=True) as http:
+        with client_for(url, timeout=_timeout(target), supplied=True, reuse=True) as http:
             response = _post(http, target, url, payload)
             response.raise_for_status()
     except httpx.HTTPError as exc:

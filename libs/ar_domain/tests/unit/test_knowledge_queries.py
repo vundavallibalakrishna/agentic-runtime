@@ -87,3 +87,85 @@ def test_each_question_brings_its_own_passage() -> None:
     single = asyncio.run(retrieve(store, actor, [collection_id], "Is data encrypted?", top_k=1))
     assert single["trace"]["queries"] == []  # type: ignore[index]
     assert len(single["hits"]) == 1  # type: ignore[arg-type]
+
+
+def test_a_follow_up_is_searched_with_what_was_said_before() -> None:
+    store = demo_store()
+    actor = Actor(
+        demo_id("tenant"),
+        demo_id("admin"),
+        frozenset({"knowledge:manage", "knowledge:read", "chat:use"}),
+    )
+    created = KnowledgeBook(store).create_collection(actor, {"name": "Site", "slug": "site"})
+    collection_id = uuid.UUID(created["id"])
+    texts = {
+        "Public sector case study": (
+            "A national government department moved its risk register from spreadsheets "
+            "to automated workflows, and its executive reporting became clearer."
+        ),
+        "Office hours": "Our offices open at nine and close at five on weekdays.",
+    }
+    for title, text in texts.items():
+        library_id = _library(store, actor.tenant_id, title, text)
+        asyncio.run(
+            add_member(
+                store,
+                actor,
+                collection_id,
+                {"kind": "library", "library_document_id": str(library_id)},
+            )
+        )
+    follow_up = "what got better for them?"
+    earlier = ["do you have customers in national government departments"]
+    found = asyncio.run(
+        retrieve(store, actor, [collection_id], follow_up, top_k=1, earlier=earlier)
+    )
+    shown = " ".join(str(hit.get("text")) for hit in found["hits"])  # type: ignore[union-attr]
+    assert "national government department" in shown
+    queries = found["trace"]["queries"]  # type: ignore[index]
+    assert queries[0] == follow_up  # type: ignore[index]
+    assert queries[1] == earlier[0]  # type: ignore[index]
+    alone = asyncio.run(retrieve(store, actor, [collection_id], follow_up, top_k=1))
+    assert "national government department" not in " ".join(
+        str(hit.get("text"))
+        for hit in alone["hits"]  # type: ignore[union-attr]
+    )
+
+
+def test_earlier_turns_are_the_persons_own_last_messages_in_this_conversation() -> None:
+    from ar_domain.workspace.turn import _context_turns, earlier_user_turns
+
+    conversation = uuid.uuid4()
+    store = demo_store()
+    rows = [
+        ("user", "first question", None, "2026-01-01T00:00:01"),
+        ("assistant", "an answer", None, "2026-01-01T00:00:02"),
+        ("user", "second question", None, "2026-01-01T00:00:03"),
+        ("user", "a specialist's note", "run", "2026-01-01T00:00:04"),
+        ("user", "third question", None, "2026-01-01T00:00:05"),
+    ]
+    current = uuid.uuid4()
+    for role, text, scope, at in rows:
+        message_id = uuid.uuid4()
+        store.messages[message_id] = {
+            "id": message_id,
+            "conversation_id": conversation,
+            "role": role,
+            "text": text,
+            "scope": scope,
+            "status": "completed",
+            "created_at": at,
+        }
+    store.messages[current] = {
+        "id": current,
+        "conversation_id": conversation,
+        "role": "user",
+        "text": "the follow-up",
+        "status": "completed",
+        "created_at": "2026-01-01T00:00:06",
+    }
+    run: dict[str, object] = {"conversation_id": conversation, "input_message_id": current}
+    assert earlier_user_turns(store, run, 2) == ["second question", "third question"]
+    assert earlier_user_turns(store, run, 0) == []
+    assert _context_turns({"knowledge": {"contextTurns": 0}}) == 0
+    assert _context_turns({"knowledge": {}}) == 2

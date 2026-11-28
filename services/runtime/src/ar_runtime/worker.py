@@ -71,7 +71,7 @@ def _address() -> str:
 async def _prepare_store() -> object:
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
     from ar_domain.durable.bind import attach_store  # noqa: PLC0415
-    from ar_domain.pii.analyzer import warm_up  # noqa: PLC0415
+    from ar_domain.pii.analyzer import warm  # noqa: PLC0415
     from ar_domain.readmodel.boot import build_product_store  # noqa: PLC0415
 
     settings = get_settings()
@@ -80,12 +80,17 @@ async def _prepare_store() -> object:
         allow_loopback=loopback_allowed(settings),
     )
     store.model_gateway_url = str(getattr(settings, "model_gateway_url", "") or "")
+    from ar_domain.runs.event_bus import process_bus  # noqa: PLC0415
+
+    # The turns run here, so their events, an answer's text included, are published from
+    # here as they happen. Each activity's unit takes the bus from this store.
+    store.event_bus = process_bus(settings)
     from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
 
     configure_gateway(store, env=str(getattr(settings, "env", "dev")))
     # Tool calls run here. The engine that masks their results is built now, not in the
     # first call.
-    warm_up()
+    await warm()
     if isinstance(store, ChatService):
         await attach_store(store, settings.database_url)
     bind_store(store)

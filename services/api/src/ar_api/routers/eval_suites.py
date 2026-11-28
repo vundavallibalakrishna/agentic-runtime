@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
+from pydantic import Field, model_validator
 
 from ar_api.deps import expose, require_permission
 from ar_api.routers.tooling import actor, chat, dump, page
@@ -47,7 +48,16 @@ class CasePatch(ApiModel):
 
 
 class EvalImportBody(ApiModel):
-    file_id: uuid.UUID
+    """A stored eval dataset file, or the dataset's text itself. Exactly one."""
+
+    file_id: uuid.UUID | None = None
+    content: str | None = Field(default=None, max_length=5_000_000)
+
+    @model_validator(mode="after")
+    def _one_source(self) -> EvalImportBody:
+        if (self.file_id is None) == (self.content is None):
+            raise ValueError("give fileId or content, not both")
+        return self
 
 
 class FromConversationBody(ApiModel):
@@ -173,6 +183,9 @@ async def delete_eval_case(suite_id: uuid.UUID, case_id: uuid.UUID, request: Req
 async def import_eval_cases(
     suite_id: uuid.UUID, body: EvalImportBody, request: Request
 ) -> dict[str, object]:
+    if body.content is not None:
+        return _book(request).import_text(actor(request), suite_id, body.content)
+    assert body.file_id is not None  # noqa: S101 - the body validator requires one
     return _book(request).import_cases(actor(request), suite_id, body.file_id)
 
 

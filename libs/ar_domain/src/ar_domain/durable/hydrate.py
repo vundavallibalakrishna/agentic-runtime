@@ -805,6 +805,73 @@ async def _reload_source(store: object, engine: AsyncEngine, source_id: uuid.UUI
                     held.pop(key, None)
 
 
+async def reload_collection(store: object, collection_id: uuid.UUID) -> None:
+    """Make this process's copy of one knowledge collection equal the database's.
+
+    A re-index is asked for in the API and done on the ingest worker. Each of its steps
+    reads the collection, its documents, the files their bytes are in, their passages and
+    the collection's jobs as the database holds them, since another step may have run in
+    another worker.
+    """
+    async with engine_here(store) as engine:
+        if engine is not None:
+            await _reload_collection(store, engine, collection_id)
+
+
+async def _reload_collection(store: object, engine: AsyncEngine, collection_id: uuid.UUID) -> None:
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        from ar_domain.durable.flush import _set_tenant_context  # noqa: PLC0415
+
+        await _set_tenant_context(session, store)
+        found = await session.execute(
+            text("SELECT * FROM knowledge_collections WHERE id = :id"), {"id": collection_id}
+        )
+        collection = found.mappings().first()
+        if collection is None:
+            return
+        _merge(store, "knowledge_collections", collection_id, dict(collection))
+        for table, bucket, sql in (
+            ("ingestion_jobs", "ingestion_jobs", "SELECT * FROM ingestion_jobs"),
+            ("documents", "knowledge_documents", "SELECT * FROM documents"),
+            (
+                "files",
+                "files",
+                "SELECT f.* FROM files f JOIN documents d ON d.raw_file_id = f.id",
+            ),
+        ):
+            column = "d.collection_id" if table == "files" else "collection_id"
+            rows = await session.execute(
+                text(f"{sql} WHERE {column} = :id"),
+                {"id": collection_id},
+            )
+            for row in rows.mappings():
+                _merge(store, bucket, row["id"], dict(row))
+        chunks = await session.execute(
+            text(
+                "SELECT c.* FROM document_chunks c JOIN documents d ON d.id = c.document_id "
+                "WHERE d.collection_id = :id"
+            ),
+            {"id": collection_id},
+        )
+        held = getattr(store, "document_chunks", None)
+        seen: set[object] = set()
+        for chunk in chunks.mappings():
+            seen.add(chunk["id"])
+            _merge(store, "document_chunks", chunk["id"], dict(chunk))
+        # A passage another step replaced is gone from the database, and from here too.
+        documents = getattr(store, "knowledge_documents", {})
+        if isinstance(held, dict):
+            for key, row in list(held.items()):
+                owner = documents.get(row.get("document_id")) if isinstance(row, dict) else None
+                if (
+                    isinstance(owner, dict)
+                    and owner.get("collection_id") == collection_id
+                    and key not in seen
+                    and key not in getattr(held, "dirty", set())
+                ):
+                    held.pop(key, None)
+
+
 async def _facts(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
     """Make the store's memory of one tenant equal its database rows.
 

@@ -357,6 +357,47 @@ def _resolve_collection_ids(raw: object, collections: list[dict[str, object]]) -
     return resolved
 
 
+def _resolve_document_ids(raw: object, store: Any, collection_ids: list[object]) -> list[str]:
+    """Turn a model's ``document_ids`` into the ids of documents in the searched collections.
+
+    The model sees a passage under its document's title and address, never its id, so it
+    names a document the way it saw it: ``Freedom-Park-Case-Study.docx``, or an address,
+    sometimes with a prefix of its own (``site:https://example.com/page/``). Accept an id, a
+    title (case-insensitive) or an address, matched only against documents in
+    ``collection_ids``, and drop anything that does not match. A bad name then narrows
+    nothing instead of failing the search and spending one of the agent's tool calls.
+    """
+    if not isinstance(raw, list):
+        return []
+    within = {str(item) for item in collection_ids}
+    rows = getattr(store, "knowledge_documents", {})
+    documents = [
+        row
+        for row in (rows.values() if isinstance(rows, dict) else [])
+        if isinstance(row, dict)
+        and str(row.get("collection_id")) in within
+        and row.get("status") != "deleted"
+    ]
+    resolved: list[str] = []
+    for item in raw:
+        key = str(item).strip()
+        if not key:
+            continue
+        lowered = key.lower()
+        for row in documents:
+            uri = str(row.get("uri") or "").strip()
+            title = str(row.get("title") or "").strip().lower()
+            if (
+                key == str(row.get("id"))
+                or (title and lowered == title)
+                or (uri and (key == uri or key.endswith(uri)))
+            ):
+                found = str(row.get("id"))
+                if found not in resolved:
+                    resolved.append(found)
+    return resolved
+
+
 def _bound_collections(store: Any, arguments: dict[str, object]) -> set[str] | None:
     """The collection slugs the calling agent is bound to, or None when it names none.
 
@@ -376,6 +417,195 @@ def _within(rows: list[dict[str, object]], bound: set[str] | None) -> list[dict[
     if bound is None:
         return rows
     return [row for row in rows if str(row.get("slug") or "").lower() in bound]
+
+
+def _get_document(
+    store: Any, book: Any, actor: Any, arguments: dict[str, object], bound: set[str] | None
+) -> dict[str, object]:
+    """A page of a document's text (spec 08 §6): ``offset`` and ``limit`` in characters.
+
+    The document is named by id, or by the title or address a passage showed, among the
+    collections the agent may read. The reply says where the next page starts.
+    """
+    visible = _within(book.list_collections(actor), bound)
+    named = _resolve_document_ids(
+        [arguments.get("document_id")], store, [row.get("id") for row in visible]
+    )
+    if not named:
+        return _error("not_found", "document was not found")
+    document_id = uuid.UUID(named[0])
+    try:
+        document = book.get_document(actor, document_id)
+    except ValueError, TypeError, ArError:
+        return _error("not_found", "document was not found")
+    # The view the book returns has no collection id; the stored row does.
+    stored = getattr(store, "knowledge_documents", {}).get(document_id)
+    if not isinstance(stored, dict) or not _document_within(store, stored, bound):
+        return _error("not_found", "document was not found")
+    page = book.document_text(
+        actor,
+        document_id,
+        offset=_whole(arguments.get("offset")),
+        max_chars=_whole(arguments.get("limit")),
+    )
+    page["summary"] = document.get("summary") or ""
+    more = page.get("next_offset")
+    tail = (
+        f"\n\n[More text follows: call again with offset {more}.]"
+        if isinstance(more, int)
+        else "\n\n[End of the document.]"
+    )
+    heading = f"{page.get('title') or ''} ({page.get('uri') or ''})".strip()
+    body = str(page.get("text") or "") or str(document.get("summary") or "")
+    return {"text": f"{heading}\n\n{body}{tail}", "structured": page, "is_error": False}
+
+
+def _search_for_agent(
+    store: Any, book: Any, actor: Any, body: dict[str, object], arguments: dict[str, object]
+) -> dict[str, object]:
+    """One search, or a few planned queries run together and merged."""
+    from ar_domain.knowledge.planning import planner_alias, wants_plan  # noqa: PLC0415
+    from ar_domain.knowledge.syncutil import run_sync  # noqa: PLC0415
+
+    definition = _definition(store, arguments)
+    if not wants_plan(definition):
+        found = book.search(actor, body)
+        return found if isinstance(found, dict) else {}
+    alias = planner_alias(store, actor.tenant_id, definition)
+    return run_sync(_planned_search(store, actor, body, definition, alias, arguments))
+
+
+def _definition(store: Any, arguments: dict[str, object]) -> dict[str, object] | None:
+    version = getattr(store, "versions", {}).get(arguments.get("_agent_version_id"))
+    definition = version.get("definition") if isinstance(version, dict) else None
+    return definition if isinstance(definition, dict) else None
+
+
+def _uuids(value: object) -> list[uuid.UUID]:
+    if not isinstance(value, list):
+        return []
+    found: list[uuid.UUID] = []
+    for item in value:
+        if isinstance(item, uuid.UUID):
+            found.append(item)
+            continue
+        try:
+            found.append(uuid.UUID(str(item)))
+        except ValueError, TypeError:
+            continue
+    return found
+
+
+async def _planned_search(  # noqa: PLR0917
+    store: Any,
+    actor: Any,
+    body: dict[str, object],
+    definition: dict[str, object] | None,
+    alias: str,
+    arguments: dict[str, object],
+) -> dict[str, object]:
+    import asyncio  # noqa: PLC0415
+
+    from ar_domain.knowledge.planning import plan_search_queries  # noqa: PLC0415
+    from ar_domain.knowledge.retrieval import diversify, max_per_document  # noqa: PLC0415
+    from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
+    from ar_domain.workspace.turn import _context_turns, earlier_user_turns  # noqa: PLC0415
+
+    query = str(body.get("query") or "")
+    run_id = arguments.get("_run_id")
+    runs = getattr(store, "runs", {})
+    run = runs.get(run_id) if isinstance(runs, dict) else None
+    earlier: list[str] = []
+    if isinstance(run, dict) and isinstance(definition, dict):
+        earlier = earlier_user_turns(store, run, _context_turns(definition))
+    planned = await plan_search_queries(store, actor.tenant_id, alias, query, earlier)
+    queries = planned or [query]
+    collection_ids = _uuids(body.get("collection_ids"))
+    raw_top = body.get("top_k")
+    top_k = raw_top if isinstance(raw_top, int) and not isinstance(raw_top, bool) else 8
+    named = _uuids(body.get("document_ids")) or None
+    candidate = body.get("candidate_k")
+    per_document = body.get("max_per_document")
+    bar = body.get("min_score")
+
+    async def one(text: str) -> dict[str, object]:
+        found = await search_async(
+            store,
+            actor,
+            query=text,
+            collection_ids=collection_ids,
+            top_k=top_k,
+            debug=False,
+            min_score=bar if isinstance(bar, float) else None,
+            document_ids=named,
+            candidate_k=candidate if isinstance(candidate, int) else None,
+            max_passages_per_document=per_document if isinstance(per_document, int) else None,
+        )
+        return found if isinstance(found, dict) else {}
+
+    rows = await asyncio.gather(*(one(text) for text in queries))
+    ranked: list[list[dict[str, object]]] = []
+    for row in rows:
+        hits = row.get("hits")
+        chosen = [hit for hit in hits if isinstance(hit, dict)] if isinstance(hits, list) else []
+        ranked.append(chosen)
+    merged = diversify(
+        _round_robin(ranked),
+        top_k=top_k,
+        per_document=max_per_document(per_document if isinstance(per_document, int) else None),
+    )
+    last = rows[-1] if rows else {}
+    answerable = any(bool(row.get("answerable")) for row in rows) and bool(merged)
+    result: dict[str, object] = {
+        "hits": merged,
+        "answerable": answerable,
+        "queries": queries,
+        "embedding_model": last.get("embedding_model") or "",
+        "rerank_model": last.get("rerank_model") or "",
+        "scored": last.get("scored"),
+    }
+    return result
+
+
+def _round_robin(ranked: list[list[dict[str, object]]]) -> list[dict[str, object]]:
+    merged: list[dict[str, object]] = []
+    seen: set[str] = set()
+    depth = max((len(hits) for hits in ranked), default=0)
+    for rank in range(depth):
+        for hits in ranked:
+            if rank >= len(hits):
+                continue
+            hit = hits[rank]
+            key = str(hit.get("chunk_id") or id(hit))
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(hit)
+    return merged
+
+
+def _retrieval_limits(store: Any, arguments: dict[str, object]) -> dict[str, int]:
+    """The calling agent's retrieval pool and per-document cap, when it sets them."""
+    version = getattr(store, "versions", {}).get(arguments.get("_agent_version_id"))
+    definition = version.get("definition") if isinstance(version, dict) else None
+    knowledge = definition.get("knowledge") if isinstance(definition, dict) else None
+    if not isinstance(knowledge, dict):
+        return {}
+    limits: dict[str, int] = {}
+    for key, *names in (
+        ("candidate_k", "candidate_k", "candidateK"),
+        ("max_per_document", "max_per_document", "maxPerDocument"),
+    ):
+        for name in names:
+            raw = knowledge.get(name)
+            if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
+                limits[key] = raw
+                break
+    return limits
+
+
+def _whole(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 0
 
 
 def _document_within(store: Any, document: dict[str, object], bound: set[str] | None) -> bool:
@@ -408,17 +638,7 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         text = "\n".join(lines) or "No collections."
         return {"text": text, "structured": {"collections": rows}, "is_error": False}
     if name == "get_document":
-        try:
-            document = book.get_document(actor, uuid.UUID(str(arguments.get("document_id"))))
-        except ValueError, TypeError, ArError:
-            return _error("not_found", "document was not found")
-        if not _document_within(store, document, bound):
-            return _error("not_found", "document was not found")
-        return {
-            "text": str(document.get("summary") or document.get("title") or ""),
-            "structured": document,
-            "is_error": False,
-        }
+        return _get_document(store, book, actor, arguments, bound)
     if name != "search":
         return _error("unknown_tool", f"unknown tool {name}")
     collections = _within(book.list_collections(actor), bound)
@@ -445,9 +665,12 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         }
         if arguments.get("min_score") is not None:
             body["min_score"] = arguments.get("min_score")
-        if arguments.get("document_ids"):
-            body["document_ids"] = arguments.get("document_ids")
-        found = book.search(actor, body)
+        named = _resolve_document_ids(arguments.get("document_ids"), store, raw_ids)
+        if named:
+            body["document_ids"] = named
+        limits = _retrieval_limits(store, arguments)
+        body.update(limits)
+        found = _search_for_agent(store, book, actor, body, arguments)
     except (ValueError, TypeError, ArError) as exc:
         return _error("validation_failed", str(exc))
     raw_hits = found.get("hits")

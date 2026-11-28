@@ -16,7 +16,7 @@ from ar_api.middleware.idempotency import MemoryIdempotencyStore
 from ar_api.sse_gate import ValkeySseGate
 from ar_common.settings import BaseServiceSettings, uses_shared_process_state
 from ar_domain.events.idempotency_pg import PostgresIdempotencyStore
-from ar_domain.runs.event_bus import ValkeyRunBus
+from ar_domain.runs.event_bus import process_bus
 
 
 def install_process_state(app: FastAPI, settings: BaseServiceSettings, key: bytes) -> None:
@@ -27,7 +27,7 @@ def install_process_state(app: FastAPI, settings: BaseServiceSettings, key: byte
         app.state.sessions = ValkeySessionStore(key, settings.valkey_url)
         app.state.widget_sessions = ValkeySessionStore(key, settings.valkey_url)
         app.state.idempotency = PostgresIdempotencyStore(settings.database_url)
-        app.state.chat.event_bus = ValkeyRunBus(settings.valkey_url)
+        app.state.chat.event_bus = process_bus(settings)
         app.state.login_lockout = ValkeyLoginLockout(
             settings.valkey_url, max_attempts=attempts, lockout_s=lock_s
         )

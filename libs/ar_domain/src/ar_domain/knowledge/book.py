@@ -22,13 +22,12 @@ from ar_domain.knowledge.pipeline import ingest_or_enqueue, stored_bytes
 from ar_domain.knowledge.raw import revisions_of
 from ar_domain.knowledge.searching import search as run_search
 from ar_domain.knowledge.store import memory_index
-from ar_domain.knowledge.store_types import SUPPORTED_DIMS, DeleteFilter, PhysicalCollectionSpec
+from ar_domain.knowledge.store_types import SUPPORTED_DIMS, PhysicalCollectionSpec
 from ar_domain.knowledge.syncing import (
     acl_sync,
     delete_document,
     finish_job,
     open_job,
-    reindex,
     sync_source,
 )
 from ar_domain.knowledge.syncutil import run_sync
@@ -249,32 +248,63 @@ class KnowledgeBook:
         )
         return {"id": str(collection_id), "status": "deleted"}
 
-    def reindex_collection(
+    async def reindex_collection(
         self, actor: Actor, collection_id: uuid.UUID, body: dict[str, object]
     ) -> dict[str, object]:
+        """Queue a re-index with the settings asked for, and return its job id at once.
+
+        The settings are checked here, so a mistake is answered now, and travel with the
+        job. The collection keeps the settings and the index it is searched with until
+        the ingest worker has built the new version (``knowledge.reindexing``).
+        """
+        from ar_domain.knowledge.dispatch import request_reindex  # noqa: PLC0415
+
         row = self._managed(actor, collection_id)
-        previous_store = str(row.get("store_collection") or "")
-        if body.get("embedding_alias"):
-            self._change_model(actor, row, str(body["embedding_alias"]))
-        if isinstance(body.get("chunking"), dict):
-            row["chunking"] = {**_chunking(body["chunking"]), **_sizes(row.get("chunking"))}
-        if body.get("text_search_config") in {"simple", "english"}:
-            row["text_search_config"] = body["text_search_config"]
-        if body.get("target_backend") in {"pgvector", "qdrant"}:
-            row["pending_backend"] = body["target_backend"]
-        job = reindex(self.store, row, actor_id=actor.user_id)
-        self._drop_old_vectors(row, previous_store)
+        target = self._reindex_target(actor, row, body)
+        job = await request_reindex(self.store, row, target, actor_id=actor.user_id)
         return {"job_id": str(job["id"])}
 
-    def _change_model(self, actor: Actor, row: dict[str, object], alias: str) -> None:
-        """Point a collection at the model ``alias`` names now, before it is re-indexed."""
+    def _reindex_target(
+        self, actor: Actor, row: dict[str, object], body: dict[str, object]
+    ) -> dict[str, object]:
+        """The collection settings a re-index builds its new version with."""
+        backend = body.get("target_backend")
+        if backend and backend != str(row.get("store_backend") or "pgvector"):
+            raise ValidationFailedError(
+                "moving a collection to another vector store is a store migration, not a re-index"
+            )
+        target: dict[str, object] = {
+            "embedding_alias": row.get("embedding_alias"),
+            "embedding_model": row.get("embedding_model"),
+            "embedding_model_id": row.get("embedding_model_id"),
+            "store_collection": row.get("store_collection"),
+            "text_search_config": row.get("text_search_config") or "simple",
+            "chunking": _sizes(row.get("chunking")) | _chunk_settings(row.get("chunking")),
+        }
+        if body.get("embedding_alias"):
+            target.update(self._model_fields(actor, row, str(body["embedding_alias"])))
+        if isinstance(body.get("chunking"), dict):
+            target["chunking"] = {**_chunking(body["chunking"]), **_sizes(target["chunking"])}
+        if body.get("text_search_config") in {"simple", "english"}:
+            target["text_search_config"] = body["text_search_config"]
+        from ar_domain.knowledge.index_text import chunking_with_text_version  # noqa: PLC0415
+
+        held = target.get("chunking")
+        target["chunking"] = chunking_with_text_version(held if isinstance(held, dict) else {})
+        model_id = target.get("embedding_model_id")
+        target["embedding_model_id"] = None if model_id is None else str(model_id)
+        return target
+
+    def _model_fields(self, actor: Actor, row: dict[str, object], alias: str) -> dict[str, object]:
+        """The collection fields of the model ``alias`` names now, for a re-index into it."""
         model = choose_model(self.store, actor.tenant_id, alias)
         dims = int(model["dims"])  # type: ignore[call-overload]
         if dims not in SUPPORTED_DIMS:
             raise _too_wide(dims)
+        store_collection = row.get("store_collection")
         if dims != collection_dims(row):
             # Vectors of another length live in another physical collection.
-            row["store_collection"] = run_sync(
+            store_collection = run_sync(
                 memory_index(self.store).ensure_collection(
                     PhysicalCollectionSpec(
                         tenant_id=actor.tenant_id,
@@ -284,30 +314,17 @@ class KnowledgeBook:
                     )
                 )
             )
-        row.update(model)
         raw = row.get("chunking")
         chunking = dict(raw) if isinstance(raw, dict) else {}
         chunking.pop("request_dims", None)
         chunking.pop("embedding_model", None)
-        row["chunking"] = {**chunking, **_sizes(model)}
-
-    def _drop_old_vectors(self, row: dict[str, object], previous_store: str) -> None:
-        """After a re-index into another physical collection, empty the one it left."""
-        if not previous_store or previous_store == str(row.get("store_collection") or ""):
-            return
-        index = memory_index(self.store)
-        for document in self.store.knowledge_documents.values():
-            if document.get("collection_id") != row["id"]:
-                continue
-            run_sync(
-                index.delete(
-                    previous_store,
-                    DeleteFilter(
-                        tenant_id=uuid.UUID(str(document["tenant_id"])),
-                        document_id=uuid.UUID(str(document["id"])),
-                    ),
-                )
-            )
+        return {
+            "embedding_alias": model["embedding_alias"],
+            "embedding_model": model["embedding_model"],
+            "embedding_model_id": model["embedding_model_id"],
+            "store_collection": store_collection,
+            "chunking": {**chunking, **_sizes(model)},
+        }
 
     def list_sources(self, actor: Actor, collection_id: uuid.UUID) -> list[dict[str, object]]:
         self._visible(actor, collection_id)
@@ -603,6 +620,42 @@ class KnowledgeBook:
         ][-10:]
         return view
 
+    def document_text(
+        self, actor: Actor, document_id: uuid.UUID, *, offset: int = 0, max_chars: int = 0
+    ) -> dict[str, object]:
+        """A document's indexed text, for anyone who may read it, a part at a time.
+
+        The text is the document's passages in order, with the overlap between one passage
+        and the next removed. ``max_chars`` is at most ``DOCUMENT_PAGE_MAX`` (spec 08 §6), the
+        default; ``next_offset`` is where the following part starts, or None at the end.
+        """
+
+        document, collection = self._document(actor, document_id)
+        version = str(collection.get("index_version") or 1)
+        rows = sorted(
+            (
+                row
+                for row in self.store.document_chunks.values()
+                if isinstance(row, dict)
+                and row.get("document_id") == document["id"]
+                and str(row.get("index_version") or 1) == version
+            ),
+            key=lambda row: str(row.get("ordinal") or 0).zfill(9),
+        )
+        text = _joined([str(row.get("text") or "") for row in rows])
+        size = min(max_chars, DOCUMENT_PAGE_MAX) if max_chars > 0 else DOCUMENT_PAGE_MAX
+        start = min(max(offset, 0), len(text))
+        end = min(start + size, len(text))
+        return {
+            "id": str(document["id"]),
+            "title": document.get("title"),
+            "uri": document.get("uri"),
+            "text": text[start:end],
+            "offset": start,
+            "next_offset": end if end < len(text) else None,
+            "total_chars": len(text),
+        }
+
     def chunks(self, actor: Actor, document_id: uuid.UUID) -> list[dict[str, object]]:
         document, collection = self._document(actor, document_id)
         if not can_manage(actor, collection):
@@ -620,6 +673,7 @@ class KnowledgeBook:
             }
             for row in self.store.document_chunks.values()
             if row.get("document_id") == document["id"]
+            and int(row.get("index_version") or 1) == _in_use(collection)
         ]
         rows.sort(key=lambda item: int(item["ordinal"]))
         return rows
@@ -691,6 +745,10 @@ class KnowledgeBook:
             debug=bool(body.get("debug")),
             min_score=_bar(body.get("min_score", body.get("minScore"))),
             document_ids=_document_ids(body.get("document_ids", body.get("documentIds"))),
+            candidate_k=_optional_positive(body.get("candidate_k", body.get("candidateK"))),
+            max_passages_per_document=_optional_positive(
+                body.get("max_per_document", body.get("maxPerDocument"))
+            ),
         )
 
     def _upload_source(self, actor: Actor, collection: dict[str, object]) -> dict[str, object]:
@@ -875,6 +933,7 @@ class KnowledgeBook:
 
     def _document_view(self, row: dict[str, object]) -> dict[str, object]:
         source = self.store.knowledge_sources.get(row.get("source_id"), {})
+        collection = self.store.knowledge_collections.get(row.get("collection_id"))
         acl = row.get("acl_principals")
         return {
             "id": str(row["id"]),
@@ -898,6 +957,7 @@ class KnowledgeBook:
                 1
                 for chunk in self.store.document_chunks.values()
                 if chunk.get("document_id") == row.get("id")
+                and int(chunk.get("index_version") or 1) == _in_use(collection)
             ),
         }
 
@@ -930,6 +990,17 @@ def _embedding_fields(
     return choose_model(store, tenant_id, alias, dimensions=asked)
 
 
+def _in_use(collection: object) -> int:
+    """The version of a collection's index that searches read. A re-index builds the next."""
+    raw = collection.get("index_version") if isinstance(collection, dict) else None
+    return int(raw or 1)
+
+
+def _chunk_settings(source: object) -> dict[str, object]:
+    """A collection's chunking as it is stored, with every key it has."""
+    return {str(key): value for key, value in source.items()} if isinstance(source, dict) else {}
+
+
 def _sizes(source: object) -> dict[str, object]:
     """The vector length a collection keeps in ``chunking``, the column that holds it."""
     if not isinstance(source, dict):
@@ -946,14 +1017,56 @@ def _too_wide(dims: int) -> ArError:
     )
 
 
+def _optional_positive(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
+
+
 def _chunking(value: object) -> dict[str, object]:
     raw = value if isinstance(value, dict) else {}
     target = int(raw.get("target_tokens") or 512)
     overlap = int(raw.get("overlap_pct") or 12)
     if target < 128 or target > 2048 or overlap < 0 or overlap > 30:
         raise ValidationFailedError("chunking is outside the allowed range")
-    return {
+    from ar_domain.knowledge.index_text import chunking_with_text_version  # noqa: PLC0415
+
+    body: dict[str, object] = {
         "target_tokens": target,
         "overlap_pct": overlap,
         "contextual": bool(raw.get("contextual") or False),
     }
+    for key in ("repeated_block_share", "repeated_block_min_chars"):
+        if key in raw:
+            body[key] = raw[key]
+    return chunking_with_text_version(body)
+
+
+# The largest page of a document's text one read returns (spec 08 §6, knowledge.get_document).
+DOCUMENT_PAGE_MAX = 20_000
+
+
+def _joined(passages: list[str]) -> str:
+    """Passages in order as one text, without the words each repeats from the one before.
+
+    Chunking repeats the end of a passage at the start of the next (``overlap_pct``). The
+    longest end of the text so far that the next passage starts with is dropped from it.
+    """
+    out = ""
+    for passage in passages:
+        piece = passage.strip()
+        if not piece:
+            continue
+        if not out:
+            out = piece
+            continue
+        tail = out[-len(piece) :]
+        overlap = 0
+        for size in range(min(len(tail), len(piece)), 0, -1):
+            if piece.startswith(tail[-size:]):
+                overlap = size
+                break
+        rest = piece[overlap:].lstrip()
+        if rest:
+            out = f"{out}\n{rest}" if overlap == 0 else f"{out} {rest}"
+    return out

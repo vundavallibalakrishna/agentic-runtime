@@ -98,7 +98,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DOCUMENT_MAX_PAGES` | `600` | Largest page count one file may have. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_OUTPUT_RESERVE` | `4096` | Tokens held back from the context window for the answer. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_READ_CHARS` | `12000` | Characters one documents.read call returns. | [document tasks](../09-plan/document-tasks.md) |
-| `AR_DOCUMENT_RETRIEVAL_BUDGET` | `12000` | Characters kept when no context window is registered. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_RETRIEVAL_BUDGET` | `30000` | Characters of retrieved passage text handed to the model when the agent sets no `knowledge.contextChars`. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_SEARCH_DOCUMENT_CAP` | `50` | Document ids one index search accepts. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_SEARCH_HITS` | `30` | Documents returned by one list page. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_SEARCH_SNIPPET_CHARS` | `240` | Characters in one search snippet. | [document tasks](../09-plan/document-tasks.md) |
@@ -119,6 +119,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_EGRESS_CLOSED` | `false` | When `true`, model calls, embeddings, connectors, knowledge fetches, web search, outbound mail, SIEM URLs, web push and the OTEL exporter may only dial a host on the tenant allowlist or `AR_EGRESS_HOSTS`. An empty list means no outbound. Default `false`, so an existing cloud model provider keeps working. The air-gap Helm overlay sets it to `true`. | [egress](egress-closed.md) |
 | `AR_EGRESS_DENY_CIDRS` | metadata + RFC1918 + cluster | CIDRs always denied for sandbox/tool egress | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_EGRESS_HOSTS` | empty | Comma-separated hosts the install may reach while `AR_EGRESS_CLOSED` is on, even when a tenant list is empty. The air-gap overlay starts from `otel-collector` and appends this value and `airgap.egressHosts`. | [egress](egress-closed.md) |
+| `AR_EGRESS_KEEPALIVE_S` | `60` | Seconds an idle connection to a model, embedding or rerank provider stays open for the next call from the same process. Reuse saves a TCP and a TLS handshake on each call, measured at about 0.6 s to a cloud provider. Every request on a kept connection still passes the egress decision. `0` closes each connection when its call ends | [egress](egress-closed.md#connection-reuse) |
 | `AR_EGRESS_PROXY_URL` | `http://squid:3128` | For the page tools and remote MCP outside the cluster | [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 10](../03-specs/10-knowledge.md) |
 | `AR_EMBEDDING_RETRIES` | `2` | How often an embedding or rerank request is sent again after the provider answered 429 or 503. The wait is the provider's `Retry-After`, or 1, 2 and 4 seconds, and never more than 10. `0` turns it off; the most is `5` | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_EMBEDDING_TIMEOUT_S` | unset | HTTP timeout for one embedding or rerank request. Unset takes the provider's own timeout, and `60` when that is not set | [spec 10](../03-specs/10-knowledge.md) |
@@ -146,6 +147,10 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_INVITATION_TTL_DAYS` | `7` | How long a mailed invitation can be accepted | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_KNOWLEDGE_FETCH_MAX_BYTES` | `2000000` | Characters kept from one fetched page. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_MIN_SCORE` | (unset) | Install default for chat retrieval. A chunk must clear this rerank or similarity score. The agent and the tenant can override it | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_KNOWLEDGE_CANDIDATE_K` | `60` | Passages fetched before fusion and the per-document cap. An agent may set `knowledge.candidateK`. | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_KNOWLEDGE_MAX_PASSAGES_PER_DOCUMENT` | `2` | How many selected passages may come from one document. An agent may set `knowledge.maxPerDocument`. | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_KNOWLEDGE_REPEATED_BLOCK_SHARE` | `0.3` | A paragraph in at least this share of a collection's documents is left out of the passages. 0 disables it. `chunking.repeated_block_share` overrides it. | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_KNOWLEDGE_REPEATED_BLOCK_MIN_CHARS` | `80` | Shortest paragraph that can be treated as a repeated block. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_RERANK_CANDIDATES` | `50` | Candidates passed to the reranker | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_SEARCH_MAX_HITS` | `20` | Hits one knowledge search returns. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_LLM_MAX_TOKENS` | `1024` | Default `max_tokens` for an OpenAI-compatible chat call when the model row sets no output limit. A case or a caller may ask for less. The model limit is the ceiling | [spec 04](../03-specs/04-model-gateway.md), [live-certification](../09-plan/live-certification.md) |
@@ -276,6 +281,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_VAULT_TOKEN` | (dev) | Token auth | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_VECTOR_BACKEND` | `pgvector` | Retrieval backend for new knowledge collections and migration target: `pgvector` \| `qdrant` | [spec 10](../03-specs/10-knowledge.md#11-configuration), [ADR-0009](../02-architecture/adr/ADR-0009-retrieval-stores.md) |
 | `AR_VECTOR_MIGRATION_RETAIN_HOURS` | `24` | Rollback window after a retrieval backend switch | [spec 10](../03-specs/10-knowledge.md#9-migrating-between-backends) |
+| `AR_VECTOR_PG_CONNECT_TIMEOUT_S` | `10` | Seconds to wait for the database to accept a connection for a knowledge search on pgvector, when the search cannot use the process's pooled engine (it runs on another event loop, or on the read replica). A search that waits longer fails as `retrieval_unavailable` | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_VECTOR_PG_EF_SEARCH` | `100` | `hnsw.ef_search` for knowledge searches on pgvector | [spec 10](../03-specs/10-knowledge.md#73-hybrid-query-one-sql-statement-per-search) |
 | `AR_VECTOR_PG_READ_DSN` | (unset) | Optional read-replica DSN for knowledge searches on pgvector | [spec 10](../03-specs/10-knowledge.md#11-configuration), [scaling](scaling.md) |
 | `AR_WEBHOOK_ALLOW_PRIVATE` | `false` | Allow webhook targets in private ranges (dev only) | [spec 20](../03-specs/20-notifications-events.md) |

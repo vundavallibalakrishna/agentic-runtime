@@ -158,6 +158,9 @@ def test_sql_builder_always_filters_and_rrf_breaks_ties() -> None:
             assert sql.count("ce.tenant_id = :tenant_id") >= 2
             assert f"halfvec({dims})" in sql
             assert f"websearch_to_tsquery('{config}'" in sql
+            # Any remaining lexeme may match. AND would require every query word.
+            assert "' & ', ' | '" in sql
+            assert "ts_rank_cd(" in sql
     with pytest.raises(Exception, match="unsupported_embedding_dims"):
         build_hybrid_sql(dims=12, configs=["simple"])
     assert "hnsw.iterative_scan" in search_preamble(0)[1]

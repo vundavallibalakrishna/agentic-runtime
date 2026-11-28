@@ -30,32 +30,46 @@ The runtime never calls tools directly except control tools; all other tools go 
 class AgentRunWorkflow:
     @workflow.run
     async def run(self, inp: RunWorkflowInput) -> RunResult:
-        ctx = await act(start_run, inp.run_id)            # status running, emits run.started; returns RunStartInfo (budget, flags, depth)
-        self.usage = RunUsage.zero(); self.deadline = workflow.now() + ctx.budget.max_wall_clock_s
-        if ctx.memory_enabled:  await act(recall_memory, inp.run_id)          # emits memory.recalled
-        if ctx.auto_retrieve:   await act(auto_retrieve_knowledge, inp.run_id)
+        ctx = await act(
+            start_run, inp.run_id
+        )  # status running, emits run.started; returns RunStartInfo (budget, flags, depth)
+        self.usage = RunUsage.zero()
+        self.deadline = workflow.now() + ctx.budget.max_wall_clock_s
+        if ctx.memory_enabled:
+            await act(recall_memory, inp.run_id)  # emits memory.recalled
+        if ctx.auto_retrieve:
+            await act(auto_retrieve_knowledge, inp.run_id)
         model_failures = 0
         while True:
-            self.check_budget_and_cancel()                # raises BudgetExceeded / Cancelled
-            if await act(needs_compaction, inp.run_id):   # cheap estimate
-                await act(compact_context, inp.run_id)    # emits context.compacted
+            self.check_budget_and_cancel()  # raises BudgetExceeded / Cancelled
+            if await act(needs_compaction, inp.run_id):  # cheap estimate
+                await act(compact_context, inp.run_id)  # emits context.compacted
             try:
-                step = await act(model_step, ModelStepInput(run_id=inp.run_id, step_seq=self.next_seq(),
-                                  use_fast_alias=model_failures >= 2 and ctx.degrade_to_fast))
+                step = await act(
+                    model_step,
+                    ModelStepInput(
+                        run_id=inp.run_id,
+                        step_seq=self.next_seq(),
+                        use_fast_alias=model_failures >= 2 and ctx.degrade_to_fast,
+                    ),
+                )
                 model_failures = 0
             except ActivityError as e:
                 model_failures += 1
-                if model_failures > 3 or non_retryable(e): raise
+                if model_failures > 3 or non_retryable(e):
+                    raise
                 continue
             self.usage.add(step.usage)
-            if not step.tool_calls:                       # final answer
+            if not step.tool_calls:  # final answer
                 break
             self.check_budget_and_cancel(pending_tool_calls=len(step.tool_calls))
             await self.run_tool_batch(inp.run_id, step.tool_calls, ctx)
-        return await act(finalize_run, FinalizeInput(run_id=inp.run_id, outcome="completed", usage=self.usage))
+        return await act(
+            finalize_run, FinalizeInput(run_id=inp.run_id, outcome="completed", usage=self.usage)
+        )
 ```
 
-- `run_tool_batch`: runs up to `budget.max_parallel_tool_calls` concurrently (`asyncio.gather` over activities / child workflows). Each item:
+- `run_tool_batch`: runs up to `budget.max_parallel_tool_calls` concurrently (`asyncio.gather`). The default is 3 (`runs.logic.DEFAULT_RUN_BUDGET`); an agent sets its own in `budget`. A call that starts another agent, waits for a person, repairs its arguments, or maps a document runs alone. The others in the same reply run together. `max_tool_calls` stays 16, which is enough for several searches and the page reads that follow them. Each item:
   1. Control tools → handled in-workflow (§6, §7) after `act(evaluate_control_tool)` (policy + `tool_calls` row).
   2. Other tools → `act(execute_tool_call, {run_id, tool_call_id})`. Outcome statuses:
      - `succeeded|failed|denied` → done.
@@ -63,8 +77,8 @@ class AgentRunWorkflow:
      - `input_required` → if `ctx.interactive` (trigger chat/api/channel with a user): emit `input.required`, status `waiting_input`, wait for `user_input` signal (timeout `AR_INPUT_WAIT_TIMEOUT_S`, default 1800 s), then re-execute with `input_responses`. Non-interactive (routine, eval) → auto-respond `decline`.
      - `credential_required` → result to model: `"The user has not connected <provider>. Ask them to connect it via the Connect button."`; emitted `tool_call.failed` carries `connect_url`. Routine runs notify the routine owner (notification `credential_required`).
 - Wall-clock budget excludes time spent in `waiting_approval`/`waiting_input` (tracked by `self.paused_seconds`).
-- `check_budget_and_cancel` is evaluated before every model step and every tool batch; on exceed → `finalize_run(outcome="budget_exceeded", limit=...)`; the reply keeps what the run already made. Every limit (`max_steps`, `max_tokens`, `max_cost_micros`, `max_wall_clock_s`, `max_tool_calls`) ends in one function, `ar_domain.tools.agent_loop._stop_budget`, for the loop that runs in one process and for the one a worker runs a step at a time. The reply's text is `"Stopped because the <limit> limit was reached."`, then `Done before the limit:` with one line for each tool call that succeeded (its presentation title or its qualified name, and the names of the files it stored), then what the reader can do. The list is built from the tool previews; no model is asked. The reply's `content` carries the file and image parts of those tool calls exactly as a completed reply does, and the reply keeps its `toolCalls`. `message.completed` with that text is sent before `run.budget_exceeded`. The run status, the event and the audit action are unchanged. When an agent's definition sets no `budget`, the limits are `ar_domain.runs.logic.DEFAULT_RUN_BUDGET`: `max_steps` 16, `max_tokens` 80,000, `max_cost_micros` 4,000,000, `max_wall_clock_s` 600, `max_tool_calls` 16, `max_parallel_tool_calls` 1. `max_tokens` counts the first prompt, what each later prompt adds, and every step's output ([OQ-88](../open-questions.md)). Cost is charged on the whole prompt of every step, so `max_cost_micros` is a backstop set just above what the other limits allow at 3 per million input tokens; how the five values fit each other is in [OQ-149](../open-questions.md). A model call and a tool call are each given what is left of `max_wall_clock_s`, so the workflow lets one step activity run for `max_wall_clock_s` + 60 s: the run's starter puts that in the workflow input as `step_timeout_s` (`ar_domain.runs.dispatch`), and the 30 s heartbeat still notices a worker that died. A research run keeps 120 s a phase.
-- Cancellation: `cancel` signal sets a flag and cancels the current cancellation scope (in-flight activities receive `CancelledError` through heartbeats; children get cancel requests); pending approvals → `cancelled`; `finalize_run(outcome="cancelled")`.
+- `check_budget_and_cancel` is evaluated before every model step and every tool batch; on exceed → `finalize_run(outcome="budget_exceeded", limit=...)`; the reply keeps what the run already made. Every limit (`max_steps`, `max_tokens`, `max_cost_micros`, `max_wall_clock_s`, `max_tool_calls`) ends in one function, `ar_domain.tools.agent_loop._stop_budget`, for the loop that runs in one process and for the one a worker runs a step at a time. The reply's text is `"Stopped because the <limit> limit was reached."`, then `Done before the limit:` with one line for each tool call that succeeded (its presentation title or its qualified name, and the names of the files it stored), then what the reader can do. The list is built from the tool previews; no model is asked. **Past `max_tool_calls` the run answers before it stops** (owner's decision, 2026-11-26, [OQ-201](../open-questions.md)): when the model asks for a tool call the limit does not allow, that call and any after it in the batch are not run; each is answered with a tool message saying so and asking for an answer from what was found (`agent_loop.close_tools`), the run is marked `tools_closed` (kept in the checkpoint between worker steps), and the next model call is offered no tools. That call is a step like any other, so `max_steps`, `max_tokens`, `max_cost_micros` and `max_wall_clock_s` still apply to it; when one of them is reached first, the run stops as above. If the model asks for a tool again with none offered, the run stops with `max_tool_calls` as above. Before this, the tool-call limit stopped the run with the notice even when the passages already found answered the question. The reply's `content` carries the file and image parts of those tool calls exactly as a completed reply does, and the reply keeps its `toolCalls`. `message.completed` with that text is sent before `run.budget_exceeded`. The run status, the event and the audit action are unchanged. When an agent's definition sets no `budget`, the limits are `ar_domain.runs.logic.DEFAULT_RUN_BUDGET`: `max_steps` 16, `max_tokens` 80,000, `max_cost_micros` 4,000,000, `max_wall_clock_s` 600, `max_tool_calls` 16, `max_parallel_tool_calls` 1. `max_tokens` counts the first prompt, what each later prompt adds, and every step's output ([OQ-88](../open-questions.md)). Cost is charged on the whole prompt of every step, so `max_cost_micros` is a backstop set just above what the other limits allow at 3 per million input tokens; how the five values fit each other is in [OQ-149](../open-questions.md). A model call and a tool call are each given what is left of `max_wall_clock_s`, so the workflow lets one step activity run for `max_wall_clock_s` + 60 s: the run's starter puts that in the workflow input as `step_timeout_s` (`ar_domain.runs.dispatch`), and the 30 s heartbeat still notices a worker that died. A research run keeps 120 s a phase.
+- Cancellation: `cancel` signal sets a flag and cancels the current cancellation scope (in-flight activities receive `CancelledError` through heartbeats; children get cancel requests); pending approvals → `cancelled`; `finalize_run(outcome="cancelled")`. A step that Temporal stopped without that signal (its heartbeat or deadline passed, or the worker is shutting down: `activity.cancellation_details()` `timed_out` or `worker_shutdown`) is not a cancel: the run fails with `code` `upstream_timeout`, `reason` `step_timeout` or `worker_shutdown`, and the reply says the answer took too long (`tools.resume.fail_cut_off`); a cut-off during a tool call stays `fail_interrupted_tool`. A worker takes no step until the masking engine is built (`ar_runtime.worker._prepare_store` awaits `pii.analyzer.warm`): while it loads, a step could neither run nor send its heartbeat.
 - History guard: if `workflow.info().get_current_history_length() > 20000`, `continue_as_new` with `RunWorkflowInput{run_id, tenant_id, resume: ResumeState{usage, seq, paused_seconds, model_failures}}`.
 - Determinism: only workflow APIs for time/randomness; all I/O in activities; changes guarded by `workflow.patched("<id>")`; replay tests (§12).
 
@@ -94,6 +108,7 @@ All activities are idempotent on (`run_id`, `step_seq` / `tool_call_id`): they u
 - `XADD ar:run:{run_id}:events MAXLEN ~ 20000` and `XADD ar:conv:{conversation_id}:events MAXLEN ~ 5000` (if conversation).
 - Persisted types are buffered and inserted into `run_events` in batches (≤ 50 events or 250 ms), and always flushed before an activity returns.
 - Deltas are coalesced: ≤ 1 `message.delta` per 50 ms per message (`AR_DELTA_COALESCE_MS`).
+- **Every process that runs a turn publishes.** Outside dev and CI the runtime worker's store carries the same `ValkeyRunBus` as the API (`ar_domain.runs.event_bus.process_bus`, set in `ar_runtime.worker._prepare_store`; each activity's unit takes it from there), so an answer's text reaches a reader as the model writes it. Before 2026-11-26 only the API had a bus: a worker's events reached a reader when the step was saved, so a public answer arrived all at once after 9 s instead of starting at about 6 s. The bus writes on the loop its client belongs to; an event emitted on another loop (a tool or search on a `run_sync` thread) is handed to that loop.
 - On terminal event: `EXPIRE` both run keys 24 h (`AR_RUN_STREAM_TTL_S`); `runs.last_event_seq` updated.
 - If Valkey is unavailable the emitter writes persisted events to `run_events` only and drops deltas (the client catches up from `message.completed`), metric `ar_event_emit_failures_total`.
 

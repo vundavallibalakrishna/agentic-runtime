@@ -61,7 +61,7 @@ Run inspector data comes from [spec 06](06-conversations-runs.md) endpoints (`/r
 
 ### 4.1 Concepts
 - **Suite**: set of cases for an agent (or reusable: `agent_id NULL`, e.g. platform red-team suites), kind `functional|retrieval|safety|red_team`, with a gate config `GateConfig {required: bool, min_pass_rate: 0.9, max_regression_pct: 5.0, must_pass_tags: ["safety"]}`.
-- **Case**: `EvalInput {messages: [string] (multi-turn: each string is a user turn), files?: [file_id], as_user?: {attributes: {...}, groups: [...]}` (simulated principal attributes for policy/ACL checks, applied to a synthetic eval principal), `variables?: {}`}`, `assertions: [Assertion]`, `tool_mocks: [ToolMock]`, `tags`.
+- **Case**: `EvalInput {messages: [string] (multi-turn: each string is a user turn), files?: [file_id], as_user?: {attributes: {...}, groups: [...]}` (simulated principal attributes for policy/ACL checks, applied to a synthetic eval principal), `variables?: {}`, `expectedPages?: [string]`}`, `assertions: [Assertion]`, `tool_mocks: [ToolMock]`, `tags`. `expectedPages` names the pages a search should find (a URL, a path, a document id or a title). Retrieval recall is the share of those pages present in the passages the run retrieved. It does not call a model and it is not a verdict.
 - **Assertion** types (`ar_contracts.evals.Assertion`, discriminated by `type`):
 
 | type | Params | Pass rule |
@@ -74,7 +74,8 @@ Run inspector data comes from [spec 06](06-conversations-runs.md) endpoints (`/r
 | `citation_present` | `min?: 1`, `document_ids?` | citations in final message |
 | `refusal` | – | judge determines the agent declined |
 | `answer_similarity` | `reference`, `threshold: 0.8` | cosine of embeddings (`embed` alias) |
-| `lexical_overlap` | `rubric`, `threshold` kept for old files | Word overlap with the rubric. The result is `not_judged`. It does not call a model and it is not a verdict. The old type name `llm_judge` is stored as `lexical_overlap`. |
+| `lexical_overlap` | `rubric`, `threshold` kept for old files | Word overlap with the rubric. The result is `not_judged`. It does not call a model and it is not a verdict. An `llm_judge` written with only a `rubric` (before the model judge) is stored as `lexical_overlap`. |
+| `llm_judge` | `must: [string]`, `mustNot: [string]` (at least one statement, 50 each at most), `judgeAlias?` (default `reasoning`) | The tenant's model behind `judgeAlias` judges the final answer once per statement, all at once, and returns `stated` or `not_stated` with the answer's own words as the quote. `stated` counts only when the quote is in the answer ([ADR-0029](../02-architecture/adr/ADR-0029-generic-judgements.md)), including a paraphrase or an equivalent fact. The judge uses only the statements and the agent's own instructions; it does not require a behaviour neither names. For a case of several user turns the judge reads the whole conversation, every turn's question and answer, and a statement counts when any answer states it (the quote is looked for in all of them), because a case's statements cover every turn. Passes when every `must` is stated and no `mustNot` is. `score` and `fact_coverage` are the share of `must` stated (partial credit). `grade` is `pass` when every must-fact is stated, `weak` when some but not all are, and `fail` when none are, a forbidden claim is stated, or a statement was not judged. A reply that is not the schema, or none, is `failed`, and the case does not pass. Each item records the statement, verdict, quote, model id and prompt hash. The question and the answer reach the judge wrapped as untrusted content. Each judge question counts in `ar_eval_judge_calls_total`. |
 | `max_latency_ms` / `max_cost_micros` / `max_steps` | `value` | from run usage |
 | `no_policy_denials` | – | no `denied` tool calls |
 
@@ -82,11 +83,11 @@ Run inspector data comes from [spec 06](06-conversations-runs.md) endpoints (`/r
 
 ### 4.2 `EvalRunWorkflow(eval_run_id)` (queue `ar-eval`, id `eval-{eval_run_id}`)
 1. Load suite + cases; resolve agent version (draft, published, explicit version) and optional model alias override (applied as a run-level override; only for `evals:manage`).
-2. For each case (concurrency `AR_EVAL_CONCURRENCY=4`): create conversation (`channel='eval'`, owner = triggering user) and run (`trigger='eval'`, `runs.eval_context` = `{suite_id, case_id, tool_mocks, as_user, mock_all_tools}`), post each user turn sequentially awaiting each run, then score assertions (`score_eval_case` activity) → `eval_results`.
+2. Activity `begin_eval_run` marks the run running and returns its case ids. Cases are scored in batches of `AR_EVAL_CONCURRENCY` (default 4), one activity a batch, `score_eval_cases` (30 minutes, two attempts): the activity loads the tenant once and scores its cases one after another, and `AR_EVAL_CONCURRENCY` batches run side by side, so a suite of any size finishes. One unit is not safe for several agent runs at once (saving it failed on a message whose run was not saved), so cases inside a batch do not overlap. A case per activity loaded the tenant once per case, which on a tenant with many stored runs held the worker's CPU and slowed every case. Activity `finish_eval_run` summarises the saved results in case order; a case whose activity never finished is saved as failed ("The case did not finish."), and a case that raised is saved as failed with the error type. Scoring a case again in the same run keeps its first result. A run started before this change finishes in the single activity it began with. For each case: create conversation (`channel='eval'`, owner = triggering user) and run (`trigger='eval'`, `runs.eval_context` = `{eval_run_id, suite_id, case_id, tool_mocks, as_user, mock_all_tools}`; when a case breaks, and when the eval run finishes or fails, its agent runs still working are ended as failed with `eval_case_ended`, so they do not count against `max_concurrent_runs`), post each user turn sequentially awaiting each run, then score assertions (`score_eval_case` activity), asking the judge model for each `llm_judge` → `eval_results`.
 3. Summary `{cases, passed, pass_rate, mean_scores, cost_micros, p95_latency_ms, gate_passed, regressions: [case_id]}` vs baseline; `eval.completed` outbox; notification `eval_completed`.
 4. If `trigger='publish_gate'` → `agents.service.complete_gated_publish(agent_version_id, passed)`.
 
-A case is scored on what the agent did. The runner opens a conversation on the version under evaluation (the preview conversation, so a draft can be scored), posts each user turn, runs the agent loop, and reads the last answer, the tool calls, the cost and the elapsed time from the runs. No answer is written without a model call. In a serving process a run is started in the background and the request that started it gets `queued`; a command-line caller waits for the result. A run that breaks for a reason other than a failing case ends as `failed`, and a publish that was waiting on it is told the gate did not pass. `ar_system.evals.cli` needs a model and reads `AR_CERT_LLM_API_KEY`, `AR_CERT_LLM_BASE_URL` and `AR_CERT_LLM_MODEL`; without a key it exits 2.
+A case is scored on what the agent did. The runner opens a conversation on the version under evaluation (the preview conversation, so a draft can be scored), posts each user turn, runs the agent loop, and reads the last answer, the tool calls, the cost and the elapsed time from the runs. No answer is written without a model call. In a serving process a run is started in the background and the request that started it gets `queued`; a command-line caller waits for the result. A case that breaks (its agent run cannot start, or scoring raises) is a failed case that says why, and the run goes on. A run that breaks outside a case ends as `failed`, and a publish that was waiting on it is told the gate did not pass. `ar_system.evals.cli` needs a model and reads `AR_CERT_LLM_API_KEY`, `AR_CERT_LLM_BASE_URL` and `AR_CERT_LLM_MODEL`; without a key it exits 2.
 
 ### 4.3 API
 Permissions: `evals:manage` (suites/cases), `evals:run` (start runs).
@@ -102,7 +103,7 @@ Query `agent_id`, `kind`. Item `EvalSuite {id, name, description, kind, agent: {
 #### PATCH /api/v1/eval-suites/{suite_id}/cases/{case_id}
 #### DELETE /api/v1/eval-suites/{suite_id}/cases/{case_id}
 #### POST /api/v1/eval-suites/{suite_id}/cases:import
-Body `{file_id}` (JSONL: one case per line; or YAML list; `files.kind='eval_dataset'`) → `{imported, errors: [{line, msg}]}`.
+Body `{fileId}` (a stored file with `files.kind='eval_dataset'`) or `{content}` (the dataset's text, at most 5,000,000 characters), exactly one. JSONL, one case per line, or a YAML list → `{imported, errors: [{line, msg}]}`. The Evals screen reads the chosen file and sends its text.
 #### POST /api/v1/eval-suites/{suite_id}/cases:from-conversation
 Body `{conversation_id, message_id, assertions?}` → creates a case from the conversation's user turns up to `message_id`, default assertion `lexical_overlap` with rubric derived from the feedback comment. Overlap is `not_judged`.
 #### POST /api/v1/eval-suites/{suite_id}:run
@@ -113,6 +114,7 @@ Query `suite_id`, `agent_id`, `status`.
 #### GET /api/v1/eval-runs/{eval_run_id}/results
 Items `EvalResult {case: {id, name, tags}, passed, scores, output_text, latency_ms, cost_micros, run_id}`.
 #### POST /api/v1/eval-runs/{eval_run_id}:cancel
+Marks the run `cancelled` and cancels its workflow (`eval-{eval_run_id}`), so no further case is run or judged.
 #### GET /api/v1/feedback
 `evals:manage`. Thumbs-down/up feedback across the tenant for agents the caller can edit: `{message_id, conversation_id, agent, rating, reasons, comment, created_at}` (conversation content visible only if the caller can view the conversation or the user shared it; otherwise only metadata).
 

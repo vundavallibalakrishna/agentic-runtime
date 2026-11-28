@@ -1182,12 +1182,18 @@ export type EditBody = {
 
 /**
  * EvalImportBody
+ *
+ * A stored eval dataset file, or the dataset's text itself. Exactly one.
  */
 export type EvalImportBody = {
     /**
      * Fileid
      */
-    fileId: string;
+    fileId?: string | null;
+    /**
+     * Content
+     */
+    content?: string | null;
 };
 
 /**

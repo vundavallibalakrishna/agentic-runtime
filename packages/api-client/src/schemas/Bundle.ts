@@ -329,7 +329,13 @@ export type Fileids =
     ];
 export type Autoretrieve = boolean;
 export type Topk1 = number;
+export type Contextturns = number;
 export type Minscore = number | null;
+export type Candidatek = number | null;
+export type Maxperdocument = number;
+export type Contextchars = number | null;
+export type Planqueries = boolean;
+export type Planneralias = string | null;
 /**
  * @maxItems 30
  */
@@ -370,6 +376,7 @@ export type Showreasoning = boolean;
 export type Grounding = "off" | "preferred" | "strict";
 export type Followups = boolean;
 export type Followupcount = number;
+export type Maxwords = number | null;
 export type Recordmode = "off" | "on";
 export type Piimasking = boolean;
 export type Injectionclassifier = boolean;
@@ -635,7 +642,13 @@ export interface KnowledgeSpec {
   fileIds?: Fileids;
   autoRetrieve?: Autoretrieve;
   topK?: Topk1;
+  contextTurns?: Contextturns;
   minScore?: Minscore;
+  candidateK?: Candidatek;
+  maxPerDocument?: Maxperdocument;
+  contextChars?: Contextchars;
+  planQueries?: Planqueries;
+  plannerAlias?: Planneralias;
 }
 export interface MemorySpec {
   enabled?: Enabled;
@@ -704,6 +717,7 @@ export interface OutputSpec {
   jsonSchema?: Jsonschema;
   followups?: Followups;
   followupCount?: Followupcount;
+  maxWords?: Maxwords;
 }
 export interface Jsonschema {
   [k: string]: unknown;
@@ -1122,7 +1136,13 @@ export interface KnowledgeSpec1 {
   fileIds?: Fileids;
   autoRetrieve?: Autoretrieve;
   topK?: Topk1;
+  contextTurns?: Contextturns;
   minScore?: Minscore;
+  candidateK?: Candidatek;
+  maxPerDocument?: Maxperdocument;
+  contextChars?: Contextchars;
+  planQueries?: Planqueries;
+  plannerAlias?: Planneralias;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -1156,6 +1176,7 @@ export interface OutputSpec1 {
   jsonSchema?: Jsonschema;
   followups?: Followups;
   followupCount?: Followupcount;
+  maxWords?: Maxwords;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema

@@ -70,7 +70,7 @@ async def complete_upstream(
             content={"error": {"code": "egress_denied", "message": problem}},
         )
     async with async_client(
-        timeout=float(target.timeout_s), allow=list(target.egress_allow)
+        timeout=float(target.timeout_s), allow=list(target.egress_allow), reuse=True
     ) as client:
         response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()

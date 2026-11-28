@@ -13,9 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 
-// A run is scored in the background. Ask once a second, for at most three minutes.
-const RUN_POLL_MS = 1000;
-const RUN_POLL_LIMIT = 180;
+import { type EvalResult, EvalResults } from "./eval-results";
+
+// A run is scored in the background, a case at a time per worker slot. A suite of a few
+// hundred cases takes tens of minutes, so ask every three seconds while the page is open.
+const RUN_POLL_MS = 3000;
 
 type Suite = {
   id: string;
@@ -25,11 +27,9 @@ type Suite = {
   lastRun?: { id?: string; passRate?: number; status?: string } | null;
 };
 
-type Result = {
-  passed?: boolean;
-  outputText?: string;
-  case?: { name?: string };
-};
+type Alias = { alias?: string; kind?: string };
+
+type ImportReply = { imported?: number; errors?: { line?: number; msg?: string }[] };
 
 type Feedback = {
   messageId?: string;
@@ -43,7 +43,9 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
   const t = useTranslations("evals");
   const [suites, setSuites] = useState<Suite[]>([]);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
-  const [results, setResults] = useState<Result[]>([]);
+  const [results, setResults] = useState<EvalResult[]>([]);
+  const [aliases, setAliases] = useState<string[]>([]);
+  const [model, setModel] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -69,6 +71,20 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
         const inbox = await api<{ items: Feedback[] }>("/api/v1/feedback");
         setFeedback(inbox.items ?? []);
       }
+      // Comparing models is optional: without permission to read them, it is not offered.
+      api<{ items: Alias[] }>("/api/v1/model-aliases")
+        .then((listed) =>
+          setAliases(
+            [
+              ...new Set(
+                (listed.items ?? [])
+                  .filter((row) => (row.kind ?? "chat") === "chat" && row.alias)
+                  .map((row) => row.alias as string),
+              ),
+            ].sort(),
+          ),
+        )
+        .catch(() => setAliases([]));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
@@ -114,14 +130,45 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
   }
 
   async function runFinished(runId: string): Promise<string> {
-    for (let attempt = 0; attempt < RUN_POLL_LIMIT; attempt += 1) {
+    for (;;) {
       const run = await api<{ status: string }>(`/api/v1/eval-runs/${runId}`);
       if (run.status !== "queued" && run.status !== "running") {
         return run.status;
       }
       await new Promise((resolve) => setTimeout(resolve, RUN_POLL_MS));
     }
-    return "running";
+  }
+
+  async function showResults(runId: string) {
+    const page = await api<{ items: EvalResult[] }>(`/api/v1/eval-runs/${runId}/results`);
+    setResults(page.items ?? []);
+  }
+
+  async function importCases(suiteId: string, file: File) {
+    setBusy(true);
+    setActive(suiteId);
+    setNotice("");
+    try {
+      const reply = await api<ImportReply>(`/api/v1/eval-suites/${suiteId}/cases:import`, {
+        method: "POST",
+        body: JSON.stringify({ content: await file.text() }),
+      });
+      const errors = reply.errors ?? [];
+      setNotice(
+        errors.length > 0
+          ? t("importedWithErrors", {
+              count: reply.imported ?? 0,
+              errors: errors.length,
+              first: `${errors[0]?.line ?? ""}: ${errors[0]?.msg ?? ""}`,
+            })
+          : t("imported", { count: reply.imported ?? 0 }),
+      );
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function runSuite(suiteId: string) {
@@ -131,12 +178,17 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
     try {
       const run = await api<{ id: string }>(`/api/v1/eval-suites/${suiteId}:run`, {
         method: "POST",
-        body: JSON.stringify({ agentVersionRef: "published", agentId }),
+        body: JSON.stringify({
+          agentVersionRef: "published",
+          agentId,
+          ...(model ? { modelAliasOverride: model } : {}),
+        }),
       });
+      setNotice(t("runStarted"));
       // A case calls the model, so the run is scored in the background.
       const status = await runFinished(run.id);
-      const page = await api<{ items: Result[] }>(`/api/v1/eval-runs/${run.id}/results`);
-      setResults(page.items ?? []);
+      setNotice("");
+      await showResults(run.id);
       if (status !== "completed") {
         setError(t("runUnfinished"));
       }
@@ -193,6 +245,24 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
       {notice ? <p className="mb-3 text-sm text-[var(--muted-foreground)]">{notice}</p> : null}
       {loading ? <Skeleton className="h-40 w-full" /> : null}
       {!loading && suites.length === 0 ? <EmptyState title={t("empty")} /> : null}
+      {!loading && suites.length > 0 && aliases.length > 0 ? (
+        <label className="mb-3 block text-sm" htmlFor="eval-model">
+          {t("model")}
+          <select
+            className="mt-1 block rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1"
+            id="eval-model"
+            onChange={(event) => setModel(event.target.value)}
+            value={model}
+          >
+            <option value="">{t("agentModel")}</option>
+            {aliases.map((alias) => (
+              <option key={alias} value={alias}>
+                {alias}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {!loading && suites.length > 0 ? (
         <ul className="row-list">
           {suites.map((suite) => (
@@ -207,9 +277,53 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
                       : ""}
                   </p>
                 </div>
-                <Button disabled={busy} onClick={() => void runSuite(suite.id)} type="button">
-                  {busy && active === suite.id ? t("running") : t("run")}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="sr-only" htmlFor={`import-${suite.id}`}>
+                    {t("importCases")}
+                  </label>
+                  <input
+                    accept=".jsonl,.json,.yaml,.yml,application/json,text/plain"
+                    className="sr-only"
+                    disabled={busy}
+                    id={`import-${suite.id}`}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file) {
+                        void importCases(suite.id, file);
+                      }
+                    }}
+                    type="file"
+                  />
+                  <Button
+                    disabled={busy}
+                    onClick={() => document.getElementById(`import-${suite.id}`)?.click()}
+                    type="button"
+                    variant="outline"
+                  >
+                    {t("importCases")}
+                  </Button>
+                  {suite.lastRun?.id ? (
+                    <Button
+                      disabled={busy}
+                      onClick={() => {
+                        const runId = suite.lastRun?.id;
+                        if (runId) {
+                          void showResults(runId).catch((caught: unknown) =>
+                            setError(caught instanceof Error ? caught.message : t("error")),
+                          );
+                        }
+                      }}
+                      type="button"
+                      variant="outline"
+                    >
+                      {t("lastResults")}
+                    </Button>
+                  ) : null}
+                  <Button disabled={busy} onClick={() => void runSuite(suite.id)} type="button">
+                    {busy && active === suite.id ? t("running") : t("run")}
+                  </Button>
+                </div>
               </div>
             </li>
           ))}
@@ -243,17 +357,7 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
       </section>
       <section className="mt-8" aria-label={t("results")}>
         <h2 className="mb-3 text-sm font-medium">{t("results")}</h2>
-        {results.length === 0 ? (
-          <p className="text-sm text-[var(--muted-foreground)]">{t("noResults")}</p>
-        ) : (
-          <ul className="space-y-2">
-            {results.map((result) => (
-              <li className="text-sm" key={result.case?.name ?? result.outputText}>
-                {result.case?.name} · {result.passed ? t("passed") : t("failed")}
-              </li>
-            ))}
-          </ul>
-        )}
+        <EvalResults results={results} />
       </section>
       {admin ? (
         <section className="mt-8" aria-label={t("feedback")}>

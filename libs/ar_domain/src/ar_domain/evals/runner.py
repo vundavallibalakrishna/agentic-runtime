@@ -3,6 +3,7 @@
 Spec: docs/03-specs/18-observability-eval.md §4.2.
 """
 
+import asyncio
 import uuid
 from typing import TYPE_CHECKING
 
@@ -47,21 +48,105 @@ async def execute_eval_run(store: Any, eval_run_id: uuid.UUID) -> dict[str, obje
 
 
 async def _execute(store: Any, eval_run_id: uuid.UUID, row: dict[str, object]) -> dict[str, object]:
-    row["status"] = "running"
-    row["started_at"] = utcnow()
+    """In one process: begin, every case several at a time, then finish."""
+    case_ids = begin_eval_run(store, eval_run_id)
+    gate_keeper = asyncio.Semaphore(_concurrency())
+
+    async def one(case_id: str) -> None:
+        async with gate_keeper:
+            await score_eval_case(store, eval_run_id, case_id)
+
+    await asyncio.gather(*(one(case_id) for case_id in case_ids))
+    del row
+    return finish_eval_run(store, eval_run_id)
+
+
+def begin_eval_run(store: Any, eval_run_id: uuid.UUID) -> list[str]:
+    """Mark the run running and return the ids of the cases it scores, in order.
+
+    A run that already ended returns no cases. A workflow scores each case in its own
+    activity, so a suite of any size finishes and one slow case never ends the run.
+    """
+    row = store.eval_runs.get(eval_run_id)
+    if not isinstance(row, dict) or row.get("status") in {"cancelled", "completed", "failed"}:
+        return []
+    if row.get("status") != "running":
+        row["status"] = "running"
+        row["started_at"] = utcnow()
+    return [str(case["id"]) for case in _cases(store, row)]
+
+
+async def score_eval_case(store: Any, eval_run_id: uuid.UUID, case_id: str) -> bool:
+    """Run one case through the agent, judge it and save its result. True when it passed.
+
+    Safe to repeat: a case that already has a result in this run is not run again. A
+    case that cannot run is saved as a failed result that says why; it never ends the run.
+    """
+    row = store.eval_runs.get(eval_run_id)
+    case = store.eval_cases.get(_uuid(case_id))
+    if not isinstance(row, dict) or not isinstance(case, dict):
+        return False
+    done = _result_for(store, eval_run_id, case.get("id"))
+    if done is not None:
+        return bool(done.get("passed"))
+    if row.get("status") in {"cancelled", "completed", "failed"}:
+        return False
+    try:
+        outcome = await _run_case(store, row, case)
+        scores = grade(_list(case.get("assertions")), outcome)
+        await _judge(store, row, case, outcome, scores)
+        measured = _retrieval_recall(case, outcome)
+        if measured is not None:
+            scores["retrieval_recall"] = measured
+    except Exception as exc:  # noqa: BLE001 - one case that cannot run is a failed case
+        from ar_domain.tools.logic import raised_at  # noqa: PLC0415
+
+        end_eval_agent_runs(store, eval_run_id, case_id=str(case.get("id")))
+        outcome = {"output_text": "", "latency_ms": 0, "cost_micros": 0}
+        scores = {
+            "case_error": {
+                "passed": False,
+                "score": 0.0,
+                "verdict": "failed",
+                "detail": f"The case did not run: {type(exc).__name__} at {raised_at(exc)}.",
+            }
+        }
+    ok = passed(scores)
+    _save_result(store, row, case, outcome, scores, ok)
+    CASE_SECONDS.observe(max(_int(outcome.get("latency_ms")), 1) / 1000)
+    return ok
+
+
+def finish_eval_run(store: Any, eval_run_id: uuid.UUID) -> dict[str, object]:
+    """Summarise the saved results, end the run and tell whoever waits for it.
+
+    A selected case with no result (its activity never finished) counts as failed.
+    """
+    row = store.eval_runs.get(eval_run_id)
+    if not isinstance(row, dict):
+        return {"status": "failed"}
+    if row.get("status") in {"cancelled", "completed", "failed"}:
+        return _summary(row)
     suite = store.eval_suites.get(row.get("suite_id"))
     gate = suite.get("gate") if isinstance(suite, dict) else {}
     if not isinstance(gate, dict):
         gate = {}
-    selected = _cases(store, row)
     results: list[dict[str, object]] = []
-    for case in selected:
-        outcome = await _run_case(store, row, case)
-        scores = grade(_list(case.get("assertions")), outcome)
-        ok = passed(scores)
-        saved = _save_result(store, row, case, outcome, scores, ok)
+    for case in _cases(store, row):
+        saved = _result_for(store, eval_run_id, case.get("id"))
+        if saved is None:
+            missing = {
+                "case_error": {
+                    "passed": False,
+                    "score": 0.0,
+                    "verdict": "failed",
+                    "detail": "The case did not finish.",
+                }
+            }
+            outcome = {"output_text": "", "latency_ms": 0, "cost_micros": 0}
+            saved = _save_result(store, row, case, outcome, missing, False)
         results.append(saved)
-        CASE_SECONDS.observe(max(_int(outcome.get("latency_ms")), 1) / 1000)
+    end_eval_agent_runs(store, eval_run_id)
     baseline = _baseline(store, row.get("baseline_eval_run_id"))
     summary = summarise(gate, results, baseline)
     row["summary"] = summary
@@ -89,6 +174,124 @@ async def _execute(store: Any, eval_run_id: uuid.UUID, row: dict[str, object]) -
     return summary
 
 
+def fail_eval_run(store: Any, eval_run_id: uuid.UUID, reason: str) -> dict[str, object]:
+    """End a run that broke for a reason other than a failing case. A gate hears it."""
+    row = store.eval_runs.get(eval_run_id)
+    if not isinstance(row, dict):
+        return {"status": "failed"}
+    if row.get("status") in {"cancelled", "completed", "failed"}:
+        return _summary(row)
+    from ar_common.logging import get_logger  # noqa: PLC0415
+
+    get_logger(__name__).error("eval_run_failed", eval_run_id=str(eval_run_id), error_type=reason)
+    end_eval_agent_runs(store, eval_run_id)
+    row["status"] = "failed"
+    row["finished_at"] = utcnow()
+    RUNS.labels(status="failed", trigger=str(row.get("trigger") or "manual")).inc()
+    if row.get("trigger") == "publish_gate":
+        _finish_gate(store, row, False)
+    return _summary(row)
+
+
+def end_eval_agent_runs(store: Any, eval_run_id: uuid.UUID, *, case_id: str | None = None) -> int:
+    """End the agent runs an eval run (or one of its cases) left working. How many.
+
+    An eval run's agent runs live in the process that scores the case, not in a
+    workflow of their own. A case that breaks, or a process that stops, would leave them
+    working for ever, and working runs count against the tenant's run limit.
+    """
+    from ar_domain.conversations.logic import run_is_active  # noqa: PLC0415
+
+    ended = 0
+    for run in list(getattr(store, "runs", {}).values()):
+        if not isinstance(run, dict) or run.get("trigger") != "eval":
+            continue
+        context = run.get("eval_context")
+        if not isinstance(context, dict) or context.get("eval_run_id") != str(eval_run_id):
+            continue
+        if case_id is not None and context.get("case_id") != case_id:
+            continue
+        if not run_is_active(str(run.get("status"))):
+            continue
+        run["status"] = "failed"
+        run["ended_at"] = utcnow()
+        run["error"] = {
+            "code": "eval_case_ended",
+            "message": "The eval case this run belonged to ended before the run did.",
+        }
+        ended += 1
+    return ended
+
+
+def eval_concurrency() -> int:
+    """How many cases of one run are worked on at the same time."""
+    return _concurrency()
+
+
+def _result_for(store: Any, eval_run_id: uuid.UUID, case_id: object) -> dict[str, object] | None:
+    for result in store.eval_results.values():
+        if (
+            isinstance(result, dict)
+            and result.get("eval_run_id") == eval_run_id
+            and result.get("case_id") == case_id
+        ):
+            return result
+    return None
+
+
+def _concurrency() -> int:
+    """``AR_EVAL_CONCURRENCY``: cases of one run worked on at the same time."""
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return max(1, int(get_settings().eval_concurrency))
+
+
+async def _judge(
+    store: Any,
+    eval_run: dict[str, object],
+    case: dict[str, object],
+    outcome: dict[str, object],
+    scores: dict[str, dict[str, object]],
+) -> None:
+    """Replace each ``llm_judge`` placeholder with the judge model's verdict."""
+    assertions = _list(case.get("assertions"))
+    pending = []
+    for key in scores:
+        position = key.removeprefix("llm_judge_")
+        if key.startswith("llm_judge_") and position.isdigit() and int(position) < len(assertions):
+            pending.append((key, assertions[int(position)]))
+    if not pending:
+        return
+    status = str(outcome.get("status") or "")
+    if status and status != "completed":
+        # No answer to judge: the agent's run itself did not complete. Say so, and do not
+        # spend judge calls on an empty answer.
+        for key, _item in pending:
+            scores[key] = {
+                "passed": False,
+                "score": 0.0,
+                "verdict": "failed",
+                "detail": f"The agent's run ended {status}, so the answer was not judged.",
+            }
+        return
+    from ar_common.offload import run_sync  # noqa: PLC0415
+    from ar_domain.evals.judge import judge_case  # noqa: PLC0415
+
+    raw_input = case.get("input")
+    messages = raw_input.get("messages") if isinstance(raw_input, dict) else []
+    turns = [str(item) for item in messages] if isinstance(messages, list) else []
+    question = "\n".join(turns)
+    for key, item in pending:
+        scores[key] = await run_sync(
+            judge_case,
+            store,
+            eval_run.get("tenant_id"),
+            item if isinstance(item, dict) else {},
+            outcome,
+            question,
+        )
+
+
 async def _run_case(
     store: Any, eval_run: dict[str, object], case: dict[str, object]
 ) -> dict[str, object]:
@@ -99,6 +302,7 @@ async def _run_case(
     raw_mocks = case.get("tool_mocks")
     mocks: list[object] = raw_mocks if isinstance(raw_mocks, list) else []
     context = {
+        "eval_run_id": str(eval_run.get("id")),
         "suite_id": str(eval_run.get("suite_id")),
         "case_id": str(case.get("id")),
         "tool_mocks": mocks,
@@ -186,16 +390,87 @@ def _outcome(store: Any, run_ids: list[uuid.UUID], raw_input: object) -> dict[st
             latency += max(int((ended - started).total_seconds() * 1000), 0)
     return {
         "output_text": answer,
+        "transcript": _transcript(store, run_ids),
         "status": str(last.get("status") or ""),
         "tool_calls": calls,
         "latency_ms": latency,
         "cost_micros": cost,
         "steps": steps,
         "citations": citations,
+        "retrieved": _retrieved(store, run_ids, calls),
         "denied": sum(1 for row in calls if row.get("status") == "denied"),
         "run_id": run_ids[-1],
         "grounding": _grounding_report(raw_input),
     }
+
+
+def _retrieved(
+    store: Any, run_ids: list[uuid.UUID], calls: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    """Passage ids from each search tool call and from the run's own retrieval."""
+    from ar_domain.knowledge.retrieved import retrieval_record  # noqa: PLC0415
+
+    passages: list[dict[str, object]] = []
+    for call in calls:
+        record = call.get("retrieval")
+        rows = record.get("passages") if isinstance(record, dict) else None
+        if isinstance(rows, list):
+            passages.extend(row for row in rows if isinstance(row, dict))
+    for run_id in run_ids:
+        run = store.runs.get(run_id)
+        retrieval = run.get("retrieval") if isinstance(run, dict) else None
+        if not isinstance(retrieval, dict):
+            continue
+        record = retrieval_record(str(retrieval.get("query") or ""), retrieval)
+        rows = record.get("passages") if isinstance(record, dict) else None
+        if isinstance(rows, list):
+            passages.extend(row for row in rows if isinstance(row, dict))
+    return passages
+
+
+def _retrieval_recall(
+    case: dict[str, object], outcome: dict[str, object]
+) -> dict[str, object] | None:
+    """Share of the case's expected pages that were retrieved. No model call."""
+    from ar_domain.knowledge.retrieved import retrieval_recall  # noqa: PLC0415
+
+    raw = case.get("input")
+    pages = raw.get("expected_pages", raw.get("expectedPages")) if isinstance(raw, dict) else None
+    if not isinstance(pages, list):
+        return None
+    expected = [str(item) for item in pages]
+    retrieved = outcome.get("retrieved")
+    passages = (
+        [row for row in retrieved if isinstance(row, dict)] if isinstance(retrieved, list) else []
+    )
+    measured = retrieval_recall(expected, passages)
+    if measured is None:
+        return None
+    score, found, total = measured
+    return {
+        "passed": score == 1.0,
+        "score": round(score, 4),
+        "verdict": "measured",
+        "detail": f"{found} of {total} pages",
+    }
+
+
+def _transcript(store: Any, run_ids: list[uuid.UUID]) -> list[dict[str, str]]:
+    """Each turn of the case: what the person said and what the agent answered."""
+    turns: list[dict[str, str]] = []
+    for run_id in run_ids:
+        run = store.runs.get(run_id)
+        if not isinstance(run, dict):
+            continue
+        said = store.messages.get(run.get("input_message_id"))
+        answered = store.messages.get(run.get("assistant_message_id"))
+        turns.append(
+            {
+                "user": str(said.get("text") or "") if isinstance(said, dict) else "",
+                "assistant": str(answered.get("text") or "") if isinstance(answered, dict) else "",
+            }
+        )
+    return turns
 
 
 def _uuid(value: object) -> uuid.UUID:

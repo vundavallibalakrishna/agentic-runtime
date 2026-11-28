@@ -221,7 +221,7 @@ async def _post_json(
             host = urlsplit(url).hostname
             if host and host not in hosts:
                 hosts.append(host)
-            async with async_client(timeout=timeout_s, allow=hosts) as client:
+            async with async_client(timeout=timeout_s, allow=hosts, reuse=True) as client:
                 response = await client.post(url, json=body, headers=headers)
     except httpx.HTTPError:
         return None, True
@@ -1692,6 +1692,9 @@ class ChatBehaviour:
         from ar_domain.usage.service import UsageBook  # noqa: PLC0415
 
         UsageBook(self).assert_run(tenant_id, user_id, agent_id)
+        # Refuse before anything is written: a message whose run is then refused would
+        # be saved without its run and fail the whole unit's save.
+        self._assert_run_capacity(tenant_id)
         explicit = bool(
             file_ids or collection_ids or items or task_template.strip() or attachment_ids
         )
@@ -1875,6 +1878,17 @@ class ChatBehaviour:
         self._evict()
         return {"message": self._public(user_message), "run": self._public(run)}
 
+    def _assert_run_capacity(self, tenant_id: uuid.UUID) -> None:
+        """Raise ``max_concurrent_runs`` when the tenant cannot start one more run."""
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+        active = sum(
+            1
+            for item in self.runs.values()
+            if item.get("tenant_id") == tenant_id and run_is_active(str(item.get("status")))
+        )
+        guard(self, tenant_id, "max_concurrent_runs", 1, current=active)
+
     def _new_run(
         self,
         tenant_id: uuid.UUID,
@@ -1888,17 +1902,11 @@ class ChatBehaviour:
         on_behalf_of: uuid.UUID | None = None,
     ) -> dict[str, object]:
         from ar_domain.conversations.triggers import RUN_TRIGGERS  # noqa: PLC0415
-        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
 
         if trigger not in RUN_TRIGGERS:
             raise ArError(ErrorCode.VALIDATION_FAILED, "That run trigger is not allowed.")
 
-        active = sum(
-            1
-            for item in self.runs.values()
-            if item.get("tenant_id") == tenant_id and run_is_active(str(item.get("status")))
-        )
-        guard(self, tenant_id, "max_concurrent_runs", 1, current=active)
+        self._assert_run_capacity(tenant_id)
         now = utcnow()
         run = {
             "id": run_id,
@@ -2462,7 +2470,10 @@ class ChatBehaviour:
         if run.get("context_error") == "context_length_exceeded":
             self._fail_context(run, conversation, assistant)
             return
-        self._emit(run, "run.started", {"model_alias": "reasoning"})
+        from ar_domain.tools.agent_loop import model_alias_for  # noqa: PLC0415
+
+        alias = model_alias_for(self, run)
+        self._emit(run, "run.started", {"model_alias": alias})
         if self.durable_engine is not None:
             from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
@@ -2471,9 +2482,9 @@ class ChatBehaviour:
         self._emit(
             run,
             "message.started",
-            {"message_id": str(assistant_id), "role": "assistant", "model_alias": "reasoning"},
+            {"message_id": str(assistant_id), "role": "assistant", "model_alias": alias},
         )
-        from ar_domain.tools.agent_loop import model_alias_for, read_budget, run_agent_loop  # noqa: PLC0415
+        from ar_domain.tools.agent_loop import read_budget, run_agent_loop  # noqa: PLC0415
 
         # Nothing but the agent loop decides the answer: the model chooses every tool
         # call, a delegation and a skill included (M38a-T04, T04a).
@@ -2750,6 +2761,7 @@ class ChatBehaviour:
                 response_format=response_format,
             )
             outcome["fallback"] = index > 0
+            outcome["model_alias"] = model_alias
             if outcome.get("retryable") and index + 1 < len(targets):
                 last = outcome
                 continue
@@ -2771,7 +2783,9 @@ class ChatBehaviour:
         request = {**body, "stream": True, "stream_options": {"include_usage": True}}
         try:
             async with (
-                async_client(timeout=timeout_s, allow=self._dial_allow(tenant_id)) as client,
+                async_client(
+                    timeout=timeout_s, allow=self._dial_allow(tenant_id), reuse=True
+                ) as client,
                 client.stream(
                     "POST", url, json=request, headers={**headers, "accept": "text/event-stream"}
                 ) as response,
@@ -2891,9 +2905,10 @@ class ChatBehaviour:
             parsed["response_format_fallback"] = True
         elif shaped is not None:
             parsed["response_format_sent"] = True
-        if upstream and upstream != "reasoning":
-            parsed["resolved_model_id"] = upstream
-            parsed["answered_model"] = resolved_model_label(upstream)
+        real = str(model_row.get("upstream_model") or "").strip()
+        if real:
+            parsed["resolved_model_id"] = real
+            parsed["answered_model"] = resolved_model_label(real)
             registry = model_row.get("id")
             if registry is not None:
                 parsed["model_id"] = str(registry)

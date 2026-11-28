@@ -197,6 +197,32 @@ def fail_interrupted_tool(store: Any, run: dict[str, object]) -> None:
     )
 
 
+_CUT_OFF = "This answer was stopped because it took too long. Please ask again."
+
+
+def fail_cut_off(store: Any, run: dict[str, object], reason: str) -> None:
+    """A step the platform stopped (it ran out of time, or its worker shut down).
+
+    Nobody asked for it, so it is a failed run that says so, not a cancel by the person.
+    """
+    from ar_domain.runs.failure import fail_run  # noqa: PLC0415
+
+    if not run_is_active(str(run.get("status"))):
+        return
+    messages = getattr(store, "messages", {})
+    assistant = (
+        messages.get(run.get("assistant_message_id")) if isinstance(messages, dict) else None
+    )
+    fail_run(
+        store,
+        run,
+        code="upstream_timeout",
+        message=_CUT_OFF,
+        reason=reason,
+        assistant=assistant if isinstance(assistant, dict) else None,
+    )
+
+
 def mark_cancelled(store: Any, run: dict[str, object]) -> None:
     """Stop a run whose cancel was requested. A second call leaves a terminal run alone."""
     if not run_is_active(str(run.get("status"))):

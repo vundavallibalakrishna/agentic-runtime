@@ -137,7 +137,11 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_INPUT_WAIT_TIMEOUT_S",
         "AR_INTERNAL_JWT_JWKS",
         "AR_INTERNAL_JWT_PRIVATE_KEY",
+        "AR_KNOWLEDGE_CANDIDATE_K",
         "AR_KNOWLEDGE_FETCH_MAX_BYTES",
+        "AR_KNOWLEDGE_MAX_PASSAGES_PER_DOCUMENT",
+        "AR_KNOWLEDGE_REPEATED_BLOCK_MIN_CHARS",
+        "AR_KNOWLEDGE_REPEATED_BLOCK_SHARE",
         "AR_KNOWLEDGE_RERANK_CANDIDATES",
         "AR_KNOWLEDGE_SEARCH_MAX_HITS",
         "AR_LOGIN_LOCKOUT_S",
@@ -265,6 +269,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_VAULT_TOKEN",
         "AR_VECTOR_BACKEND",
         "AR_VECTOR_MIGRATION_RETAIN_HOURS",
+        "AR_VECTOR_PG_CONNECT_TIMEOUT_S",
         "AR_VECTOR_PG_EF_SEARCH",
         "AR_VECTOR_PG_READ_DSN",
         "AR_EXTRACTION_BOOLEAN_SYNONYMS",
@@ -416,6 +421,11 @@ class BaseServiceSettings(BaseSettings):
     # What every outbound request names itself as. A site owner reads this in their logs,
     # so an install that reads public pages puts a contact address in it.
     http_user_agent: str = "agentic-runtime"
+    # How long an idle connection to a model or embedding provider stays open for the next
+    # call. Opening one costs a TCP and a TLS handshake.
+    egress_keepalive_s: float = Field(default=60.0, ge=0)
+    # How many cases of one eval run are worked on at the same time.
+    eval_concurrency: int = Field(default=4, ge=1, le=32)
     # How many requests a minute the page tools send to one host, across every tenant.
     fetch_per_host_per_minute: int = Field(default=30, ge=1)
     # The mail server the product sends through: invitations, and a routine's result when
@@ -452,7 +462,7 @@ class BaseServiceSettings(BaseSettings):
     document_max_bytes: int = Field(default=25 * 1024 * 1024, ge=1)
     document_max_pages: int = Field(default=600, ge=1)
     document_read_chars: int = Field(default=12_000, ge=1)
-    document_retrieval_budget: int = Field(default=12_000, ge=1)
+    document_retrieval_budget: int = Field(default=30_000, ge=1)
     document_chunk_chars: int = Field(default=1000, ge=1)
     document_chunk_overlap: int = Field(default=120, ge=0)
     document_excerpt_chars: int = Field(default=1500, ge=1)
@@ -496,6 +506,15 @@ class BaseServiceSettings(BaseSettings):
     ingest_inline_max_bytes: int = Field(default=256 * 1024, ge=1)
     knowledge_fetch_max_bytes: int = Field(default=2_000_000, ge=1)
     knowledge_search_max_hits: int = Field(default=20, ge=1)
+    # Passages fetched before fusion and the per-document cap. The final answer
+    # still keeps only ``top_k`` (and the character budget).
+    knowledge_candidate_k: int = Field(default=60, ge=1)
+    # How many of the selected passages may come from one document.
+    knowledge_max_passages_per_document: int = Field(default=2, ge=1)
+    # A block in at least this share of a collection's documents is not indexed.
+    # 0 disables the check. A collection's chunking.repeated_block_share overrides it.
+    knowledge_repeated_block_share: float = Field(default=0.3, ge=0, le=1)
+    knowledge_repeated_block_min_chars: int = Field(default=80, ge=1)
     # ``expiresAfterSeconds`` on an upload. The bounds match the Files API.
     file_expiry_min_seconds: int = Field(default=3600, ge=1)
     file_expiry_max_seconds: int = Field(default=2_592_000, ge=1)

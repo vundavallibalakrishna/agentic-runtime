@@ -4,13 +4,16 @@ Activities are idempotent. The dev API runs them inline; Temporal activities
 call the same functions.
 """
 
+import asyncio
 import hashlib
 import uuid
 from typing import TYPE_CHECKING
 
 from ar_common.time import utcnow
+from ar_domain.knowledge.boilerplate import block_settings, repeated_in_collection, without_repeated
 from ar_domain.knowledge.chunker import chunk_markdown
 from ar_domain.knowledge.embedding import embed_for_collection
+from ar_domain.knowledge.index_text import indexed_text, passage_context
 from ar_domain.knowledge.metrics import INGEST_DOCUMENTS, INGEST_STAGE
 from ar_domain.knowledge.parse import ParseError, parse_bytes
 from ar_domain.knowledge.store_types import IndexedChunk
@@ -51,47 +54,31 @@ async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) 
     document["version_hash"] = digest
     document["size_bytes"] = len(raw)
     try:
-        with INGEST_STAGE.labels(stage="parse").time():
-            markdown = parse_bytes(
-                raw,
-                mime_type=str(document.get("mime_type") or "text/markdown"),
-                name=str(document.get("title") or "document.md"),
-                max_bytes=max_bytes(),
-            )
+        markdown = _parse(document, raw)
     except ParseError as exc:
         document["status"] = "failed"
         document["error"] = exc.code
         INGEST_DOCUMENTS.labels(kind="upload", result="failed").inc()
         return "failed"
     document["summary"] = _summary(markdown)
-    chunking = collection.get("chunking") if isinstance(collection.get("chunking"), dict) else {}
-    target = int(chunking.get("target_tokens", 512)) if isinstance(chunking, dict) else 512
-    overlap = int(chunking.get("overlap_pct", 12)) if isinstance(chunking, dict) else 12
-    with INGEST_STAGE.labels(stage="chunk").time():
-        drafts = chunk_markdown(markdown, target_tokens=target, overlap_pct=overlap)
-    if not drafts:
-        drafts = chunk_markdown(markdown or document["summary"] or " ", target_tokens=target)
     document["status"] = "embedding"
-    prefix = ""
-    if isinstance(chunking, dict) and chunking.get("contextual") is True:
-        prefix = document["summary"][:400]
-    texts = [
-        "\n".join(part for part in (prefix, " / ".join(draft.heading_path), draft.text) if part)
-        for draft in drafts
-    ]
-    await refresh_registry(store)
     try:
-        with INGEST_STAGE.labels(stage="embed").time():
-            vectors = embed_for_collection(store, collection, texts)
+        drafts, vectors, dropped = await _passages(
+            store,
+            collection,
+            markdown,
+            str(document["summary"]),
+            title=str(document.get("title") or ""),
+        )
+        document["repeated_blocks_dropped"] = dropped
     except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
         # The document says why it is not searchable, and the caller is told the same.
         document["status"] = "failed"
         document["error"] = embedding_error(exc)
         INGEST_DOCUMENTS.labels(kind="upload", result="failed").inc()
         raise
-    index = _index(store)
     version = int(collection.get("index_version") or 1)
-    await _replace_chunks(store, document, drafts, vectors, prefix, version, index)
+    await _replace_chunks(store, document, collection, (drafts, vectors), version)
     document["status"] = "indexed"
     document["indexed_at"] = utcnow()
     document["error"] = None
@@ -101,6 +88,76 @@ async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) 
 
     on_document_changed(store, document)
     return "indexed"
+
+
+async def index_into_version(
+    store: Any,
+    document_id: uuid.UUID,
+    raw: bytes,
+    *,
+    building: dict[str, object],
+    version: int,
+) -> None:
+    """Write one document's passages into ``version``, built with ``building``'s settings.
+
+    A re-index builds a new version of a collection's index while the version in use
+    keeps answering. ``building`` is the collection as it will be once the new version is
+    in use (its chunking, embedding model and physical collection). Every other version
+    of the document's passages is left where it is, and the document row keeps saying
+    what the version in use holds. It raises ``ParseError`` for bytes that cannot be read
+    and the embedding errors for a model that cannot embed them.
+    """
+    document = store.knowledge_documents[document_id]
+    # Parsing a large file (OCR of a scanned PDF) takes minutes of CPU. It runs off the
+    # event loop, so the activity that called this can keep telling Temporal it is alive.
+    markdown = await asyncio.to_thread(_parse, document, raw)
+    drafts, vectors, dropped = await _passages(
+        store, building, markdown, _summary(markdown), title=str(document.get("title") or "")
+    )
+    document["repeated_blocks_dropped"] = dropped
+    await _replace_chunks(store, document, building, (drafts, vectors), version, keep_others=True)
+
+
+def _parse(document: dict[str, object], raw: bytes) -> str:
+    with INGEST_STAGE.labels(stage="parse").time():
+        return parse_bytes(
+            raw,
+            mime_type=str(document.get("mime_type") or "text/markdown"),
+            name=str(document.get("title") or "document.md"),
+            max_bytes=max_bytes(),
+        )
+
+
+async def _passages(
+    store: Any,
+    collection: dict[str, object],
+    markdown: str,
+    summary: str,
+    *,
+    title: str = "",
+) -> tuple[list[Any], list[list[float]], int]:
+    """The passages of a document, their vectors, and how many repeated blocks were dropped.
+
+    The stored passage is the passage itself. The vector is of the title, the heading
+    path and the passage, so a section is found with the page it belongs to. A block
+    that repeats across the collection is not part of either.
+    """
+    chunking = collection.get("chunking") if isinstance(collection.get("chunking"), dict) else {}
+    target = int(chunking.get("target_tokens", 512)) if isinstance(chunking, dict) else 512
+    overlap = int(chunking.get("overlap_pct", 12)) if isinstance(chunking, dict) else 12
+    _share, min_chars = block_settings(collection)
+    markdown, dropped = without_repeated(
+        markdown, repeated_in_collection(store, collection), min_chars=min_chars
+    )
+    with INGEST_STAGE.labels(stage="chunk").time():
+        drafts = chunk_markdown(markdown, target_tokens=target, overlap_pct=overlap)
+    if not drafts and not dropped:
+        drafts = chunk_markdown(markdown or summary or " ", target_tokens=target)
+    texts = [indexed_text(title, list(draft.heading_path), draft.text) for draft in drafts]
+    await refresh_registry(store)
+    with INGEST_STAGE.labels(stage="embed").time():
+        vectors = embed_for_collection(store, collection, texts)
+    return drafts, vectors, dropped
 
 
 def _inline_max_bytes() -> int:
@@ -214,37 +271,47 @@ def _index(store: Any) -> Any:
     return active_index(store)
 
 
-async def _replace_chunks(  # noqa: PLR0917 - ingest writes every chunk field in one pass
+async def _replace_chunks(
     store: Any,
     document: dict[str, object],
-    drafts: list[Any],
-    vectors: list[list[float]],
-    prefix: str,
+    collection: dict[str, object],
+    passages: tuple[list[Any], list[list[float]]],
     version: int,
-    index: Any,
+    *,
+    keep_others: bool = False,
 ) -> None:
+    """Put a document's passages into ``version`` of ``collection``'s index.
+
+    An ingest replaces every version the document had. A re-index (``keep_others``)
+    replaces only ``version``, so the version in use keeps its passages until the switch.
+    """
+    drafts, vectors = passages
+    title = str(document.get("title") or "")
     document_id = document["id"]
     stale = [
-        key for key, row in store.document_chunks.items() if row.get("document_id") == document_id
+        key
+        for key, row in store.document_chunks.items()
+        if row.get("document_id") == document_id
+        and (not keep_others or int(row.get("index_version") or 1) == version)
     ]
     for key in stale:
         store.document_chunks.pop(key, None)
     if getattr(store, "durable", False):
-        await _delete_stored_chunks(store, document_id)
+        await _delete_stored_chunks(store, document_id, version if keep_others else None)
+    name = str(collection.get("store_collection"))
+    config = str(collection.get("text_search_config") or "simple")
     chunks: list[IndexedChunk] = []
     for draft, vector in zip(drafts, vectors, strict=False):
         chunk_id = uuid.uuid4()
-        lexical = "\n".join(
-            part for part in (prefix, " / ".join(draft.heading_path), draft.text) if part
-        )
-        collection = store.knowledge_collections[document["collection_id"]]
+        crumb = passage_context(title, list(draft.heading_path))
+        lexical = indexed_text(title, list(draft.heading_path), draft.text)
         store.document_chunks[chunk_id] = {
             "id": chunk_id,
             "tenant_id": document["tenant_id"],
             "document_id": document_id,
             "ordinal": draft.ordinal,
             "text": draft.text,
-            "context_prefix": prefix,
+            "context_prefix": crumb,
             "heading_path": list(draft.heading_path),
             "page_from": draft.page_from,
             "page_to": draft.page_to,
@@ -263,10 +330,7 @@ async def _replace_chunks(  # noqa: PLR0917 - ingest writes every chunk field in
                 index_version=version,
                 dense=vector,
                 lexical_text=lexical,
-                text_search_config=str(
-                    store.knowledge_collections[document["collection_id"]].get("text_search_config")
-                    or "simple"
-                ),
+                text_search_config=config,
                 acl=list(document.get("acl_principals") or []),  # type: ignore[call-overload]
                 classification=str(document.get("classification") or "internal"),
                 mime_type=str(document.get("mime_type") or "text/markdown"),
@@ -278,24 +342,34 @@ async def _replace_chunks(  # noqa: PLR0917 - ingest writes every chunk field in
         from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
         await flush_store(store)
-    name = str(store.knowledge_collections[document["collection_id"]].get("store_collection"))
-    await index.delete(name, _delete_old(document, version))
+    index = _index(store)
+    if keep_others:
+        await index.delete(name, _delete_version(document, version))
+    else:
+        await index.delete(name, _delete_old(document, version))
     await index.upsert(name, chunks)
 
 
-async def _delete_stored_chunks(store: Any, document_id: object) -> None:
-    """Drop a document's chunks so a re-ingest can insert the new ordinals."""
+async def _delete_stored_chunks(
+    store: Any, document_id: object, version: int | None = None
+) -> None:
+    """Drop a document's chunks so a re-ingest can insert the new ordinals.
+
+    With ``version``, only that version's chunks go: a re-index leaves the one in use.
+    """
     engine = getattr(store, "durable_engine", None)
     if engine is None:
         return
     from sqlalchemy import text  # noqa: PLC0415
     from sqlalchemy.ext.asyncio import AsyncSession  # noqa: PLC0415
 
+    sql = "DELETE FROM document_chunks WHERE document_id = :id"
+    params: dict[str, object] = {"id": document_id}
+    if version is not None:
+        sql += " AND index_version = :version"
+        params["version"] = version
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
-        await session.execute(
-            text("DELETE FROM document_chunks WHERE document_id = :id"),
-            {"id": document_id},
-        )
+        await session.execute(text(sql), params)
 
 
 def _delete_old(document: dict[str, object], version: int) -> Any:
@@ -305,6 +379,16 @@ def _delete_old(document: dict[str, object], version: int) -> Any:
         tenant_id=document["tenant_id"],
         document_id=document["id"],
         index_version_ne=version,
+    )
+
+
+def _delete_version(document: dict[str, object], version: int) -> Any:
+    from ar_domain.knowledge.store_types import DeleteFilter  # noqa: PLC0415
+
+    return DeleteFilter(
+        tenant_id=document["tenant_id"],
+        document_id=document["id"],
+        index_version=version,
     )
 
 
@@ -320,6 +404,8 @@ def _summary(markdown: str) -> str:
 
 
 def _stats(store: Any, collection: dict[str, object]) -> None:
+    """Count what the version of the index in use holds, not one a re-index is building."""
+    version = int(collection.get("index_version") or 1)  # type: ignore[call-overload]
     documents = [
         row
         for row in store.knowledge_documents.values()
@@ -329,10 +415,12 @@ def _stats(store: Any, collection: dict[str, object]) -> None:
         row
         for row in store.document_chunks.values()
         if row.get("document_id") in {item.get("id") for item in documents}
+        and int(row.get("index_version") or 1) == version
     ]
     collection["stats"] = {
         "documents": len(documents),
         "chunks": len(chunks),
         "bytes": sum(int(row.get("size_bytes") or 0) for row in documents),
         "failed": sum(1 for row in documents if row.get("status") == "failed"),
+        "repeated_blocks": sum(int(row.get("repeated_blocks_dropped") or 0) for row in documents),
     }

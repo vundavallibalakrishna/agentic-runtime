@@ -1,11 +1,17 @@
 """pgvector RetrievalStore adapter. Spec: docs/03-specs/10-knowledge.md §7."""
 
+import asyncio
 import os
 import time
 from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import NullPool
 
 from ar_domain.knowledge.store import StoreError, StoreUnavailable, UnsupportedDims
@@ -37,8 +43,17 @@ class PgVectorStore:
         supported_dims=SUPPORTED_DIMS,
     )
 
-    def __init__(self, dsn: str = "") -> None:
+    def __init__(
+        self,
+        dsn: str = "",
+        *,
+        engine: AsyncEngine | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
+    ) -> None:
+        """``engine`` is the process's pooled engine and ``loop`` the loop it pools on."""
         self.dsn = dsn
+        self._engine = engine
+        self._engine_loop = loop
         self._session_factory: async_sessionmaker[AsyncSession] | None = None
         self._read_factory: async_sessionmaker[AsyncSession] | None = None
 
@@ -293,18 +308,58 @@ class PgVectorStore:
         dsn = dsn or self.dsn
         if not dsn:
             raise StoreUnavailable("pgvector dsn is not configured")
-        # NullPool: an engine built here belongs to one event loop (a per-call retrieval
-        # store on a run_sync worker loop), so it must not keep connections pooled past the
-        # call — each connection is opened and closed around its use and nothing lingers.
-        engine = create_async_engine(dsn, poolclass=NullPool, connect_args={"timeout": 2})
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        if read and os.environ.get("AR_VECTOR_PG_READ_DSN", "").strip():
+        if not (read and read_dsn) and self._on_engine_loop():
+            # The process's own pooled engine: no new connection for each search.
+            factory = async_sessionmaker(self._engine, expire_on_commit=False)
+        else:
+            # Another loop (a tool call's short-lived loop) or the read replica: one
+            # connection for this store, closed when its session closes, so nothing is
+            # left open when the loop ends.
+            engine = create_async_engine(
+                dsn,
+                poolclass=NullPool,
+                connect_args={"timeout": _env_whole("AR_VECTOR_PG_CONNECT_TIMEOUT_S", 10)},
+            )
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+        if read and read_dsn:
             self._read_factory = factory
         else:
             self._session_factory = factory
             if read:
                 self._read_factory = factory
         return factory()
+
+    def _on_engine_loop(self) -> bool:
+        if self._engine is None or self._engine_loop is None:
+            return False
+        try:
+            return asyncio.get_running_loop() is self._engine_loop
+        except RuntimeError:
+            return False
+
+
+def _env_whole(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    try:
+        value = int(raw) if raw else default
+    except ValueError:
+        value = default
+    return value if value > 0 else default
+
+
+def any_term_tsquery(config: str) -> str:
+    """A tsquery that matches any remaining lexeme, ranked later by ``ts_rank_cd``.
+
+    ``websearch_to_tsquery`` drops the config's stop words and then ANDs the rest, so a
+    passage must contain every word and most questions match nothing on the lexical
+    side. The AND operator is rewritten to OR. A quoted phrase stays a phrase. An empty
+    query (only stop words) matches nothing and leaves the dense branch to answer.
+    """
+    return (
+        "COALESCE(NULLIF(regexp_replace("
+        f"websearch_to_tsquery('{config}', :text)::text, ' & ', ' | ', 'g'), '')::tsquery, "
+        "''::tsquery)"
+    )
 
 
 def build_hybrid_sql(*, dims: int, configs: list[str]) -> str:
@@ -314,7 +369,7 @@ def build_hybrid_sql(*, dims: int, configs: list[str]) -> str:
     chosen = [cfg for cfg in configs if cfg in TEXT_CONFIGS]
     if not chosen:
         chosen = ["simple"]
-    tsquery = " || ".join(f"websearch_to_tsquery('{cfg}', :text)" for cfg in chosen)
+    tsquery = " || ".join(any_term_tsquery(cfg) for cfg in chosen)
     return _HYBRID_SQL.replace("__DIMS__", str(dims)).replace("__TSQUERY__", tsquery)
 
 

@@ -17,7 +17,15 @@ from ar_domain.knowledge.embedding import (
 )
 from ar_domain.knowledge.fetchers import current_acl, map_item_acl
 from ar_domain.knowledge.metrics import SEARCH_HITS, SEARCH_SECONDS, UNANSWERABLE
-from ar_domain.knowledge.retrieval import answerable, apply_rerank
+from ar_domain.knowledge.retrieval import (
+    answerable,
+    apply_rerank,
+    diversify,
+    max_per_document,
+)
+from ar_domain.knowledge.retrieval import (
+    candidate_k as candidate_pool,
+)
 from ar_domain.knowledge.store import StoreUnavailable, active_index
 from ar_domain.knowledge.store_types import HybridQuery, SearchTarget
 from ar_domain.knowledge.syncutil import run_sync
@@ -38,6 +46,8 @@ def search(
     debug: bool,
     min_score: float | None = None,
     document_ids: list[uuid.UUID] | None = None,
+    candidate_k: int | None = None,
+    max_passages_per_document: int | None = None,
 ) -> dict[str, object]:
     """Sync wrapper for callers that are not already on the request loop."""
     return run_sync(
@@ -50,6 +60,8 @@ def search(
             debug=debug,
             min_score=min_score,
             document_ids=document_ids,
+            candidate_k=candidate_k,
+            max_passages_per_document=max_passages_per_document,
         )
     )
 
@@ -64,47 +76,66 @@ async def search_async(
     debug: bool,
     min_score: float | None = None,
     document_ids: list[uuid.UUID] | None = None,
+    candidate_k: int | None = None,
+    max_passages_per_document: int | None = None,
 ) -> dict[str, object]:
     """Hybrid search filtered by the caller's principals. Managers are not exempt."""
+    clock = _Stages()
     await refresh_registry(store)
     from ar_domain.durable.hydrate import refresh_knowledge  # noqa: PLC0415
 
     # What another process indexed since this one last looked is found by this search.
     await refresh_knowledge(store, actor.tenant_id)
+    clock.lap("refresh")
     started = time.perf_counter()
     targets, collections = _targets(store, actor, collection_ids)
     if not targets:
         return {"hits": [], "answerable": False}
+    from ar_domain.knowledge.index_text import queue_stale_reindex  # noqa: PLC0415
+
+    await queue_stale_reindex(store, collections)
     refuse_embedding_mismatch(store, collections)
     index = active_index(store)
     fused: list[Any] = []
     named = tuple(document_ids or ())
     bar = min_score if min_score is not None else retrieval_bar(store, actor.tenant_id, {})
+    pool = max(top_k, candidate_pool(candidate_k))
+    share = max_per_document(max_passages_per_document)
     # A question is embedded once for each model that indexed a searched collection.
     for group in _by_model(targets, collections):
+        clock.lap("prepare")
+        dense = embed_for_collection(store, group[0][1], [query])[0]
+        clock.lap("embed")
         hybrid = HybridQuery(
             tenant_id=actor.tenant_id,
             text=query,
-            dense=embed_for_collection(store, group[0][1], [query])[0],
+            dense=dense,
             targets=[target for target, _row in group],
             principals=principals(store, actor),
             allowed_classifications=readable_classes(store, actor),
-            fused_k=max(top_k, 20),
+            dense_k=pool,
+            lexical_k=pool,
+            fused_k=pool,
             document_ids=named,
         )
         try:
-            with SEARCH_SECONDS.labels(stage="store").time():
-                fused.extend(await index.search(hybrid))
+            fused.extend(await index.search(hybrid))
         except StoreUnavailable as exc:
             raise StoreUnavailable("retrieval_unavailable") from exc
+        clock.lap("store")
     hits = [_hit(store, row) for row in fused]
     reranker = rerank_model(store, actor.tenant_id)
     reranked, rerank_ms, warning, scored = apply_rerank(
-        query, hits, top_k=top_k, min_score=bar, target=reranker
+        query, hits, top_k=pool, min_score=bar, target=reranker, window=pool
     )
+    clock.lap("rerank")
     if bar is not None and not scored:
         reranked = [hit for hit in reranked if clears(hit, bar)]
-    verified = _late(store, actor, reranked, collections)
+    verified = diversify(
+        _late(store, actor, reranked, collections), top_k=top_k, per_document=share
+    )
+    clock.lap("verify")
+    timings = clock.done()
     # Scored passages answer the question when one clears the bar. Unscored ones are the
     # closest the search found, and whoever reads them decides.
     ok = answerable(verified) if scored else bool(verified)
@@ -117,6 +148,8 @@ async def search_async(
         "embedding_model": str(collections[0].get("embedding_model") or ""),
         "rerank_model": reranker.name if reranker is not None else "",
         "scored": scored,
+        # How long each stage took, so a slow search says which stage was slow.
+        "timings_ms": timings,
     }
     if warning:
         body["warning"] = warning
@@ -132,6 +165,29 @@ async def search_async(
             "clearance": clearance(store, actor),
         }
     return body
+
+
+class _Stages:
+    """Times the stages of one search. Each stage is also a ``ar_knowledge_search_seconds``
+    sample, and the whole set is logged once, with no query or passage text."""
+
+    def __init__(self) -> None:
+        self._began = self._last = time.perf_counter()
+        self._ms: dict[str, float] = {}
+
+    def lap(self, stage: str) -> None:
+        now = time.perf_counter()
+        spent = now - self._last
+        self._last = now
+        self._ms[stage] = round(self._ms.get(stage, 0.0) + spent * 1000, 1)
+        SEARCH_SECONDS.labels(stage=stage).observe(spent)
+
+    def done(self) -> dict[str, float]:
+        timings = {**self._ms, "total": round((time.perf_counter() - self._began) * 1000, 1)}
+        from ar_common.logging import get_logger  # noqa: PLC0415
+
+        get_logger(__name__).info("knowledge_search_timed", **timings)
+        return timings
 
 
 def _targets(

@@ -23,7 +23,7 @@ def _address() -> str:
 async def _prepare_store() -> object:
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
     from ar_domain.durable.bind import attach_store  # noqa: PLC0415
-    from ar_domain.pii.analyzer import warm_up  # noqa: PLC0415
+    from ar_domain.pii.analyzer import warm  # noqa: PLC0415
     from ar_domain.readmodel.boot import build_product_store  # noqa: PLC0415
     from ar_system.routines_store import bind_store as bind_routines  # noqa: PLC0415
     from ar_system.workflows.sandbox_reaper import bind_store as bind_sandboxes  # noqa: PLC0415
@@ -34,7 +34,7 @@ async def _prepare_store() -> object:
         allow_loopback=loopback_allowed(settings),
     )
     # A routine's tool calls run here. The engine that masks their results is built now.
-    warm_up()
+    await warm()
     if isinstance(store, ChatService):
         await attach_store(store, settings.database_url)
     bind_routines(store)
@@ -59,9 +59,9 @@ async def run_worker() -> None:
 
     from ar_system.main import TASK_QUEUE  # noqa: PLC0415
     from ar_system.workflows.eval_run import (  # noqa: PLC0415
+        EVAL_ACTIVITIES,
         EVAL_QUEUE,
         EvalRunWorkflow,
-        execute_eval_activity,
     )
     from ar_system.workflows.routine_poll import RoutinePollWorkflow, poll_activity  # noqa: PLC0415
     from ar_system.workflows.routine_run import (  # noqa: PLC0415
@@ -129,7 +129,7 @@ async def run_worker() -> None:
                 client,
                 task_queue=EVAL_QUEUE,
                 workflows=[EvalRunWorkflow],
-                activities=[execute_eval_activity],
+                activities=EVAL_ACTIVITIES,
                 **temporal_worker_kwargs(),
             )
             _log.info("temporal_connected", queue=TASK_QUEUE)

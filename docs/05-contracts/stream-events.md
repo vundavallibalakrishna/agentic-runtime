@@ -52,7 +52,8 @@ data: {"id":"0192f0c4-...:17","seq":17,"type":"tool_call.completed",...}
 | type | data | Persisted |
 |---|---|---|
 | `run.queued` | `{agentId, agentVersionId, trigger, inputMessageId}` | yes |
-| `run.started` | `{modelAlias, budget: RunBudget, sandboxId?}` | yes |
+| `run.started` | `{modelAlias, budget: RunBudget, sandboxId?}`. `modelAlias` is the alias this run calls, not a fixed label. | yes |
+| `model.called` | `{step, modelAlias, model, resolvedModelId}`. One per model step, naming the alias and the upstream model that answered that step. | yes |
 | `run.status` | `{status: "running"\|"waiting_approval"\|"waiting_input", reason?}` | yes |
 | `run.usage` | `RunUsage` (cumulative: `tokensIn, tokensOut, cachedTokens, modelCalls, toolCalls, costMicros, sandboxCpuSeconds, elapsedMs`) | yes (throttled: at most 1 per 2 s) |
 | `run.completed` | `{finalMessageId, usage: RunUsage}` | yes |

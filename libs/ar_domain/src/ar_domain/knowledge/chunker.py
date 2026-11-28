@@ -70,7 +70,75 @@ def chunk_markdown(
             buffer = _overlap(buffer, target, overlap)
             page_from = page
     _flush(chunks, buffer, headings, page_from, page_to, target, overlap)
-    return chunks
+    return _joined(chunks, target)
+
+
+def _joined(chunks: list[ChunkDraft], target: int) -> list[ChunkDraft]:
+    """Join neighbouring passages while together they stay within the target.
+
+    A section is cut at its heading however short it is, so a page of short sections (a
+    case study, a product sheet, a contact block) became a passage a sentence. A passage
+    that small carries too little for a search to match or a model to answer from. Each
+    joined section keeps its heading as a line of its text, and the passage is filed
+    under the headings the joined sections share.
+    """
+    joined: list[ChunkDraft] = []
+    for chunk in chunks:
+        if joined:
+            last = joined[-1]
+            shared = _shared(last.heading_path, chunk.heading_path)
+            # A heading the joined passage is no longer filed under becomes a line of it.
+            head = _with_heading(last, shared)
+            text = f"{head}\n\n{_with_heading(chunk, last.heading_path)}"
+            tokens = token_count(text)
+            if tokens <= target:
+                joined[-1] = ChunkDraft(
+                    ordinal=last.ordinal,
+                    text=text,
+                    heading_path=shared,
+                    page_from=_first(last.page_from, chunk.page_from),
+                    page_to=chunk.page_to if chunk.page_to is not None else last.page_to,
+                    token_count=tokens,
+                )
+                continue
+        joined.append(
+            ChunkDraft(
+                ordinal=len(joined),
+                text=chunk.text,
+                heading_path=list(chunk.heading_path),
+                page_from=chunk.page_from,
+                page_to=chunk.page_to,
+                token_count=chunk.token_count,
+            )
+        )
+    return joined
+
+
+def _with_heading(chunk: ChunkDraft, before: list[str]) -> str:
+    """The passage's text, led by its own heading when the passage before was under another."""
+    if not chunk.heading_path or chunk.heading_path == before:
+        return chunk.text
+    heading = chunk.heading_path[-1]
+    if chunk.text.startswith(heading):
+        return chunk.text
+    return f"{heading}\n\n{chunk.text}"
+
+
+def _shared(left: list[str], right: list[str]) -> list[str]:
+    shared: list[str] = []
+    for one, other in zip(left, right, strict=False):
+        if one != other:
+            break
+        shared.append(one)
+    return shared
+
+
+def _first(left: int | None, right: int | None) -> int | None:
+    if left is None:
+        return right
+    if right is None:
+        return left
+    return min(left, right)
 
 
 def _blocks(markdown: str) -> list[tuple[str, str, int | None]]:
