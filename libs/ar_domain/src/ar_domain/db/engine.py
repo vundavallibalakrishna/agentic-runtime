@@ -151,7 +151,10 @@ async def engine_here(store: object) -> AsyncIterator[AsyncEngine | None]:
         engine.url,
         poolclass=NullPool,
         hide_parameters=True,
-        connect_args={"timeout": 2, "statement_cache_size": 0},
+        connect_args={
+            "timeout": get_settings().database_connect_timeout_s,
+            "statement_cache_size": 0,
+        },
     )
     try:
         yield own

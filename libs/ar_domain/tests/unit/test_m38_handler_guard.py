@@ -90,6 +90,25 @@ def test_raised_at_names_the_file_and_line_only() -> None:
     assert raised_at(ValueError("never raised")) == ""
 
 
+async def _wait_too_long() -> None:
+    import asyncio
+
+    async with asyncio.timeout(0.01):
+        await asyncio.sleep(1)
+
+
+@pytest.mark.asyncio
+async def test_raised_at_names_the_product_code_behind_a_library_error() -> None:
+    """A timeout raised inside asyncio still says which of our lines set it off."""
+    try:
+        await _wait_too_long()
+    except TimeoutError as exc:
+        where = raised_at(exc)
+    *own, library = where.split(" > ")
+    assert own and all(frame.startswith("test_m38_handler_guard.py:") for frame in own)
+    assert library.startswith("timeouts.py:")
+
+
 @pytest.mark.asyncio
 async def test_a_turn_that_crashes_ends_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
     store = demo_store()

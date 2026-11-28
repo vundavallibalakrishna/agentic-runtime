@@ -7,6 +7,7 @@ two models do not compare. Spec: docs/03-specs/10-knowledge-rag.md.
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from ar_common.errors import ConflictError
@@ -20,7 +21,7 @@ from ar_domain.models.embedding import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
 
 def choose_model(
@@ -71,9 +72,20 @@ def embed_for_collection(
     store: Any, collection: dict[str, object], texts: Sequence[str]
 ) -> list[list[float]]:
     """Embed with the collection's model, at the collection's vector length."""
-    return embed(
+    return embedder_for_collection(store, collection)(texts)
+
+
+def embedder_for_collection(
+    store: Any, collection: dict[str, object]
+) -> Callable[[Sequence[str]], list[list[float]]]:
+    """The collection's embedding call, with its model chosen here from the store.
+
+    The call it returns only talks to the provider, so a coroutine can wait for it on a
+    worker thread (``asyncio.to_thread``) while its loop goes on.
+    """
+    return partial(
+        embed,
         collection_model(store, collection),
-        texts,
         dimensions=_whole(_chunking(collection).get("request_dims")),
         size=collection_dims(collection),
     )

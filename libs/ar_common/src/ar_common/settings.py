@@ -86,6 +86,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DOCUMENT_ZIP_MEMBERS",
         "AR_FILE_EXPIRY_MAX_SECONDS",
         "AR_FILE_EXPIRY_MIN_SECONDS",
+        "AR_DATABASE_CONNECT_TIMEOUT_S",
         "AR_DATABASE_URL",
         "AR_DB_APP_PASSWORD",
         "AR_DB_CERT_DIR",
@@ -534,6 +535,10 @@ class BaseServiceSettings(BaseSettings):
     trace_sample_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     valkey_url: str = "redis://localhost:6379/0"
     database_url: str = "postgresql+asyncpg://ar_app@localhost:5432/agentic_runtime"
+    # Seconds to wait for Postgres to accept a connection opened outside the shared pool,
+    # as a tool call's read on its own event loop does. Under load a connection can take
+    # longer than a couple of seconds to open, and the read then failed the run.
+    database_connect_timeout_s: float = Field(default=10.0, gt=0)
     model_gateway_url: str = ""
     temporal_address: str = ""
     temporal_namespace: str = ""

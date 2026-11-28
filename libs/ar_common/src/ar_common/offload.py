@@ -132,3 +132,19 @@ def blocking_all[T](calls: Sequence[Callable[[], T]]) -> list[T]:
         if isinstance(item, BaseException):
             raise item
     return [item for item in done if not isinstance(item, BaseException)]
+
+
+def on_loop[T](awaitable: Awaitable[T]) -> tuple[bool, T | None]:
+    """Finish ``awaitable`` on the loop behind ``run_sync``, letting that loop go on meanwhile.
+
+    Synchronous code under ``run_sync`` that needs a coroutine's result hands the coroutine
+    to the loop it came from. It runs there like any other task: on the loop thread, so it
+    may use the store, with the process's pooled connections. Returns ``(True, result)``.
+    Anywhere else there is no loop to hand it to, and this returns ``(False, None)`` without
+    starting it, so the caller runs it some other way.
+    """
+    current = greenlet.getcurrent()
+    if not getattr(current, _MARK, False) or current.parent is None:
+        return False, None
+    result: T = current.parent.switch(awaitable)
+    return True, result

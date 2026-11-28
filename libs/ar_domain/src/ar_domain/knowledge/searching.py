@@ -1,6 +1,8 @@
 """Playground and tool search. Spec: docs/03-specs/10-knowledge.md §6.4."""
 
+import asyncio
 import time
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from ar_domain.knowledge.access import (
@@ -12,7 +14,7 @@ from ar_domain.knowledge.access import (
 )
 from ar_domain.knowledge.embedding import (
     collection_dims,
-    embed_for_collection,
+    embedder_for_collection,
     refuse_embedding_mismatch,
 )
 from ar_domain.knowledge.fetchers import current_acl, map_item_acl
@@ -104,7 +106,8 @@ async def search_async(
     # A question is embedded once for each model that indexed a searched collection.
     for group in _by_model(targets, collections):
         clock.lap("prepare")
-        dense = embed_for_collection(store, group[0][1], [query])[0]
+        # The provider call waits on a worker thread, so the loop serves other turns.
+        dense = (await asyncio.to_thread(embedder_for_collection(store, group[0][1]), [query]))[0]
         clock.lap("embed")
         hybrid = HybridQuery(
             tenant_id=actor.tenant_id,
@@ -125,8 +128,8 @@ async def search_async(
         clock.lap("store")
     hits = [_hit(store, row) for row in fused]
     reranker = rerank_model(store, actor.tenant_id)
-    reranked, rerank_ms, warning, scored = apply_rerank(
-        query, hits, top_k=pool, min_score=bar, target=reranker, window=pool
+    reranked, rerank_ms, warning, scored = await asyncio.to_thread(
+        partial(apply_rerank, query, hits, top_k=pool, min_score=bar, target=reranker, window=pool)
     )
     clock.lap("rerank")
     if bar is not None and not scored:

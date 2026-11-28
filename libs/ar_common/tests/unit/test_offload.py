@@ -221,3 +221,43 @@ def test_a_failed_wait_is_raised_after_the_others_end() -> None:
     with pytest.raises(ValueError, match="no answer"):
         asyncio.run(run_sync(lambda: blocking_all([fail, fine])))
     assert done == ["fine"]
+
+
+async def test_a_coroutine_handed_over_runs_on_the_loop_and_lets_it_go_on() -> None:
+    # A tool's search is a coroutine. It used to run on a loop of its own in a second
+    # thread while this loop stood still; under parallel turns, connections and heartbeats
+    # on this loop then timed out. Handed over, it runs here and the loop serves others.
+    from ar_common.offload import on_loop
+
+    loop = asyncio.get_running_loop()
+    other_ran = asyncio.Event()
+
+    async def search() -> tuple[bool, bool]:
+        await asyncio.wait_for(other_ran.wait(), 5.0)
+        return (
+            asyncio.get_running_loop() is loop,
+            threading.current_thread() is threading.main_thread(),
+        )
+
+    async def other_turn() -> None:
+        other_ran.set()
+
+    def handler() -> tuple[bool, tuple[bool, bool] | None]:
+        return on_loop(search())
+
+    task = asyncio.create_task(other_turn())
+    handed, result = await run_sync(handler)
+    await task
+    assert handed is True
+    assert result == (True, True)
+
+
+def test_without_run_sync_nothing_is_handed_over() -> None:
+    from ar_common.offload import on_loop
+
+    async def never() -> int:
+        return 1
+
+    coroutine = never()
+    assert on_loop(coroutine) == (False, None)
+    assert asyncio.run(coroutine) == 1
