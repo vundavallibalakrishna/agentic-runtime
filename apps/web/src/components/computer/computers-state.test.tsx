@@ -22,7 +22,7 @@ const template = {
 const instance = {
   id: "computer-1",
   status: "ready",
-  scopeKey: "conversation-1",
+  scopeKey: "same-conversation",
   templateSlug: "workstation",
 };
 function show() {
