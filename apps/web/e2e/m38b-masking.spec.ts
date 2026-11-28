@@ -7,6 +7,7 @@ test("an administrator chooses what is masked in tool results", async ({ page })
   await signInAs(page, "admin@dev.local");
   await page.goto("/admin/policies");
   const main = page.getByRole("main");
+  await main.getByRole("tab", { name: "Data masking", exact: true }).click();
   const card = main.getByRole("region", { name: "Personal data in tool results" });
   await expect(card).toBeVisible();
 
@@ -33,6 +34,7 @@ test("an administrator chooses what is masked in tool results", async ({ page })
 
   // The choice is the organisation's: it is there after a reload.
   await page.reload();
+  await main.getByRole("tab", { name: "Data masking", exact: true }).click();
   await main.getByRole("button", { name: "Advanced" }).click();
   await expect(card.getByLabel("Person's name")).toBeChecked();
 

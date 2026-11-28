@@ -1,18 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus, BackButton, DetailState } from "@/components/common/detail-state";
 import { Facts } from "@/components/common/facts";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
 import { DeliveryList, type DeliveryTarget } from "@/components/routines/delivery-fields";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 
 type Routine = {
   id: string;
@@ -37,9 +40,18 @@ type RoutineEvent = {
 };
 
 export function RoutineDetail({ routineId }: { routineId: string }) {
+  return <RoutineView key={routineId} routineId={routineId} />;
+}
+
+function RoutineView({ routineId }: { routineId: string }) {
   const t = useTranslations("routines");
+  const activity = useTranslations("schedules");
+  const locale = useLocale();
   const detail = useTranslations("detail");
   const deliveryText = useTranslations("delivery");
+  const searchId = useId();
+  const loadRequest = useRef<AbortController | null>(null);
+  const actionRequest = useRef<AbortController | null>(null);
   const [busy, setBusy] = useState(false);
   const [runId, setRunId] = useState("");
   const [routine, setRoutine] = useState<Routine | null>(null);
@@ -48,32 +60,67 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [secret, setSecret] = useState("");
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const statuses = useMemo(
+    () => [...new Set(events.flatMap((event) => (event.status ? [event.status] : [])))].sort(),
+    [events],
+  );
+  const matchingEvents = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase();
+    return events.filter(
+      (event) =>
+        (!status || event.status === status) &&
+        (!term ||
+          [event.id, event.source, event.status, event.runId, event.receivedAt].some((value) =>
+            value?.toLocaleLowerCase().includes(term),
+          )),
+    );
+  }, [events, query, status]);
+  const eventPage = usePagedRows(matchingEvents, `${routineId}::${query}::${status}`);
+  const labelStatus = (value: string) =>
+    activity.has(`statuses.${value}`) ? activity(`statuses.${value}`) : value;
 
   const load = useCallback(async () => {
+    loadRequest.current?.abort();
+    const request = new AbortController();
+    loadRequest.current = request;
     setRoutine(null);
     setLoading(true);
     setError("");
     try {
       const [detail, history] = await Promise.all([
-        api<Routine>(`/api/v1/routines/${routineId}`),
-        api<{ items: RoutineEvent[] }>(`/api/v1/routines/${routineId}/events`),
+        api<Routine>(`/api/v1/routines/${routineId}`, { signal: request.signal }),
+        api<{ items: RoutineEvent[] }>(`/api/v1/routines/${routineId}/events`, {
+          signal: request.signal,
+        }),
       ]);
+      if (request.signal.aborted) return;
       setRoutine(detail);
       setEvents(history.items ?? []);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
+      if (!request.signal.aborted) setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
-      setLoading(false);
+      if (loadRequest.current === request) {
+        loadRequest.current = null;
+        setLoading(false);
+      }
     }
   }, [routineId, t]);
 
   useEffect(() => {
     void load();
+    return () => {
+      loadRequest.current?.abort();
+      actionRequest.current?.abort();
+    };
   }, [load]);
 
   async function act(path: string, label: string) {
+    if (actionRequest.current) return;
+    const request = new AbortController();
+    actionRequest.current = request;
     setError("");
-    if (busy) return;
     setBusy(true);
     setRunId("");
     setNotice("");
@@ -81,7 +128,9 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
       const result = await api<Record<string, string>>(`/api/v1/routines/${routineId}${path}`, {
         method: "POST",
         body: "{}",
+        signal: request.signal,
       });
+      if (request.signal.aborted) return;
       if (result.webhookSecret) {
         setSecret(result.webhookSecret);
       }
@@ -93,9 +142,12 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
       }
       await load();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
+      if (!request.signal.aborted) setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
-      setBusy(false);
+      if (actionRequest.current === request) {
+        actionRequest.current = null;
+        setBusy(false);
+      }
     }
   }
 
@@ -189,7 +241,9 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
                     routine.nextFires && routine.nextFires.length > 0 ? (
                       <ul className="space-y-1 tabular-nums">
                         {routine.nextFires.map((stamp) => (
-                          <li key={stamp}>{new Date(stamp).toLocaleString()}</li>
+                          <li key={stamp}>
+                            <time dateTime={stamp}>{formatDateTime(stamp, locale)}</time>
+                          </li>
                         ))}
                       </ul>
                     ) : null,
@@ -200,32 +254,78 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
         </div>
       ) : null}
       {!loading && routine ? (
-        <section className="mt-8">
+        <section className="mt-8" aria-label={t("events")}>
           <h2 className="panel-title mb-3">{t("events")}</h2>
           {events.length === 0 ? (
             <EmptyState title={t("noEvents")} />
           ) : (
-            <ul className="row-list">
-              {events.map((event) => (
-                <li
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm"
-                  key={event.id}
-                >
-                  <span className="font-medium">{event.source}</span>
-                  <Badge tone={statusTone(event.status)}>{event.status}</Badge>
-                  {event.receivedAt ? (
-                    <span className="tabular-nums text-[var(--muted-foreground)]">
-                      {new Date(event.receivedAt).toLocaleString()}
-                    </span>
-                  ) : null}
-                  {event.runId ? (
-                    <Link className="ml-auto underline" href={`/runs/${event.runId}`}>
-                      {detail("openRun")}
-                    </Link>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className="mb-4 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <label htmlFor={searchId} className="min-w-0 text-sm">
+                  <span className="mb-1 block">{activity("eventSearch")}</span>
+                  <Input
+                    id={searchId}
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                </label>
+                <label className="min-w-0 text-sm">
+                  <span className="mb-1 block">{activity("eventStatus")}</span>
+                  <select
+                    className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3"
+                    value={status}
+                    onChange={(event) => setStatus(event.target.value)}
+                  >
+                    <option value="">{activity("allStatuses")}</option>
+                    {statuses.map((value) => (
+                      <option key={value} value={value}>
+                        {labelStatus(value)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {query || status ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setQuery("");
+                      setStatus("");
+                    }}
+                  >
+                    {activity("clearFilters")}
+                  </Button>
+                ) : null}
+              </div>
+              {matchingEvents.length === 0 ? (
+                <EmptyState title={activity("noEventMatches")} />
+              ) : null}
+              <ul className="row-list">
+                {eventPage.rows.map((event) => (
+                  <li
+                    className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm"
+                    key={event.id}
+                  >
+                    <span className="max-w-full break-all font-medium">{event.source}</span>
+                    <Badge tone={statusTone(event.status)}>{event.status}</Badge>
+                    {event.receivedAt ? (
+                      <span className="tabular-nums text-[var(--muted-foreground)]">
+                        <time dateTime={event.receivedAt}>
+                          {formatDateTime(event.receivedAt, locale)}
+                        </time>
+                      </span>
+                    ) : null}
+                    {event.runId ? (
+                      <Link className="ml-auto underline" href={`/runs/${event.runId}`}>
+                        {detail("openRun")}
+                      </Link>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              <ListPagination {...eventPage} label={t("events")} />
+            </>
           )}
         </section>
       ) : null}

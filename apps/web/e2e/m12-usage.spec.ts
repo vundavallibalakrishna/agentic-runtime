@@ -1,4 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
+import messages from "../src/messages/en.json";
 import { expect, type Page, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
@@ -59,14 +60,25 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
     await page.goto("/admin/usage");
     await expect(page.getByRole("heading", { name: "Usage" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
-    await expect(page.getByText(/Quantity .+ Cost/)).toBeVisible({ timeout: 20_000 });
+    const report = page.getByRole("region", { name: "Usage report", exact: true });
+    await expect(report.getByRole("term").filter({ hasText: /^Quantity$/ })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(report.getByRole("term").filter({ hasText: /^Cost$/ })).toBeVisible();
+    await expect(report.getByRole("definition")).toHaveCount(3);
     await capture(page, "usage");
 
     await page.goto("/admin/quotas");
     await expect(page.getByRole("heading", { name: "Quotas" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "model_tokens · day" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Model tokens · Day", exact: true }).first(),
+    ).toBeVisible();
+    const quotaForm = page
+      .getByRole("complementary")
+      .filter({ has: page.getByRole("heading", { name: "Add a quota", exact: true }) });
+    await expect(quotaForm.getByLabel("When full", { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Advanced" }).click();
-    await expect(page.getByLabel("When full")).toBeVisible();
+    await expect(quotaForm.getByLabel("When full", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Simple" }).click();
 
     const agent = await postJson(page, "/api/v1/agents", {
@@ -90,7 +102,7 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
       warnAtPct: 80,
     });
     expect(quota.ok, quota.text).toBeTruthy();
-    created = "0";
+    created = (JSON.parse(quota.text) as { id: string }).id;
     await page.reload();
     await expect(page.getByText("0 / 0")).toBeVisible();
     await capture(page, "quotas");
@@ -125,11 +137,16 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
   } finally {
     if (created) {
       await page.goto("/admin/quotas");
-      const card = page.locator("li").filter({ hasText: "0 / 0" });
-      if ((await card.count()) > 0) {
-        await card.getByRole("button", { name: "Remove" }).click();
-        await expect(page.getByText("Quota removed.")).toBeVisible();
-      }
+      await page
+        .getByRole("searchbox", { name: messages.quotas.search, exact: true })
+        .fill(created);
+      const card = page.locator("li").filter({ hasText: created });
+      await card.getByRole("button", { name: /^Remove quota / }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: messages.quotas.removeConfirm, exact: true })
+        .click();
+      await expect(page.getByText(messages.quotas.removed, { exact: true })).toBeVisible();
     }
   }
 });

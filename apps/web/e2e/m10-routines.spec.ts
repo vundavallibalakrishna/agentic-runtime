@@ -45,7 +45,7 @@ test("routines schedule, run now, and stay accessible", async ({ page }) => {
   await expect(page.getByText("Every Monday 09:00 UTC+5:30")).toBeVisible();
   await capture(page, "list");
 
-  await page.getByLabel("Name").fill("Launch reminder");
+  await page.getByLabel("Name", { exact: true }).fill("Launch reminder");
   await page.getByLabel("Instructions").fill("Remind the team that the launch notes are due.");
   await page.getByRole("button", { name: "Preview schedule" }).click();
   await expect(page.getByText("Every Monday 09:00 UTC", { exact: true })).toBeVisible();
@@ -75,7 +75,7 @@ test("a routine can email its result only when there is something to report", as
   ).toBeVisible();
   const only = page.getByRole("checkbox", { name: /Only when there is something to report/ });
   await expect(only).toBeDisabled();
-  await page.getByLabel("Name").fill("Quiet check");
+  await page.getByLabel("Name", { exact: true }).fill("Quiet check");
   await page.getByLabel("Instructions").fill("Check the notes and report only what changed.");
   await page.getByLabel("Email the result to (optional)").fill("lead@example.test");
   await only.check();
