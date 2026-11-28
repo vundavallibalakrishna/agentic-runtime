@@ -202,6 +202,8 @@ Eligible signer at `current_level`, holding `reviews:decide`. Header `Idempotenc
 #### POST /api/v1/review-items:bulk-decide
 Same permission and body shape, plus `items: [{review_item_id, content_hash, statement_hash}]` and one shared `decision` and `comment`. Per-item results, as above.
 
+The review detail UI reads the existing session and item endpoints. It presents the frozen statement and returned subject/reference/status; saved-query SQL stays fully available in a named keyboard-scrollable region. Pending items show signing controls only when the caller has decision permission, is not the returned preparer and the signing hashes are present. These checks do not replace the service's queue eligibility, step-up, hash or segregation-of-duties checks. Read-only/self-review/incomplete details have explanatory guidance. Missing items and failed reads are distinct, with back navigation or retry as appropriate. Comments belong to one item; navigation discards the previous item's local state. A refused decision keeps the current comment and allows an explicit item refresh; successful decisions reread the saved status.
+
 ### 11.1 Accepting an assistant reply
 
 Every assistant reply is AI-generated and not reviewed until a named person accepts it. The record of acceptance is a signed review item whose subject is the message, so the signer, the time and the SHA-256 of the exact text come from the sign-off above. There is no second approval mechanism and no acceptance column on `messages`.

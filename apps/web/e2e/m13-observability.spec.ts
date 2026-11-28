@@ -49,16 +49,27 @@ test("observability, evaluations and platform health stay accessible", async ({ 
     .filter({ has: page.getByRole("heading", { name: "Prompt injection" }) });
   await expect(injection).toBeVisible();
   await injection.getByRole("button", { name: "Run suite" }).click();
-  await expect(page.getByText("tool-output-injection")).toBeVisible({ timeout: 20_000 });
-  await page.getByText("tool-output-injection").click();
-  await expect(page.getByRole("heading", { name: "Answer" }).first()).toBeVisible();
+  // A run names the agent and the exact saved version it evaluates.
+  const setup = page.getByRole("dialog", { name: "Run evaluation" });
+  await setup.getByRole("button", { name: "Agent to evaluate: Choose existing" }).click();
+  await page.getByRole("dialog").last().getByRole("listitem").first().getByRole("button").click();
+  const version = setup.getByRole("combobox", { name: "Agent version" });
+  await expect(version).toBeEnabled({ timeout: 20_000 });
+  await version.selectOption({ index: 1 });
+  await setup.getByRole("button", { name: "Start evaluation" }).click();
+  // The run opens in the run history with its case results.
+  await expect(page.getByText(/tool-output-injection/).first()).toBeVisible({ timeout: 30_000 });
+  await page.getByText("Recorded output").first().click();
+  await expect(page.locator("pre").first()).toBeVisible();
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
   await capture(page, "evals");
 
   // A suite's cases come from a file: one JSON case a line, judged by a model.
   const suiteName = `Imported ${Date.now()}`;
-  await page.getByLabel("Name").fill(suiteName);
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Suites", exact: true }).click();
+  await page.getByLabel("Name", { exact: true }).fill(suiteName);
   await page.getByRole("button", { name: "New suite" }).click();
   const imported = page
     .getByRole("listitem")
@@ -71,7 +82,7 @@ test("observability, evaluations and platform health stay accessible", async ({ 
       { type: "llm_judge", must: ["Premium lists 16x5 support."], mustNot: ["Says 24x7."] },
     ],
   });
-  await imported.getByLabel("Import cases").setInputFiles({
+  await imported.getByLabel("Import cases", { exact: true }).setInputFiles({
     name: "cases.jsonl",
     mimeType: "application/json",
     buffer: Buffer.from(`${line}\n`),

@@ -1,16 +1,22 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
-
+import { RefreshCw } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { ActionStatus } from "@/components/common/detail-state";
+import { ActionStatus, DetailState, ErrorMessage } from "@/components/common/detail-state";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { DisplayError } from "@/lib/api";
 import { api } from "@/lib/api";
+import { formatCount, formatDateTime } from "@/lib/format";
+import { loadSession } from "@/lib/session";
 import { confirmStepUp } from "@/lib/step-up";
 
 type Row = Record<string, unknown>;
@@ -19,118 +25,338 @@ const MODE_KEY = "ar-settings-mode";
 
 export function ApprovalsScreen() {
   const t = useTranslations("approvals");
+  const confirmation = useTranslations("detail");
+  const locale = useLocale();
   const [rows, setRows] = useState<Row[]>([]);
   const [standing, setStanding] = useState<Row[]>([]);
   const [scope, setScope] = useState("to_decide");
   const [risk, setRisk] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<DisplayError>("");
   const [loading, setLoading] = useState(true);
   const [advanced, setAdvanced] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [comment, setComment] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<
+    "preparing" | "confirming" | "approving" | "rejecting" | "revoking" | "refreshing" | null
+  >(null);
+  const busy = phase !== null;
+  const [target, setTarget] = useState("");
+  const [notice, setNotice] = useState("");
+  const [actionError, setActionError] = useState<DisplayError>("");
+  const [recovery, setRecovery] = useState<DisplayError>("");
+  const [recorded, setRecorded] = useState<Set<string>>(() => new Set());
+  const readRequest = useRef<AbortController | null>(null);
+  const actionRequest = useRef<AbortController | null>(null);
+  const loadedContext = useRef("");
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [standingQuery, setStandingQuery] = useState("");
+  const [standingError, setStandingError] = useState<DisplayError>("");
+  const [canReadAll, setCanReadAll] = useState(false);
+  const [canManageStanding, setCanManageStanding] = useState(false);
+  const pickedIds = useMemo(() => new Set(picked), [picked]);
+  const locked = busy || loading || Boolean(error) || Boolean(recovery);
+  const hasHash = (row: Row) => typeof row.argsHash === "string" && Boolean(row.argsHash);
+  const canDecide = (row: Row) =>
+    scope === "to_decide" &&
+    row.status === "pending" &&
+    hasHash(row) &&
+    !recorded.has(String(row.id));
+  const filtered = rows.filter(
+    (row) =>
+      (!status || row.status === status) &&
+      [
+        row.id,
+        row.qualifiedName,
+        (row.preview as Row | undefined)?.title,
+        (row.preview as Row | undefined)?.summary,
+        (row.agent as Row | undefined)?.name,
+      ].some((value) =>
+        String(value ?? "")
+          .toLocaleLowerCase()
+          .includes(query.trim().toLocaleLowerCase()),
+      ),
+  );
+  const pagination = usePagedRows(filtered, `${scope}::${risk}::${status}::${query}`);
+  const standingFiltered = standing.filter((row) =>
+    [row.id, (row.tool as Row | undefined)?.name, (row.routine as Row | undefined)?.name].some(
+      (value) =>
+        String(value ?? "")
+          .toLocaleLowerCase()
+          .includes(standingQuery.trim().toLocaleLowerCase()),
+    ),
+  );
+  const standingPagination = usePagedRows(standingFiltered, standingQuery);
+  const statuses = [...new Set(rows.map((row) => String(row.status ?? "")).filter(Boolean))].sort();
 
   useEffect(() => {
-    setAdvanced(window.localStorage.getItem(MODE_KEY) === "advanced");
+    try {
+      setAdvanced(window.localStorage.getItem(MODE_KEY) === "advanced");
+    } catch {
+      setAdvanced(false);
+    }
   }, []);
 
   const load = useCallback(async () => {
-    setRows([]);
-    setPicked([]);
+    readRequest.current?.abort();
+    const request = new AbortController();
+    readRequest.current = request;
+    const context = `${scope}:${risk}`;
+    if (loadedContext.current !== context) {
+      setRows([]);
+      setPicked([]);
+    }
+    loadedContext.current = context;
     setLoading(true);
     setError("");
+    setStandingError("");
+    let standingOkay = true;
     try {
       const params = new URLSearchParams({ scope });
-      if (risk) {
-        params.set("riskClass", risk);
+      if (risk) params.set("risk_class", risk);
+      const [page, session] = await Promise.all([
+        api<{ items: Row[] }>(`/api/v1/approvals?${params.toString()}`, { signal: request.signal }),
+        loadSession(),
+      ]);
+      if (request.signal.aborted) return false;
+      if (!Array.isArray(page?.items)) throw new Error(t("queueUnconfirmed"));
+      setRows(page.items);
+      const pendingIds = new Set(
+        page.items.filter((row) => row.status === "pending").map((row) => String(row.id)),
+      );
+      setPicked((current) => current.filter((id) => pendingIds.has(id)));
+      setCanReadAll(session.permissions?.includes("approvals:read_all") ?? false);
+      const manageStanding = session.permissions?.includes("approvals:grant_standing") ?? false;
+      setCanManageStanding(manageStanding);
+      if (advanced && manageStanding) {
+        try {
+          const grants = await api<{ items: Row[] }>("/api/v1/standing-approvals", {
+            signal: request.signal,
+          });
+          if (request.signal.aborted) return false;
+          if (!Array.isArray(grants?.items)) throw new Error(t("queueUnconfirmed"));
+          setStanding(grants.items);
+        } catch (caught) {
+          if (!request.signal.aborted)
+            setStandingError(caught instanceof Error ? caught : t("error"));
+          standingOkay = false;
+        }
       }
-      const page = await api<{ items: Row[] }>(`/api/v1/approvals?${params.toString()}`);
-      setRows(page.items ?? []);
-      if (advanced) {
-        const grants = await api<{ items: Row[] }>("/api/v1/standing-approvals");
-        setStanding(grants.items ?? []);
-      }
+      return !request.signal.aborted && standingOkay;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
+      if (!request.signal.aborted) setError(caught instanceof Error ? caught : t("error"));
+      return false;
     } finally {
-      setLoading(false);
+      if (readRequest.current === request) {
+        readRequest.current = null;
+        setLoading(false);
+      }
     }
   }, [advanced, risk, scope, t]);
 
   useEffect(() => {
     void load();
+    return () => {
+      readRequest.current?.abort();
+      actionRequest.current?.abort();
+    };
   }, [load]);
 
+  async function refresh() {
+    if (actionRequest.current) return;
+    if (await load()) {
+      setRecovery("");
+      setActionError("");
+    }
+  }
   function chooseMode(next: boolean) {
+    if (actionRequest.current || recovery) return;
     setAdvanced(next);
-    window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
+    try {
+      window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
+    } catch {
+      /* Keep the chosen mode for this view. */
+    }
+  }
+  function rowLabel(row: Row) {
+    return `${String(row.qualifiedName || t("unavailableTool"))} · ${String(row.id).slice(-8)}`;
   }
 
-  async function postDecision(row: Row, decision: "approve" | "reject") {
-    if (row.stepUpRequired) await confirmStepUp();
-    await api(`/api/v1/approvals/${String(row.id)}:decide`, {
-      method: "POST",
-      body: JSON.stringify({ decision, argsHash: String(row.argsHash ?? ""), comment }),
-    });
-  }
-  async function decide(row: Row, decision: "approve" | "reject") {
-    if (busy) return;
-    setBusy(true);
-    setError("");
+  async function decide(selected: Row[], decision: "approve" | "reject") {
+    if (actionRequest.current || locked || !selected.length || !selected.every(canDecide)) return;
+    const request = new AbortController();
+    actionRequest.current = request;
+    const submittedComment = comment;
+    const receipts: Row[] = [];
+    let posted = false;
+    let complete = false;
+    setActionError("");
+    setNotice("");
+    setPhase("preparing");
     try {
-      await postDecision(row, decision);
-      setComment("");
-      await load();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function rejectSelected() {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      for (const row of rows.filter(
-        (row) => row.status === "pending" && picked.includes(String(row.id)),
-      )) {
-        await postDecision(row, "reject");
-        setRows((current) =>
-          current.map((item) => (item.id === row.id ? { ...item, status: "rejected" } : item)),
+      for (const row of selected) {
+        posted = false;
+        setTarget(rowLabel(row));
+        setPhase("preparing");
+        const id = String(row.id);
+        const detail = await api<Row>(`/api/v1/approvals/${encodeURIComponent(id)}`, {
+          signal: request.signal,
+        });
+        if (request.signal.aborted) return;
+        if (
+          detail?.id !== id ||
+          detail.status !== "pending" ||
+          detail.canDecide !== true ||
+          typeof detail.argsHash !== "string" ||
+          !detail.argsHash ||
+          detail.argsHash !== row.argsHash
+        )
+          throw new Error(t("queueEligibility"));
+        if (detail.stepUpRequired) {
+          setPhase("confirming");
+          await confirmStepUp(confirmation("stepUpUnconfirmed"), request.signal);
+          if (request.signal.aborted) return;
+        }
+        setPhase(decision === "approve" ? "approving" : "rejecting");
+        posted = true;
+        const result = await api<Row>(`/api/v1/approvals/${encodeURIComponent(id)}:decide`, {
+          method: "POST",
+          signal: request.signal,
+          body: JSON.stringify({ decision, argsHash: detail.argsHash, comment: submittedComment }),
+        });
+        if (request.signal.aborted) return;
+        if (
+          result?.id !== id ||
+          result.argsHash !== detail.argsHash ||
+          !(decision === "reject"
+            ? result.status === "rejected"
+            : result.status === "approved" || result.status === "pending")
+        )
+          throw new Error(t("decisionUnconfirmed"));
+        receipts.push(result);
+        setNotice(
+          t("queueRecorded", {
+            count: formatCount(receipts.length),
+            total: formatCount(selected.length),
+          }),
         );
-        setPicked((current) => current.filter((id) => id !== row.id));
       }
-      setComment("");
-      await load();
+      complete = true;
+      setComment((current) => (current === submittedComment ? "" : current));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
+      if (!request.signal.aborted) {
+        const detail = caught instanceof Error ? caught : t("error");
+        if (posted || receipts.length) setRecovery(detail);
+        else setActionError(detail);
+      }
     } finally {
-      setBusy(false);
+      if (!request.signal.aborted) {
+        if (receipts.length) {
+          const byId = new Map(receipts.map((row) => [String(row.id), row]));
+          setRows((current) =>
+            current.map((row) =>
+              byId.has(String(row.id)) ? { ...row, ...byId.get(String(row.id)) } : row,
+            ),
+          );
+          setRecorded((current) => new Set([...current, ...byId.keys()]));
+          setPicked((current) => current.filter((id) => !byId.has(id)));
+        }
+        if (complete) {
+          setPhase("refreshing");
+          if (!(await load()) && !request.signal.aborted) setRecovery(t("queueAcceptedRecovery"));
+        }
+      }
+      if (actionRequest.current === request) {
+        actionRequest.current = null;
+        setPhase(null);
+      }
     }
   }
-  async function revoke(id: string) {
-    setBusy(true);
-    setError("");
+  async function revoke(row: Row) {
+    if (actionRequest.current || locked || standingError || !canManageStanding || row.revokedAt)
+      return;
+    const request = new AbortController();
+    actionRequest.current = request;
+    const id = String(row.id);
+    setPhase("revoking");
+    setTarget(String((row.tool as Row | undefined)?.name || id));
+    setActionError("");
+    setNotice("");
     try {
-      await api(`/api/v1/standing-approvals/${id}:revoke`, { method: "POST" });
-      await load();
+      const result = await api<Row>(`/api/v1/standing-approvals/${encodeURIComponent(id)}:revoke`, {
+        method: "POST",
+        signal: request.signal,
+      });
+      if (request.signal.aborted) return;
+      if (
+        result?.id !== id ||
+        typeof result.revokedAt !== "string" ||
+        !Number.isFinite(Date.parse(result.revokedAt))
+      )
+        throw new Error(t("revokeUnconfirmed"));
+      setStanding((current) =>
+        current.map((item) => (item.id === id ? { ...item, ...result } : item)),
+      );
+      setNotice(t("revokeRecorded"));
+      setPhase("refreshing");
+      if (!(await load()) && !request.signal.aborted) setRecovery(t("queueAcceptedRecovery"));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
+      if (!request.signal.aborted) setRecovery(caught instanceof Error ? caught : t("error"));
     } finally {
-      setBusy(false);
+      if (actionRequest.current === request) {
+        actionRequest.current = null;
+        setPhase(null);
+      }
     }
   }
 
   return (
     <AppShell>
-      <ActionStatus busy={busy} />
+      <PageHeader
+        title={t("title")}
+        body={t("body")}
+        actions={
+          <>
+            <fieldset disabled={busy || Boolean(recovery)}>
+              <SettingsMode advanced={advanced} onChange={chooseMode} />
+            </fieldset>
+            <Button
+              aria-label={t("refreshQueue")}
+              title={t("refreshQueue")}
+              type="button"
+              variant="outline"
+              className="size-9 p-0"
+              disabled={busy || loading}
+              onClick={() => void refresh()}
+            >
+              <RefreshCw size={16} aria-hidden="true" />
+            </Button>
+          </>
+        }
+      />
+
+      <ActionStatus
+        busy={busy || loading}
+        notice={notice}
+        busyLabel={
+          phase ? t(`queueProgress.${phase}`, { name: target }) : t("queueProgress.refreshing")
+        }
+      />
+      {actionError ? (
+        <div role="alert" className="mb-4 break-words text-sm text-[var(--destructive)]">
+          <ErrorMessage error={actionError} />
+        </div>
+      ) : null}
+      {recovery ? (
+        <div role="alert" className="mb-5 rounded-lg border border-[var(--border)] p-4 text-sm">
+          <p>{t("queueRecovery")}</p>
+          <p className="mt-2 font-medium">{t("queueTarget", { name: target })}</p>
+          <div className="mt-2 break-words text-[var(--muted-foreground)]">
+            <ErrorMessage error={recovery} />
+          </div>
+        </div>
+      ) : null}
       <fieldset disabled={busy} className="min-w-0">
-        <PageHeader
-          title={t("title")}
-          body={t("body")}
-          actions={<SettingsMode advanced={advanced} onChange={chooseMode} />}
-        />
         <div className="mb-6 flex flex-wrap items-center gap-2">
           <Button asChild variant="outline">
             <a href="/reviews">{t("reviews")}</a>
@@ -139,7 +365,10 @@ export function ApprovalsScreen() {
             <a href="/admin/policies">{t("policies")}</a>
           </Button>
         </div>
-        <fieldset className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <fieldset
+          disabled={Boolean(recovery)}
+          className="mb-5 flex flex-wrap items-center justify-between gap-3"
+        >
           <legend className="sr-only">{t("scopeLabel")}</legend>
           <div className="flex gap-1 rounded-lg bg-[var(--muted)] p-1">
             {(
@@ -153,13 +382,17 @@ export function ApprovalsScreen() {
                 key={value}
                 type="button"
                 variant="ghost"
+                disabled={value === "all" && !canReadAll}
                 aria-pressed={scope === value}
                 className={
                   scope === value
                     ? "h-9 bg-[var(--card)] shadow-[var(--shadow-xs)]"
                     : "h-9 text-[var(--muted-foreground)]"
                 }
-                onClick={() => setScope(value)}
+                onClick={() => {
+                  setScope(value);
+                  setStatus("");
+                }}
               >
                 {label}
               </Button>
@@ -172,25 +405,70 @@ export function ApprovalsScreen() {
             id="risk-filter"
             className="h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-sm"
             value={risk}
-            onChange={(event) => setRisk(event.target.value)}
+            onChange={(event) => {
+              setRisk(event.target.value);
+              setStatus("");
+            }}
           >
-            <option value="">{t("risk")}</option>
-            <option value="W2">W2</option>
-            <option value="W3">W3</option>
+            <option value="">{t("allRisks")}</option>
+            {(["R0", "R1", "W1", "W2", "W3"] as const).map((value) => (
+              <option value={value} key={value}>
+                {value} · {t(`riskOptions.${value}`)}
+              </option>
+            ))}
           </select>
         </fieldset>
-        {error ? (
-          <p
-            className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 text-sm"
-            role="alert"
-          >
-            {error}{" "}
-            <button className="underline" type="button" onClick={() => void load()}>
-              {t("retry")}
-            </button>
+        {scope !== "to_decide" ? (
+          <p className="mb-5 text-sm text-[var(--muted-foreground)]">
+            {t("queueViewOnly", { scope: t("toDecide") })}
           </p>
         ) : null}
-        {loading ? (
+        {!loading && (rows.length > 0 || query || status) ? (
+          <div className="mb-4 flex flex-wrap gap-3">
+            <Input
+              aria-label={t("search")}
+              placeholder={t("search")}
+              type="search"
+              className="min-w-0 flex-1"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPicked([]);
+              }}
+            />
+            <select
+              aria-label={t("status")}
+              className="h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-sm"
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPicked([]);
+              }}
+            >
+              <option value="">{t("allStatuses")}</option>
+              {statuses.map((value) => (
+                <option value={value} key={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            {query || status ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setQuery("");
+                  setStatus("");
+                  setPicked([]);
+                }}
+              >
+                {t("clearLocalFilters")}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        <DetailState loading={false} error={error} onRetry={() => void refresh()} />
+        {loading && rows.length === 0 ? (
           <div aria-busy="true" className="space-y-3">
             <span className="sr-only">{t("loading")}</span>
             <Skeleton className="h-24 w-full" />
@@ -198,54 +476,88 @@ export function ApprovalsScreen() {
           </div>
         ) : null}
         {!loading && !error && rows.length === 0 ? (
-          <EmptyState title={t("empty")}>
+          <EmptyState title={query.trim() || status || risk ? t("noMatches") : t("empty")}>
             <p className="mb-4 max-w-sm text-sm text-[var(--muted-foreground)]">{t("emptyHelp")}</p>
-            <Button variant="outline" onClick={() => void load()}>
+            <Button variant="outline" onClick={() => void refresh()}>
               {t("refresh")}
             </Button>
           </EmptyState>
         ) : null}
+        {!loading && rows.length > 0 && filtered.length === 0 ? (
+          <EmptyState title={t("noMatches")} />
+        ) : null}
         <ul className="row-list">
-          {rows.map((row) => {
+          {pagination.rows.map((row) => {
             const id = String(row.id);
             const preview = row.preview as { title?: string; summary?: string } | undefined;
             return (
               <li key={id} className="p-4">
                 <div className="flex items-start gap-3">
-                  <input
-                    aria-label={String(row.qualifiedName ?? id)}
-                    disabled={row.status !== "pending"}
-                    checked={picked.includes(id)}
-                    type="checkbox"
-                    onChange={(event) =>
-                      setPicked((current) =>
-                        event.target.checked
-                          ? [...current, id]
-                          : current.filter((item) => item !== id),
-                      )
-                    }
-                  />
+                  {scope === "to_decide" ? (
+                    <input
+                      aria-label={t("selectRequest", {
+                        name: String(row.qualifiedName || t("unavailableTool")),
+                        id: id.slice(-8),
+                      })}
+                      disabled={locked || !canDecide(row)}
+                      checked={pickedIds.has(id)}
+                      type="checkbox"
+                      onChange={(event) =>
+                        setPicked((current) =>
+                          event.target.checked
+                            ? [...current, id]
+                            : current.filter((item) => item !== id),
+                        )
+                      }
+                    />
+                  ) : null}
                   <div className="min-w-0 flex-1">
                     <a className="font-medium underline" href={`/approvals/${id}`}>
-                      {String(row.qualifiedName ?? "")}
+                      {String(row.qualifiedName || t("unavailableTool"))}{" "}
+                      <span
+                        className="ml-2 font-mono text-xs text-[var(--muted-foreground)]"
+                        title={id}
+                      >
+                        {id.slice(-8)}
+                      </span>
                     </a>
                     <p className="text-sm text-[var(--muted-foreground)]">
-                      {String(row.riskClass ?? "")} · {String(row.status ?? "")}
+                      <Badge>{String(row.riskClass ?? "")}</Badge>{" "}
+                      <Badge tone={statusTone(String(row.status ?? ""))}>
+                        {String(row.status ?? "")}
+                      </Badge>
                     </p>
-                    <p className="mt-1">{preview?.title || preview?.summary || ""}</p>
-                    {row.status === "pending" ? (
+                    <p className="mt-1 break-words text-sm">
+                      {preview?.title || preview?.summary || ""}
+                    </p>
+                    {canDecide(row) ? (
                       <div className="mt-3 flex gap-2">
-                        <Button type="button" onClick={() => void decide(row, "approve")}>
+                        <Button
+                          disabled={locked}
+                          type="button"
+                          onClick={() => void decide([row], "approve")}
+                        >
                           {t("approve")}
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => void decide(row, "reject")}
+                          disabled={locked}
+                          onClick={() => void decide([row], "reject")}
                         >
                           {t("reject")}
                         </Button>
                       </div>
+                    ) : null}
+                    {scope === "to_decide" && row.status === "pending" && !hasHash(row) ? (
+                      <p className="mt-3 text-sm text-[var(--muted-foreground)]">
+                        {t("queueHashUnavailable")}
+                      </p>
+                    ) : null}
+                    {row.status === "pending" && recorded.has(id) ? (
+                      <p className="mt-3 text-sm text-[var(--muted-foreground)]">
+                        {t("decisionWaiting")}
+                      </p>
                     ) : null}
                   </div>
                 </div>
@@ -253,36 +565,76 @@ export function ApprovalsScreen() {
             );
           })}
         </ul>
+        {!loading && rows.length > 0 ? <ListPagination {...pagination} label={t("title")} /> : null}
         {picked.length > 0 ? (
-          <Button
-            className="mt-4"
-            type="button"
-            variant="outline"
-            onClick={() => void rejectSelected()}
-          >
-            {t("rejectSelected")}
-          </Button>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <p className="text-sm" role="status">
+              {t("selectionCount", { count: picked.length })}
+            </p>
+            <Button
+              disabled={locked}
+              type="button"
+              variant="outline"
+              onClick={() =>
+                void decide(
+                  rows.filter((row) => pickedIds.has(String(row.id))),
+                  "reject",
+                )
+              }
+            >
+              {t("rejectSelected")}
+            </Button>
+            <Button disabled={busy} type="button" variant="ghost" onClick={() => setPicked([])}>
+              {t("clearSelection")}
+            </Button>
+            <p className="w-full text-xs text-[var(--muted-foreground)]">{t("queueBulkHelp")}</p>
+          </div>
         ) : null}
-        {!loading && !error && rows.some((row) => row.status === "pending") ? (
-          <label
-            className="mt-6 block rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 text-sm"
-            htmlFor="approval-comment"
-          >
-            {t("comment")}
+        {!loading && (picked.length > 0 || pagination.rows.some(canDecide)) ? (
+          <div className="mt-6 block rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 text-sm">
+            <label htmlFor="approval-comment">{t("comment")}</label>
+            <p id="approval-comment-help" className="mt-1 text-xs text-[var(--muted-foreground)]">
+              {t("queueCommentHelp")}
+            </p>
             <textarea
               id="approval-comment"
+              aria-describedby="approval-comment-help"
+              disabled={busy}
               className="mt-1 h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
               value={comment}
               onChange={(event) => setComment(event.target.value)}
             />
-          </label>
+          </div>
         ) : null}
-        {advanced && !loading && !error ? (
+        {advanced && canManageStanding ? (
           <section className="mt-8 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
             <h2 className="text-lg font-medium">{t("standing")}</h2>
-            {standing.length === 0 ? <p className="mt-2">{t("noStanding")}</p> : null}
+            {standingError ? (
+              <div role="alert" className="mt-3 text-sm">
+                <ErrorMessage error={standingError} />{" "}
+                <Button type="button" variant="outline" onClick={() => void refresh()}>
+                  {t("retry")}
+                </Button>
+              </div>
+            ) : null}
+            {!loading && !standingError && standing.length === 0 ? (
+              <p className="mt-2">{t("noStanding")}</p>
+            ) : null}
+            {!standingError && standing.length > 0 ? (
+              <Input
+                type="search"
+                className="mt-4 max-w-xl"
+                aria-label={t("searchStanding")}
+                placeholder={t("searchStanding")}
+                value={standingQuery}
+                onChange={(event) => setStandingQuery(event.target.value)}
+              />
+            ) : null}
+            {!standingError && standing.length > 0 && standingFiltered.length === 0 ? (
+              <p className="mt-3 text-sm">{t("noMatches")}</p>
+            ) : null}
             <ul className="mt-3 space-y-2">
-              {standing.map((row) => (
+              {standingPagination.rows.map((row) => (
                 <li
                   key={String(row.id)}
                   className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] py-3"
@@ -297,7 +649,11 @@ export function ApprovalsScreen() {
                           new Date(String(row.expiresAt)).getTime() <= Date.now()
                             ? "standingExpired"
                             : "standingExpires",
-                          { date: new Date(String(row.expiresAt)).toLocaleString() },
+                          {
+                            date: Number.isFinite(new Date(String(row.expiresAt)).getTime())
+                              ? formatDateTime(String(row.expiresAt), locale)
+                              : t("standingTimeUnavailable"),
+                          },
                         )}
                       </p>
                     ) : null}
@@ -316,7 +672,8 @@ export function ApprovalsScreen() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => void revoke(String(row.id))}
+                      disabled={locked || Boolean(standingError)}
+                      onClick={() => void revoke(row)}
                     >
                       {t("revoke")}
                     </Button>
@@ -324,6 +681,9 @@ export function ApprovalsScreen() {
                 </li>
               ))}
             </ul>
+            {!standingError && standing.length > 0 ? (
+              <ListPagination {...standingPagination} label={t("standing")} />
+            ) : null}
           </section>
         ) : null}
       </fieldset>

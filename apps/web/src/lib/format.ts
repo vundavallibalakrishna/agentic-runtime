@@ -61,3 +61,16 @@ export function fromMicros(value: number | undefined): string {
   const fraction = (absolute % 1_000_000n).toString().padStart(6, "0").replace(/0+$/, "");
   return `${amount < 0n ? "-" : ""}${absolute / 1_000_000n}${fraction ? `.${fraction}` : ""}`;
 }
+
+/** Compare saved JSON content without treating object key order as a change. */
+export function sameDataValue(left: unknown, right: unknown): boolean {
+  const canonical = (value: unknown) =>
+    JSON.stringify(value, (_key, nested) =>
+      nested && typeof nested === "object" && !Array.isArray(nested)
+        ? Object.fromEntries(
+            Object.entries(nested).sort(([left], [right]) => left.localeCompare(right)),
+          )
+        : nested,
+    );
+  return canonical(left) === canonical(right);
+}
