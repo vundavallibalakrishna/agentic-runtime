@@ -2,15 +2,17 @@
 
 import { Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { BackButton } from "@/components/common/detail-state";
 import { Facts } from "@/components/common/facts";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -48,6 +50,7 @@ export function LibraryScreen() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,6 +85,18 @@ export function LibraryScreen() {
     }
   }
 
+  const matching = useMemo(
+    () =>
+      items.filter((item) =>
+        [item.title, item.filename, item.mediaType ?? item.media_type]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(query.trim().toLocaleLowerCase()),
+      ),
+    [items, query],
+  );
+  const pagination = usePagedRows(matching, query);
+
   return (
     <AppShell>
       <PageHeader
@@ -114,6 +129,23 @@ export function LibraryScreen() {
       ) : null}
       {!loading && !error && items.length === 0 ? <EmptyState title={t("empty")} /> : null}
       {items.length > 0 ? (
+        <label className="mb-5 block max-w-md text-sm" htmlFor="document-search">
+          {t("searchDocuments")}
+          <Input
+            className="mt-2"
+            id="document-search"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+      ) : null}
+      {items.length > 0 && matching.length === 0 ? (
+        <p className="mb-4 text-sm text-[var(--muted-foreground)]" role="status">
+          {t("noMatches")}
+        </p>
+      ) : null}
+      {items.length > 0 ? (
         <div className="space-y-6">
           <TableScroll
             className="rounded-xl border border-[var(--border)] bg-[var(--card)]"
@@ -132,7 +164,7 @@ export function LibraryScreen() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((item) => {
+                {pagination.rows.map((item) => {
                   const id = text(item.id);
                   return (
                     <TableRow className="hover:bg-[var(--muted)]" key={id}>
@@ -151,8 +183,12 @@ export function LibraryScreen() {
                         {Number(item.pageCount ?? item.page_count ?? 0)}
                       </TableCell>
                       <TableCell>
-                        <Badge tone={text(item.status) === "failed" ? "danger" : "success"}>
-                          {t(text(item.status) === "failed" ? "failed" : "ready")}
+                        <Badge tone={statusTone(text(item.status) || "ready")}>
+                          {item.status
+                            ? t.has(text(item.status))
+                              ? t(text(item.status))
+                              : text(item.status)
+                            : t("ready")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -186,7 +222,9 @@ export function LibraryScreen() {
               </TableBody>
             </Table>
           </TableScroll>
+          <ListPagination {...pagination} />
           {items.length > 1 ? <ComparePicker items={items} /> : null}
+          <DocumentChatAction />
         </div>
       ) : null}
     </AppShell>
@@ -252,6 +290,7 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
   const [tables, setTables] = useState<Row[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const requestVersion = useRef(0);
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
@@ -259,34 +298,36 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
     document.getElementById(hash)?.scrollIntoView({ block: "center" });
   }, [passages]);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError("");
-      try {
-        const [detail, passagePage, tablePage] = await Promise.all([
-          api<Row>(`/api/v1/library-documents/${documentId}`),
-          api<{ passages?: Row[] }>(
-            `/api/v1/library-documents/${documentId}/passages?pageFrom=1&pageTo=400`,
-          ),
-          api<{ tables?: Row[] }>(`/api/v1/library-documents/${documentId}/tables`),
-        ]);
-        if (cancelled) return;
-        setDoc(detail);
-        setPassages(passagePage.passages ?? []);
-        setTables(tablePage.tables ?? []);
-      } catch (caught) {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : t("error"));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+  const load = useCallback(async () => {
+    const version = ++requestVersion.current;
+    setLoading(true);
+    setError("");
+    setDoc(null);
+    try {
+      const [detail, passagePage, tablePage] = await Promise.all([
+        api<Row>(`/api/v1/library-documents/${documentId}`),
+        api<{ passages?: Row[] }>(
+          `/api/v1/library-documents/${documentId}/passages?pageFrom=1&pageTo=400`,
+        ),
+        api<{ tables?: Row[] }>(`/api/v1/library-documents/${documentId}/tables`),
+      ]);
+      if (version !== requestVersion.current) return;
+      setDoc(detail);
+      setPassages(passagePage.passages ?? []);
+      setTables(tablePage.tables ?? []);
+    } catch (caught) {
+      if (version === requestVersion.current)
+        setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      if (version === requestVersion.current) setLoading(false);
     }
+  }, [documentId, t]);
+  useEffect(() => {
     void load();
     return () => {
-      cancelled = true;
+      requestVersion.current += 1;
     };
-  }, [documentId, t]);
+  }, [load]);
 
   const outline = rowsOf(doc?.outline);
   return (
@@ -299,7 +340,10 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
       {loading ? <Skeleton className="h-48 w-full" /> : null}
       {error ? (
         <p className="mb-4 text-sm text-[var(--destructive)]" role="alert">
-          {error}
+          {error}{" "}
+          <Button type="button" variant="outline" onClick={() => void load()}>
+            {t("retry")}
+          </Button>
         </p>
       ) : null}
       {!loading && doc ? (
@@ -319,7 +363,15 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
                   <a className="underline" href={`#${text(item.anchor)}`}>
                     {text(item.heading)}
                   </a>
-                  <span className="text-[var(--muted-foreground)]"> p.{text(item.page)}</span>
+                  {item.pageFrom != null ? (
+                    <span className="text-[var(--muted-foreground)]">
+                      {" "}
+                      p.{text(item.pageFrom)}
+                      {item.pageTo != null && item.pageTo !== item.pageFrom
+                        ? `–${text(item.pageTo)}`
+                        : ""}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -365,6 +417,7 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
                 </pre>
               ))}
             </section>
+            <DocumentChatAction />
           </div>
         </div>
       ) : null}
@@ -380,4 +433,16 @@ function hashIs(anchor: string): boolean {
 function Highlighted({ text: value, active }: { text: string; active: boolean }) {
   if (!active || !value) return value;
   return <mark className="bg-[var(--muted)] text-[var(--foreground)]">{value}</mark>;
+}
+
+function DocumentChatAction() {
+  const t = useTranslations("documents");
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <p className="max-w-xl text-sm text-[var(--muted-foreground)]">{t("chatWorkHelp")}</p>
+      <Button asChild variant="outline">
+        <a href="/chat">{t("chatWork")}</a>
+      </Button>
+    </div>
+  );
 }

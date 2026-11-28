@@ -43,13 +43,13 @@ test("document library and a stored file", async ({ page }) => {
   await page.goto("/documents");
   await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
   await capture(page, "library-empty");
-  await page.getByLabel("File").setInputFiles({
+  await page.getByLabel("File", { exact: true }).setInputFiles({
     name: "access.md",
     mimeType: "text/markdown",
     buffer: Buffer.from("# Access\n\nStaff use badges at every door. Visitors sign the book.\n"),
   });
   await expect(page.getByRole("link", { name: "Access" }).first()).toBeVisible();
-  await page.getByLabel("File").setInputFiles({
+  await page.getByLabel("File", { exact: true }).setInputFiles({
     name: "travel.md",
     mimeType: "text/markdown",
     buffer: Buffer.from("# Travel\n\nTrips need approval from a manager.\n"),

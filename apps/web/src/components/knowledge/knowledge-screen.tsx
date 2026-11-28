@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus } from "@/components/common/detail-state";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState, ErrorState, ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
@@ -20,6 +21,7 @@ const MODE_KEY = "ar-settings-mode";
 
 export function KnowledgeScreen() {
   const t = useTranslations("knowledge");
+  const [query, setQuery] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -84,6 +86,18 @@ export function KnowledgeScreen() {
     }
   }
 
+  const matching = useMemo(
+    () =>
+      rows.filter((row) =>
+        [row.name, row.description, row.slug]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(query.trim().toLocaleLowerCase()),
+      ),
+    [rows, query],
+  );
+  const pagination = usePagedRows(matching, query);
+
   return (
     <AppShell>
       <ActionStatus busy={busy} />
@@ -113,6 +127,7 @@ export function KnowledgeScreen() {
               <label htmlFor="knowledge-name">
                 {t("name")}
                 <Input
+                  required
                   id="knowledge-name"
                   onChange={(event) => setName(event.target.value)}
                   value={name}
@@ -138,14 +153,33 @@ export function KnowledgeScreen() {
                   </label>
                 </>
               ) : null}
-              <Button type="submit">{t("save")}</Button>
+              <Button disabled={!name.trim()} type="submit">
+                {t("save")}
+              </Button>
             </form>
           }
         >
           {loading ? <Skeleton className="h-24 w-full max-w-xl" /> : null}
           {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
+          {!loading && rows.length > 0 ? (
+            <label className="mb-4 block text-sm" htmlFor="collection-search">
+              {t("findCollection")}
+              <Input
+                className="mt-2"
+                id="collection-search"
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
+          ) : null}
+          {!loading && rows.length > 0 && !matching.length ? (
+            <p className="mb-4 text-sm text-[var(--muted-foreground)]" role="status">
+              {t("noCollectionMatches")}
+            </p>
+          ) : null}
           <ul className="row-list">
-            {rows.map((row) => {
+            {pagination.rows.map((row) => {
               const id = String(row.id);
               const stats = (row.stats as Row) ?? {};
               return (
@@ -163,6 +197,7 @@ export function KnowledgeScreen() {
               );
             })}
           </ul>
+          {!loading && !error && rows.length > 0 ? <ListPagination {...pagination} /> : null}
         </ManagementLayout>
       </fieldset>
     </AppShell>

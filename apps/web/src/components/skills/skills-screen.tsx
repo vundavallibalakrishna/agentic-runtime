@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
@@ -101,6 +102,8 @@ export function SkillsScreen() {
     }
   }
 
+  const pagination = usePagedRows(rows, query);
+
   return (
     <AppShell>
       <PageHeader
@@ -192,9 +195,11 @@ export function SkillsScreen() {
             <Skeleton className="h-16 w-full" />
           </div>
         ) : null}
-        {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
+        {!loading && !error && rows.length === 0 ? (
+          <EmptyState title={query.trim() ? t("noMatches") : t("empty")} />
+        ) : null}
         <ul className="row-list">
-          {rows.map((skill) => (
+          {pagination.rows.map((skill) => (
             <li className="p-4" key={skill.id}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -212,6 +217,7 @@ export function SkillsScreen() {
             </li>
           ))}
         </ul>
+        {!loading && !error && rows.length > 0 ? <ListPagination {...pagination} /> : null}
       </ManagementLayout>
     </AppShell>
   );

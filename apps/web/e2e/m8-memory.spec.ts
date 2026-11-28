@@ -67,7 +67,7 @@ test("a preference is remembered, reviewed, and forgotten", async ({ page }) => 
 
   await page.goto("/memory");
   const bullet = page.getByRole("listitem").filter({ hasText: "bullet points" });
-  await bullet.getByRole("button", { name: "Delete" }).click();
+  await bullet.getByRole("button", { name: /^Delete memory / }).click();
   await expect(page.getByText("bullet points")).toHaveCount(0);
   await page.goto("/chat");
   await newChat(page);

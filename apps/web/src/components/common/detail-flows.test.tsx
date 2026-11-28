@@ -197,8 +197,12 @@ describe("detail flow failures", () => {
       (screen.getByRole("textbox", { name: "Instructions" }) as HTMLTextAreaElement).readOnly,
     ).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.mouseDown(screen.getByRole("tab", { name: messages.skills.resources }), {
+      button: 0,
+      ctrlKey: false,
+    });
     expect(
-      (screen.getByLabelText("Required tools, separated by commas") as HTMLInputElement).readOnly,
+      screen.getByRole("button", { name: messages.skills.tools }).hasAttribute("disabled"),
     ).toBe(true);
   });
 
