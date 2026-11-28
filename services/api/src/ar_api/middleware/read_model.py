@@ -1,5 +1,6 @@
 """Open one Postgres unit per authenticated request and commit it with the response."""
 
+import uuid  # noqa: TC003
 from typing import Any  # noqa: TC003
 
 import orjson
@@ -138,8 +139,8 @@ class ReadModelMiddleware:
 
 
 async def _tenant_of_request(
-    chat: RepositoryReadModel, tenant_id: object, path: str, receive: Receive
-) -> tuple[object, Receive]:
+    chat: RepositoryReadModel, tenant_id: uuid.UUID | None, path: str, receive: Receive
+) -> tuple[uuid.UUID | None, Receive]:
     """The tenant a request acts for: its principal's, or the one its address names."""
     if tenant_id is None and path.startswith(_HOOK_PREFIX):
         # A routine's webhook has no sign-in. Its address says whose routine it is.
