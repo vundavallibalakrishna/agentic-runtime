@@ -97,16 +97,17 @@ _TOOL_UPSERT = """
     INSERT INTO tool_calls (
         id, tenant_id, run_id, tool_id, tool_version_id, qualified_name, model_call_id,
         arguments_redacted, args_hash, risk_class, policy_decision, status, idempotency_key,
-        result_preview, is_error, error, latency_ms, created_at
+        result_preview, retrieval, is_error, error, latency_ms, created_at
     ) VALUES (
         :id, :tenant_id, :run_id, :tool_id, :tool_version_id, :qualified_name, :model_call_id,
         CAST(:arguments_redacted AS jsonb), :args_hash, :risk_class, :policy_decision, :status,
-        :idempotency_key, :result_preview, :is_error, CAST(:error AS jsonb), :latency_ms,
-        :created_at
+        :idempotency_key, :result_preview, CAST(:retrieval AS jsonb), :is_error,
+        CAST(:error AS jsonb), :latency_ms, :created_at
     )
     ON CONFLICT (id) DO UPDATE SET
         status = EXCLUDED.status,
         result_preview = EXCLUDED.result_preview,
+        retrieval = COALESCE(EXCLUDED.retrieval, tool_calls.retrieval),
         is_error = EXCLUDED.is_error,
         error = EXCLUDED.error,
         latency_ms = EXCLUDED.latency_ms,
@@ -117,6 +118,7 @@ _TOOL_UPDATE = """
     UPDATE tool_calls SET
         status = :status,
         result_preview = :result_preview,
+        retrieval = COALESCE(CAST(:retrieval AS jsonb), retrieval),
         is_error = :is_error,
         error = CAST(:error AS jsonb),
         latency_ms = :latency_ms
@@ -186,6 +188,9 @@ def _tool_params(
         "idempotency_key": as_text(row.get("idempotency_key"), f"{run_id}:{call_id}"),
         "result_preview": row.get("result_preview")
         if isinstance(row.get("result_preview"), str)
+        else None,
+        "retrieval": as_json(row.get("retrieval"), {})
+        if isinstance(row.get("retrieval"), dict)
         else None,
         "is_error": as_bool(row.get("is_error")),
         "error": as_json(error, {}) if error is not None else None,

@@ -263,6 +263,12 @@ async def test_pgvector_conformance(database_url: str) -> None:
     ada = _query(rare, text_value="ZX-4471", principals=["user:ada"])
     hits = await store.search(ada)
     assert hits and hits[0].chunk_id == rare.chunk_id
+    # A query whose other words are absent still matches the one word that is present.
+    partial = await store.search(
+        _query(rare, text_value="ZX-4471 missing-token extra", principals=["user:ada"])
+    )
+    lexical = [hit for hit in partial if hit.lexical_rank and hit.chunk_id == rare.chunk_id]
+    assert lexical
     forged = HybridQuery(
         tenant_id=tenant_a,
         text="ZX-4471",

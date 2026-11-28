@@ -287,6 +287,10 @@ class KnowledgeBook:
             target["chunking"] = {**_chunking(body["chunking"]), **_sizes(target["chunking"])}
         if body.get("text_search_config") in {"simple", "english"}:
             target["text_search_config"] = body["text_search_config"]
+        from ar_domain.knowledge.index_text import chunking_with_text_version  # noqa: PLC0415
+
+        held = target.get("chunking")
+        target["chunking"] = chunking_with_text_version(held if isinstance(held, dict) else {})
         model_id = target.get("embedding_model_id")
         target["embedding_model_id"] = None if model_id is None else str(model_id)
         return target
@@ -741,6 +745,10 @@ class KnowledgeBook:
             debug=bool(body.get("debug")),
             min_score=_bar(body.get("min_score", body.get("minScore"))),
             document_ids=_document_ids(body.get("document_ids", body.get("documentIds"))),
+            candidate_k=_optional_positive(body.get("candidate_k", body.get("candidateK"))),
+            max_passages_per_document=_optional_positive(
+                body.get("max_per_document", body.get("maxPerDocument"))
+            ),
         )
 
     def _upload_source(self, actor: Actor, collection: dict[str, object]) -> dict[str, object]:
@@ -1009,17 +1017,29 @@ def _too_wide(dims: int) -> ArError:
     )
 
 
+def _optional_positive(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
+
+
 def _chunking(value: object) -> dict[str, object]:
     raw = value if isinstance(value, dict) else {}
     target = int(raw.get("target_tokens") or 512)
     overlap = int(raw.get("overlap_pct") or 12)
     if target < 128 or target > 2048 or overlap < 0 or overlap > 30:
         raise ValidationFailedError("chunking is outside the allowed range")
-    return {
+    from ar_domain.knowledge.index_text import chunking_with_text_version  # noqa: PLC0415
+
+    body: dict[str, object] = {
         "target_tokens": target,
         "overlap_pct": overlap,
         "contextual": bool(raw.get("contextual") or False),
     }
+    for key in ("repeated_block_share", "repeated_block_min_chars"):
+        if key in raw:
+            body[key] = raw[key]
+    return chunking_with_text_version(body)
 
 
 # The largest page of a document's text one read returns (spec 08 §6, knowledge.get_document).

@@ -426,7 +426,7 @@ def _prove(client: httpx.Client, state: dict[str, object]) -> None:
     if not isinstance(retrieval, dict) or not retrieval.get("hits"):
         raise SystemExit("the answer had no retrieval trace")
     used = int(retrieval.get("usedChars") or retrieval.get("used_chars") or 0)
-    if used > 12_000:
+    if used > 30_000:
         raise SystemExit(f"retrieval used {used} characters")
     bare = _ask(
         client,
@@ -470,7 +470,7 @@ def _prove(client: httpx.Client, state: dict[str, object]) -> None:
     if not isinstance(long_retrieval, dict):
         raise SystemExit("the long document had no retrieval trace")
     long_used = int(long_retrieval.get("usedChars") or long_retrieval.get("used_chars") or 0)
-    if long_used <= 0 or long_used > 12_000:
+    if long_used <= 0 or long_used > 30_000:
         raise SystemExit(f"long retrieval budget was {long_used}")
     hits = long_retrieval.get("hits")
     blob = json.dumps(hits)

@@ -18,9 +18,11 @@ from ar_domain.audit.memory import remember
 from ar_domain.documents.chunk import retrieval_budget
 from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.acl import collection_acl
+from ar_domain.knowledge.boilerplate import block_settings, repeated_in_collection, without_repeated
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.knowledge.chunker import ChunkDraft, chunk_markdown, token_count
 from ar_domain.knowledge.embedding import embed_for_collection
+from ar_domain.knowledge.index_text import indexed_text
 from ar_domain.knowledge.pipeline import _stats, stored_bytes
 from ar_domain.knowledge.raw import keep_raw
 from ar_domain.knowledge.store import active_index
@@ -87,8 +89,24 @@ async def add_member(
     if kind in {"upload", "text"}:
         # Text that was typed or pasted has no other home: keep it, so it can be re-indexed.
         keep_raw(store, document, str(body.get("text") or "").encode(), mime_type="text/plain")
+    _share, min_chars = block_settings(collection)
+    repeated = repeated_in_collection(store, collection)
+    cleaned: list[dict[str, str]] = []
+    dropped = 0
+    for item in passages:
+        text, gone = without_repeated(str(item.get("text") or ""), repeated, min_chars=min_chars)
+        dropped += gone
+        if text.strip():
+            cleaned.append({**item, "text": text})
+    passages = cleaned
+    document["repeated_blocks_dropped"] = dropped
     drafts = _drafts(passages)
-    vectors = embed_for_collection(store, collection, [item.text for item in drafts])
+    title = str(document.get("title") or "")
+    vectors = embed_for_collection(
+        store,
+        collection,
+        [indexed_text(title, list(item.heading_path), item.text) for item in drafts],
+    )
     await _write_chunks(store, collection, document, drafts, vectors, passages=passages)
     _stats(store, collection)
     remember(
@@ -189,6 +207,11 @@ async def retrieve(
     top_k: int = 8,
     min_score: float | None = None,
     earlier: list[str] | None = None,
+    candidate_k: int | None = None,
+    max_passages_per_document: int | None = None,
+    context_chars: int | None = None,
+    plan: bool = False,
+    planner_alias: str | None = None,
 ) -> dict[str, object]:
     """Hybrid search trimmed to the prompt budget. The trace lists every chunk used.
 
@@ -197,6 +220,7 @@ async def retrieve(
     ``earlier`` is what the person said before in this conversation, each searched
     as well, so a follow-up finds what it refers to.
     """
+    from ar_domain.knowledge.retrieval import diversify, max_per_document  # noqa: PLC0415
     from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
     from ar_domain.knowledge.threshold import LIBRARY_MISS, clears  # noqa: PLC0415
 
@@ -204,13 +228,23 @@ async def retrieve(
     # A follow-up ("what got better for them?") names nothing to search for. What the
     # person said before does, so each earlier turn, newest first, is one more query;
     # fusion keeps the new message's own best passage first.
-    for text in reversed([item.strip() for item in earlier or [] if item.strip()]):
-        if text not in queries:
-            queries.append(text)
+    prior = [item.strip() for item in earlier or [] if item.strip()]
+    planned: list[str] | None = None
+    if plan and planner_alias:
+        from ar_domain.knowledge.planning import plan_search_queries  # noqa: PLC0415
+
+        planned = await plan_search_queries(store, actor.tenant_id, planner_alias, query, prior)
+    if planned:
+        queries = planned
+    else:
+        for text in reversed(prior):
+            if text not in queries:
+                queries.append(text)
     ranked: list[list[dict[str, object]]] = []
     found: dict[str, object] = {}
-    for item in queries:
-        found = await search_async(
+
+    async def _one(item: str) -> dict[str, object]:
+        return await search_async(
             store,
             actor,
             query=item,
@@ -218,24 +252,37 @@ async def retrieve(
             top_k=min(max(top_k, 1), _max_hits()),
             debug=True,
             min_score=min_score,
+            candidate_k=candidate_k,
+            max_passages_per_document=max_passages_per_document,
         )
+
+    import asyncio  # noqa: PLC0415
+
+    found_rows = await asyncio.gather(*(_one(item) for item in queries))
+    for found in found_rows:
         raw_hits = found.get("hits")
         ranked.append(
             [hit for hit in raw_hits if isinstance(hit, dict)] if isinstance(raw_hits, list) else []
         )
     # Several queries may each bring a passage, so the count is bounded by the same
     # ceiling a single query has; the character budget below still applies.
-    fused = _fused(ranked)[: _max_hits() if len(queries) > 1 else None]
+    ceiling = _max_hits() if len(queries) > 1 else top_k
+    fused = diversify(
+        _fused(ranked),
+        top_k=min(max(ceiling, 1), _max_hits()),
+        per_document=max_per_document(max_passages_per_document),
+    )
     hits = [hit for hit in fused if clears(hit, min_score)]
+    budget = _context_budget(context_chars)
     kept: list[dict[str, object]] = []
     used = 0
     for hit in hits:
         text = str(hit.get("text") or hit.get("snippet") or "")
-        if used and used + len(text) > retrieval_budget():
+        if used and used + len(text) > budget:
             break
         used += len(text)
         kept.append(hit)
-        if used >= retrieval_budget():
+        if used >= budget:
             break
     model = ""
     if collection_ids:
@@ -245,10 +292,11 @@ async def retrieve(
     trace = {
         "query": query[:500],
         "queries": [item[:200] for item in queries] if len(queries) > 1 else [],
+        "planned": bool(planned),
         "collection_ids": [str(item) for item in collection_ids],
         "embedding_model": model,
         "rerank_model": str(found.get("rerank_model") or ""),
-        "budget_chars": retrieval_budget(),
+        "budget_chars": budget,
         "used_chars": used,
         "min_score": min_score,
         "below_threshold": min_score is not None and not kept,
@@ -258,6 +306,13 @@ async def retrieve(
     if not kept:
         body["answer"] = LIBRARY_MISS
     return body
+
+
+def _context_budget(context_chars: int | None) -> int:
+    """Characters of passage text the model is given. The agent may set its own."""
+    if isinstance(context_chars, int) and not isinstance(context_chars, bool) and context_chars > 0:
+        return context_chars
+    return retrieval_budget()
 
 
 def trace_hit(hit: dict[str, object]) -> dict[str, object]:
@@ -566,7 +621,9 @@ async def _write_chunks(
                 source_id=document["source_id"],
                 index_version=version,
                 dense=vector,
-                lexical_text=draft.text,
+                lexical_text=indexed_text(
+                    str(document.get("title") or ""), list(draft.heading_path), draft.text
+                ),
                 text_search_config=str(collection.get("text_search_config") or "simple"),
                 acl=_principals(document.get("acl_principals")),
                 classification=str(document.get("classification") or "internal"),

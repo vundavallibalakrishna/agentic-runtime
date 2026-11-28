@@ -32,6 +32,9 @@ class EvalInput(ApiModel):
     as_user: EvalPrincipal | None = None
     variables: dict[str, object] = Field(default_factory=dict)
     grounding: dict[str, object] | None = None
+    # Pages the case expects retrieval to find. A URL, a path, a document id or a title.
+    # Retrieval recall is the share of these that a search returned. It is not a verdict.
+    expected_pages: list[str] = Field(default_factory=list)
 
 
 class ContainsAssertion(ApiModel):

@@ -331,6 +331,11 @@ export type Autoretrieve = boolean;
 export type Topk1 = number;
 export type Contextturns = number;
 export type Minscore = number | null;
+export type Candidatek = number | null;
+export type Maxperdocument = number;
+export type Contextchars = number | null;
+export type Planqueries = boolean;
+export type Planneralias = string | null;
 /**
  * @maxItems 30
  */
@@ -639,6 +644,11 @@ export interface KnowledgeSpec {
   topK?: Topk1;
   contextTurns?: Contextturns;
   minScore?: Minscore;
+  candidateK?: Candidatek;
+  maxPerDocument?: Maxperdocument;
+  contextChars?: Contextchars;
+  planQueries?: Planqueries;
+  plannerAlias?: Planneralias;
 }
 export interface MemorySpec {
   enabled?: Enabled;
@@ -1128,6 +1138,11 @@ export interface KnowledgeSpec1 {
   topK?: Topk1;
   contextTurns?: Contextturns;
   minScore?: Minscore;
+  candidateK?: Candidatek;
+  maxPerDocument?: Maxperdocument;
+  contextChars?: Contextchars;
+  planQueries?: Planqueries;
+  plannerAlias?: Planneralias;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema

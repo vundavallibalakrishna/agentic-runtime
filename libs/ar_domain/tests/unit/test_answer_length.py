@@ -38,6 +38,9 @@ def test_the_rule_comes_after_the_passages() -> None:
     system = str(run["prompt_messages"][0]["content"])  # type: ignore[index]
     assert system.rstrip().endswith(length_rule(definition))
     assert "at most 120 words" in system
+    assert "every part the question asks for" in system
+    assert "compress the wording" in system
+    assert "most important parts" not in system
     assert system.index("Pricing is on request.") < system.index("at most 120 words")
 
 

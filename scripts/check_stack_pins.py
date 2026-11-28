@@ -14,7 +14,17 @@ _INFRA_PATHS = [
     *ROOT.glob("images/**/*"),
     *ROOT.glob(".github/workflows/*.yml"),
 ]
-INFRA = "\n".join(path.read_text(encoding="utf-8") for path in _INFRA_PATHS if path.is_file())
+
+
+def _text(path: Path) -> str:
+    """File text. A bytecode or other binary file under images/ is not a pin."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return ""
+
+
+INFRA = "\n".join(_text(path) for path in _INFRA_PATHS if path.is_file())
 
 VERSION = re.compile(r"\d+\.\d+(?:\.\d+)?(?:\.post\d+)?(?:[a-zA-Z]\d+)?")
 PACKAGE = re.compile(r"\[\[package\]\]\nname = \"([^\"]+)\"\nversion = \"([^\"]+)\"")

@@ -274,11 +274,9 @@ def test_the_default_limits_are_one_set_of_numbers_everywhere() -> None:
         "max_cost_micros": 4_000_000,
         "max_wall_clock_s": 600,
         "max_tool_calls": 16,
-        "max_parallel_tool_calls": 1,
+        "max_parallel_tool_calls": 3,
     }
-    limits = {
-        key: value for key, value in DEFAULT_RUN_BUDGET.items() if key != "max_parallel_tool_calls"
-    }
+    limits = dict(DEFAULT_RUN_BUDGET)
     assert read_budget({}) == limits
     budget = assistant_definition()["budget"]
     assert budget == DEFAULT_RUN_BUDGET
@@ -286,6 +284,18 @@ def test_the_default_limits_are_one_set_of_numbers_everywhere() -> None:
     # Each one is still the agent's to set.
     for key in limits:
         assert read_budget({"budget": {key: 5}}) == {**limits, key: 5}
+
+
+def test_hitting_the_tool_call_cap_asks_the_model_to_answer() -> None:
+    from ar_domain.tools.agent_loop import TOOLS_CLOSED, close_tools
+
+    run: dict[str, object] = {}
+    messages: list[dict[str, object]] = []
+    close_tools(run, messages, [{"id": "call-1"}, {"id": "call-2"}])
+    assert run["tools_closed"] is True
+    assert len(messages) == 2
+    assert messages[0]["content"] == TOOLS_CLOSED
+    assert "Answer now" in str(messages[0]["content"])
 
 
 def test_the_default_limits_fit_each_other() -> None:

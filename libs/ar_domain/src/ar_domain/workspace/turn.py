@@ -164,6 +164,13 @@ async def _retrieve(
             top_k=_top_k(definition),
             min_score=retrieval_bar(store, tenant, definition),
             earlier=earlier_user_turns(store, run, _context_turns(definition)),
+            candidate_k=_optional_int(definition, "candidate_k", "candidateK"),
+            max_passages_per_document=_optional_int(
+                definition, "max_per_document", "maxPerDocument"
+            ),
+            context_chars=_optional_int(definition, "context_chars", "contextChars"),
+            plan=_wants_plan(definition),
+            planner_alias=_planner_alias(store, tenant, definition),
         )
     except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
         detail = str(exc.detail or exc)
@@ -290,9 +297,9 @@ def length_rule(definition: dict[str, object] | None) -> str:
     if words is None:
         return ""
     return (
-        f"Length: your answer is at most {words} words. Lead with the direct answer, keep "
-        "only what the question needs, and keep each citation. When the question asks for "
-        "more than fits, cover the most important parts and say what you left out."
+        f"Length: your answer is at most {words} words. Lead with the direct answer and keep "
+        "each citation. Cover every part the question asks for. When that does not fit, "
+        "compress the wording rather than dropping a part, and say explicitly what you left out."
     )
 
 
@@ -303,6 +310,30 @@ def _definition(store: Any, run: dict[str, object]) -> dict[str, object] | None:
         return None
     definition = version.get("definition")
     return definition if isinstance(definition, dict) else None
+
+
+def _wants_plan(definition: dict[str, object]) -> bool:
+    from ar_domain.knowledge.planning import wants_plan  # noqa: PLC0415
+
+    return wants_plan(definition)
+
+
+def _planner_alias(store: Any, tenant_id: uuid.UUID, definition: dict[str, object]) -> str:
+    from ar_domain.knowledge.planning import planner_alias  # noqa: PLC0415
+
+    return planner_alias(store, tenant_id, definition)
+
+
+def _optional_int(definition: dict[str, object], *names: str) -> int | None:
+    """A positive integer from ``knowledge``, or None when the agent leaves the default."""
+    knowledge = definition.get("knowledge")
+    if not isinstance(knowledge, dict):
+        return None
+    for name in names:
+        raw = knowledge.get(name)
+        if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
+            return raw
+    return None
 
 
 def _top_k(definition: dict[str, object]) -> int:

@@ -347,6 +347,21 @@ def _env_whole(name: str, default: int) -> int:
     return value if value > 0 else default
 
 
+def any_term_tsquery(config: str) -> str:
+    """A tsquery that matches any remaining lexeme, ranked later by ``ts_rank_cd``.
+
+    ``websearch_to_tsquery`` drops the config's stop words and then ANDs the rest, so a
+    passage must contain every word and most questions match nothing on the lexical
+    side. The AND operator is rewritten to OR. A quoted phrase stays a phrase. An empty
+    query (only stop words) matches nothing and leaves the dense branch to answer.
+    """
+    return (
+        "COALESCE(NULLIF(regexp_replace("
+        f"websearch_to_tsquery('{config}', :text)::text, ' & ', ' | ', 'g'), '')::tsquery, "
+        "''::tsquery)"
+    )
+
+
 def build_hybrid_sql(*, dims: int, configs: list[str]) -> str:
     """One hybrid statement. Dims come from the allowlist. Both branches filter."""
     if dims not in SUPPORTED_DIMS:
@@ -354,7 +369,7 @@ def build_hybrid_sql(*, dims: int, configs: list[str]) -> str:
     chosen = [cfg for cfg in configs if cfg in TEXT_CONFIGS]
     if not chosen:
         chosen = ["simple"]
-    tsquery = " || ".join(f"websearch_to_tsquery('{cfg}', :text)" for cfg in chosen)
+    tsquery = " || ".join(any_term_tsquery(cfg) for cfg in chosen)
     return _HYBRID_SQL.replace("__DIMS__", str(dims)).replace("__TSQUERY__", tsquery)
 
 

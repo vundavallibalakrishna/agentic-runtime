@@ -1122,6 +1122,7 @@ class ToolPipeline:
             "status": status,
             "idempotency_key": _call_key(request, qualified, call_id),
             "result_preview": preview(text),
+            "retrieval": _retrieval(arguments, structured),
             "is_error": is_error,
             "error": error,
             "latency_ms": latency,
@@ -1279,6 +1280,14 @@ def _mark_mcp(outcome: dict[str, object], secret: str, name: str) -> dict[str, o
     outcome["text"] = text
     outcome["structured"] = bag
     return outcome
+
+
+def _retrieval(arguments: dict[str, object], structured: object) -> dict[str, object] | None:
+    """The passages a search returned, for the tool-call row. No passage text."""
+    from ar_domain.knowledge.retrieved import retrieval_record  # noqa: PLC0415
+
+    query = str(arguments.get("query") or "")
+    return retrieval_record(query, structured)
 
 
 def _scrub_arguments(qualified: str, arguments: dict[str, object]) -> dict[str, object]:

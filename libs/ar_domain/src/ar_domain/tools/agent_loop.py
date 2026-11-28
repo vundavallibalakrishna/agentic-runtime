@@ -56,9 +56,7 @@ def read_budget(
     """
     raw = definition.get("budget")
     source = raw if isinstance(raw, dict) else {}
-    defaults = {
-        key: value for key, value in DEFAULT_RUN_BUDGET.items() if key != "max_parallel_tool_calls"
-    }
+    defaults = dict(DEFAULT_RUN_BUDGET)
     limits: dict[str, int] = {}
     for key, default in defaults.items():
         value = source.get(key, default)
@@ -580,8 +578,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             run["step_kind"] = "tools"
             return True
         batch_images: list[dict[str, object]] = []
+        ran_together: set[int] = set()
         for position, call in enumerate(calls):
-            if not isinstance(call, dict):
+            if position in ran_together or not isinstance(call, dict):
                 continue
             if used_calls >= limits["max_tool_calls"] and not run.get("tools_closed"):
                 # The agent wants more tools than it may use. It answers from what it found.
@@ -656,19 +655,68 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                         )
                         return True
                 else:
-                    # The handler runs here, on the loop thread, and the loop goes on while
-                    # it waits for a network call or a command (ar_common.offload).
-                    outcome = await run_sync(
-                        _act,
-                        store,
-                        run,
-                        assistant,
-                        call,
-                        by_name,
-                        used_calls,
-                        retry=consecutive_errors > 0,
-                        limit_s=_time_left(limits, started),
+                    # Independent calls in this reply run together, up to the budget.
+                    group = [call]
+                    width = parallel_width(limits)
+                    if width > 1 and runs_alongside(name, call, by_name.get(name)):
+                        for ahead, nxt in enumerate(calls[position + 1 :], start=position + 1):
+                            if len(group) >= width or used_calls >= limits["max_tool_calls"]:
+                                break
+                            if not isinstance(nxt, dict):
+                                break
+                            ahead_name = str(nxt.get("name") or "")
+                            if not runs_alongside(ahead_name, nxt, by_name.get(ahead_name)):
+                                break
+                            group.append(nxt)
+                            ran_together.add(ahead)
+                            used_calls += 1
+                    retrying = consecutive_errors > 0
+                    limit_s = _time_left(limits, started)
+                    outcomes = await asyncio.gather(
+                        *(
+                            run_sync(
+                                _act,
+                                store,
+                                run,
+                                assistant,
+                                grouped,
+                                by_name,
+                                used_calls - len(group) + offset + 1,
+                                retry=retrying,
+                                limit_s=limit_s,
+                            )
+                            for offset, grouped in enumerate(group)
+                        )
                     )
+                    for grouped, outcome in zip(group, outcomes, strict=True):
+                        if outcome is None:
+                            return True
+                        _note_tool(
+                            outcome,
+                            grouped,
+                            messages,
+                            previews,
+                            batch_images,
+                            by_name,
+                            openai_tools,
+                            offered,
+                            deferred,
+                        )
+                        failed = bool(outcome["failed"])
+                        failed_open = failed_open or failed
+                        consecutive_errors = consecutive_errors + 1 if failed else 0
+                        if failed and planning_enabled(definition, documents=documents_turn):
+                            run["needs_replan"] = True
+                            planned = False
+                        if consecutive_errors >= failure_cap:
+                            _stop_error(
+                                store,
+                                run,
+                                assistant,
+                                "The tool kept failing, so this run stopped.",
+                            )
+                            return True
+                    continue
             if outcome is None:
                 return True
             failed = bool(outcome["failed"])
@@ -1240,6 +1288,59 @@ def _merge_source(current: str, step: str) -> str:
     return "mixed"
 
 
+def _note_tool(  # noqa: PLR0917
+    outcome: dict[str, object],
+    call: dict[str, object],
+    messages: list[dict[str, object]],
+    previews: list[dict[str, object]],
+    batch_images: list[dict[str, object]],
+    by_name: dict[str, dict[str, object]],
+    openai_tools: list[dict[str, object]],
+    offered: set[str],
+    deferred: bool,  # noqa: FBT001
+) -> None:
+    """Record one finished tool call on the turn."""
+    preview = outcome.get("preview")
+    if isinstance(preview, dict):
+        previews.append(preview)
+    messages.append(
+        {
+            "role": "tool",
+            "tool_call_id": str(call.get("id") or ""),
+            "content": str(outcome.get("wrapped") or ""),
+        }
+    )
+    produced = outcome.get("images")
+    if isinstance(produced, list):
+        batch_images.extend(item for item in produced if isinstance(item, dict))
+    if deferred and str(call.get("name") or "") in _SEARCH_TOOL_NAMES:
+        _add_found_tools(outcome.get("structured"), by_name, openai_tools, offered)
+
+
+def parallel_width(limits: dict[str, int]) -> int:
+    """How many independent tool calls may run at once. At least one."""
+    raw = limits.get("max_parallel_tool_calls", 1)
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        return 1
+    return raw
+
+
+def runs_alongside(name: str, call: dict[str, object], bound: dict[str, object] | None) -> bool:
+    """A call that can run beside others: no child agent, no schema repair, no approval class.
+
+    A call that pauses for a person, or that starts other agents, stays on its own so the
+    run can stop at that call.
+    """
+    from ar_domain.orchestration.engine import ORCHESTRATION_NAMES  # noqa: PLC0415
+
+    if name in ORCHESTRATION_NAMES or name.replace("__", ".") == "documents.map":
+        return False
+    if _argument_problem(bound, call):
+        return False
+    risk = str((bound or {}).get("risk_class") or "R0")
+    return risk in {"R0", "R1"}
+
+
 TOOLS_CLOSED = (
     "Not run: this answer has used every tool call it may make. Answer now from what "
     "the earlier tool results and passages say, and say plainly what you could not check."
@@ -1320,6 +1421,10 @@ def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], 
     endpoint = turn.get("endpoint_id")
     model = turn.get("answered_model")
     resolved = turn.get("resolved_model_id")
+    named = turn.get("model_alias")
+    alias = (
+        named.strip() if isinstance(named, str) and named.strip() else model_alias_for(store, run)
+    )
     if isinstance(resolved, str) and resolved:
         run["resolved_model_id"] = resolved
     if isinstance(model, str) and model:
@@ -1327,13 +1432,24 @@ def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], 
         assistant = store.messages.get(run.get("assistant_message_id"))
         if isinstance(assistant, dict):
             assistant["answered_model"] = model
-            assistant["model_alias"] = model_alias_for(store, run)
+            assistant["model_alias"] = alias
             registry = turn.get("model_id")
             if registry:
                 assistant["model_id"] = registry
                 run["model_id"] = registry
             if isinstance(resolved, str) and resolved:
                 assistant["resolved_model_id"] = resolved
+    trace = run.get("model_trace")
+    rows = list(trace) if isinstance(trace, list) else []
+    step_model = {
+        "step": step,
+        "model_alias": alias,
+        "model": str(model or ""),
+        "resolved_model_id": str(resolved or ""),
+    }
+    rows.append(step_model)
+    run["model_trace"] = rows
+    store._emit(run, "model.called", step_model)
     if turn.get("fallback") is True:
         store._emit(
             run,
@@ -1345,10 +1461,7 @@ def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], 
         )
     if not isinstance(endpoint, str) or not endpoint:
         return
-    trace = run.get("model_trace")
-    rows = list(trace) if isinstance(trace, list) else []
-    rows.append({"step": step, "endpoint_id": endpoint, "model": str(model or "")})
-    run["model_trace"] = rows
+    step_model["endpoint_id"] = endpoint
     _audit(
         store,
         run,
@@ -1733,6 +1846,9 @@ def _with_trace(store: Any, answer: str, run: dict[str, object]) -> list[dict[st
 def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> None:
     retrieval = run.get("retrieval")
     if isinstance(retrieval, dict):
+        from ar_domain.knowledge.retrieved import retrieval_record  # noqa: PLC0415
+
+        record = retrieval_record(str(retrieval.get("query") or ""), retrieval)
         store._emit(
             run,
             "knowledge.retrieved",
@@ -1740,6 +1856,8 @@ def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> Non
                 "message_id": str(assistant_id),
                 "used_chars": retrieval.get("used_chars"),
                 "hits": len(retrieval.get("hits") or []),
+                "passages": record["passages"] if isinstance(record, dict) else [],
+                "query": record["query"] if isinstance(record, dict) else "",
             },
         )
     loaded = run.get("loaded_skill")

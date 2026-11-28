@@ -329,17 +329,106 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
             state["elapsed_s"] = time.monotonic() - started
             return "sections"
         else:
-            outcome = await run_sync(
-                _act,
-                store,
-                run,
-                assistant,
-                call,
-                by_name,
-                used,
-                retry=_int(state.get("consecutive_errors")) > 0,
-                limit_s=_time_left(limits, started),
+            import asyncio  # noqa: PLC0415
+
+            from ar_domain.tools.agent_loop import (  # noqa: PLC0415
+                _note_tool,
+                parallel_width,
+                runs_alongside,
             )
+
+            group = [call]
+            width = parallel_width(limits)
+            if width > 1 and runs_alongside(name, call, by_name.get(name)):
+                spent = used
+                for nxt in pending[index + 1 :]:
+                    if len(group) >= width or spent >= limits["max_tool_calls"]:
+                        break
+                    if not isinstance(nxt, dict):
+                        break
+                    ahead_name = str(nxt.get("name") or "")
+                    if not runs_alongside(ahead_name, nxt, by_name.get(ahead_name)):
+                        break
+                    group.append(nxt)
+                    spent += 1
+                state["used_calls"] = spent
+            retrying = _int(state.get("consecutive_errors")) > 0
+            limit_s = _time_left(limits, started)
+            outcomes = await asyncio.gather(
+                *(
+                    run_sync(
+                        _act,
+                        store,
+                        run,
+                        assistant,
+                        grouped,
+                        by_name,
+                        used + offset,
+                        retry=retrying,
+                        limit_s=limit_s,
+                    )
+                    for offset, grouped in enumerate(group)
+                )
+            )
+            previews = state.get("previews")
+            if not isinstance(previews, list):
+                previews = []
+                state["previews"] = previews
+            images = state.get("batch_images")
+            if not isinstance(images, list):
+                images = []
+                state["batch_images"] = images
+            for offset, (grouped, outcome) in enumerate(zip(group, outcomes, strict=True)):
+                if outcome is None:
+                    state["pending_index"] = index + offset
+                    run["step_kind"] = "paused"
+                    return "paused"
+                failed = bool(outcome.get("failed"))
+                state["failed_open"] = bool(state.get("failed_open")) or failed
+                errors = _int(state.get("consecutive_errors"))
+                state["consecutive_errors"] = errors + 1 if failed else 0
+                _note_tool(
+                    outcome,
+                    grouped,
+                    messages,
+                    previews,
+                    images,
+                    by_name,
+                    openai_tools,
+                    offered,
+                    deferred,
+                )
+                from ar_domain.loop.repair import tool_failure_limit  # noqa: PLC0415
+                from ar_domain.tools.agent_loop import _definition  # noqa: PLC0415
+
+                if _int(state.get("consecutive_errors")) >= tool_failure_limit(
+                    _definition(store, run)
+                ):
+                    _stop_error(
+                        store, run, assistant, "The tool kept failing, so this run stopped."
+                    )
+                    return "final"
+            state["elapsed_s"] = time.monotonic() - started
+            state["pending_index"] = index + len(group)
+            if index + len(group) < len(pending):
+                state["phase"] = "tools"
+                return "tools"
+            if images:
+                shown = await run_sync(
+                    build_image_message,
+                    store,
+                    run,
+                    images,
+                    alias=alias,
+                    limit_s=_time_left(limits, started),
+                )
+                if isinstance(shown, dict):
+                    messages.append(shown)
+                state["batch_images"] = []
+            state["phase"] = "model"
+            state["pending_calls"] = []
+            state["pending_index"] = 0
+            return "model"
     if outcome is None:
         run["step_kind"] = "paused"
         return "paused"

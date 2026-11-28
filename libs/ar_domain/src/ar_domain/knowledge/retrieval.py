@@ -54,6 +54,48 @@ def merge_groups(
     return rrf_fuse(dense, [], rows, rrf_k=rrf_k, fused_k=fused_k)
 
 
+def candidate_k(override: int | None = None) -> int:
+    """How many passages are fetched before fusion and the per-document cap."""
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    if isinstance(override, int) and not isinstance(override, bool) and override > 0:
+        return override
+    return int(get_settings().knowledge_candidate_k)
+
+
+def max_per_document(override: int | None = None) -> int:
+    """How many of the selected passages may come from one document."""
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    if isinstance(override, int) and not isinstance(override, bool) and override > 0:
+        return override
+    return int(get_settings().knowledge_max_passages_per_document)
+
+
+def diversify(
+    hits: list[dict[str, object]], *, top_k: int, per_document: int
+) -> list[dict[str, object]]:
+    """The first ``top_k`` hits, with at most ``per_document`` from one document.
+
+    Hits stay in the order the search ranked them. A document that already filled its
+    share is skipped so a later document can take the place.
+    """
+    kept: list[dict[str, object]] = []
+    counts: dict[str, int] = {}
+    limit = max(top_k, 0)
+    share = max(per_document, 1)
+    for hit in hits:
+        document = str(hit.get("document_id") or "")
+        if document and counts.get(document, 0) >= share:
+            continue
+        if document:
+            counts[document] = counts.get(document, 0) + 1
+        kept.append(hit)
+        if len(kept) >= limit:
+            break
+    return kept
+
+
 def apply_rerank(
     query: str,
     hits: list[dict[str, object]],
@@ -61,6 +103,7 @@ def apply_rerank(
     top_k: int,
     min_score: float | None = None,
     target: ModelTarget | None = None,
+    window: int | None = None,
 ) -> tuple[list[dict[str, object]], float, str | None, bool]:
     """Score the top candidates against the question with the tenant's rerank model.
 
@@ -72,22 +115,26 @@ def apply_rerank(
     closest passages are returned in the order the search found them, and the model that
     reads them judges them.
     """
-    limit = _env_int("AR_KNOWLEDGE_RERANK_CANDIDATES", 50)
-    window = hits[:limit]
+    limit = (
+        window
+        if isinstance(window, int) and window > 0
+        else _env_int("AR_KNOWLEDGE_RERANK_CANDIDATES", 50)
+    )
+    pool = hits[:limit]
     if target is None:
-        return window[:top_k], 0.0, None, False
+        return pool[:top_k], 0.0, None, False
     from ar_domain.models.embedding import rerank, rerank_floor  # noqa: PLC0415
 
     bar = rerank_floor(target) if min_score is None else min_score
     started = time.perf_counter()
-    documents = [str(hit.get("rerank_text") or hit.get("snippet") or "") for hit in window]
+    documents = [str(hit.get("rerank_text") or hit.get("snippet") or "") for hit in pool]
     try:
         scores = rerank(target, query, documents)
     except Exception:  # noqa: BLE001 - rerank is optional; the search order still answers
-        return window[:top_k], (time.perf_counter() - started) * 1000, "rerank_unavailable", False
+        return pool[:top_k], (time.perf_counter() - started) * 1000, "rerank_unavailable", False
     elapsed = (time.perf_counter() - started) * 1000
     ranked: list[dict[str, object]] = []
-    for hit, score in zip(window, scores, strict=False):
+    for hit, score in zip(pool, scores, strict=False):
         copied = dict(hit)
         copied["rerank_score"] = score
         ranked.append(copied)

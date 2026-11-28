@@ -81,6 +81,29 @@ def test_a_forbidden_claim_the_answer_makes_fails_the_case() -> None:
     assert result["detail"] == "0 of 1 facts stated, 1 forbidden claims made"
 
 
+def test_the_judge_is_held_to_the_statement_and_the_agents_instructions() -> None:
+    seen: list[tuple[str, str]] = []
+
+    def ask(task: str, evidence: str) -> str | None:
+        seen.append((task, evidence))
+        return '{"verdict":"stated","quote":"Premium cloud lists 16x5 support."}'
+
+    result = judge_answer(
+        ANSWER,
+        MUST,
+        [],
+        ask,
+        model_id="m1",
+        instructions="Answer from the pages. Do not ask the visitor a question.",
+    )
+    assert result["passed"] is True
+    task, evidence = seen[0]
+    assert "paraphrase" in task
+    assert "clarifying question" in task
+    assert "Do not ask the visitor a question." in evidence
+    assert "agent_instructions" in evidence
+
+
 def test_a_reply_that_is_not_the_schema_is_failed_not_guessed() -> None:
     def ask(task: str, evidence: str) -> str | None:
         del task, evidence
