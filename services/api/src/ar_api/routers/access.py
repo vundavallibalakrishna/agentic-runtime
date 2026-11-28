@@ -85,7 +85,7 @@ async def enroll_totp(request: Request) -> dict[str, str]:
 
 
 @router.get("/api/v1/tenant/packs", dependencies=[Depends(require_permission("tenant:read"))])
-@expose(public=False, permission="tenant:read")
+@expose(public=False, permission="tenant:read", projection="settings")
 async def list_tenant_packs(request: Request) -> dict[str, object]:
     from ar_domain.packs.registry import tenant_packs  # noqa: PLC0415
 

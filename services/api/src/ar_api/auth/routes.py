@@ -276,10 +276,12 @@ async def logout(request: Request) -> JSONResponse:
     return response
 
 
-async def _tenant_summary(request: Request, principal: Principal) -> dict[str, str | None]:
+async def _tenant_summary(
+    request: Request, principal: Principal
+) -> tuple[dict[str, str | None], dict[str, object]]:
     """Slug, name and plan of the caller's tenant, as its row says."""
     if principal.tenant_id is None:
-        return {"slug": None, "name": None, "plan": None}
+        return {"slug": None, "name": None, "plan": None}, {}
     from ar_api.deps import identity_store  # noqa: PLC0415
     from ar_domain.db.context import TenantContext  # noqa: PLC0415
 
@@ -297,30 +299,29 @@ async def _tenant_summary(request: Request, principal: Principal) -> dict[str, s
         return await _summary(identity)
 
 
-async def _summary(identity: IdentityStore) -> dict[str, str | None]:
+async def _summary(identity: IdentityStore) -> tuple[dict[str, str | None], dict[str, object]]:
     tenant = await identity.get_tenant()
     if tenant is None:
-        return {"slug": None, "name": None, "plan": None}
+        return {"slug": None, "name": None, "plan": None}, {}
     plan = await identity.get_plan(tenant.plan_id)
     return {
         "slug": str(tenant.slug),
         "name": tenant.name,
         "plan": None if plan is None else plan.key,
-    }
+    }, tenant.settings
 
 
 @router.get("/api/v1/auth/session")
-@expose(public=False, permission=None)
+@expose(public=False, permission=None, repository_read=True)
 async def session(request: Request) -> dict[str, object]:
     principal: Principal | None = getattr(request.state, "principal", None)
     if principal is None:
         raise UnauthenticatedError()
-    from ar_api.actors import chat_of  # noqa: PLC0415
     from ar_contracts.tenants import TenantSettings  # noqa: PLC0415
-    from ar_domain.identity.tenant_settings import section, settings_for  # noqa: PLC0415
+    from ar_domain.identity.tenant_settings import section  # noqa: PLC0415
 
     defaults = TenantSettings()
-    tenant_settings = settings_for(chat_of(request), principal.tenant_id)
+    summary, tenant_settings = await _tenant_summary(request, principal)
     features = {
         **defaults.features.model_dump(by_alias=False),
         **section(tenant_settings, "features"),
@@ -335,7 +336,7 @@ async def session(request: Request) -> dict[str, object]:
         },
         "tenant": {
             "id": None if principal.tenant_id is None else str(principal.tenant_id),
-            **(await _tenant_summary(request, principal)),
+            **summary,
             "deployment_mode": request.app.state.settings.deployment_mode.value,
         },
         "permissions": sorted(principal.permissions),

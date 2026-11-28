@@ -118,3 +118,9 @@ Then `make dev`. Or skip the edits: `make dev AUTO_PORTS=1`.
 ## Full-stack verification
 
 `uv run python scripts/full_stack_smoke.py` verifies a published agent, a durable streamed reply, ingestion and real Temporal routine execution. It retains uniquely named review records and leaves the verification schedule paused. Full commands, coverage results, embedded-chat checks and visual steps are in [the recovery review](../testing/full-stack-review.md). Rerunning `scripts/dev_keys.py` repairs an old JWKS and quotes JSON settings without rotating retained private or encryption keys.
+
+### Reviewing a separate local UI
+
+Keep the browser origin and the API's `AR_PUBLIC_URL` identical, including scheme, host and port. When intentionally serving another origin, add that exact origin to `AR_CSRF_ALLOWED_ORIGINS` on that API. Preserve the browser's Origin header and the session's CSRF token; changing ports is not a reason to disable either check. The API must be restarted after changing its environment.
+
+Cookies are scoped to hosts, not ports. Use a distinct local hostname, such as `ui-fixes.localhost`, when running a second installation so its sign-in does not overwrite another installation's cookies on `localhost`. Give the separate installation its own database, object store, Valkey, Temporal namespace/service, Compose project **and network names**; a different web port alone does not isolate state or workers. Keep scheduled workers stopped when reviewing a copy of customer data until its external side effects have been reviewed.

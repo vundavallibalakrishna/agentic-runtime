@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from typing import Any
 
+    from ar_domain.durable.hydrate import ReadProjection
+
 _CONFIG = (
     "allow_loopback",
     "scanner",
@@ -287,6 +289,7 @@ class RepositoryReadModel:
         user_id: str = "",
         request_id: str = "",
         commit: bool = True,
+        projection: ReadProjection = "tenant",
     ) -> AsyncIterator[Any]:
         """Load one tenant, yield the unit, and commit it unless the caller does.
 
@@ -307,7 +310,7 @@ class RepositoryReadModel:
         # Steps that make another process act on this request's rows wait here until the
         # rows are committed (``ar_domain.durable.after``).
         unit.after_commit = []
-        await _load(unit, engine, tenant_id)
+        await _load(unit, engine, tenant_id, projection=projection)
         try:
             yield unit
         finally:
@@ -363,7 +366,13 @@ def _as_uuid(value: object) -> uuid.UUID | None:
     return None
 
 
-async def _load(unit: object, engine: AsyncEngine, tenant_id: uuid.UUID) -> None:
+async def _load(
+    unit: object,
+    engine: AsyncEngine,
+    tenant_id: uuid.UUID,
+    *,
+    projection: ReadProjection = "tenant",
+) -> None:
     """Hydrate inside a short read transaction. The commit transaction is the flush."""
     from ar_domain.durable.hydrate import hydrate_tenant  # noqa: PLC0415
     from ar_domain.durable.tracking import install_tracking  # noqa: PLC0415
@@ -373,9 +382,14 @@ async def _load(unit: object, engine: AsyncEngine, tenant_id: uuid.UUID) -> None
     loaded: dict[str, set[object]] = {}
     unit._initial_loaded = loaded  # type: ignore[attr-defined]
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
-        await apply_tenant_context(session, tenant_id)
+        await apply_tenant_context(
+            session,
+            tenant_id,
+            user_id=str(getattr(unit, "context_user_id", "") or ""),
+            request_id=str(getattr(unit, "context_request_id", "") or ""),
+        )
         try:
-            await hydrate_tenant(unit, engine, tenant_id, session=session)
+            await hydrate_tenant(unit, engine, tenant_id, session=session, projection=projection)
         finally:
             unit._initial_loaded = None  # type: ignore[attr-defined]
     for name, keys in seeded.items():

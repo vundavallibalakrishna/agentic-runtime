@@ -93,6 +93,7 @@ def get_engine(url: str) -> AsyncEngine:
         max_overflow=_MAX_OVERFLOW,
         pool_timeout=30,
         pool_pre_ping=True,
+        hide_parameters=True,
         connect_args=_CONNECT_ARGS,
     )
     _engines[url] = engine

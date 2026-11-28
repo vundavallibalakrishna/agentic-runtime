@@ -82,7 +82,7 @@ def _page(items: list[dict[str, object]]) -> dict[str, object]:
 
 
 @router.get("/api/v1/agents", dependencies=[Depends(require_permission("agents:read"))])
-@expose(public=False, permission="agents:read")
+@expose(public=False, permission="agents:read", projection="agents")
 async def list_agents(
     request: Request,
     q: Annotated[str | None, Query()] = None,
@@ -134,7 +134,7 @@ async def set_favourite(body: FavouriteBody, request: Request) -> dict[str, obje
 
 
 @router.get("/api/v1/agents/{agent_id}", dependencies=[Depends(require_permission("agents:read"))])
-@expose(public=False, permission="agents:read")
+@expose(public=False, permission="agents:read", projection="agents")
 async def get_agent(agent_id: uuid.UUID, request: Request) -> dict[str, object]:
     actor = actor_from(principal_of(request))
     return _life(request).detail(_life(request)._agent(actor, agent_id), actor)
@@ -187,7 +187,7 @@ async def unarchive_agent(agent_id: uuid.UUID, request: Request) -> dict[str, ob
     "/api/v1/agents/{agent_id}/versions",
     dependencies=[Depends(require_permission("agents:read"))],
 )
-@expose(public=False, permission="agents:read")
+@expose(public=False, permission="agents:read", projection="agents")
 async def list_versions(agent_id: uuid.UUID, request: Request) -> dict[str, object]:
     return _page(_life(request).versions(actor_from(principal_of(request)), agent_id))
 
@@ -196,7 +196,7 @@ async def list_versions(agent_id: uuid.UUID, request: Request) -> dict[str, obje
     "/api/v1/agents/{agent_id}/versions/{version_ref}",
     dependencies=[Depends(require_permission("agents:read"))],
 )
-@expose(public=False, permission="agents:read")
+@expose(public=False, permission="agents:read", projection="agents")
 async def get_version(agent_id: uuid.UUID, version_ref: str, request: Request) -> dict[str, object]:
     return _life(request).version(actor_from(principal_of(request)), agent_id, version_ref)
 

@@ -44,6 +44,7 @@ Cursor-based on all list endpoints:
 ```
 
 - The cursor is base64url(JSON `{"k": [<sort key values>], "d": "asc|desc"}`) signed with HMAC (`AR_CURSOR_SECRET`) to prevent tampering; invalid cursor → `400 invalid_cursor`.
+- Conversation and run cursors additionally bind the tenant, user, resource and filters; reusing one under a different scope returns `400 invalid_cursor`. Search strings are bounded to 256 characters and cursors to 4096.
 - Default sort: `created_at DESC, id DESC` unless the endpoint documents otherwise. `sort` param where supported: `sort=-updated_at`.
 - Filters are query params named after fields (`status=published&owner_user_id=...`). Free-text search param is `q`.
 

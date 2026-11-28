@@ -34,6 +34,16 @@ class ProblemDetails(ApiModel):
     errors: list[ProblemField] = Field(default_factory=list)
 
 
+class ListQuery(ApiModel):
+    """Bounded signed-cursor reads; filters apply before the page limit."""
+
+    limit: int = Field(default=50, ge=1, le=200)
+    cursor: str | None = Field(default=None, max_length=4096)
+    q: str = Field(default="", max_length=256)
+    status: str | None = Field(default=None, max_length=64)
+    include_previews: bool = False
+
+
 class Page(ApiModel):
     """Cursor page. Items are JSON objects so the generated Zod schema stays finite."""
 

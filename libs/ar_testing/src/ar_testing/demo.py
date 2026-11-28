@@ -110,6 +110,9 @@ def serve_demo_tenant(app: Any) -> Any:
     from ar_testing.memory_secrets import provider  # noqa: PLC0415
 
     app.state.secret_provider = provider(store)
+    from ar_testing.conversation_pages import install  # noqa: PLC0415
+
+    install(app)
     return app
 
 

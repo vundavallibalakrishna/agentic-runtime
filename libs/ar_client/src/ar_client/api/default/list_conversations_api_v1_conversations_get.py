@@ -18,10 +18,32 @@ from typing import cast
 
 def _get_kwargs(
     *,
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
     include_previews: bool | Unset = False,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
+
+    params["limit"] = limit
+
+    json_cursor: None | str | Unset
+    if isinstance(cursor, Unset):
+        json_cursor = UNSET
+    else:
+        json_cursor = cursor
+    params["cursor"] = json_cursor
+
+    params["q"] = q
+
+    json_status: None | str | Unset
+    if isinstance(status, Unset):
+        json_status = UNSET
+    else:
+        json_status = status
+    params["status"] = json_status
 
     params["includePreviews"] = include_previews
 
@@ -78,6 +100,10 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
     include_previews: bool | Unset = False,
 ) -> Response[
     HTTPValidationError
@@ -86,6 +112,10 @@ def sync_detailed(
     """List Conversations
 
     Args:
+        limit (int | Unset):  Default: 50.
+        cursor (None | str | Unset):
+        q (str | Unset):  Default: ''.
+        status (None | str | Unset):
         include_previews (bool | Unset):  Default: False.
 
     Raises:
@@ -97,6 +127,10 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        limit=limit,
+        cursor=cursor,
+        q=q,
+        status=status,
         include_previews=include_previews,
     )
 
@@ -110,6 +144,10 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
     include_previews: bool | Unset = False,
 ) -> (
     HTTPValidationError
@@ -119,6 +157,10 @@ def sync(
     """List Conversations
 
     Args:
+        limit (int | Unset):  Default: 50.
+        cursor (None | str | Unset):
+        q (str | Unset):  Default: ''.
+        status (None | str | Unset):
         include_previews (bool | Unset):  Default: False.
 
     Raises:
@@ -131,6 +173,10 @@ def sync(
 
     return sync_detailed(
         client=client,
+        limit=limit,
+        cursor=cursor,
+        q=q,
+        status=status,
         include_previews=include_previews,
     ).parsed
 
@@ -138,6 +184,10 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
     include_previews: bool | Unset = False,
 ) -> Response[
     HTTPValidationError
@@ -146,6 +196,10 @@ async def asyncio_detailed(
     """List Conversations
 
     Args:
+        limit (int | Unset):  Default: 50.
+        cursor (None | str | Unset):
+        q (str | Unset):  Default: ''.
+        status (None | str | Unset):
         include_previews (bool | Unset):  Default: False.
 
     Raises:
@@ -157,6 +211,10 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        limit=limit,
+        cursor=cursor,
+        q=q,
+        status=status,
         include_previews=include_previews,
     )
 
@@ -168,6 +226,10 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
     include_previews: bool | Unset = False,
 ) -> (
     HTTPValidationError
@@ -177,6 +239,10 @@ async def asyncio(
     """List Conversations
 
     Args:
+        limit (int | Unset):  Default: 50.
+        cursor (None | str | Unset):
+        q (str | Unset):  Default: ''.
+        status (None | str | Unset):
         include_previews (bool | Unset):  Default: False.
 
     Raises:
@@ -190,6 +256,10 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            limit=limit,
+            cursor=cursor,
+            q=q,
+            status=status,
             include_previews=include_previews,
         )
     ).parsed

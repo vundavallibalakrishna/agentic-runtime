@@ -1,7 +1,7 @@
 """Chat, models, agents, files and runs. Specs 04, 05, 06, 13."""
 
 import uuid
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
@@ -9,10 +9,12 @@ from pydantic import Field
 from temporalio.service import RPCError
 
 from ar_api.actors import actor_from
-from ar_api.deps import expose, require_permission
+from ar_api.deps import ConversationPagesDep, expose, require_permission
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, UnavailableError
 from ar_common.sandboxkit import download_headers
+from ar_common.settings import cursor_secret_text
 from ar_contracts.api_model import ApiModel
+from ar_contracts.json_api import ListQuery, public_dump
 from ar_domain.agents.access import can_edit
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.db.context import Principal
@@ -453,7 +455,7 @@ async def test_model(model_id: uuid.UUID, request: Request) -> dict[str, object]
 
 
 @router.get("/api/v1/model-aliases", dependencies=[Depends(require_permission("models:read"))])
-@expose(public=False, permission="models:read")
+@expose(public=False, permission="models:read", projection="models")
 async def list_aliases(request: Request) -> dict[str, object]:
     from ar_domain.models.aliases import standard_aliases  # noqa: PLC0415
 
@@ -561,20 +563,20 @@ async def platform_create_provider(body: ProviderBody, request: Request) -> dict
 
 
 @router.get("/api/v1/conversations", dependencies=[Depends(require_permission("chat:use"))])
-@expose(public=False, permission="chat:use")
+@expose(public=False, permission="chat:use", repository_read=True)
 async def list_conversations(
-    request: Request,
-    *,
-    include_previews: Annotated[bool, Query(alias="includePreviews")] = False,
+    pages: ConversationPagesDep, query: Annotated[ListQuery, Query()]
 ) -> dict[str, object]:
-    principal = _principal(request)
-    return _page(
-        _chat(request).list_conversations(
-            _tenant(principal),
-            uuid.UUID(principal.id),
-            include_previews=include_previews,
-        )
+    return await _list_page(pages, query, "conversations")
+
+
+async def _list_page(
+    pages: ConversationPagesDep, query: ListQuery, collection: Literal["conversations", "runs"]
+) -> dict[str, object]:
+    page = await pages.page(
+        collection, secret=cursor_secret_text(), **query.model_dump(by_alias=False)
     )
+    return public_dump(page)
 
 
 @router.post("/api/v1/conversations", dependencies=[Depends(require_permission("chat:use"))])
@@ -875,7 +877,7 @@ async def export_conversation(
 
 
 @router.get("/api/v1/files:limits", dependencies=[Depends(require_permission("chat:use"))])
-@expose(public=False, permission="chat:use")
+@expose(public=False, permission="chat:use", projection="settings")
 async def upload_limits(request: Request) -> UploadLimits:
     """The types a person may attach and the largest file, as the organisation has them."""
     principal = _principal(request)
@@ -963,10 +965,11 @@ async def delete_file(file_id: uuid.UUID, request: Request) -> dict[str, bool]:
 
 
 @router.get("/api/v1/runs", dependencies=[Depends(require_permission("chat:use"))])
-@expose(public=False, permission="chat:use")
-async def list_runs(request: Request) -> dict[str, object]:
-    principal = _principal(request)
-    return _page(_chat(request).list_runs(_tenant(principal), uuid.UUID(principal.id)))
+@expose(public=False, permission="chat:use", repository_read=True)
+async def list_runs(
+    pages: ConversationPagesDep, query: Annotated[ListQuery, Query()]
+) -> dict[str, object]:
+    return await _list_page(pages, query, "runs")
 
 
 @router.post(

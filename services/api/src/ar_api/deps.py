@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Annotated, TypeVar
 from fastapi import Depends, Request
 
 from ar_common.errors import ForbiddenError, UnauthenticatedError
+from ar_domain.conversations.repository import ConversationRepository
 from ar_domain.db.context import Principal, TenantContext
 from ar_domain.db.session import platform_session, tenant_session
 from ar_domain.identity.repository import IdentityRepository
@@ -18,16 +19,26 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncEngine
 
+    from ar_domain.durable.hydrate import ReadProjection
+
 Route = TypeVar("Route", bound="Callable[..., object]")
 
 PUBLIC = "public"
 AUTHENTICATED = "authenticated"
 
 
-def expose(*, permission: str | None, public: bool) -> Callable[[Route], Route]:
+def expose(
+    *,
+    permission: str | None,
+    public: bool,
+    repository_read: bool = False,
+    projection: ReadProjection = "tenant",
+) -> Callable[[Route], Route]:
     """Mark a route for the permission lint."""
 
     def decorate(func: Route) -> Route:
+        func.__read_projection__ = projection  # type: ignore[attr-defined]
+        func.__repository_read__ = repository_read  # type: ignore[attr-defined]
         func.__public__ = public  # type: ignore[attr-defined]
         func.__permission__ = permission  # type: ignore[attr-defined]
         func.__authenticated__ = not public  # type: ignore[attr-defined]
@@ -128,3 +139,13 @@ async def get_tenant_writer(request: Request) -> AsyncIterator[IdentityService]:
 
 
 TenantWriterDep = Annotated[IdentityService, Depends(get_tenant_writer)]
+
+
+async def get_conversation_pages(request: Request) -> AsyncIterator[ConversationRepository]:
+    """The existing list routes read bounded SQL pages in one tenant transaction."""
+    ctx = TenantContext.from_principal(current_principal(request), str(request.state.request_id))
+    async with tenant_session(ctx) as session:
+        yield ConversationRepository(session, ctx)
+
+
+ConversationPagesDep = Annotated[ConversationRepository, Depends(get_conversation_pages)]

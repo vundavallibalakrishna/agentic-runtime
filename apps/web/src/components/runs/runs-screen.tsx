@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
-import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
+import { ErrorMessage } from "@/components/common/detail-state";
+import { ListPagination } from "@/components/common/list-pagination";
 import { EmptyState } from "@/components/common/management-layout";
+import { useCursorPage } from "@/components/common/use-cursor-page";
 import { PageHeader } from "@/components/page-header";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +23,6 @@ import {
   TableRow,
   TableScroll,
 } from "@/components/ui/table";
-import { api } from "@/lib/api";
 
 import { durationLabel, liveStatuses } from "./format";
 
@@ -39,32 +40,10 @@ type Run = {
 
 export function RunsScreen() {
   const t = useTranslations("runs");
-  const [rows, setRows] = useState<Run[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const load = useCallback(
-    async (quiet = false) => {
-      if (!quiet) setLoading(true);
-      setError("");
-      try {
-        const page = await api<{ items: Run[] }>("/api/v1/runs");
-        setRows(page.items ?? []);
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : t("error"));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [t],
-  );
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
+  const pagination = useCursorPage<Run>("/api/v1/runs", { q: query, status });
+  const { rows, loading, error, refresh: load } = pagination;
   const live = rows.some((run) => liveStatuses.includes(run.status || ""));
   useEffect(() => {
     if (!live) return;
@@ -72,24 +51,10 @@ export function RunsScreen() {
     return () => window.clearInterval(timer);
   }, [live, load]);
 
-  const matching = useMemo(
-    () =>
-      rows.filter(
-        (run) =>
-          (!status || run.status === status) &&
-          [run.id, run.trigger, run.status, run.resultSummary]
-            .join(" ")
-            .toLocaleLowerCase()
-            .includes(query.trim().toLocaleLowerCase()),
-      ),
-    [rows, query, status],
-  );
-  const pagination = usePagedRows(matching, JSON.stringify([query, status]));
-
   return (
     <AppShell>
       <PageHeader body={t("body")} title={t("title")} />
-      {rows.length > 0 ? (
+      {rows.length > 0 || query || status ? (
         <div className="mb-5 flex flex-wrap items-end gap-3">
           <label className="block w-full max-w-md text-sm" htmlFor="run-search">
             {t("searchRuns")}
@@ -105,35 +70,38 @@ export function RunsScreen() {
             {t("status")}
             <select
               id="run-status"
-              className="mt-2 h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3"
+              className="mt-2 block h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3"
               value={status}
               onChange={(event) => setStatus(event.target.value)}
             >
               <option value="">{t("allStatuses")}</option>
               {[
-                ...new Set(
-                  rows.map((run) => run.status).filter((value): value is string => Boolean(value)),
-                ),
-              ]
-                .sort()
-                .map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
+                "queued",
+                "running",
+                "waiting_approval",
+                "waiting_input",
+                "completed",
+                "failed",
+                "cancelled",
+                "budget_exceeded",
+              ].map((value) => (
+                <option key={value} value={value}>
+                  {t.has(`statuses.${value}`) ? t(`statuses.${value}`) : value}
+                </option>
+              ))}
             </select>
           </label>
         </div>
       ) : null}
-      {rows.length > 0 && matching.length === 0 ? (
+      {!loading && !error && rows.length === 0 && (query || status) ? (
         <p className="mb-5 text-sm text-[var(--muted-foreground)]" role="status">
           {t("noMatches")}
         </p>
       ) : null}
       {error ? (
         <p className="mb-3 text-sm text-[var(--destructive)]" role="alert">
-          {error}{" "}
-          <Button onClick={() => void load()} type="button" variant="outline">
+          <ErrorMessage error={error} />{" "}
+          <Button onClick={() => pagination.retry()} type="button" variant="outline">
             {t("retry")}
           </Button>
         </p>
@@ -144,7 +112,9 @@ export function RunsScreen() {
           <Skeleton className="h-12 w-full" />
         </div>
       ) : null}
-      {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
+      {!loading && !error && rows.length === 0 && !query && !status ? (
+        <EmptyState title={t("empty")} />
+      ) : null}
       {rows.length > 0 ? (
         <TableScroll
           className="rounded-xl border border-[var(--border)] bg-[var(--card)]"
@@ -181,7 +151,11 @@ export function RunsScreen() {
                     </p>
                   </TableCell>
                   <TableCell>
-                    <Badge tone={statusTone(run.status)}>{run.status}</Badge>
+                    <Badge tone={statusTone(run.status)}>
+                      {run.status && t.has(`statuses.${run.status}`)
+                        ? t(`statuses.${run.status}`)
+                        : run.status}
+                    </Badge>
                   </TableCell>
                   <TableCell className="whitespace-nowrap tabular-nums">
                     {durationLabel(run) || "—"}
@@ -200,7 +174,7 @@ export function RunsScreen() {
           </Table>
         </TableScroll>
       ) : null}
-      {rows.length > 0 ? <ListPagination {...pagination} /> : null}
+      {rows.length > 0 || pagination.page > 1 ? <ListPagination {...pagination} /> : null}
     </AppShell>
   );
 }

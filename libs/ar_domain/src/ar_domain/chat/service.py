@@ -1450,24 +1450,6 @@ class ChatBehaviour:
         self._require(self.agents, agent_id, tenant_id)
         return [self._public(row) for row in self.versions.values() if row["agent_id"] == agent_id]
 
-    def list_conversations(
-        self,
-        tenant_id: uuid.UUID,
-        user_id: uuid.UUID,
-        *,
-        include_previews: bool = False,
-    ) -> list[dict[str, object]]:
-        rows = [
-            self._public(row)
-            for row in self.conversations.values()
-            if row["tenant_id"] == tenant_id
-            and row["user_id"] == user_id
-            and row.get("deleted_at") is None
-            and (include_previews or not row.get("is_preview"))
-        ]
-        rows.sort(key=lambda item: str(item.get("updated_at")), reverse=True)
-        return rows
-
     def create_conversation(
         self,
         tenant_id: uuid.UUID,
@@ -3524,23 +3506,6 @@ class ChatBehaviour:
                 stamp = created
                 best = label.strip()
         return best
-
-    def list_runs(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> list[dict[str, object]]:
-        listed: list[dict[str, object]] = []
-        for row in self.runs.values():
-            if row["tenant_id"] != tenant_id or row["user_id"] != user_id:
-                continue
-            body = self._with_answered_model(row)
-            conversation_id = row.get("conversation_id")
-            conversation = (
-                self.conversations.get(conversation_id)
-                if isinstance(conversation_id, uuid.UUID)
-                else None
-            )
-            if isinstance(conversation, dict) and conversation.get("is_preview"):
-                body["label"] = "preview"
-            listed.append(body)
-        return listed
 
     def list_steps(self, tenant_id: uuid.UUID, run_id: uuid.UUID) -> list[dict[str, object]]:
         self.get_run(tenant_id, run_id)
