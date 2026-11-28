@@ -69,7 +69,7 @@ async function send<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /** Shared error decoding for JSON requests and existing file downloads. */
-export async function readApiError(response: Response): Promise<ApiError> {
+async function readApiError(response: Response): Promise<ApiError> {
   let detail = response.statusText;
   let code = "";
   try {

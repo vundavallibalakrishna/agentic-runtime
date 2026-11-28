@@ -19,15 +19,6 @@ export function formatCost(costMicros: number, currency?: string): string {
   }).format(costMicros / 1_000_000);
 }
 
-/** Preserve structured returned values instead of rendering [object Object]. */
-export function formatDataValue(value: unknown): string {
-  return value == null
-    ? ""
-    : typeof value === "object"
-      ? JSON.stringify(value, null, 2)
-      : String(value);
-}
-
 /** Display an instant in the viewer's time zone, including its zone label. */
 export function formatDateTime(value: string, locale?: string): string {
   const date = new Date(value);
@@ -38,7 +29,7 @@ export function formatDateTime(value: string, locale?: string): string {
   }).format(date);
 }
 
-export const CURRENCY_AMOUNT_PATTERN = "(?:[0-9]+(?:[.][0-9]{0,6})?|[.][0-9]{1,6})";
+const CURRENCY_AMOUNT_PATTERN = "(?:[0-9]+(?:[.][0-9]{0,6})?|[.][0-9]{1,6})";
 const currencyAmount = new RegExp(`^${CURRENCY_AMOUNT_PATTERN}$`);
 
 /** Parse decimal currency into safe integer millionths without floating-point rounding. */
@@ -60,17 +51,4 @@ export function fromMicros(value: number | undefined): string {
   const absolute = amount < 0n ? -amount : amount;
   const fraction = (absolute % 1_000_000n).toString().padStart(6, "0").replace(/0+$/, "");
   return `${amount < 0n ? "-" : ""}${absolute / 1_000_000n}${fraction ? `.${fraction}` : ""}`;
-}
-
-/** Compare saved JSON content without treating object key order as a change. */
-export function sameDataValue(left: unknown, right: unknown): boolean {
-  const canonical = (value: unknown) =>
-    JSON.stringify(value, (_key, nested) =>
-      nested && typeof nested === "object" && !Array.isArray(nested)
-        ? Object.fromEntries(
-            Object.entries(nested).sort(([left], [right]) => left.localeCompare(right)),
-          )
-        : nested,
-    );
-  return canonical(left) === canonical(right);
 }
