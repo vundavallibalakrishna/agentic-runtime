@@ -156,7 +156,13 @@ def redact(value: dict[str, object]) -> dict[str, object]:
 
 
 def raised_at(exc: BaseException) -> str:
-    """Where an exception was raised, as ``file.py:line``. Safe to log: it holds no content."""
+    """Where an exception was raised, as ``file.py:line``. Safe to log: it holds no content.
+
+    An error raised inside Python or a library (an ``asyncio`` timeout, a driver) names
+    that frame only, which says nothing about the call that set it off. Then the last
+    three frames of the product's own code come first, outermost first:
+    ``hydrate.py:726 > flush.py:1635 > timeouts.py:115``.
+    """
     import traceback  # noqa: PLC0415
     from pathlib import Path  # noqa: PLC0415
 
@@ -164,7 +170,26 @@ def raised_at(exc: BaseException) -> str:
     if not frames:
         return ""
     last = frames[-1]
-    return f"{Path(last.filename).name}:{last.lineno}"
+    where = f"{Path(last.filename).name}:{last.lineno}"
+    if not _library_frame(last.filename):
+        return where
+    own = [frame for frame in frames if not _library_frame(frame.filename)][-3:]
+    if not own:
+        return where
+    path = " > ".join(f"{Path(frame.filename).name}:{frame.lineno}" for frame in own)
+    return f"{path} > {where}"
+
+
+def _library_frame(filename: str) -> bool:
+    """A frame in Python's standard library or an installed package, not the product's code."""
+    import sysconfig  # noqa: PLC0415
+
+    # A generated wrapper (``<sqlalchemy generated ...>``) belongs to the library that made it.
+    if filename.startswith("<") or "site-packages" in filename or "dist-packages" in filename:
+        return True
+    paths = sysconfig.get_paths()
+    roots = {paths.get(key, "") for key in ("stdlib", "platstdlib")}
+    return any(root and filename.startswith(root) for root in roots)
 
 
 def preview(text: str, limit: int = 2048) -> str:
