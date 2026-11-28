@@ -8,8 +8,9 @@ test("two files sent with a message are shown on it, and after a reload", async 
   await page.goto("/chat");
   const main = page.getByRole("main");
 
-  // Both files go in at once. Each is shown before sending, with its type and size, and
-  // one can be taken off again.
+  // Attaching opens once the conversation has loaded. Both files go in at once. Each is
+  // shown before sending, with its type and size, and one can be taken off again.
+  await expect(main.getByLabel("Attach file")).toBeEnabled({ timeout: 20_000 });
   await main.getByLabel("Attach file").setInputFiles([
     { name: "orders.csv", mimeType: "text/csv", buffer: Buffer.from("region,total\nnorth,120\n") },
     {

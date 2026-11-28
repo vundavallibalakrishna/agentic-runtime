@@ -101,8 +101,11 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
     await capture(page, "profile");
 
     await page.goto("/chat");
-    await expect(page.locator("#agent-picker option", { hasText: "Quota probe" })).toBeAttached();
-    await page.locator("#agent-picker").selectOption({ label: "Quota probe" });
+    await page.getByText("Chat options", { exact: true }).click();
+    await page.getByRole("button", { name: /^Agent:/ }).click();
+    const agentPicker = page.getByRole("dialog", { name: "Agent", exact: true });
+    await agentPicker.getByRole("searchbox").fill("Quota probe");
+    await agentPicker.getByText("Quota probe", { exact: true }).click();
     const previous = page.url();
     await page
       .getByRole("complementary", { name: "Conversations", exact: true })

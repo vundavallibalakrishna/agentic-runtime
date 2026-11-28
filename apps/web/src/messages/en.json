@@ -171,7 +171,7 @@
     "inviteFailed": "The invitation could not be used."
   },
   "chat": {
-    "composeMessage": "Send a message",
+    "composeMessage": "Chat composer",
     "editMessage": "Edit message",
     "cancelEdit": "Cancel edit",
     "finishEdit": "Finish or cancel the edit before sending a new message.",

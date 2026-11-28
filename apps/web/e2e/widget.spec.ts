@@ -151,8 +151,6 @@ test("an administrator can configure a portal from the channel form", async ({ p
   await page.goto("/admin/channels");
   await page.getByLabel("Name", { exact: true }).fill("Portal setup review");
   await page.getByLabel("Kind", { exact: true }).selectOption("widget");
-  await page.getByRole("button", { name: "Default agent: Choose existing", exact: true }).click();
-  await page.getByRole("dialog").getByRole("list").getByRole("button").first().click();
   await page.getByLabel("Host signing secret").fill(signingKey);
   await page.getByLabel("Allowed portal origins").fill("https://portal.example/path");
   await page.getByRole("button", { name: "Save channel" }).click();

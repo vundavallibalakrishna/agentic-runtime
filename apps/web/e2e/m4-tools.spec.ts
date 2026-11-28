@@ -61,7 +61,8 @@ test("register a server, connect, and let the desk agent act", async ({ page }) 
   expect(connections.violations).toEqual([]);
 
   await page.goto("/chat?agent=desk");
-  await expect(page.locator("#agent-picker option:checked")).toHaveText("Desk");
+  await page.getByText("Chat options", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Agent: Desk", exact: true })).toBeVisible();
   await page.getByLabel("Message").fill("File a ticket: the printer on floor 3 is jammed");
   await page.getByRole("button", { name: "Send" }).click();
   await openToolCall(page, /Filed ticket TCK-\d+\./);
@@ -86,6 +87,7 @@ test("tools and connections in light and dark", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Connections", exact: true })).toBeVisible();
   await capture(page, "connections");
   await page.goto("/chat?agent=desk");
-  await expect(page.locator("#agent-picker option:checked")).toHaveText("Desk");
+  await page.getByText("Chat options", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Agent: Desk", exact: true })).toBeVisible();
   await capture(page, "desk");
 });

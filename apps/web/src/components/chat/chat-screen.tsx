@@ -50,7 +50,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isAvailableAgent } from "@/lib/agent-availability";
 import type { DisplayError } from "@/lib/api";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { chatAliases } from "@/lib/model-aliases";
 import { loadSession } from "@/lib/session";
 import { LATE_MEMORY_WAITS_MS, lateMemoryEvents } from "@/lib/stream/late";
@@ -874,7 +874,10 @@ export function ChatScreen() {
     } catch (error) {
       if (request.signal.aborted) return;
       const detail = error instanceof Error ? error : t("error");
-      if (attempted && actionIsCurrent(request, conversationId)) {
+      // An error response the server sent is a definite answer: the message was not taken,
+      // for example a quota that is used up. Only an answer that never came is unconfirmed.
+      const refused = !accepted && error instanceof ApiError && error.status < 500;
+      if (attempted && !refused && actionIsCurrent(request, conversationId)) {
         setRunIssue({ detail, accepted, runId: run || undefined, action: "send" });
         setStream((current) => ({ ...current, status: "failed" }));
       } else {

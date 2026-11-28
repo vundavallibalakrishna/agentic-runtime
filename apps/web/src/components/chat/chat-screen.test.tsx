@@ -1063,6 +1063,27 @@ function postedRows(state: ReturnType<typeof chatRegistry>, text: string) {
 }
 
 describe("normal message submission", () => {
+  it("shows a refused send with the server's words and keeps the draft", async () => {
+    chatRegistry();
+    server.use(
+      http.post("*/api/v1/conversations/first/messages", () =>
+        HttpResponse.json(
+          { code: "quota_exceeded", detail: "Quota reached: the monthly run limit is 0" },
+          { status: 429 },
+        ),
+      ),
+    );
+    window.history.replaceState(null, "", "/chat?conversation=first");
+    render(wrap(<ChatScreen />));
+    await screen.findByRole("button", { name: "First chat" });
+    await submitChatMessage("Show the weekly numbers");
+    // A definite answer from the server is not an unconfirmed send, nor a rate limit.
+    expect(await screen.findByText(/Quota reached: the monthly run limit is 0/)).toBeTruthy();
+    expect(screen.queryByText(messages.chat.messageUnconfirmed)).toBeNull();
+    expect((screen.getByLabelText("Message") as HTMLTextAreaElement).value).toBe(
+      "Show the weekly numbers",
+    );
+  });
   it("guards duplicate sends and retains the exact draft/files until a failed send is read back", async () => {
     chatRegistry();
     uploadChatFiles("source.txt");

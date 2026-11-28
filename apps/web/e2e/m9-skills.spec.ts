@@ -81,7 +81,10 @@ test("skills publish, research delegates, and the writer produces a brief", asyn
   await capture(page, "published");
 
   await page.goto("/chat?agent=research-lead");
-  await expect(page.locator("#agent-picker option:checked")).toHaveText("Research lead");
+  await page.getByText("Chat options", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Agent: Research lead", exact: true }),
+  ).toBeVisible();
   await send(page, "Research the launch notes and the rollout plan");
   await expect(page.getByText("Merged findings").first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("the checklist is complete").first()).toBeVisible();
@@ -89,13 +92,15 @@ test("skills publish, research delegates, and the writer produces a brief", asyn
   await capture(page, "research");
   await page.getByRole("link", { name: "View trace" }).last().click();
   await expect(page.getByRole("heading", { name: "Run trace" })).toBeVisible();
+  await page.getByRole("tab", { name: "Subagents", exact: true }).click();
   await expect(page.getByRole("link", { name: /Researcher/ }).first()).toBeVisible();
   const trace = await new AxeBuilder({ page }).analyze();
   expect(trace.violations).toEqual([]);
   await capture(page, "trace");
 
   await page.goto("/chat?agent=writer");
-  await expect(page.locator("#agent-picker option:checked")).toHaveText("Writer");
+  await page.getByText("Chat options", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Agent: Writer", exact: true })).toBeVisible();
   await send(page, "Write a one-page brand brief as a docx");
   await expect(page.getByText("brand-brief.docx").first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("sentence case").first()).toBeVisible();

@@ -24,6 +24,7 @@ test("research mode streams a cited report and a sources panel", async ({ page }
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
   await page.goto("/chat");
   await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+  await page.getByText("Chat options", { exact: true }).click();
   await page.getByRole("button", { name: "Research", exact: true }).click();
   await expect(page.getByRole("button", { name: "Research", exact: true })).toHaveAttribute(
     "aria-pressed",

@@ -125,6 +125,7 @@ test("each answer block renders on the chat screen", async ({ page }) => {
   await expect(page.getByTestId("tool-call")).not.toContainText("general.chart");
   await expect(page.getByTestId("chart-view")).toHaveCount(1);
   await expect(page.getByTestId("tool-call").getByTestId("chart-view")).toHaveCount(0);
+  await openToolCall(page, page.getByTestId("chart-reference"));
   await expect(page.getByTestId("chart-reference")).toContainText("chart.png");
   await expect(page.getByRole("img", { name: "Counts" })).toHaveCount(1);
   await expect(page.getByTestId("answered-by")).toContainText("Qwen3-32B");
@@ -132,7 +133,14 @@ test("each answer block renders on the chat screen", async ({ page }) => {
   await openToolCall(page, "chart.png");
   await expect(page.getByText("chart.png").first()).toBeVisible();
   await expect(page.getByTestId("followups")).toBeVisible();
-  await expect(page.getByText("Verified")).toBeVisible();
+  // A verified source is marked in the reply's sources, which open on demand.
+  await page
+    .getByRole("button", { name: /^\d+ sources?$/ })
+    .first()
+    .click();
+  await expect(page.getByRole("dialog").getByText("Verified").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("Request validation failed")).toHaveCount(0);
   await showWholeTurn(page);
   await page.screenshot({ path: `${shots}/stage13-light.png`, fullPage: true });
