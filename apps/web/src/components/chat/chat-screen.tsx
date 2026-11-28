@@ -42,14 +42,15 @@ import { PlanChecklist, planItems } from "@/components/chat/plan-checklist";
 import { AcceptReply, type ReplyReview, ReplyReviewStatus } from "@/components/chat/reply-review";
 import { RunDetails } from "@/components/chat/run-details";
 import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
-import { ErrorMessage } from "@/components/common/detail-state";
-import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
+import { DetailState, ErrorMessage } from "@/components/common/detail-state";
+import { ListPagination } from "@/components/common/list-pagination";
 import { ReferencePicker } from "@/components/common/reference-picker";
+import { useCursorPage } from "@/components/common/use-cursor-page";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isAvailableAgent } from "@/lib/agent-availability";
-import type { DisplayError } from "@/lib/api";
+import type { DisplayError, Session } from "@/lib/api";
 import { ApiError, api } from "@/lib/api";
 import { chatAliases } from "@/lib/model-aliases";
 import { loadSession } from "@/lib/session";
@@ -69,12 +70,6 @@ const useComposer = create<{ draft: string; setDraft: (value: string) => void }>
   draft: "",
   setDraft: (draft) => set({ draft }),
 }));
-
-type Session = {
-  user?: { email?: string; displayName?: string };
-  tenant?: { name?: string; id?: string };
-  permissions?: string[];
-};
 
 // Whether the run details panel is open, remembered for this browser.
 const DETAILS_KEY = "ar-chat-details";
@@ -136,7 +131,6 @@ export function ChatScreen() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadError, setLoadError] = useState<DisplayError>("");
   const [loading, setLoading] = useState(true);
-  const [conversations, setConversations] = useState<Item[]>([]);
   const [activeId, setActiveId] = useState<string>("");
   const [conversationAgentId, setConversationAgentId] = useState("");
   const [savedRun, setSavedRun] = useState<{ conversationId: string; runId: string } | null>(null);
@@ -235,6 +229,16 @@ export function ChatScreen() {
   const [stuck, setStuck] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
+  const historyPage = useCursorPage<Item>(
+    "/api/v1/conversations",
+    { q: historyQuery },
+    Boolean(session),
+    JSON.stringify([session?.tenant?.id, session?.user?.id]),
+  );
+  const { rows: conversations, setRows: setConversations } = historyPage;
+  const historyRefresh = useRef(historyPage.refresh);
+  historyRefresh.current = historyPage.refresh;
+  const [openedTitle, setOpenedTitle] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [researchOn, setResearchOn] = useState(false);
   const [taskTemplate, setTaskTemplate] = useState("");
@@ -259,6 +263,7 @@ export function ChatScreen() {
   const generationBlocked =
     loading ||
     Boolean(loadError) ||
+    Boolean(historyPage.error) ||
     modelSaving ||
     Boolean(modelProblem) ||
     conversationLoading ||
@@ -297,6 +302,7 @@ export function ChatScreen() {
       if (selectedConversation.current !== id) {
         clearUploads();
         clearCancellation();
+        setOpenedTitle("");
         // A newly created conversation inherits its own pending request; navigation cancels others.
         if (!continuingRequest || actionRequest.current !== continuingRequest) {
           actionRequest.current?.abort();
@@ -388,10 +394,8 @@ export function ChatScreen() {
         .then((limits) => setAccept((limits.mimeTypes ?? []).join(",")))
         .catch(() => setAccept(""));
       setSession(me);
-      const listed = await api<{ items: Item[] }>("/api/v1/conversations");
       const agentPage = await api<{ items: Item[] }>("/api/v1/agents");
       const aliasList = await chatAliases();
-      setConversations(listed.items ?? []);
       const catalogue = agentPage.items ?? [];
       setAgents(catalogue);
       setAliases(aliasList);
@@ -419,6 +423,7 @@ export function ChatScreen() {
             if (!request.signal.aborted) {
               selectConversation(conversationId);
               setMessages(body.messages ?? []);
+              setOpenedTitle(typeof body.title === "string" ? body.title : "");
               setJobs(body.jobs ?? []);
               setPlan(planFrom(body.plan));
               setConversationAgentId(typeof body.agentId === "string" ? body.agentId : "");
@@ -569,6 +574,7 @@ export function ChatScreen() {
       if (request.signal.aborted) return;
       setConversationLoading(false);
       setMessages(body.messages ?? []);
+      setOpenedTitle(typeof body.title === "string" ? body.title : "");
       setJobs(body.jobs ?? []);
       setPlan(planFrom(body.plan));
       setConversationAgentId(typeof body.agentId === "string" ? body.agentId : "");
@@ -867,10 +873,7 @@ export function ChatScreen() {
       if (!actionIsCurrent(request, conversationId)) return;
       await observeActionRun(conversationId, run, request);
       if (!actionIsCurrent(request, conversationId)) return;
-      const fresh = await api<{ items: Item[] }>("/api/v1/conversations", {
-        signal: request.signal,
-      });
-      if (actionIsCurrent(request, conversationId)) setConversations(fresh.items ?? []);
+      if (actionIsCurrent(request, conversationId)) await historyRefresh.current();
     } catch (error) {
       if (request.signal.aborted) return;
       const detail = error instanceof Error ? error : t("error");
@@ -1336,18 +1339,9 @@ export function ChatScreen() {
   }
 
   const visible = messages.filter((message) => message.isActiveBranch !== false);
-  const matchingConversations = useMemo(
-    () =>
-      conversations.filter((conversation) =>
-        String(conversation.title || t("untitled"))
-          .toLocaleLowerCase()
-          .includes(historyQuery.trim().toLocaleLowerCase()),
-      ),
-    [conversations, historyQuery, t],
-  );
-  const historyPage = usePagedRows(matchingConversations, historyQuery);
   const activeTitle = String(
     conversations.find((conversation) => String(conversation.id) === activeId)?.title ||
+      openedTitle ||
       t("untitled"),
   );
   const latestAssistantId = [...visible]
@@ -1392,7 +1386,10 @@ export function ChatScreen() {
               {t("newChat")}
             </Button>
           </div>
-          {conversations.length > 5 || historyQuery ? (
+          {conversations.length > 5 ||
+          historyQuery ||
+          historyPage.page > 1 ||
+          historyPage.canNext ? (
             <label className="relative mx-3 mt-4 block">
               <Search
                 aria-hidden="true"
@@ -1409,14 +1406,28 @@ export function ChatScreen() {
               />
             </label>
           ) : null}
+          <div className="px-3">
+            <DetailState
+              loading={historyPage.loading}
+              error={historyPage.error}
+              onRetry={() => historyPage.retry()}
+            />
+          </div>
           <nav
             aria-label={t("conversations")}
             className="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3"
           >
-            {conversations.length === 0 && !loading ? (
+            {conversations.length === 0 &&
+            !historyQuery &&
+            !loading &&
+            !historyPage.loading &&
+            !historyPage.error ? (
               <p className="text-sm text-[var(--muted-foreground)]">{t("noConversations")}</p>
             ) : null}
-            {matchingConversations.length === 0 && conversations.length > 0 ? (
+            {historyQuery &&
+            !historyPage.loading &&
+            !historyPage.error &&
+            conversations.length === 0 ? (
               <p className="px-2 text-sm text-[var(--muted-foreground)]">{t("noHistoryMatches")}</p>
             ) : null}
             {historyPage.rows.map((conversation) => {
@@ -1447,7 +1458,7 @@ export function ChatScreen() {
               );
             })}
           </nav>
-          {historyPage.pages > 1 ? (
+          {historyPage.page > 1 || historyPage.canNext ? (
             <div className="shrink-0 border-t border-[var(--border)] px-2 py-3">
               <ListPagination {...historyPage} compact label={t("conversations")} />
             </div>

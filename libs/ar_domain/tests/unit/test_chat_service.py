@@ -8,9 +8,11 @@ import pytest
 from ar_common.errors import ArError, ConflictError, NotFoundError
 from ar_domain.agents.logic import assistant_definition
 from ar_domain.chat.service import demo_id
+from ar_domain.db.context import Principal, TenantContext
 from ar_domain.files.logic import EICAR, max_upload_bytes
 from ar_ingest.workflows.file_process import process_upload, thumbnail_png
 from ar_model_gateway.router import merge_params
+from ar_testing.conversation_pages import MemoryConversationPages
 from ar_testing.demo import connect_chat, demo_store
 
 
@@ -165,8 +167,15 @@ async def test_catalogue_agents_and_chat_ops(monkeypatch: pytest.MonkeyPatch) ->
 
     patched = service.patch_conversation(tenant, user, conversation_id, title="Pinned", pinned=True)
     assert patched["title"] == "Pinned"
-    assert service.list_conversations(tenant, user)
-    assert service.list_runs(tenant, user)
+    pages = MemoryConversationPages(
+        service,
+        TenantContext.from_principal(
+            Principal(kind="user", id=str(user), tenant_id=tenant, permissions=frozenset()),
+            "unit-test",
+        ),
+    )
+    assert (await pages.page("conversations", secret=uuid.uuid4().hex)).items
+    assert (await pages.page("runs", secret=uuid.uuid4().hex)).items
     assert service.get_run(tenant, run_id)["status"] == "completed"
     assert service.list_steps(tenant, run_id) == []
     with pytest.raises(ArError):

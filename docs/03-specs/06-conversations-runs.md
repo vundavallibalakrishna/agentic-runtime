@@ -44,6 +44,9 @@ Rules (`conversations.service.post_message`):
 5. Title: if the conversation has no title, a `system-worker`-free inline step inside the run (`finalize` step) sets it with the `fast` alias (≤ 60 chars).
 
 #### GET /api/v1/conversations
+
+Implemented list transport: shared cursor envelope with `limit` (1–200, default 50), `cursor`, `q` (literal case-insensitive title or ID substring), optional `status`, and `includePreviews` (default false; the existing `include_previews` spelling remains accepted). Reads are scoped to the signed-in user and tenant, exclude deleted conversations, and order by `updated_at DESC, id DESC`. Filters run before the SQL limit. Cursors are bound to the caller, resource and filters; an invalid or mismatched cursor returns `400 invalid_cursor`. The richer summary/search/filter behaviour below remains the target contract; this bounded transport preserves the existing row fields.
+
 Permission `chat:use`. Query: `q` (title trigram + message full-text over the caller's conversations), `agent_id`, `status` (`active|archived`, default `active`), `pinned`, `channel`, `shared_with_me=true`, `include_previews` (default `false`; preview conversations have `is_preview=true` and are created by builders from the AgentBuilder test panel). Sorted by `pinned DESC, last_message_at DESC`. Item `ConversationSummary {id, title, agent: {id, name, avatar_url}, channel, pinned, status, last_message_at, active_run: {id, status}|null, shared: bool}`.
 
 #### POST /api/v1/conversations
@@ -100,6 +103,9 @@ Programmatic run (API channel). Permission `chat:use` (service accounts need it 
 Response `RunSummary {id, conversation_id, agent_id, agent_version_id, status, trigger, created_at}`.
 
 #### GET /api/v1/runs
+
+Implemented list transport: the same bounded cursor envelope, caller/tenant scope and cursor validation as conversations, ordered by `created_at DESC, id DESC`. `q` searches literal case-insensitive ID, trigger, status and result summary substrings; `status` filters before limiting. Model and preview labels are enriched only for runs in the selected page. The additional filters below remain the target contract.
+
 Query `agent_id`, `status`, `trigger`, `routine_id`, `conversation_id`, `user_id` (requires `conversations:read_all` or `agents:manage_all` for others), `created_after`, `created_before`. Default lists the caller's runs. Item `RunSummary` + `{usage: RunUsage, duration_ms, error_code}`.
 
 #### GET /api/v1/runs/{run_id}

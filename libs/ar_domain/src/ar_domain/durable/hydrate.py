@@ -1,7 +1,7 @@
 """Load Postgres rows back into the process cache."""
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import orjson
 from sqlalchemy import bindparam, text
@@ -135,26 +135,39 @@ def _load(store: object, bucket: dict[object, object], key: object, value: objec
         store.reloading = was_reloading  # type: ignore[attr-defined]
 
 
+ReadProjection = Literal["tenant", "agents", "models", "settings"]
+
+
 async def hydrate_tenant(
     store: object,
     engine: AsyncEngine,
     tenant_id: uuid.UUID,
     *,
     session: AsyncSession | None = None,
+    projection: ReadProjection = "tenant",
 ) -> None:
     """Merge one tenant's durable rows. Memory-only fields stay.
 
     A request passes its own session so the read runs with ``app.tenant_id`` set.
     """
     if session is not None:
-        await _hydrate_all(session, store, tenant_id)
+        await _hydrate_all(session, store, tenant_id, projection=projection)
         return
     async with AsyncSession(engine, expire_on_commit=False) as opened:
-        await _hydrate_all(opened, store, tenant_id)
+        await _hydrate_all(opened, store, tenant_id, projection=projection)
 
 
-async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
-    """Load every bucket for one tenant on ``session``."""
+async def _hydrate_all(
+    session: AsyncSession,
+    store: object,
+    tenant_id: uuid.UUID,
+    *,
+    projection: ReadProjection = "tenant",
+) -> None:
+    """Load the declared data requirement inside the existing tenant transaction."""
+    if projection != "tenant":
+        await _catalogue_projection(session, store, tenant_id, projection)
+        return
     await _settings(session, store, tenant_id)
     await _people(session, store, tenant_id)
     await _agents(session, store, tenant_id)
@@ -1144,3 +1157,23 @@ async def reload_routines(store: object) -> None:
             # A routine does not run for an owner who has been suspended since.
             await _people(session, store, binding.tenant_id)
             await _routines(session, store, binding.tenant_id)
+
+
+async def _catalogue_projection(
+    session: AsyncSession,
+    store: object,
+    tenant_id: uuid.UUID,
+    projection: ReadProjection,
+) -> None:
+    """Metadata views do not read unrelated conversation/run/message history."""
+    await _settings(session, store, tenant_id)
+    if projection == "agents":
+        await _people(session, store, tenant_id)
+        await _agents(session, store, tenant_id)
+        await _versions(session, store, tenant_id)
+    elif projection == "models":
+        from ar_domain.durable.m23 import load_model_catalog  # noqa: PLC0415
+
+        await load_model_catalog(session, store, tenant_id)
+    elif projection != "settings":
+        raise ValueError("unknown read projection")

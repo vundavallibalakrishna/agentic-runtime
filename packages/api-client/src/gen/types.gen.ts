@@ -9117,6 +9117,22 @@ export type ListConversationsApiV1ConversationsGetData = {
     path?: never;
     query?: {
         /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Cursor
+         */
+        cursor?: string | null;
+        /**
+         * Q
+         */
+        q?: string;
+        /**
+         * Status
+         */
+        status?: string | null;
+        /**
          * Includepreviews
          */
         includePreviews?: boolean;
@@ -9858,9 +9874,39 @@ export type ListFilesApiV1FilesGetResponse = ListFilesApiV1FilesGetResponses[key
 export type ListRunsApiV1RunsGetData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Cursor
+         */
+        cursor?: string | null;
+        /**
+         * Q
+         */
+        q?: string;
+        /**
+         * Status
+         */
+        status?: string | null;
+        /**
+         * Includepreviews
+         */
+        includePreviews?: boolean;
+    };
     url: '/api/v1/runs';
 };
+
+export type ListRunsApiV1RunsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListRunsApiV1RunsGetError = ListRunsApiV1RunsGetErrors[keyof ListRunsApiV1RunsGetErrors];
 
 export type ListRunsApiV1RunsGetResponses = {
     /**

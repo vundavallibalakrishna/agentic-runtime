@@ -29,6 +29,7 @@ describe("ChatScreen", () => {
   });
 
   it("pages history, searches older titles, and brings a new conversation back into view", async () => {
+    let created = false;
     server.use(
       http.get("*/api/v1/auth/session", () => HttpResponse.json({ permissions: ["chat:use"] })),
       http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
@@ -47,17 +48,29 @@ describe("ChatScreen", () => {
         }),
       ),
       http.get("*/api/v1/model-aliases", () => HttpResponse.json({ items: [] })),
-      http.get("*/api/v1/conversations", () =>
-        HttpResponse.json({
-          items: Array.from({ length: 30 }, (_, id) => ({
+      http.get("*/api/v1/conversations", ({ request }) => {
+        const params = new URL(request.url).searchParams,
+          q = params.get("q") || "",
+          offset = Number(params.get("cursor") || 0),
+          limit = Number(params.get("limit") || 25);
+        const all = [
+          ...(created ? [{ id: "fresh", title: "Fresh conversation" }] : []),
+          ...Array.from({ length: 30 }, (_, id) => ({
             id: `conversation-${id}`,
             title: `Conversation ${id}`,
           })),
-        }),
-      ),
-      http.post("*/api/v1/conversations", () =>
-        HttpResponse.json({ id: "fresh", title: "Fresh conversation" }),
-      ),
+        ].filter((row) => row.title.includes(q));
+        const more = offset + limit < all.length;
+        return HttpResponse.json({
+          items: all.slice(offset, offset + limit),
+          hasMore: more,
+          nextCursor: more ? String(offset + limit) : null,
+        });
+      }),
+      http.post("*/api/v1/conversations", () => {
+        created = true;
+        return HttpResponse.json({ id: "fresh", title: "Fresh conversation" });
+      }),
       http.get("*/api/v1/conversations/fresh", () =>
         HttpResponse.json({ id: "fresh", title: "Fresh conversation", messages: [] }),
       ),
@@ -66,11 +79,11 @@ describe("ChatScreen", () => {
     await screen.findByRole("button", { name: "Conversation 0" });
     expect(screen.queryByRole("button", { name: "Conversation 27" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByRole("button", { name: "Conversation 27" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Conversation 27" })).toBeTruthy();
     fireEvent.change(screen.getByRole("searchbox", { name: "Find a conversation" }), {
       target: { value: "Conversation 29" },
     });
-    expect(screen.getByRole("button", { name: "Conversation 29" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Conversation 29" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "New chat" }));
     expect(await screen.findByRole("button", { name: "Fresh conversation" })).toBeTruthy();
     expect(
@@ -88,6 +101,21 @@ describe("ChatScreen", () => {
         }),
       ),
       http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/agents", () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "available",
+              disabled: false,
+              slug: "assistant",
+              name: "Assistant",
+              publishedVersion: 1,
+              status: "published",
+            },
+          ],
+        }),
+      ),
+      http.get("*/api/v1/model-aliases", () => HttpResponse.json({ items: [] })),
       http.get("*/api/v1/files:limits", () => HttpResponse.json({ mimeTypes: [] })),
       http.get("*/api/v1/conversations", () =>
         HttpResponse.json({ code: "rate_limited", detail: "rate limit exceeded" }, { status: 429 }),
@@ -265,7 +293,7 @@ describe("chat choice state", () => {
     render(wrap(<ChatScreen />));
     openOptions();
     await screen.findByRole("button", { name: "Model: existing" });
-    fireEvent.click(screen.getByRole("button", { name: "Second chat" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Second chat" }));
     await screen.findByRole("button", { name: `Model: ${messages.chat.modelDefault}` });
     expect(screen.queryByRole("button", { name: "Model: existing" })).toBeNull();
   });
@@ -347,7 +375,7 @@ describe("chat choice state", () => {
     await screen.findByRole("button", { name: "Model: existing" });
     selectModel("replacement");
     await waitFor(() => expect(started).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "Second chat" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Second chat" }));
     await screen.findByRole("button", { name: `Model: ${messages.chat.modelDefault}` });
     finish();
     await waitFor(() => expect(finished).toBe(true));
@@ -422,7 +450,7 @@ describe("chat choice state", () => {
     openOptions();
     await screen.findByRole("button", { name: "Model: existing" });
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Question" } });
-    fireEvent.click(screen.getByRole("button", { name: "Second chat" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Second chat" }));
     await screen.findByText("Chat unavailable");
     expect(screen.getByRole("button", { name: /^Model:/ }).matches(":disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Send" }).matches(":disabled")).toBe(true);
@@ -779,7 +807,7 @@ describe("chat run actions", () => {
     await editQuestion();
     fireEvent.click(screen.getByRole("button", { name: "Save and branch" }));
     await waitFor(() => expect(started).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "Second chat" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Second chat" }));
     await screen.findByRole("button", { name: `Model: ${messages.chat.modelDefault}` });
     finish();
     await waitFor(() => expect(finished).toBe(true));
@@ -1000,7 +1028,7 @@ describe("opening saved active runs", () => {
     render(wrap(<ChatScreen />));
     await screen.findByText(messages.chat.actions.refresh);
     openOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Second chat" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Second chat" }));
     await screen.findByRole("button", { name: `Model: ${messages.chat.modelDefault}` });
     finish();
     await waitFor(() => expect(finished).toBe(true));
@@ -1414,7 +1442,7 @@ describe("normal message submission", () => {
     await submitChatMessage("Unfinished draft");
     await screen.findByText(messages.chat.actions.send);
     openOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Second chat" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Second chat" }));
     await screen.findByRole("button", { name: `Model: ${messages.chat.modelDefault}` });
     finish();
     await waitFor(() => expect(finished).toBe(true));
@@ -1645,7 +1673,7 @@ describe("chat upload progress and context", () => {
       render(wrap(<ChatScreen />));
       await chooseChatFiles("old-chat.txt");
       await waitFor(() => expect(uploads).toBe(1));
-      fireEvent.click(screen.getByRole("button", { name: "Second chat" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Second chat" }));
       await chooseChatFiles("new-chat.txt");
       await waitFor(() => expect(uploads).toBe(2));
       act(() => oldResponse.finish());
@@ -2027,7 +2055,7 @@ describe("chat cancellation feedback", () => {
     await screen.findByText(messages.chat.stopPending);
     await waitFor(() => expect(started).toBe(true));
     openOptions();
-    fireEvent.click(screen.getByRole("button", { name: "Second chat" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Second chat" }));
     await screen.findByRole("button", { name: `Model: ${messages.chat.modelDefault}` });
     finish();
     await waitFor(() => expect(finished).toBe(true));

@@ -23,10 +23,12 @@ from ar_domain.agents.validation import schema_errors
 from ar_domain.bundles.export import export_bundle, to_yaml
 from ar_domain.bundles.import_ import import_bundle
 from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.db.context import Principal, TenantContext
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.prompts.assembler import build_prompt
 from ar_domain.prompts.blocks import BLOCK_ORDER
 from ar_runtime.context import build_prompt as runtime_build_prompt
+from ar_testing.conversation_pages import MemoryConversationPages
 from ar_testing.demo import connect_chat, demo_store
 
 
@@ -264,16 +266,30 @@ def test_high_risk_needs_a_second_person() -> None:
     assert store.agents[agent_id]["status"] == "draft"
 
 
-def test_preview_is_hidden_from_the_inbox() -> None:
+async def test_preview_is_hidden_from_the_inbox() -> None:
     store, life, actor = _life()
     created = life.create(actor, slug="preview-me", name="Preview", template="blank")
     agent_id = uuid.UUID(str(created["id"]))
     draft_id = store.agents[agent_id]["draft_version_id"]
     opened = life.open_preview(actor, draft_id)
     assert opened["is_preview"] is True
-    listed = store.list_conversations(actor.tenant_id, actor.user_id)
+    pages = MemoryConversationPages(
+        store,
+        TenantContext.from_principal(
+            Principal(
+                kind="user",
+                id=str(actor.user_id),
+                tenant_id=actor.tenant_id,
+                permissions=actor.permissions,
+            ),
+            "unit-test",
+        ),
+    )
+    listed = (await pages.page("conversations", secret=uuid.uuid4().hex)).items
     assert all(row.get("id") != opened["id"] for row in listed)
-    included = store.list_conversations(actor.tenant_id, actor.user_id, include_previews=True)
+    included = (
+        await pages.page("conversations", secret=uuid.uuid4().hex, include_previews=True)
+    ).items
     assert any(row.get("id") == opened["id"] for row in included)
     stranger = Actor(demo_id("tenant"), uuid.uuid4(), frozenset({"agents:read", "chat:use"}))
     with pytest.raises(ArError) as caught:

@@ -36,7 +36,7 @@ test("sign in, chat, stop, empty and error states", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "stand-in", exact: true })).toBeVisible();
   await page.screenshot({ path: `${shots}/05-models.png`, fullPage: true });
 
-  await page.route("**/api/v1/conversations", (route) => route.abort());
+  await page.route("**/api/v1/conversations*", (route) => route.abort());
   await page.goto("/chat");
   await expect(page.getByRole("alert").filter({ hasText: /failed|loaded|fetch/i })).toBeVisible();
   await page.screenshot({ path: `${shots}/06-error.png`, fullPage: true });

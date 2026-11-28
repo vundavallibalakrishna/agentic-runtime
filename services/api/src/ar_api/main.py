@@ -468,6 +468,7 @@ def main() -> None:
         create_application(),
         host="0.0.0.0",  # noqa: S104
         port=api_listen_port(LISTEN_PORT),
+        access_log=False,
     )
 
 

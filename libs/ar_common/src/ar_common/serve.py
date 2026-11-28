@@ -21,7 +21,7 @@ def main() -> None:
         server = Server(f"{module_name}:create_application", interface=Interfaces.ASGI, port=port)
         server.serve()
         return
-    uvicorn.run(app, host="0.0.0.0", port=port)  # noqa: S104
+    uvicorn.run(app, host="0.0.0.0", port=port, access_log=False)  # noqa: S104
 
 
 if __name__ == "__main__":

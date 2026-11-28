@@ -10,7 +10,7 @@ async function signIn(page: import("@playwright/test").Page) {
 
 test("a failed conversation creation preserves the message for retry", async ({ page }) => {
   await signIn(page);
-  await page.route("**/api/v1/conversations", async (route) => {
+  await page.route("**/api/v1/conversations*", async (route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({ status: 503, json: { detail: "Chat is temporarily unavailable" } });
     } else await route.continue();
@@ -28,7 +28,7 @@ test("a failed conversation creation preserves the message for retry", async ({ 
 
 test("a late history response cannot replace a new chat", async ({ page }) => {
   await signIn(page);
-  await page.route("**/api/v1/conversations", async (route) => {
+  await page.route("**/api/v1/conversations*", async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({
         json: { items: [{ id: "delayed-history", title: "Delayed conversation" }] },

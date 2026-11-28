@@ -311,3 +311,47 @@ def test_catalogue_and_run_surface(monkeypatch: pytest.MonkeyPatch) -> None:
     assert added.status_code == 200
     denied = client.get("/api/v1/platform/model-providers")
     assert denied.status_code == 403
+
+
+def test_list_pages_validate_boundaries_and_bind_cursors_to_filters_and_callers() -> None:
+    client = _client()
+    created = [client.post("/api/v1/conversations", json={}).json()["id"] for _ in range(5)]
+    first = client.get("/api/v1/conversations", params={"limit": 2})
+    assert first.status_code == 200
+    page = first.json()
+    assert len(page["items"]) == 2 and page["hasMore"] and page["nextCursor"]
+    assert "updatedAt" in page["items"][0] and "updated_at" not in page["items"][0]
+    second = client.get("/api/v1/conversations", params={"limit": 2, "cursor": page["nextCursor"]})
+    assert second.status_code == 200
+    assert not {row["id"] for row in page["items"]}.intersection(
+        row["id"] for row in second.json()["items"]
+    )
+    found = client.get("/api/v1/conversations", params={"q": created[0], "limit": 1})
+    assert [row["id"] for row in found.json()["items"]] == [created[0]]
+    for params in [{"limit": 0}, {"limit": 201}, {"q": "x" * 257}]:
+        assert client.get("/api/v1/conversations", params=params).status_code == 422
+    for path, params in [
+        ("conversations", {"cursor": "tampered"}),
+        ("conversations", {"cursor": page["nextCursor"], "q": "changed"}),
+        ("runs", {"cursor": page["nextCursor"]}),
+    ]:
+        refused = client.get(f"/api/v1/{path}", params=params)
+        assert refused.status_code == 400 and refused.json()["code"] == "invalid_cursor"
+    other = _client(demo_id("tenant"), uuid.uuid4())
+    other.app.state.chat = client.app.state.chat
+    assert not other.get("/api/v1/conversations").json()["items"]
+    denied = other.get("/api/v1/conversations", params={"cursor": page["nextCursor"]})
+    assert denied.status_code == 400 and denied.json()["code"] == "invalid_cursor"
+
+
+def test_preview_query_preserves_existing_spelling() -> None:
+    client = _client()
+    identity = client.post("/api/v1/conversations", json={}).json()["id"]
+    client.app.state.chat.conversations[uuid.UUID(identity)]["is_preview"] = True
+    assert identity not in {
+        row["id"] for row in client.get("/api/v1/conversations").json()["items"]
+    }
+    for spelling in ["include_previews", "includePreviews"]:
+        included = client.get("/api/v1/conversations", params={spelling: "true"})
+        assert included.status_code == 200
+        assert identity in {row["id"] for row in included.json()["items"]}

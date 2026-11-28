@@ -12,7 +12,7 @@ test("a message sent while a new chat is still being created stays on the screen
   // Hold the new conversation back, as a slow connection would, so the message is
   // sent before it exists.
   let created = 0;
-  await page.route("**/api/v1/conversations", async (route) => {
+  await page.route("**/api/v1/conversations*", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     created += 1;
     await new Promise((done) => setTimeout(done, 1500));

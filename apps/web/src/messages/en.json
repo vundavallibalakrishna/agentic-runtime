@@ -1831,7 +1831,8 @@
       "failed": "Failed",
       "cancelled": "Cancelled",
       "succeeded": "Succeeded",
-      "denied": "Denied"
+      "denied": "Denied",
+      "budget_exceeded": "Budget exceeded"
     },
     "eventsHelp": "Read recorded events in sequence, one page at a time. Search and type filters apply only to the loaded page. A full page may have more events after it.",
     "eventSearch": "Search this event page",
@@ -2652,8 +2653,10 @@
     "previous": "Previous",
     "next": "Next",
     "page": "Page {page} of {pages}",
-    "cursorRange": "{count} rows on this page",
-    "cursorPage": "Page {page}"
+    "cursorRange": "{count, plural, one {# row on this page} other {# rows on this page}}",
+    "cursorPage": "Page {page}",
+    "invalidPage": "The page response is incomplete. Try loading it again.",
+    "loadError": "This page could not be loaded. Try again."
   },
   "directory": {
     "search": "Find a person by name or email",

@@ -45,6 +45,14 @@ class Conversation(Base):
             text("last_message_at DESC"),
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        Index(
+            "ix_conversations_caller_page",
+            "tenant_id",
+            "user_id",
+            text("updated_at DESC"),
+            text("id DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
         Index("ix_conversations_agent", "tenant_id", "agent_id"),
         Index(
             "ix_conversations_title_trgm",
@@ -155,6 +163,9 @@ class Run(Base):
             "status IN ('queued','running','waiting_approval','waiting_input',"
             "'completed','failed','cancelled','budget_exceeded')",
             name="status",
+        ),
+        Index(
+            "ix_runs_caller_page", "tenant_id", "user_id", text("created_at DESC"), text("id DESC")
         ),
         Index("ix_runs_conversation", "tenant_id", "conversation_id", text("created_at DESC")),
         Index(

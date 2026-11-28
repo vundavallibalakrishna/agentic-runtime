@@ -8,17 +8,51 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
+from ...models.http_validation_error import HTTPValidationError
 from ...models.list_runs_api_v1_runs_get_response_list_runs_api_v1_runs_get import (
     ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet,
 )
+from ...types import UNSET, Unset
 from typing import cast
 
 
-def _get_kwargs() -> dict[str, Any]:
+def _get_kwargs(
+    *,
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
+    include_previews: bool | Unset = False,
+) -> dict[str, Any]:
+
+    params: dict[str, Any] = {}
+
+    params["limit"] = limit
+
+    json_cursor: None | str | Unset
+    if isinstance(cursor, Unset):
+        json_cursor = UNSET
+    else:
+        json_cursor = cursor
+    params["cursor"] = json_cursor
+
+    params["q"] = q
+
+    json_status: None | str | Unset
+    if isinstance(status, Unset):
+        json_status = UNSET
+    else:
+        json_status = status
+    params["status"] = json_status
+
+    params["includePreviews"] = include_previews
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/runs",
+        "params": params,
     }
 
     return _kwargs
@@ -26,11 +60,16 @@ def _get_kwargs() -> dict[str, Any]:
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet | None:
+) -> HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet | None:
     if response.status_code == 200:
         response_200 = ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet.from_dict(response.json())
 
         return response_200
+
+    if response.status_code == 422:
+        response_422 = HTTPValidationError.from_dict(response.json())
+
+        return response_422
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -40,7 +79,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]:
+) -> Response[HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -52,18 +91,36 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-) -> Response[ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]:
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
+    include_previews: bool | Unset = False,
+) -> Response[HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]:
     """List Runs
+
+    Args:
+        limit (int | Unset):  Default: 50.
+        cursor (None | str | Unset):
+        q (str | Unset):  Default: ''.
+        status (None | str | Unset):
+        include_previews (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]
+        Response[HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        limit=limit,
+        cursor=cursor,
+        q=q,
+        status=status,
+        include_previews=include_previews,
+    )
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -75,37 +132,72 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-) -> ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet | None:
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
+    include_previews: bool | Unset = False,
+) -> HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet | None:
     """List Runs
+
+    Args:
+        limit (int | Unset):  Default: 50.
+        cursor (None | str | Unset):
+        q (str | Unset):  Default: ''.
+        status (None | str | Unset):
+        include_previews (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet
+        HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet
     """
 
     return sync_detailed(
         client=client,
+        limit=limit,
+        cursor=cursor,
+        q=q,
+        status=status,
+        include_previews=include_previews,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-) -> Response[ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]:
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
+    include_previews: bool | Unset = False,
+) -> Response[HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]:
     """List Runs
+
+    Args:
+        limit (int | Unset):  Default: 50.
+        cursor (None | str | Unset):
+        q (str | Unset):  Default: ''.
+        status (None | str | Unset):
+        include_previews (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]
+        Response[HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        limit=limit,
+        cursor=cursor,
+        q=q,
+        status=status,
+        include_previews=include_previews,
+    )
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -115,19 +207,36 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-) -> ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet | None:
+    limit: int | Unset = 50,
+    cursor: None | str | Unset = UNSET,
+    q: str | Unset = "",
+    status: None | str | Unset = UNSET,
+    include_previews: bool | Unset = False,
+) -> HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet | None:
     """List Runs
+
+    Args:
+        limit (int | Unset):  Default: 50.
+        cursor (None | str | Unset):
+        q (str | Unset):  Default: ''.
+        status (None | str | Unset):
+        include_previews (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet
+        HTTPValidationError | ListRunsApiV1RunsGetResponseListRunsApiV1RunsGet
     """
 
     return (
         await asyncio_detailed(
             client=client,
+            limit=limit,
+            cursor=cursor,
+            q=q,
+            status=status,
+            include_previews=include_previews,
         )
     ).parsed
