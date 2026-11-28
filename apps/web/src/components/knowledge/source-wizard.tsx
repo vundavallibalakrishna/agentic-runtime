@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus, BackButton } from "@/components/common/detail-state";
+import { ReferencePicker } from "@/components/common/reference-picker";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,15 +57,25 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
     setBusy(true);
     setError("");
     try {
-      const configuration =
-        kind === "web"
-          ? {
-              start_urls: [url],
-              allowed_domains: [new URL(url).hostname],
-              max_pages: Math.max(1, Number(maxPages) || 1),
-              max_depth: Math.max(0, Number(maxDepth) || 0),
-            }
-          : JSON.parse(config);
+      let configuration: unknown;
+      if (kind === "web") {
+        let address: URL;
+        try {
+          address = new URL(url.trim());
+        } catch {
+          throw new Error(detail("invalidWebUrl"));
+        }
+        if (!["https:", "http:"].includes(address.protocol) || address.username || address.password)
+          throw new Error(detail("invalidWebUrl"));
+        configuration = {
+          start_urls: [url.trim()],
+          allowed_domains: [address.hostname],
+          max_pages: Math.max(1, Number(maxPages) || 1),
+          max_depth: Math.max(0, Number(maxDepth) || 0),
+        };
+      } else {
+        configuration = JSON.parse(config);
+      }
       if (!configuration || typeof configuration !== "object" || Array.isArray(configuration))
         throw new Error(detail("invalidConfig"));
       await api(`/api/v1/knowledge/collections/${collectionId}/sources`, {
@@ -73,7 +84,9 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
           name: name.trim(),
           kind,
           config: configuration,
-          ...(dataConnectionId.trim() ? { dataConnectionId: dataConnectionId.trim() } : {}),
+          ...(kind === "database" && dataConnectionId.trim()
+            ? { dataConnectionId: dataConnectionId.trim() }
+            : {}),
         }),
       });
       router.push(`/knowledge/${collectionId}`);
@@ -94,7 +107,9 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
       <PageHeader
         title={t("connect")}
         body={detail("sourceBody")}
-        actions={<BackButton href={`/knowledge/${collectionId}`}>{t("back")}</BackButton>}
+        actions={
+          <BackButton href={`/knowledge/${collectionId}`}>{detail("backToCollection")}</BackButton>
+        }
       />
       {error ? (
         <p role="alert" className="mb-4 text-sm text-[var(--destructive)]">
@@ -132,7 +147,7 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
             >
               {KINDS.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {t(`sourceKinds.${item}`)}
                 </option>
               ))}
             </select>
@@ -145,12 +160,14 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
                   id="source-url"
                   required
                   type="url"
-                  placeholder="https://example.com"
+                  aria-describedby="source-url-help"
                   onChange={(event) => setUrl(event.target.value)}
                   value={url}
                 />
               </label>
-              <p className="-mt-2 text-xs text-[var(--muted-foreground)]">{t("urlHelp")}</p>
+              <p id="source-url-help" className="-mt-2 text-xs text-[var(--muted-foreground)]">
+                {t("urlHelp")}
+              </p>
               <div className="flex flex-wrap gap-4">
                 <label htmlFor="source-max-pages">
                   {t("maxPages")}
@@ -185,23 +202,23 @@ export function SourceWizard({ collectionId }: { collectionId: string }) {
                 {detail("configuration")}
                 <textarea
                   id="source-config"
-                  className="min-h-48 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-sm"
+                  className="mt-1 block min-h-48 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-sm"
+                  aria-describedby="source-config-help"
                   value={config}
                   onChange={(event) => setConfig(event.target.value)}
                 />
               </label>
-              <p className="text-sm text-[var(--muted-foreground)]">
+              <p id="source-config-help" className="text-sm text-[var(--muted-foreground)]">
                 {detail(HELP[kind] ?? "configurationHelp")} {detail("configurationHelp")}
               </p>
               {kind === "database" ? (
-                <label htmlFor="source-connection">
-                  {detail("dataConnectionId")}
-                  <Input
-                    id="source-connection"
-                    value={dataConnectionId}
-                    onChange={(event) => setDataConnectionId(event.target.value)}
-                  />
-                </label>
+                <ReferencePicker
+                  label={detail("dataConnection")}
+                  endpoint="/api/v1/data-connections"
+                  value={dataConnectionId}
+                  onChange={setDataConnectionId}
+                  disabled={busy}
+                />
               ) : null}
             </>
           )}

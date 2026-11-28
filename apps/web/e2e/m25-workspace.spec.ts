@@ -114,7 +114,10 @@ test("knowledge, memory, skills and a cited chat", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Docks" })).toBeVisible();
   await capture(page, "knowledge");
   await page.getByRole("link", { name: "Docks" }).click();
-  await expect(page.getByText("indexed")).toBeVisible();
+  // The document's own row says it is indexed; the status filter lists the same word.
+  await expect(
+    page.getByRole("listitem").filter({ hasText: "Dock" }).getByText("indexed", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: "Search" }).click();
   await page.getByLabel("Question").fill("north dock code");
   await page.getByRole("button", { name: "Ask the library" }).click();
@@ -124,8 +127,10 @@ test("knowledge, memory, skills and a cited chat", async ({ page }) => {
   await page.goto("/memory");
   await expect(page.getByRole("heading", { name: "Memory", exact: true })).toBeVisible();
   const remember = page.getByRole("button", { name: "Remember this" });
-  await expect(remember).toBeEnabled();
+  // Remembering opens once there is something to remember.
+  await expect(remember).toBeDisabled();
   await page.getByLabel("What should the assistant remember?").fill("Call the user Captain Bala");
+  await expect(remember).toBeEnabled();
   const saved = page.waitForResponse(
     (response) =>
       response.url().includes("/api/v1/memory") &&

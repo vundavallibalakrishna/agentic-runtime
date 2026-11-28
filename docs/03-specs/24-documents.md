@@ -24,7 +24,15 @@ Errors:
 
 ## 2. Tools
 
-Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `diff`, `map`, `extract`, `edit`, `create`, `ocr`. The task tools (summarise, compare, judge, missing, crosscheck, rewrite, redact) were removed ([OQ-154](../open-questions.md)): the model plans those with the tools here. `edit` writes the new version twice from the same bytes: as a library document (`metadata.versionOf` names the original) and as a file under `/workspace/outputs` that the reply carries, so a person can download it from the conversation. The file is a Word document; a passage that is a heading keeps bold type and a larger size, and with `redline` each replaced passage is a tracked deletion and insertion. The same comparison `diff` makes is read by the Documents screen through `GET /api/v1/library-documents/{document_id}/diff?otherDocumentId=…` (permission `chat:use`): the sections that differ, each with both wordings and their anchors, and the counts of changed, added, removed and unchanged sections. It asks no model and stores nothing; a document the caller cannot see is 404.
+Server `builtin://documents` dispatches the general tools `list`, `search`, `ingest`, `ocr`, `read`, `outline`, `tables`, `diff`, `map`, `extract`, `edit` and `create`. `image.ask` belongs to the image server. An installed pack may supply additional document handlers.
+
+The agent plans document work in the existing tool loop, following the person's instruction and any selected task template. Core has no fixed document task list or extractive answer fallback. The former task tools and HTTP routes for summarise, compare, crosscheck, judge, missing, rewrite and redact were removed by [OQ-154](../open-questions.md). Optional prompt templates live in [the example task-template pack](../../packs/examples/task-templates/). A missing required model is an actionable error.
+
+`read`, `outline`, `tables`, `search` and `map` operate on the stored file/passage data available to the actor. `extract` accepts a JSON Schema. Results appear in the conversation through the existing tool-result and file parts.
+
+`edit` writes the new version twice from the same bytes: as a library document (`metadata.versionOf` names the original) and as a file under `/workspace/outputs` that the reply carries, so a person can download it from the conversation. The file is a Word document; a passage that is a heading keeps bold type and a larger size, and with `redline` each replaced passage is a tracked deletion and insertion. `create` publishes a generated artifact (§5).
+
+The same comparison `diff` makes is read by the Documents screen through `GET /api/v1/library-documents/{document_id}/diff?otherDocumentId=…` (permission `chat:use`): the sections that differ, each with both wordings and their anchors, and the counts of changed, added, removed and unchanged sections. It asks no model and stores nothing; a document the caller cannot see is 404.
 
 `ocr` takes `fileId`, a workspace `path`, a `url`, or `documentId`. `engine` defaults to `tesseract`, which is proof `unit` (a local binary, not a model). `engine` `vision` uses the configured vision alias. That result is proof `live` only when the model answers, and the result names the model id and the date. Otherwise the result is `text_not_extracted` and the proof stays `unit`. `google_document_ai`, `aws_textract` and `azure_document_intelligence` return `not_live` and are not called. A PDF is Unicode text, or the tool returns `not_unicode` or `text_not_extracted`.
 
@@ -44,31 +52,11 @@ Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outlin
 
 `read` returns at most 12,000 characters. A longer file is searched and read by page or anchor.
 
-`judge` takes `ruleSetId`, `statements`, or an inline `ruleSet` (`id`, `version`, `items` of `itemId` and `statement`, `sourceFileId`, `sha256`). `missing` returns the rows that are not `supported`. A published rule-set version is immutable. `POST /api/v1/rule-sets` imports one and `GET /api/v1/rule-sets/{ruleSetId}` exports it. Another tenant receives 404.
-
-A verdict is `supported` only when `quote` is a substring of the named stored passage. A quote that is not in that passage is `not_supported`. Lexical overlap is `not_judged` and is never a verdict. A model response that is not the schema is `failed`. Every row records the model id, the prompt hash, the rule-set id and the rule-set version. Library search uses the same stored-passage retrieval as a judgement.
+Rule-set import/export remains in the [HTTP catalogue](../05-contracts/api-catalogue.md#spec-24-document-library-ar_domaindocuments). It does not reinstate a task-specific judgement or rewrite endpoint.
 
 ### 2.1 Cross-check
 
-`crosscheck` takes `documentId` (a library document or an attached file) and an optional `focus`. It finds the places inside that one document that disagree with each other: the same thing given two values, a stated count or total that does not match what the document lists, or a summary or table line that contradicts the body. `compare` is for two documents and `judge` is for a list that comes from somewhere else.
-
-Method:
-
-1. Every stored passage of the document, and every stored table the passages do not hold, is sent to the model in one request. The document is read three times, because one reading misses what another finds, and a finding that stands in any reading is reported once. Each passage is wrapped as untrusted content and named by its anchor. `documentAnalysisRedaction` masks this text the same way it does for `judge`.
-2. The model returns a JSON list of findings. A finding has a `statement`, a `kind` (`value_mismatch`, `count_mismatch`, `summary_mismatch` or `other`) and at least two `quotes`, each with an `anchor` and a `value`: the rating, figure, count, date or name that place gives.
-3. A quote is kept only when it is in the stored passage that its anchor names. Spacing and capitals are ignored in that test. A masked quote is not in the stored passage, so it is discarded.
-4. A finding is discarded when fewer than two quotes remain. A quote whose `value` is not a substring of that quote is dropped. The code does not fold quotes together, and it does not drop a finding because two quotes use the same words or the same number. That is the model's decision.
-5. The text of the document is at most 40,000 characters. A longer document is refused with `validation_failed`, and the message gives the size and the limit. A part of a document is never checked in place of the whole.
-
-The result has `findings`, `passagesRead` and `discarded` (the number of findings the model proposed that did not pass steps 3 and 4). With no finding, the tool says that no disagreement was found between the passages compared and how many passages were read. When the model does not answer, or its answer is not the schema, the tool returns `unavailable` and says that nothing was checked. It does not report an empty result.
-
-Limits: the tool finds the disagreements that the model notices and can quote. It does not prove that a document agrees with itself. Steps 3 and 4 remove findings that have no evidence in the document. They do not add a finding the model missed. Nothing is stored: there is no row and no audit entry, as for `summarise`.
-
-`rewrite` stores a proposal. Accepting a change updates the passage. Rejecting leaves it.
-
-`redact` returns the redacted preview only.
-
-`create` builds a new DOCX, PDF, PPTX or XLSX. It does not read a library row. See §5.
+Cross-checking and other tasks use the same chat/tool-loop entry and optional task templates. The former standalone comparison, check and rewrite result/decision APIs are not served, and the web app has no screens for them. Two documents are compared read-only on `/documents/compare` through the `diff` route above. Retained tool-result parts may still display their returned data read-only; their presence does not create a new core task or decision lifecycle.
 
 ## 3. Long documents
 
@@ -102,6 +90,4 @@ Limits: 40 sections, 12 sheets, 500 rows, 32 columns, 30 PDF pages, 60 slides, a
 
 ## 6. Questionnaire fill
 
-`documents.fill_questionnaire` reads one xlsx in the run workspace (`path`, optional `sheet`). It expects a question column and writes `Answer`, `Notes`, `Citation` and `Status` when those columns are missing. A caller `answers` entry matches on `id` or on the question text. Otherwise the tool scores the question against `sources` or against the passages of `documentId`. A score below the overlap floor leaves the answer blank and sets status `unanswered`. `searchLibrary` true also searches the caller's library. The tool does not call the knowledge embedding index.
-
-The file is a new xlsx from the same writer as `documents.create`, plus a Trace sheet. Another tenant's `documentId` is `not_found`. The bytes are an artifact until something calls `ingest` (OQ-86).
+The questionnaire product belongs to the optional signed [Records pack](../../packs/records/README.md), not the core document dispatcher. Pack-specific tool behaviour and permissions are owned by that pack. Core document work continues through the general tools and chat entry above.

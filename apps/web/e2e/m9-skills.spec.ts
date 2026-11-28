@@ -52,7 +52,9 @@ test("skills publish, research delegates, and the writer produces a brief", asyn
   await page.getByRole("link", { name: "Open" }).first().click();
   await expect(page.getByText("sentence case").first()).toBeVisible();
   await page.getByRole("button", { name: "Advanced" }).click();
+  await page.getByRole("tab", { name: "Tools and files", exact: true }).click();
   await expect(page.getByText("letterhead.md", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Where used", exact: true }).click();
   await expect(page.getByRole("listitem").filter({ hasText: "Writer" })).toBeVisible();
   const editor = await new AxeBuilder({ page }).analyze();
   expect(editor.violations).toEqual([]);
@@ -72,7 +74,7 @@ test("skills publish, research delegates, and the writer produces a brief", asyn
     await page.getByRole("button", { name: "Create a skill" }).click();
   }
   await expect(page.getByRole("heading", { name: "Launch checklist" })).toBeVisible();
-  const version = page.getByText("v1", { exact: true });
+  const version = page.getByText("Published v1", { exact: true });
   if (!(await version.isVisible())) {
     await page.getByLabel("Change note").fill("First publish");
     await page.getByRole("button", { name: "Publish", exact: true }).click();
@@ -125,7 +127,9 @@ test("skills publish, research delegates, and the writer produces a brief", asyn
   await expect(page.getByText("Brand guidelines")).toBeVisible();
   await page.getByRole("button", { name: "Advanced", exact: true }).click();
   await page.locator("#skill-search").fill("zzz-no-such-skill");
-  await expect(page.getByText("No skills yet. Create one and it will show up here.")).toBeVisible();
+  await expect(
+    page.getByText("No skills match your search. Try another term or clear the search."),
+  ).toBeVisible();
   await capture(page, "empty");
 
   await page.getByRole("button", { name: "Dev Admin" }).click();

@@ -59,3 +59,9 @@ Skills per tenant: 500; per agent: 30; instruction size 50,000 chars.
 
 - Unit: asset path validation; hash stability; required tool coverage check.
 - Integration: publish increments versions; version 0 mutable but ≥ 1 immutable (trigger); agent publish pins version; `skills.load` copies assets into the sandbox and appends instructions to the next prompt (snapshot test of prompt); archive blocked when bound.
+
+## UI review and implementation gap
+
+The editor separates Instructions, published Versions and Where used into tabs. Advanced adds Tools and files. History and dependency reads have independent loading/error/retry states and cannot discard the working draft. Catalogues and resource lists use search, applicable filters and the shared row pager; this bounds rendering, not the existing full-list API payloads. Tool requirements use the existing metadata picker with qualified-name identities and preserve saved requirements absent from the current catalogue. Required-tool changes have an explicit Save draft action. Asset selection uses an explicit relative path and Attach action, including an attachment retry that reuses an already uploaded file reference. A successful draft save is reflected even if a subsequent publish fails. Export downloads the API’s returned archive/filename and states its published-before-draft selection; import is labelled as new-skill creation and respects `skills:create`.
+
+OQ-164 records a backend gap in `SkillBook.republish_dependants`: published and draft dependency rows can process the same agent twice, and the published definition is saved over the working draft. The current UI therefore offers review links to the existing agent editor instead of invoking the bulk endpoint. The intended bulk capability in §2–3 is not certified until that service is corrected. No backend code or runtime configuration changed in this UI review.

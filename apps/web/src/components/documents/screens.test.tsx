@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ToolCallCard } from "@/components/chat/tool-call-card";
-import { LibraryScreen } from "@/components/documents/screens";
+import { DocumentScreen, LibraryScreen } from "@/components/documents/screens";
 import messages from "@/messages/en.json";
 import { server } from "@/test/server";
 
@@ -103,6 +103,41 @@ describe("document library", () => {
     expect(screen.getByRole("link", { name: "Compare" }).getAttribute("href")).toBe(
       "/documents/compare?left=doc-1&right=doc-2",
     );
+  });
+
+  it("paginates documents, searches beyond the visible page, and preserves indexing status", async () => {
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({ permissions: ["documents:read"] }),
+      ),
+      http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/library-documents", () =>
+        HttpResponse.json({
+          items: Array.from({ length: 30 }, (_, index) => ({
+            id: `doc-${index}`,
+            title: `Guide ${index}`,
+            filename: `guide-${index}.pdf`,
+            status: "queued",
+          })),
+        }),
+      ),
+    );
+    renderExpanded(wrap(<LibraryScreen />));
+    await screen.findByRole("link", { name: "Guide 0" });
+    expect(screen.getAllByRole("row")).toHaveLength(26);
+    expect(screen.queryByRole("link", { name: "Guide 27" })).toBeNull();
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Find a document by title, filename or type" }),
+      { target: { value: "Guide 27" } },
+    );
+    expect(screen.getByRole("link", { name: "Guide 27" })).toBeTruthy();
+    expect(screen.getByText("queued").className).toContain("tone-info");
+    expect(screen.queryByText("Ready")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Work with documents in chat" }).getAttribute("href"),
+    ).toBe("/chat");
+    // Compare chooses from every document, not only the visible page.
+    expect(screen.getByLabelText("Earlier document").querySelectorAll("option")).toHaveLength(31);
   });
 
   it("shows an empty library", async () => {
@@ -204,5 +239,49 @@ describe("document library", () => {
     expect(
       screen.getByText("The document does not contain a passage that supports this."),
     ).toBeTruthy();
+  });
+  it("shows document content and chat actions without non-working judge or rewrite forms", async () => {
+    let attempts = 0;
+    let libraryReads = 0;
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({ permissions: ["documents:read"] }),
+      ),
+      http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/library-documents", () => {
+        libraryReads += 1;
+        return HttpResponse.json({ items: [] });
+      }),
+      http.get("*/api/v1/library-documents/doc", () =>
+        ++attempts === 1
+          ? HttpResponse.json({ detail: "Document unavailable" }, { status: 503 })
+          : HttpResponse.json({
+              id: "doc",
+              title: "Workspace guide",
+              mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              pageCount: 3,
+              outline: [{ anchor: "p1-s0", heading: "Overview", pageFrom: 1, pageTo: 3 }],
+            }),
+      ),
+      http.get("*/api/v1/library-documents/doc/passages", () =>
+        HttpResponse.json({
+          passages: [{ anchor: "p1-s0", text: "Saved content", page: 1, heading: "Overview" }],
+        }),
+      ),
+      http.get("*/api/v1/library-documents/doc/tables", () => HttpResponse.json({ tables: [] })),
+    );
+    renderExpanded(wrap(<DocumentScreen documentId="doc" />));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Saved content")).toBeTruthy();
+    expect(screen.getByText("Word document")).toBeTruthy();
+    expect(screen.getByText("p.1–3")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("#p1-s0");
+    expect(
+      screen.getByRole("link", { name: "Work with documents in chat" }).getAttribute("href"),
+    ).toBe("/chat");
+    expect(screen.queryByRole("button", { name: "Judge" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Preview rewrite" })).toBeNull();
+    expect(libraryReads).toBe(0);
   });
 });
