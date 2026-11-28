@@ -23,7 +23,7 @@ class SearchBody:
         query (str | Unset):  Default: ''.
         collection_ids (list[UUID] | Unset):
         document_ids (list[UUID] | Unset):
-        top_k (int | Unset):  Default: 8.
+        top_k (int | None | Unset):
         min_score (float | None | Unset):
         debug (bool | Unset):  Default: False.
     """
@@ -31,7 +31,7 @@ class SearchBody:
     query: str | Unset = ""
     collection_ids: list[UUID] | Unset = UNSET
     document_ids: list[UUID] | Unset = UNSET
-    top_k: int | Unset = 8
+    top_k: int | None | Unset = UNSET
     min_score: float | None | Unset = UNSET
     debug: bool | Unset = False
 
@@ -52,7 +52,11 @@ class SearchBody:
                 document_ids_item = str(document_ids_item_data)
                 document_ids.append(document_ids_item)
 
-        top_k = self.top_k
+        top_k: int | None | Unset
+        if isinstance(self.top_k, Unset):
+            top_k = UNSET
+        else:
+            top_k = self.top_k
 
         min_score: float | None | Unset
         if isinstance(self.min_score, Unset):
@@ -103,7 +107,14 @@ class SearchBody:
 
                 document_ids.append(document_ids_item)
 
-        top_k = d.pop("topK", UNSET)
+        def _parse_top_k(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        top_k = _parse_top_k(d.pop("topK", UNSET))
 
         def _parse_min_score(data: object) -> float | None | Unset:
             if data is None:

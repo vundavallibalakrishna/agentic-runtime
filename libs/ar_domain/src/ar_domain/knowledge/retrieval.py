@@ -63,6 +63,22 @@ def candidate_k(override: int | None = None) -> int:
     return int(get_settings().knowledge_candidate_k)
 
 
+def result_count(override: object = None) -> int:
+    """How many passages one search returns: the caller's number, else the install's.
+
+    Never more than ``AR_KNOWLEDGE_SEARCH_MAX_HITS``.
+    """
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    settings = get_settings()
+    asked = (
+        override
+        if isinstance(override, int) and not isinstance(override, bool) and override > 0
+        else settings.knowledge_top_k
+    )
+    return min(int(asked), int(settings.knowledge_search_max_hits))
+
+
 def max_per_document(override: int | None = None) -> int:
     """How many of the selected passages may come from one document."""
     from ar_common.settings import get_settings  # noqa: PLC0415

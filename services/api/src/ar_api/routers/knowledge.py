@@ -87,7 +87,8 @@ class SearchBody(ApiModel):
     query: str = ""
     collection_ids: list[uuid.UUID] = Field(default_factory=list)
     document_ids: list[uuid.UUID] = Field(default_factory=list)
-    top_k: int = 8
+    # Unset: AR_KNOWLEDGE_TOP_K. At most AR_KNOWLEDGE_SEARCH_MAX_HITS.
+    top_k: int | None = Field(default=None, ge=1)
     min_score: float | None = None
     debug: bool = False
 
@@ -383,13 +384,14 @@ async def cancel_job(job_id: uuid.UUID, request: Request) -> dict[str, object]:
 )
 @expose(public=False, permission="knowledge:read")
 async def search(body: SearchBody, request: Request) -> dict[str, object]:
+    from ar_domain.knowledge.retrieval import result_count  # noqa: PLC0415
     from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
 
     payload = dump(body)
     raw_ids = payload.get("collection_ids")
     ids = raw_ids if isinstance(raw_ids, list) else []
     raw_top = payload.get("top_k")
-    top_k = raw_top if isinstance(raw_top, int) else 8
+    top_k = result_count(raw_top)
     raw_score = payload.get("min_score")
     min_score = (
         float(raw_score)

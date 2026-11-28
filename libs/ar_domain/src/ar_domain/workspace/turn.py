@@ -337,13 +337,12 @@ def _optional_int(definition: dict[str, object], *names: str) -> int | None:
 
 
 def _top_k(definition: dict[str, object]) -> int:
-    """How many passages one query may bring: the agent's own ``knowledge.topK``."""
-    from ar_contracts.definitions import KnowledgeSpec  # noqa: PLC0415
+    """How many passages one query may bring: the agent's ``knowledge.topK``, else the install's."""
+    from ar_domain.knowledge.retrieval import result_count  # noqa: PLC0415
 
     knowledge = definition.get("knowledge")
-    raw = knowledge.get("top_k") if isinstance(knowledge, dict) else None
-    default = int(KnowledgeSpec.model_fields["top_k"].default)
-    return raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else default
+    raw = knowledge.get("top_k", knowledge.get("topK")) if isinstance(knowledge, dict) else None
+    return result_count(raw)
 
 
 def _collection_slugs(definition: dict[str, object]) -> set[str]:

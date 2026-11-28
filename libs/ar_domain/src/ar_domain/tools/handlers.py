@@ -507,7 +507,11 @@ async def _planned_search(  # noqa: PLR0917
     import asyncio  # noqa: PLC0415
 
     from ar_domain.knowledge.planning import plan_search_queries  # noqa: PLC0415
-    from ar_domain.knowledge.retrieval import diversify, max_per_document  # noqa: PLC0415
+    from ar_domain.knowledge.retrieval import (  # noqa: PLC0415
+        diversify,
+        max_per_document,
+        result_count,
+    )
     from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
     from ar_domain.workspace.turn import _context_turns, earlier_user_turns  # noqa: PLC0415
 
@@ -522,7 +526,7 @@ async def _planned_search(  # noqa: PLR0917
     queries = planned or [query]
     collection_ids = _uuids(body.get("collection_ids"))
     raw_top = body.get("top_k")
-    top_k = raw_top if isinstance(raw_top, int) and not isinstance(raw_top, bool) else 8
+    top_k = result_count(raw_top)
     named = _uuids(body.get("document_ids")) or None
     candidate = body.get("candidate_k")
     per_document = body.get("max_per_document")
@@ -585,7 +589,7 @@ def _round_robin(ranked: list[list[dict[str, object]]]) -> list[dict[str, object
 
 
 def _retrieval_limits(store: Any, arguments: dict[str, object]) -> dict[str, int]:
-    """The calling agent's retrieval pool and per-document cap, when it sets them."""
+    """The calling agent's result count, retrieval pool and per-document cap, when it sets them."""
     version = getattr(store, "versions", {}).get(arguments.get("_agent_version_id"))
     definition = version.get("definition") if isinstance(version, dict) else None
     knowledge = definition.get("knowledge") if isinstance(definition, dict) else None
@@ -593,6 +597,7 @@ def _retrieval_limits(store: Any, arguments: dict[str, object]) -> dict[str, int
         return {}
     limits: dict[str, int] = {}
     for key, *names in (
+        ("top_k", "top_k", "topK"),
         ("candidate_k", "candidate_k", "candidateK"),
         ("max_per_document", "max_per_document", "maxPerDocument"),
     ):
@@ -655,8 +660,12 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         # None given, or none matched a readable collection: search them all, as the tool's
         # description promises ("omit to search every collection the person can read").
         raw_ids = [row["id"] for row in collections]
+    from ar_domain.knowledge.retrieval import result_count  # noqa: PLC0415
+
+    # The model's own number, else the agent's knowledge.topK, else the install's.
     raw_top = arguments.get("top_k")
-    top_k = raw_top if isinstance(raw_top, int) and not isinstance(raw_top, bool) else 8
+    agent_top = _retrieval_limits(store, arguments).get("top_k")
+    top_k = result_count(raw_top if _whole(raw_top) else agent_top)
     try:
         body: dict[str, object] = {
             "query": str(arguments.get("query") or ""),
@@ -669,6 +678,7 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         if named:
             body["document_ids"] = named
         limits = _retrieval_limits(store, arguments)
+        limits.pop("top_k", None)
         body.update(limits)
         found = _search_for_agent(store, book, actor, body, arguments)
     except (ValueError, TypeError, ArError) as exc:
