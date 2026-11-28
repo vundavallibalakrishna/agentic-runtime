@@ -4,8 +4,9 @@ import { Bot, MessageSquare, Plus, Search, Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { PageHeader } from "@/components/page-header";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import type { AgentSummary } from "./types";
 export function AgentCatalogue() {
   const t = useTranslations("agents");
   const router = useRouter();
+  const latestLoad = useRef(0);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
@@ -38,6 +40,7 @@ export function AgentCatalogue() {
   const [pending, setPending] = useState("");
 
   const load = useCallback(async () => {
+    const requestId = ++latestLoad.current;
     setLoading(true);
     setError("");
     const params = new URLSearchParams();
@@ -53,18 +56,23 @@ export function AgentCatalogue() {
         api<{ items: AgentSummary[] }>(`/api/v1/agents${suffix}`),
         loadSession(),
       ]);
+      if (requestId !== latestLoad.current) return;
       setCanCreate(session.permissions?.includes("agents:create") ?? false);
       setCanChat(session.permissions?.includes("chat:use") ?? false);
       setAgents(page.items ?? []);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
+      if (requestId === latestLoad.current)
+        setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
-      setLoading(false);
+      if (requestId === latestLoad.current) setLoading(false);
     }
   }, [query, status, t]);
 
   useEffect(() => {
     void load();
+    return () => {
+      latestLoad.current += 1;
+    };
   }, [load]);
 
   async function act(agent: AgentSummary, action: "favourite" | "chat") {
@@ -94,6 +102,8 @@ export function AgentCatalogue() {
       setPending("");
     }
   }
+
+  const pagination = usePagedRows(agents, JSON.stringify([query, status]));
 
   return (
     <div>
@@ -217,7 +227,7 @@ export function AgentCatalogue() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {agents.map((agent) => {
+              {pagination.rows.map((agent) => {
                 const state = agent.disabled ? "disabled" : (agent.status ?? "draft");
                 return (
                   <TableRow className="hover:bg-[var(--muted)]" key={agent.id}>
@@ -292,6 +302,7 @@ export function AgentCatalogue() {
           </Table>
         </TableScroll>
       ) : null}
+      {!loading && !error && agents.length > 0 ? <ListPagination {...pagination} /> : null}
     </div>
   );
 }

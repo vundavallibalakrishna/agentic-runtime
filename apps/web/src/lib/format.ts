@@ -38,7 +38,7 @@ export function formatDateTime(value: string, locale?: string): string {
   }).format(date);
 }
 
-const CURRENCY_AMOUNT_PATTERN = "(?:[0-9]+(?:[.][0-9]{0,6})?|[.][0-9]{1,6})";
+export const CURRENCY_AMOUNT_PATTERN = "(?:[0-9]+(?:[.][0-9]{0,6})?|[.][0-9]{1,6})";
 const currencyAmount = new RegExp(`^${CURRENCY_AMOUNT_PATTERN}$`);
 
 /** Parse decimal currency into safe integer millionths without floating-point rounding. */

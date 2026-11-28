@@ -14,7 +14,10 @@ test("an administrator adds, points, tests and removes models on the Models scre
   await page.goto("/admin/models");
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { name: "Models", exact: true })).toBeVisible();
-  await expect(main.getByRole("heading", { name: "What the product uses" })).toBeVisible();
+  await expect(main.getByRole("heading", { name: "Model defaults", exact: true })).toBeVisible();
+
+  // Adding a provider is one step away once the workspace has providers.
+  await main.locator("summary").filter({ hasText: "Add a provider" }).click();
 
   // The form starts empty: no vendor address, model id or name is typed in for anyone.
   for (const label of ["Name", "Base URL", "API key"]) {
@@ -36,6 +39,13 @@ test("an administrator adds, points, tests and removes models on the Models scre
   await expect(dialog).toBeHidden();
   await expect(main.getByRole("heading", { name: "Spec provider", exact: true })).toBeVisible();
 
+  // Its models are listed under the provider, one click away.
+  await main
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: "Spec provider", exact: true }) })
+    .locator("summary")
+    .click();
+
   // One model is tested by itself, against the provider.
   await main.getByRole("button", { name: "Test spec-embed" }).click();
   await expect(
@@ -43,7 +53,18 @@ test("an administrator adds, points, tests and removes models on the Models scre
   ).toBeVisible();
 
   // The name the product uses for search is pointed at the new model, and tested.
-  await main.getByLabel("Model for Search by meaning").selectOption({ label: "spec-embed" });
+  await main.getByRole("button", { name: /^Model for Search by meaning:/ }).click();
+  const modelPicker = page.getByRole("dialog", {
+    name: "Model for Search by meaning",
+    exact: true,
+  });
+  await modelPicker.getByRole("searchbox").fill("spec-embed");
+  await modelPicker
+    .getByRole("list")
+    .getByRole("button")
+    .filter({ hasText: "spec-embed" })
+    .first()
+    .click();
   await expect(main.getByRole("button", { name: "Clear Search by meaning" })).toBeVisible();
   await main.getByRole("button", { name: "Test Search by meaning" }).click();
   await expect(main.getByText("It answered.").first()).toBeVisible();

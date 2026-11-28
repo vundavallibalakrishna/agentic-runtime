@@ -59,7 +59,9 @@ test("schedules, inbox, runs and agent call selection", async ({ page }) => {
 
   await page.goto("/agents");
   await page.locator('a[href^="/agents/"]:not([href="/agents/new"])').first().click();
-  await expect(page.getByText("Can call agents")).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("Can ask a person")).toBeVisible();
+  const canCall = page.locator("summary").filter({ hasText: "Can call agents" });
+  await expect(canCall).toBeVisible({ timeout: 20_000 });
+  await canCall.click();
+  await expect(page.getByLabel("Can ask a person", { exact: true })).toBeVisible();
   await capture(page, "agent-editor");
 });

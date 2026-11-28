@@ -41,7 +41,9 @@ async function capture(page: Page, name: string) {
 test("database connections and agent limits are visible", async ({ page }) => {
   await signIn(page);
   await page.goto("/connections");
+  await page.getByRole("tab", { name: "Database connections", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Database connections" })).toBeVisible();
+  await page.getByText("Add a database connection", { exact: true }).click();
   await page.getByLabel("Database name").fill("proof");
   await page
     .getByLabel("Connection string")
@@ -58,7 +60,9 @@ test("database connections and agent limits are visible", async ({ page }) => {
   const rows = body.items ?? body.data ?? [];
   const assistant = rows.find((row) => row.slug === "assistant") ?? rows[0];
   await page.goto(`/agents/${assistant?.id ?? ""}`);
-  await expect(page.getByText("Database tools")).toBeVisible({ timeout: 20_000 });
+  const databaseTools = page.locator("summary").filter({ hasText: "Database tools" });
+  await expect(databaseTools).toBeVisible({ timeout: 20_000 });
+  await databaseTools.click();
   await page.getByRole("checkbox", { name: "Query a database" }).check();
   await expect(page.getByLabel("Row limit")).toBeVisible();
   await expect(page.getByLabel("JSON schema")).toBeVisible();

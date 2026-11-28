@@ -1,25 +1,26 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
-
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { ActionStatus, ErrorMessage } from "@/components/common/detail-state";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import type { DisplayError } from "@/lib/api";
+import { CURRENCY_AMOUNT_PATTERN, fromMicros, toMicros } from "@/lib/format";
 
-import { Field, Problem, Select } from "./parts";
+import { Field, ModelPicker, Problem, Select } from "./parts";
 import {
   type Alias,
   DEFAULT_RERANK_FLOOR,
-  fromMicros,
   MODEL_KINDS,
   type Model,
   type ModelKind,
+  modelsFor,
   type Provider,
   type RerankRoute,
   rerankRoute,
   type StandardAlias,
-  toMicros,
 } from "./types";
 
 /** A dialog with a form, its own error and two buttons. The caller's save may fail. */
@@ -30,6 +31,7 @@ function floorOf(text: string): number {
 }
 
 function FormDialog({
+  blocked = false,
   open,
   title,
   submitLabel,
@@ -37,6 +39,7 @@ function FormDialog({
   onSubmit,
   children,
 }: {
+  blocked?: boolean;
   open: boolean;
   title: string;
   submitLabel: string;
@@ -46,7 +49,8 @@ function FormDialog({
 }) {
   const t = useTranslations("models");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const [error, setError] = useState<DisplayError>("");
 
   useEffect(() => {
     if (open) {
@@ -56,13 +60,14 @@ function FormDialog({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (busy || blocked) return;
     setBusy(true);
     setError("");
     try {
       await onSubmit();
       onClose();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
+      setError(caught instanceof Error ? caught : t("error"));
     } finally {
       setBusy(false);
     }
@@ -70,15 +75,40 @@ function FormDialog({
 
   return (
     <Dialog onOpenChange={(next) => (next ? undefined : onClose())} open={open}>
-      <DialogContent title={title}>
+      <DialogContent
+        title={title}
+        onOpenAutoFocus={() => {
+          returnFocus.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          const opener = returnFocus.current;
+          const target =
+            opener?.isConnected && !opener.matches(":disabled") && opener !== document.body
+              ? opener
+              : document.getElementById("main-content");
+          if (target) {
+            event.preventDefault();
+            target.focus({ preventScroll: true });
+          }
+        }}
+      >
         <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
-          {children}
-          {error ? <Problem>{error}</Problem> : null}
+          <fieldset disabled={busy || blocked} aria-label={title} className="min-w-0 grid gap-4">
+            {children}
+          </fieldset>
+          <ActionStatus busy={busy} />
+          {error ? (
+            <Problem>
+              <ErrorMessage error={error} />
+            </Problem>
+          ) : null}
+          {blocked ? <Problem>{t("refreshRequired")}</Problem> : null}
           <div className="flex justify-end gap-2">
             <Button onClick={onClose} type="button" variant="outline">
               {t("cancel")}
             </Button>
-            <Button disabled={busy} type="submit">
+            <Button disabled={busy || blocked} type="submit">
               {submitLabel}
             </Button>
           </div>
@@ -89,6 +119,7 @@ function FormDialog({
 }
 
 export function ConfirmDialog({
+  blocked = false,
   open,
   title,
   body,
@@ -96,6 +127,7 @@ export function ConfirmDialog({
   onClose,
   onConfirm,
 }: {
+  blocked?: boolean;
   open: boolean;
   title: string;
   body: string;
@@ -105,6 +137,7 @@ export function ConfirmDialog({
 }) {
   return (
     <FormDialog
+      blocked={blocked}
       onClose={onClose}
       onSubmit={onConfirm}
       open={open}
@@ -119,10 +152,12 @@ export function ConfirmDialog({
 export type ProviderChange = { name: string; baseUrl: string; apiKey: string };
 
 export function ProviderDialog({
+  blocked = false,
   provider,
   onClose,
   onSave,
 }: {
+  blocked?: boolean;
   provider: Provider | null;
   onClose: () => void;
   onSave: (change: ProviderChange) => Promise<void>;
@@ -140,6 +175,7 @@ export function ProviderDialog({
 
   return (
     <FormDialog
+      blocked={blocked}
       onClose={onClose}
       onSubmit={() => onSave({ name, baseUrl, apiKey })}
       open={provider !== null}
@@ -219,12 +255,14 @@ function parsedOptions(text: string): Record<string, unknown> | null {
 
 /** Add a model to a provider, or change one. `model` is null when adding. */
 export function ModelDialog({
+  blocked = false,
   target,
   standard,
   advanced,
   onClose,
   onSave,
 }: {
+  blocked?: boolean;
   target: { provider: Provider; model: Model | null } | null;
   standard: StandardAlias[];
   advanced: boolean;
@@ -281,16 +319,20 @@ export function ModelDialog({
   const typedOptions = parsedOptions(options);
   return (
     <FormDialog
+      blocked={blocked}
       onClose={onClose}
-      onSubmit={() => {
-        if (typedOptions === null) return Promise.reject(new Error(t("requestOptionsInvalid")));
-        return onSave({
+      onSubmit={async () => {
+        if (typedOptions === null) throw new Error(t("requestOptionsInvalid"));
+        const inputPrice = priceIn.trim() ? toMicros(priceIn) : 0;
+        const outputPrice = priceOut.trim() ? toMicros(priceOut) : 0;
+        if (inputPrice === null || outputPrice === null) throw new Error(t("invalidPrice"));
+        await onSave({
           requestOptions: advanced && kind === "chat" ? typedOptions : null,
           name: name.trim() || upstream.trim(),
           upstreamModel: upstream.trim(),
           kind,
-          priceIn: toMicros(priceIn),
-          priceOut: toMicros(priceOut),
+          priceIn: inputPrice,
+          priceOut: outputPrice,
           embeddingDimensions:
             kind === "embedding" && Number.isFinite(parsedDimensions) && parsedDimensions > 0
               ? parsedDimensions
@@ -376,26 +418,31 @@ export function ModelDialog({
           <Field id="model-price-in" label={t("priceInput")}>
             <Input
               id="model-price-in"
+              aria-describedby="model-price-help"
+              title={t("invalidPrice")}
               inputMode="decimal"
-              min="0"
               onChange={(event) => setPriceIn(event.target.value)}
-              step="0.000001"
-              type="number"
+              pattern={CURRENCY_AMOUNT_PATTERN}
+              type="text"
               value={priceIn}
             />
           </Field>
           <Field id="model-price-out" label={t("priceOutput")}>
             <Input
               id="model-price-out"
+              aria-describedby="model-price-help"
+              title={t("invalidPrice")}
               inputMode="decimal"
-              min="0"
               onChange={(event) => setPriceOut(event.target.value)}
-              step="0.000001"
-              type="number"
+              pattern={CURRENCY_AMOUNT_PATTERN}
+              type="text"
               value={priceOut}
             />
           </Field>
-          <p className="text-xs leading-relaxed text-[var(--muted-foreground)] sm:col-span-2">
+          <p
+            id="model-price-help"
+            className="text-xs leading-relaxed text-[var(--muted-foreground)] sm:col-span-2"
+          >
             {t("priceHint")}
           </p>
           <div className="sm:col-span-2">
@@ -479,12 +526,18 @@ export type AliasChange = {
 
 /** Add an alias of the tenant's own, or change what one points at and sends. */
 export function AliasDialog({
+  blocked = false,
   target,
+  providerNames,
+  standard,
   models,
   onClose,
   onSave,
 }: {
+  blocked?: boolean;
   target: { alias: Alias | null } | null;
+  providerNames: ReadonlyMap<string, string>;
+  standard: StandardAlias[];
   models: Model[];
   onClose: () => void;
   onSave: (change: AliasChange) => Promise<void>;
@@ -497,26 +550,34 @@ export function AliasDialog({
   const [temperature, setTemperature] = useState("");
 
   useEffect(() => {
-    setName(alias?.alias ?? "");
-    setKind(alias?.kind ?? "chat");
-    setModelId(alias?.primaryModelId ?? "");
-    const stored = alias?.defaultParams?.temperature;
+    const current = target?.alias;
+    setName(current?.alias ?? "");
+    setKind(current?.kind ?? "chat");
+    setModelId(current?.primaryModelId ?? "");
+    const stored = current?.defaultParams?.temperature;
     setTemperature(typeof stored === "number" ? String(stored) : "");
-  }, [alias]);
+  }, [target]);
 
-  const choices = models.filter((model) => model.kind === kind);
+  const standardUse = standard.find((item) => item.alias === (alias?.alias ?? name.trim()));
+  const effectiveKind = standardUse?.kind ?? kind;
+  const choices = standardUse
+    ? modelsFor(standardUse, models)
+    : models.filter((model) => model.kind === effectiveKind);
   const parsed = Number.parseFloat(temperature);
   return (
     <FormDialog
+      blocked={blocked}
       onClose={onClose}
-      onSubmit={() =>
-        onSave({
+      onSubmit={async () => {
+        if (!modelId || !choices.some((model) => model.id === modelId))
+          throw new Error(t("chooseModel"));
+        await onSave({
           alias: name.trim(),
-          kind,
+          kind: effectiveKind,
           modelId,
-          temperature: kind === "chat" && Number.isFinite(parsed) ? parsed : null,
-        })
-      }
+          temperature: effectiveKind === "chat" && Number.isFinite(parsed) ? parsed : null,
+        });
+      }}
       open={target !== null}
       submitLabel={alias ? t("save") : t("addAlias")}
       title={alias ? t("editAlias", { alias: alias.alias }) : t("addAlias")}
@@ -533,14 +594,19 @@ export function AliasDialog({
               value={name}
             />
           </Field>
-          <Field id="alias-kind" label={t("modelKind")}>
+          <Field
+            id="alias-kind"
+            label={t("modelKind")}
+            hint={standardUse ? t("standardKindHelp") : undefined}
+          >
             <Select
               id="alias-kind"
+              disabled={Boolean(standardUse)}
               onChange={(next) => {
                 setKind(next as ModelKind);
                 setModelId("");
               }}
-              value={kind}
+              value={effectiveKind}
             >
               {MODEL_KINDS.map((item) => (
                 <option key={item} value={item}>
@@ -551,28 +617,30 @@ export function AliasDialog({
           </Field>
         </>
       )}
-      <Field
-        hint={
-          choices.length === 0 ? t("noModelOfKind", { kind: t(`kindNames.${kind}`) }) : undefined
-        }
-        id="alias-model"
-        label={t("model")}
-      >
-        <Select
-          disabled={choices.length === 0}
-          id="alias-model"
-          onChange={setModelId}
+      <div className="grid gap-1">
+        <ModelPicker
+          models={choices}
+          providerNames={providerNames}
+          label={t("model")}
           value={modelId}
-        >
-          <option value="">{t("chooseModel")}</option>
-          {choices.map((model) => (
-            <option key={model.id} value={model.id}>
-              {model.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      {kind === "chat" ? (
+          selectionName={modelId ? models.find((model) => model.id === modelId)?.name : null}
+          disabled={choices.length === 0}
+          required
+          onChange={setModelId}
+          help={t("pickerDraftHelp")}
+        />
+        {choices.length === 0 ? (
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {standardUse?.capability
+              ? t(`needs.${standardUse.capability}`)
+              : t("noModelOfKind", { kind: t(`kindNames.${effectiveKind}`) })}
+          </p>
+        ) : null}
+        {modelId && !choices.some((model) => model.id === modelId) ? (
+          <p className="text-xs text-[var(--destructive)]">{t("incompatibleAssignment")}</p>
+        ) : null}
+      </div>
+      {effectiveKind === "chat" ? (
         <Field hint={t("temperatureHint")} id="alias-temperature" label={t("temperature")}>
           <Input
             aria-describedby="alias-temperature-hint"

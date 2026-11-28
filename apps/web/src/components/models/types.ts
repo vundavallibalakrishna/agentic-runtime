@@ -71,7 +71,8 @@ export type StandardAlias = {
 export type TestResult = { ok: boolean; output: string; latencyMs: number };
 
 /** A test that is running, or what it returned. Keyed by `provider:id`, `model:id`, `alias:id`. */
-export type Tests = Record<string, TestResult | "running">;
+export type TestState = TestResult | "running" | Error;
+export type Tests = Record<string, TestState>;
 
 /** The models an alias the product uses may point at. */
 export function modelsFor(item: StandardAlias, models: Model[]): Model[] {
@@ -80,17 +81,4 @@ export function modelsFor(item: StandardAlias, models: Model[]): Model[] {
       model.kind === item.kind &&
       (!item.capability || (model.capabilities ?? []).includes(item.capability)),
   );
-}
-
-/** Price per million tokens in the tenant currency, stored as integer micros. */
-export function toMicros(value: string): number {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return 0;
-  }
-  return Math.round(parsed * 1_000_000);
-}
-
-export function fromMicros(value: number | undefined): string {
-  return value ? String(value / 1_000_000) : "";
 }

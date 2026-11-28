@@ -1,5 +1,6 @@
 "use client";
 
+import { Plug } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -578,367 +579,437 @@ export function AgentEditor() {
                     >
                       {t("maxWordsHelp")}
                     </p>
-                    <fieldset className="mt-4">
-                      <legend className="text-sm font-medium">{t("toolsAndConnectors")}</legend>
-                      {servers.length === 0 ? (
-                        <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                          {t("noTools")}
+                    <details className="mt-4 rounded-lg border border-[var(--border)]">
+                      <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+                        {t("toolsAndConnectors")}
+                      </summary>
+                      <fieldset className="min-w-0 p-4 pt-2">
+                        <legend className="sr-only">{t("toolsAndConnectors")}</legend>
+                        {servers.length === 0 ? (
+                          <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                            {t("noTools")}
+                          </p>
+                        ) : (
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            {servers.map((server) => (
+                              <label className="flex items-center gap-2 text-sm" key={server.slug}>
+                                <input
+                                  checked={(definition.tools ?? []).some(
+                                    (tool) => tool.server === server.slug,
+                                  )}
+                                  onChange={() => toggleServer(server.slug)}
+                                  type="checkbox"
+                                />
+                                {server.name}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </fieldset>
+                    </details>
+                    <details className="mt-4 rounded-lg border border-[var(--border)]">
+                      <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+                        {t("canCallAgents")}
+                      </summary>
+                      <fieldset className="min-w-0 p-4 pt-2">
+                        <legend className="sr-only">{t("canCallAgents")}</legend>
+                        <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                          {t("canCallHelp")}
                         </p>
-                      ) : (
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          {servers.map((server) => (
-                            <label className="flex items-center gap-2 text-sm" key={server.slug}>
-                              <input
-                                checked={(definition.tools ?? []).some(
-                                  (tool) => tool.server === server.slug,
-                                )}
-                                onChange={() => toggleServer(server.slug)}
-                                type="checkbox"
-                              />
-                              {server.name}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </fieldset>
-                    <fieldset className="mt-4">
-                      <legend className="text-sm font-medium">{t("canCallAgents")}</legend>
-                      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                        {t("canCallHelp")}
-                      </p>
-                      {peers.length === 0 ? (
-                        <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                          {t("noPeers")}
-                        </p>
-                      ) : (
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          {peers.map((peer) => (
-                            <label className="flex items-center gap-2 text-sm" key={peer.id}>
-                              <input
-                                checked={(definition.subagents?.allowed ?? []).includes(peer.slug)}
-                                onChange={() => toggleCallee(peer.slug)}
-                                type="checkbox"
-                              />
-                              {peer.name}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                      <label className="mt-3 flex items-center gap-2 text-sm">
-                        <input
-                          checked={definition.human?.enabled === true}
-                          onChange={() =>
-                            updateDefinition({
-                              ...definition,
-                              human: { enabled: definition.human?.enabled !== true },
-                            })
-                          }
-                          type="checkbox"
-                        />
-                        {t("canAskPerson")}
-                      </label>
-                    </fieldset>
-                    <fieldset className="mt-4">
-                      <legend className="text-sm font-medium">{t("generalTools")}</legend>
-                      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                        {t("generalHelp")}
-                      </p>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        {generalTools.map((name) => (
-                          <label className="flex items-center gap-2 text-sm" key={name}>
-                            <input
-                              checked={
-                                generalInclude.includes("*") || generalInclude.includes(name)
-                              }
-                              onChange={() => toggleGeneral(name)}
-                              type="checkbox"
-                            />
-                            {t(`tool_${name}`)}
-                          </label>
-                        ))}
-                      </div>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <label className="block text-sm" htmlFor="general-timeout">
-                          {t("toolTimeout")}
-                          <Input
-                            className="mt-1"
-                            id="general-timeout"
-                            min={1}
-                            max={120}
-                            onChange={(event) => {
-                              const timeoutS = Number(event.target.value) || 30;
-                              const include = generalInclude.length ? generalInclude : ["code"];
-                              setGeneral(include.includes("*") ? [...generalTools] : include, {
-                                ...general?.overrides,
-                                code: { ...general?.overrides?.code, timeoutS },
-                                shell: { ...general?.overrides?.shell, timeoutS },
-                              });
-                            }}
-                            type="number"
-                            value={general?.overrides?.code?.timeoutS ?? 30}
-                          />
-                        </label>
-                        <label
-                          className="mt-6 flex items-center gap-2 text-sm"
-                          htmlFor="general-network"
-                        >
+                        {peers.length === 0 ? (
+                          <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                            {t("noPeers")}
+                          </p>
+                        ) : (
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            {peers.map((peer) => (
+                              <label className="flex items-center gap-2 text-sm" key={peer.id}>
+                                <input
+                                  checked={(definition.subagents?.allowed ?? []).includes(
+                                    peer.slug,
+                                  )}
+                                  onChange={() => toggleCallee(peer.slug)}
+                                  type="checkbox"
+                                />
+                                {peer.name}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        <label className="mt-3 flex items-center gap-2 text-sm">
                           <input
-                            checked={general?.overrides?.code?.network === true}
-                            id="general-network"
-                            onChange={(event) => {
-                              const include = generalInclude.length
-                                ? generalInclude
-                                : ["code", "shell"];
-                              setGeneral(include.includes("*") ? [...generalTools] : include, {
-                                ...general?.overrides,
-                                code: {
-                                  ...general?.overrides?.code,
-                                  network: event.target.checked,
-                                },
-                                shell: {
-                                  ...general?.overrides?.shell,
-                                  network: event.target.checked,
-                                },
-                              });
-                            }}
+                            checked={definition.human?.enabled === true}
+                            onChange={() =>
+                              updateDefinition({
+                                ...definition,
+                                human: { enabled: definition.human?.enabled !== true },
+                              })
+                            }
                             type="checkbox"
                           />
-                          {t("toolNetwork")}
+                          {t("canAskPerson")}
                         </label>
-                      </div>
-                      <label className="mt-3 block text-sm" htmlFor="general-hosts">
-                        {t("allowHosts")}
-                        <textarea
-                          className="mt-1 min-h-16 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
-                          id="general-hosts"
-                          onChange={(event) => {
-                            const allowHosts = event.target.value
-                              .split("\n")
-                              .map((item) => item.trim())
-                              .filter(Boolean);
-                            const include = generalInclude.length
-                              ? generalInclude
-                              : ["fetch", "http"];
-                            setGeneral(include.includes("*") ? [...generalTools] : include, {
-                              ...general?.overrides,
-                              fetch: { ...general?.overrides?.fetch, allowHosts },
-                              http: { ...general?.overrides?.http, allowHosts },
-                            });
-                          }}
-                          value={(general?.overrides?.fetch?.allowHosts ?? []).join("\n")}
-                        />
-                      </label>
-                    </fieldset>
-                    <fieldset className="mt-4">
-                      <legend className="text-sm font-medium">{t("dataTools")}</legend>
-                      <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("dataHelp")}</p>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        {dataTools.map((name) => (
-                          <label className="flex items-center gap-2 text-sm" key={name}>
+                      </fieldset>
+                    </details>
+                    <details className="mt-4 rounded-lg border border-[var(--border)]">
+                      <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+                        {t("generalTools")}
+                      </summary>
+                      <fieldset className="min-w-0 p-4 pt-2">
+                        <legend className="sr-only">{t("generalTools")}</legend>
+                        <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                          {t("generalHelp")}
+                        </p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {generalTools.map((name) => (
+                            <label className="flex items-center gap-2 text-sm" key={name}>
+                              <input
+                                checked={
+                                  generalInclude.includes("*") || generalInclude.includes(name)
+                                }
+                                onChange={() => toggleGeneral(name)}
+                                type="checkbox"
+                              />
+                              {t(`tool_${name}`)}
+                            </label>
+                          ))}
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <label className="block text-sm" htmlFor="general-timeout">
+                            {t("toolTimeout")}
+                            <Input
+                              className="mt-1"
+                              id="general-timeout"
+                              min={1}
+                              max={120}
+                              onChange={(event) => {
+                                const timeoutS = Number(event.target.value) || 30;
+                                const include = generalInclude.length ? generalInclude : ["code"];
+                                setGeneral(include.includes("*") ? [...generalTools] : include, {
+                                  ...general?.overrides,
+                                  code: { ...general?.overrides?.code, timeoutS },
+                                  shell: { ...general?.overrides?.shell, timeoutS },
+                                });
+                              }}
+                              type="number"
+                              value={general?.overrides?.code?.timeoutS ?? 30}
+                            />
+                          </label>
+                          <label
+                            className="mt-6 flex items-center gap-2 text-sm"
+                            htmlFor="general-network"
+                          >
                             <input
-                              checked={dataInclude.includes("*") || dataInclude.includes(name)}
-                              onChange={() => toggleData(name)}
+                              checked={general?.overrides?.code?.network === true}
+                              id="general-network"
+                              onChange={(event) => {
+                                const include = generalInclude.length
+                                  ? generalInclude
+                                  : ["code", "shell"];
+                                setGeneral(include.includes("*") ? [...generalTools] : include, {
+                                  ...general?.overrides,
+                                  code: {
+                                    ...general?.overrides?.code,
+                                    network: event.target.checked,
+                                  },
+                                  shell: {
+                                    ...general?.overrides?.shell,
+                                    network: event.target.checked,
+                                  },
+                                });
+                              }}
                               type="checkbox"
                             />
-                            {t(`tool_${name}`)}
+                            {t("toolNetwork")}
                           </label>
-                        ))}
-                      </div>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <label className="block text-sm" htmlFor="data-row-limit">
-                          {t("rowLimit")}
-                          <Input
-                            className="mt-1"
-                            id="data-row-limit"
-                            max={5000}
-                            min={1}
+                        </div>
+                        <label className="mt-3 block text-sm" htmlFor="general-hosts">
+                          {t("allowHosts")}
+                          <textarea
+                            className="mt-1 min-h-16 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+                            id="general-hosts"
                             onChange={(event) => {
-                              const rowLimit = Number(event.target.value) || 1000;
-                              const include = dataInclude.length ? dataInclude : ["query"];
-                              setData(include.includes("*") ? [...dataTools] : include, {
-                                ...dataBinding?.overrides,
-                                query: { ...dataBinding?.overrides?.query, rowLimit },
+                              const allowHosts = event.target.value
+                                .split("\n")
+                                .map((item) => item.trim())
+                                .filter(Boolean);
+                              const include = generalInclude.length
+                                ? generalInclude
+                                : ["fetch", "http"];
+                              setGeneral(include.includes("*") ? [...generalTools] : include, {
+                                ...general?.overrides,
+                                fetch: { ...general?.overrides?.fetch, allowHosts },
+                                http: { ...general?.overrides?.http, allowHosts },
                               });
                             }}
-                            type="number"
-                            value={dataBinding?.overrides?.query?.rowLimit ?? 1000}
+                            value={(general?.overrides?.fetch?.allowHosts ?? []).join("\n")}
                           />
                         </label>
-                        <label className="block text-sm" htmlFor="data-schemas">
-                          {t("allowedSchemas")}
+                      </fieldset>
+                    </details>
+                    <details className="mt-4 rounded-lg border border-[var(--border)]">
+                      <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+                        {t("dataTools")}
+                      </summary>
+                      <fieldset className="min-w-0 p-4 pt-2">
+                        <legend className="sr-only">{t("dataTools")}</legend>
+                        <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                          {t("dataHelp")}
+                        </p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {dataTools.map((name) => (
+                            <label className="flex items-center gap-2 text-sm" key={name}>
+                              <input
+                                checked={dataInclude.includes("*") || dataInclude.includes(name)}
+                                onChange={() => toggleData(name)}
+                                type="checkbox"
+                              />
+                              {t(`tool_${name}`)}
+                            </label>
+                          ))}
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <label className="block text-sm" htmlFor="data-row-limit">
+                            {t("rowLimit")}
+                            <Input
+                              className="mt-1"
+                              id="data-row-limit"
+                              max={5000}
+                              min={1}
+                              onChange={(event) => {
+                                const rowLimit = Number(event.target.value) || 1000;
+                                const include = dataInclude.length ? dataInclude : ["query"];
+                                setData(include.includes("*") ? [...dataTools] : include, {
+                                  ...dataBinding?.overrides,
+                                  query: { ...dataBinding?.overrides?.query, rowLimit },
+                                });
+                              }}
+                              type="number"
+                              value={dataBinding?.overrides?.query?.rowLimit ?? 1000}
+                            />
+                          </label>
+                          <label className="block text-sm" htmlFor="data-schemas">
+                            {t("allowedSchemas")}
+                            <Input
+                              className="mt-1"
+                              id="data-schemas"
+                              onChange={(event) => {
+                                const schemas = event.target.value
+                                  .split(",")
+                                  .map((item) => item.trim())
+                                  .filter(Boolean);
+                                const include = dataInclude.length ? dataInclude : ["query"];
+                                setData(include.includes("*") ? [...dataTools] : include, {
+                                  ...dataBinding?.overrides,
+                                  query: { ...dataBinding?.overrides?.query, schemas },
+                                });
+                              }}
+                              value={(dataBinding?.overrides?.query?.schemas ?? []).join(", ")}
+                            />
+                          </label>
+                        </div>
+                        <label className="mt-3 block text-sm" htmlFor="data-tables">
+                          {t("allowedTables")}
                           <Input
                             className="mt-1"
-                            id="data-schemas"
+                            id="data-tables"
                             onChange={(event) => {
-                              const schemas = event.target.value
+                              const tables = event.target.value
                                 .split(",")
                                 .map((item) => item.trim())
                                 .filter(Boolean);
                               const include = dataInclude.length ? dataInclude : ["query"];
                               setData(include.includes("*") ? [...dataTools] : include, {
                                 ...dataBinding?.overrides,
-                                query: { ...dataBinding?.overrides?.query, schemas },
+                                query: { ...dataBinding?.overrides?.query, tables },
                               });
                             }}
-                            value={(dataBinding?.overrides?.query?.schemas ?? []).join(", ")}
+                            value={(dataBinding?.overrides?.query?.tables ?? []).join(", ")}
                           />
                         </label>
-                      </div>
-                      <label className="mt-3 block text-sm" htmlFor="data-tables">
-                        {t("allowedTables")}
-                        <Input
-                          className="mt-1"
-                          id="data-tables"
-                          onChange={(event) => {
-                            const tables = event.target.value
-                              .split(",")
-                              .map((item) => item.trim())
-                              .filter(Boolean);
-                            const include = dataInclude.length ? dataInclude : ["query"];
-                            setData(include.includes("*") ? [...dataTools] : include, {
-                              ...dataBinding?.overrides,
-                              query: { ...dataBinding?.overrides?.query, tables },
-                            });
-                          }}
-                          value={(dataBinding?.overrides?.query?.tables ?? []).join(", ")}
-                        />
-                      </label>
-                      <label className="mt-3 block text-sm" htmlFor="output-schema">
-                        {t("outputSchema")}
-                        <textarea
-                          className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 font-mono text-xs"
-                          id="output-schema"
-                          onChange={(event) => {
-                            const next = event.target.value;
-                            setSchemaText(next);
-                            try {
-                              const parsed = JSON.parse(next) as Record<string, unknown>;
-                              if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-                                updateDefinition({
-                                  ...definition,
-                                  output: { ...definition.output, jsonSchema: parsed },
-                                });
-                              }
-                            } catch {
+                        <label className="mt-3 block text-sm" htmlFor="output-schema">
+                          {t("outputSchema")}
+                          <textarea
+                            className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 font-mono text-xs"
+                            id="output-schema"
+                            onChange={(event) => {
+                              const next = event.target.value;
                               setSchemaText(next);
+                              try {
+                                const parsed = JSON.parse(next) as Record<string, unknown>;
+                                if (
+                                  parsed &&
+                                  typeof parsed === "object" &&
+                                  !Array.isArray(parsed)
+                                ) {
+                                  updateDefinition({
+                                    ...definition,
+                                    output: { ...definition.output, jsonSchema: parsed },
+                                  });
+                                }
+                              } catch {
+                                setSchemaText(next);
+                              }
+                            }}
+                            value={
+                              schemaText ??
+                              (definition.output?.jsonSchema
+                                ? JSON.stringify(definition.output.jsonSchema, null, 2)
+                                : "")
                             }
-                          }}
-                          value={
-                            schemaText ??
-                            (definition.output?.jsonSchema
-                              ? JSON.stringify(definition.output.jsonSchema, null, 2)
-                              : "")
-                          }
-                        />
+                          />
+                          <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                            {t("outputSchemaHelp")}
+                          </p>
+                        </label>
+                      </fieldset>
+                    </details>
+                    <details className="mt-4 rounded-lg border border-[var(--border)]">
+                      <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+                        {t("connectorTools")}
+                      </summary>
+                      <fieldset className="min-w-0 p-4 pt-2">
+                        <legend className="sr-only">{t("connectorTools")}</legend>
                         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                          {t("outputSchemaHelp")}
+                          {t("connectorToolsHelp")}{" "}
+                          <Link className="underline" href="/connectors">
+                            {t("connectorTools")}
+                          </Link>
                         </p>
-                      </label>
-                    </fieldset>
-                    <fieldset className="mt-4">
-                      <legend className="text-sm font-medium">{t("connectorTools")}</legend>
-                      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                        {t("connectorToolsHelp")}{" "}
-                        <Link className="underline" href="/connectors">
-                          {t("connectorTools")}
-                        </Link>
-                      </p>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        {catalogue
-                          .filter((tool) => tool.server === "connectors")
-                          .map((tool) => {
-                            const binding = (definition.tools ?? []).find(
-                              (item) => item.server === "connectors",
-                            );
-                            const checked = Boolean(
-                              binding?.include?.includes("*") ||
-                                binding?.include?.includes(tool.name),
-                            );
-                            const risky = tool.risk === "W2" || tool.risk === "W3";
-                            return (
-                              <label className="flex items-center gap-2 text-sm" key={tool.name}>
-                                <input
-                                  checked={checked}
-                                  onChange={() => toggleTool("connectors", tool.name)}
-                                  type="checkbox"
-                                />
-                                <span>
-                                  {tool.name}
-                                  {risky ? ` · ${t("riskyTool")}` : ""}
-                                </span>
-                              </label>
-                            );
-                          })}
-                      </div>
-                    </fieldset>
-                    <fieldset className="mt-4">
-                      <legend className="text-sm font-medium">{t("attachTitle")}</legend>
-                      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                        {t("attachHelp")}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-3">
-                        {["mcp", "openapi", "custom"].map((source) => {
-                          const slugs = [
+                        <div className="mt-3 space-y-2">
+                          {[
                             ...new Set(
                               catalogue
-                                .filter((tool) => tool.source === source)
-                                .map((tool) => tool.server),
+                                .filter((tool) => tool.server === "connectors")
+                                .map((tool) => tool.name.split("_")[0] ?? tool.name),
                             ),
-                          ];
-                          const on =
-                            slugs.length > 0 &&
-                            slugs.every((slug) =>
-                              (definition.tools ?? []).some((tool) => tool.server === slug),
-                            );
-                          return (
-                            <label className="flex items-center gap-2 text-sm" key={source}>
-                              <input
-                                checked={on}
-                                disabled={slugs.length === 0}
-                                onChange={() => attachServers(slugs, !on)}
-                                type="checkbox"
-                              />
-                              {t(`source_${source}`)}
-                            </label>
-                          );
-                        })}
-                      </div>
-                      <div className="mt-3 grid gap-2">
-                        {catalogue
-                          .filter(
-                            (tool) =>
-                              tool.source === "mcp" ||
-                              tool.source === "openapi" ||
-                              tool.source === "custom",
-                          )
-                          .map((tool) => {
-                            const binding = (definition.tools ?? []).find(
-                              (item) => item.server === tool.server,
-                            );
-                            const checked = Boolean(
-                              binding?.include?.includes("*") ||
-                                binding?.include?.includes(tool.name),
-                            );
-                            const risky = tool.risk === "W2" || tool.risk === "W3";
-                            return (
-                              <label
-                                className="flex items-center gap-2 text-sm"
-                                key={`${tool.server}.${tool.name}`}
+                          ]
+                            .sort()
+                            .map((namespace) => (
+                              <details
+                                className="rounded-lg border border-[var(--border)]"
+                                key={namespace}
                               >
+                                <summary className="cursor-pointer px-3 py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+                                  <Plug
+                                    className="mx-2 inline-block text-[var(--muted-foreground)]"
+                                    size={16}
+                                    aria-hidden="true"
+                                  />
+                                  <span className="uppercase">{namespace}</span>
+                                </summary>
+                                <div className="grid gap-3 px-4 pb-4 sm:grid-cols-2">
+                                  {catalogue
+                                    .filter(
+                                      (tool) =>
+                                        tool.server === "connectors" &&
+                                        (tool.name.split("_")[0] ?? tool.name) === namespace,
+                                    )
+                                    .map((tool) => {
+                                      const binding = (definition.tools ?? []).find(
+                                        (item) => item.server === "connectors",
+                                      );
+                                      const checked = Boolean(
+                                        binding?.include?.includes("*") ||
+                                          binding?.include?.includes(tool.name),
+                                      );
+                                      const risky = tool.risk === "W2" || tool.risk === "W3";
+                                      return (
+                                        <label
+                                          className="flex items-center gap-2 text-sm"
+                                          key={tool.name}
+                                        >
+                                          <input
+                                            checked={checked}
+                                            onChange={() => toggleTool("connectors", tool.name)}
+                                            type="checkbox"
+                                          />
+                                          <span>
+                                            {tool.name}
+                                            {risky ? ` · ${t("riskyTool")}` : ""}
+                                          </span>
+                                        </label>
+                                      );
+                                    })}
+                                </div>
+                              </details>
+                            ))}
+                        </div>
+                      </fieldset>
+                    </details>
+                    <details className="mt-4 rounded-lg border border-[var(--border)]">
+                      <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+                        {t("attachTitle")}
+                      </summary>
+                      <fieldset className="min-w-0 p-4 pt-2">
+                        <legend className="sr-only">{t("attachTitle")}</legend>
+                        <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                          {t("attachHelp")}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-3">
+                          {["mcp", "openapi", "custom"].map((source) => {
+                            const slugs = [
+                              ...new Set(
+                                catalogue
+                                  .filter((tool) => tool.source === source)
+                                  .map((tool) => tool.server),
+                              ),
+                            ];
+                            const on =
+                              slugs.length > 0 &&
+                              slugs.every((slug) =>
+                                (definition.tools ?? []).some((tool) => tool.server === slug),
+                              );
+                            return (
+                              <label className="flex items-center gap-2 text-sm" key={source}>
                                 <input
-                                  checked={checked}
-                                  onChange={() => toggleTool(tool.server, tool.name)}
+                                  checked={on}
+                                  disabled={slugs.length === 0}
+                                  onChange={() => attachServers(slugs, !on)}
                                   type="checkbox"
                                 />
-                                <span>
-                                  {tool.server}.{tool.name}
-                                  {risky ? ` · ${t("riskyTool")}` : ""}
-                                </span>
+                                {t(`source_${source}`)}
                               </label>
                             );
                           })}
-                      </div>
-                    </fieldset>
+                        </div>
+                        <div className="mt-3 grid gap-2">
+                          {catalogue
+                            .filter(
+                              (tool) =>
+                                tool.source === "mcp" ||
+                                tool.source === "openapi" ||
+                                tool.source === "custom",
+                            )
+                            .map((tool) => {
+                              const binding = (definition.tools ?? []).find(
+                                (item) => item.server === tool.server,
+                              );
+                              const checked = Boolean(
+                                binding?.include?.includes("*") ||
+                                  binding?.include?.includes(tool.name),
+                              );
+                              const risky = tool.risk === "W2" || tool.risk === "W3";
+                              return (
+                                <label
+                                  className="flex items-center gap-2 text-sm"
+                                  key={`${tool.server}.${tool.name}`}
+                                >
+                                  <input
+                                    checked={checked}
+                                    onChange={() => toggleTool(tool.server, tool.name)}
+                                    type="checkbox"
+                                  />
+                                  <span>
+                                    {tool.server}.{tool.name}
+                                    {risky ? ` · ${t("riskyTool")}` : ""}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                      </fieldset>
+                    </details>
                     <label className="mt-4 block text-sm font-medium" htmlFor="editor-skills">
                       {t("skillSlugs")}
                     </label>
@@ -956,32 +1027,39 @@ export function AgentEditor() {
                       }
                       value={(definition.skills ?? []).join("\n")}
                     />
-                    <fieldset className="mt-4">
-                      <legend className="text-sm font-medium">{t("limits")}</legend>
-                      <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                        {(
-                          [
-                            ["maxSteps", t("maxSteps"), 16],
-                            ["maxToolCalls", t("maxToolCalls"), 16],
-                            ["maxTokens", t("maxTokens"), 80_000],
-                            ["maxWallClockS", t("maxWallClock"), 600],
-                            ["maxCostMicros", t("maxCost"), 4_000_000],
-                          ] as const
-                        ).map(([key, label, fallback]) => (
-                          <label className="block text-sm" htmlFor={`limit-${key}`} key={key}>
-                            {label}
-                            <Input
-                              className="mt-1"
-                              id={`limit-${key}`}
-                              min={0}
-                              onChange={(event) => setBudget(key, Number(event.target.value) || 0)}
-                              type="number"
-                              value={budgetValue(key, fallback)}
-                            />
-                          </label>
-                        ))}
-                      </div>
-                    </fieldset>
+                    <details className="mt-4 rounded-lg border border-[var(--border)]">
+                      <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+                        {t("limits")}
+                      </summary>
+                      <fieldset className="min-w-0 p-4 pt-2">
+                        <legend className="sr-only">{t("limits")}</legend>
+                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                          {(
+                            [
+                              ["maxSteps", t("maxSteps"), 16],
+                              ["maxToolCalls", t("maxToolCalls"), 16],
+                              ["maxTokens", t("maxTokens"), 80_000],
+                              ["maxWallClockS", t("maxWallClock"), 600],
+                              ["maxCostMicros", t("maxCost"), 4_000_000],
+                            ] as const
+                          ).map(([key, label, fallback]) => (
+                            <label className="block text-sm" htmlFor={`limit-${key}`} key={key}>
+                              {label}
+                              <Input
+                                className="mt-1"
+                                id={`limit-${key}`}
+                                min={0}
+                                onChange={(event) =>
+                                  setBudget(key, Number(event.target.value) || 0)
+                                }
+                                type="number"
+                                value={budgetValue(key, fallback)}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    </details>
                   </section>
                   <div className="mt-3">
                     <Button

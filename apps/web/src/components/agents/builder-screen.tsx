@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ActionStatus, BackButton } from "@/components/common/detail-state";
+import { ReferencePicker } from "@/components/common/reference-picker";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,21 +56,34 @@ export function BuilderScreen() {
   const [busy, setBusy] = useState(false);
   const [formName, setFormName] = useState("");
   const [formInstructions, setFormInstructions] = useState("");
-  const [formModel, setFormModel] = useState("reasoning");
+  const [formModel, setFormModel] = useState("");
+  const [modelsLoading, setModelsLoading] = useState(true);
   const [aliases, setAliases] = useState<string[]>([]);
+  const aliasChoices = useMemo(
+    () => aliases.map((alias) => ({ id: alias, name: alias })),
+    [aliases],
+  );
   const [enabledTools, setEnabledTools] = useState<string[]>([...GENERAL_TOOLS]);
   const [dataTools, setDataTools] = useState<string[]>([]);
   const [rowLimit, setRowLimit] = useState(1000);
   const [toolTimeout, setToolTimeout] = useState(30);
   const [toolNetwork, setToolNetwork] = useState(false);
 
-  useEffect(() => {
-    void chatAliases().then(setAliases);
+  const loadModels = useCallback(async () => {
+    setModelsLoading(true);
+    const available = await chatAliases();
+    setAliases(available);
+    setFormModel((current) => (available.includes(current) ? current : (available[0] ?? "")));
+    setModelsLoading(false);
   }, []);
+  useEffect(() => {
+    void loadModels();
+  }, [loadModels]);
 
   const spec = view?.proposal?.resources?.[0]?.spec;
 
   async function draft() {
+    if (busy || instruction.trim().length < 8) return;
     setView(null);
     setSessionId("");
     setBusy(true);
@@ -89,7 +103,7 @@ export function BuilderScreen() {
   }
 
   async function revise() {
-    if (!sessionId || !followUp.trim()) {
+    if (busy || !sessionId || !followUp.trim()) {
       return;
     }
     setBusy(true);
@@ -109,6 +123,7 @@ export function BuilderScreen() {
   }
 
   async function apply() {
+    if (busy || !sessionId || !spec || view?.validation?.errors?.length) return;
     setBusy(true);
     setError("");
     try {
@@ -127,6 +142,19 @@ export function BuilderScreen() {
   }
 
   async function createDirect() {
+    if (
+      busy ||
+      formName.trim().length < 2 ||
+      formInstructions.trim().length < 8 ||
+      !aliases.includes(formModel) ||
+      !Number.isInteger(toolTimeout) ||
+      toolTimeout < 1 ||
+      toolTimeout > 120 ||
+      !Number.isInteger(rowLimit) ||
+      rowLimit < 1 ||
+      rowLimit > 5000
+    )
+      return;
     setBusy(true);
     setError("");
     const slug = `${formName
@@ -180,11 +208,7 @@ export function BuilderScreen() {
           },
         }),
       });
-      await api(`/api/v1/agents/${created.id}:publish`, {
-        method: "POST",
-        body: JSON.stringify({ changeNote: t("publishedNote"), skipEvalGate: true }),
-      });
-      router.push(`/chat?agent=${slug.slice(0, 63)}`);
+      router.push(`/agents/${created.id}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
       setBusy(false);
@@ -192,6 +216,7 @@ export function BuilderScreen() {
   }
 
   async function fromTemplate(template: string) {
+    if (busy) return;
     setBusy(true);
     setError("");
     const slug = `${template}-${Date.now().toString(36)}`.slice(0, 40);
@@ -222,7 +247,7 @@ export function BuilderScreen() {
       <ActionStatus busy={busy} />
       <fieldset
         disabled={busy}
-        className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]"
+        className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]"
       >
         <div className="min-w-0 space-y-6">
           <section className="detail-panel">
@@ -337,127 +362,163 @@ export function BuilderScreen() {
             </div>
           </section>
         </div>
-        <section className="detail-panel form-sections">
-          <h2 className="text-base font-semibold">{t("createForm")}</h2>
-          <label className="mt-3 block text-sm font-medium" htmlFor="agent-form-name">
-            {t("name")}
-          </label>
-          <input
-            className="mt-1 w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-            id="agent-form-name"
-            onChange={(event) => setFormName(event.target.value)}
-            value={formName}
-          />
-          <label className="mt-3 block text-sm font-medium" htmlFor="agent-form-instructions">
-            {t("instructions")}
-          </label>
-          <textarea
-            className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
-            id="agent-form-instructions"
-            onChange={(event) => setFormInstructions(event.target.value)}
-            value={formInstructions}
-          />
-          <label className="mt-3 block text-sm font-medium" htmlFor="agent-form-model">
-            {t("modelAlias")}
-          </label>
-          <select
-            className="mt-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 text-sm"
-            id="agent-form-model"
-            onChange={(event) => setFormModel(event.target.value)}
-            value={formModel}
+        <details className="detail-panel form-sections">
+          <summary className="cursor-pointer text-base font-semibold">{t("createForm")}</summary>
+          <p className="mt-3 text-sm text-[var(--muted-foreground)]">{t("createFormHelp")}</p>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createDirect();
+            }}
           >
-            {(aliases.includes(formModel) ? aliases : [formModel, ...aliases]).map((alias) => (
-              <option key={alias} value={alias}>
-                {alias}
-              </option>
-            ))}
-          </select>
-          <fieldset className="mt-4">
-            <legend className="text-sm font-medium">{t("generalTools")}</legend>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("generalHelp")}</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {GENERAL_TOOLS.map((name) => (
-                <label className="flex items-center gap-2 text-sm" key={name}>
+            <label className="mt-3 block text-sm font-medium" htmlFor="agent-form-name">
+              {t("name")}
+            </label>
+            <input
+              className="mt-1 w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+              id="agent-form-name"
+              required
+              minLength={2}
+              onChange={(event) => setFormName(event.target.value)}
+              value={formName}
+            />
+            <label className="mt-3 block text-sm font-medium" htmlFor="agent-form-instructions">
+              {t("instructions")}
+            </label>
+            <textarea
+              className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+              id="agent-form-instructions"
+              required
+              minLength={8}
+              onChange={(event) => setFormInstructions(event.target.value)}
+              value={formInstructions}
+            />
+            <div className="mt-3">
+              <ReferencePicker
+                label={t("modelAlias")}
+                items={aliasChoices}
+                getDescription={() => ""}
+                required
+                clearable={false}
+                disabled={busy || modelsLoading || aliases.length === 0}
+                onChange={setFormModel}
+                value={formModel}
+              />
+            </div>
+            {modelsLoading ? (
+              <p className="mt-2 text-sm" role="status">
+                {t("loadingModels")}
+              </p>
+            ) : aliases.length === 0 ? (
+              <p className="mt-2 text-sm text-[var(--muted-foreground)]" role="status">
+                {t("noCreateModels")}{" "}
+                <Button type="button" variant="ghost" onClick={() => void loadModels()}>
+                  {t("retry")}
+                </Button>
+              </p>
+            ) : null}
+            <details className="mt-4 rounded-lg border border-[var(--border)]">
+              <summary className="cursor-pointer px-3 py-3 text-sm font-medium">
+                {t("generalTools")} · {t("selectedTools", { count: enabledTools.length })}
+              </summary>
+              <fieldset className="min-w-0 p-3 pt-0">
+                <legend className="sr-only">{t("generalTools")}</legend>
+                <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("generalHelp")}</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {GENERAL_TOOLS.map((name) => (
+                    <label className="flex items-center gap-2 text-sm" key={name}>
+                      <input
+                        checked={enabledTools.includes(name)}
+                        onChange={() =>
+                          setEnabledTools((current) =>
+                            current.includes(name)
+                              ? current.filter((item) => item !== name)
+                              : [...current, name],
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      {t(`tool_${name}`)}
+                    </label>
+                  ))}
+                </div>
+                <label className="mt-3 block text-sm" htmlFor="create-timeout">
+                  {t("toolTimeout")}
                   <input
-                    checked={enabledTools.includes(name)}
-                    onChange={() =>
-                      setEnabledTools((current) =>
-                        current.includes(name)
-                          ? current.filter((item) => item !== name)
-                          : [...current, name],
-                      )
-                    }
+                    className="mt-1 block w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                    id="create-timeout"
+                    min={1}
+                    max={120}
+                    onChange={(event) => setToolTimeout(Number(event.target.value) || 30)}
+                    type="number"
+                    value={toolTimeout}
+                  />
+                </label>
+                <label className="mt-3 flex items-center gap-2 text-sm" htmlFor="create-network">
+                  <input
+                    checked={toolNetwork}
+                    id="create-network"
+                    onChange={(event) => setToolNetwork(event.target.checked)}
                     type="checkbox"
                   />
-                  {t(`tool_${name}`)}
+                  {t("toolNetwork")}
                 </label>
-              ))}
-            </div>
-            <label className="mt-3 block text-sm" htmlFor="create-timeout">
-              {t("toolTimeout")}
-              <input
-                className="mt-1 block w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-                id="create-timeout"
-                min={1}
-                max={120}
-                onChange={(event) => setToolTimeout(Number(event.target.value) || 30)}
-                type="number"
-                value={toolTimeout}
-              />
-            </label>
-            <label className="mt-3 flex items-center gap-2 text-sm" htmlFor="create-network">
-              <input
-                checked={toolNetwork}
-                id="create-network"
-                onChange={(event) => setToolNetwork(event.target.checked)}
-                type="checkbox"
-              />
-              {t("toolNetwork")}
-            </label>
-          </fieldset>
-          <fieldset className="mt-4">
-            <legend className="text-sm font-medium">{t("dataTools")}</legend>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("dataHelp")}</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {DATA_TOOLS.map((name) => (
-                <label className="flex items-center gap-2 text-sm" key={name}>
+              </fieldset>
+            </details>
+            <details className="mt-4 rounded-lg border border-[var(--border)]">
+              <summary className="cursor-pointer px-3 py-3 text-sm font-medium">
+                {t("dataTools")} · {t("selectedTools", { count: dataTools.length })}
+              </summary>
+              <fieldset className="min-w-0 p-3 pt-0">
+                <legend className="sr-only">{t("dataTools")}</legend>
+                <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("dataHelp")}</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {DATA_TOOLS.map((name) => (
+                    <label className="flex items-center gap-2 text-sm" key={name}>
+                      <input
+                        checked={dataTools.includes(name)}
+                        onChange={() =>
+                          setDataTools((current) =>
+                            current.includes(name)
+                              ? current.filter((item) => item !== name)
+                              : [...current, name],
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      {t(`tool_${name}`)}
+                    </label>
+                  ))}
+                </div>
+                <label className="mt-3 block text-sm" htmlFor="create-row-limit">
+                  {t("rowLimit")}
                   <input
-                    checked={dataTools.includes(name)}
-                    onChange={() =>
-                      setDataTools((current) =>
-                        current.includes(name)
-                          ? current.filter((item) => item !== name)
-                          : [...current, name],
-                      )
-                    }
-                    type="checkbox"
+                    className="mt-1 block w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                    id="create-row-limit"
+                    max={5000}
+                    min={1}
+                    onChange={(event) => setRowLimit(Number(event.target.value) || 1000)}
+                    type="number"
+                    value={rowLimit}
                   />
-                  {t(`tool_${name}`)}
                 </label>
-              ))}
-            </div>
-            <label className="mt-3 block text-sm" htmlFor="create-row-limit">
-              {t("rowLimit")}
-              <input
-                className="mt-1 block w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-                id="create-row-limit"
-                max={5000}
-                min={1}
-                onChange={(event) => setRowLimit(Number(event.target.value) || 1000)}
-                type="number"
-                value={rowLimit}
-              />
-            </label>
-          </fieldset>
-          <Button
-            className="mt-3"
-            disabled={busy || formName.trim().length < 2 || formInstructions.trim().length < 8}
-            onClick={() => void createDirect()}
-            type="button"
-          >
-            {t("createUse")}
-          </Button>
-        </section>
+              </fieldset>
+            </details>
+            <Button
+              className="mt-3"
+              disabled={
+                busy ||
+                modelsLoading ||
+                !aliases.includes(formModel) ||
+                formName.trim().length < 2 ||
+                formInstructions.trim().length < 8
+              }
+              type="submit"
+            >
+              {t("createDraft")}
+            </Button>
+          </form>
+        </details>
       </fieldset>
     </div>
   );
