@@ -1,15 +1,15 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
-
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { ManagementLayout } from "@/components/common/management-layout";
+import { ActionStatus, ErrorMessage } from "@/components/common/detail-state";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { DisplayError } from "@/lib/api";
 import { api } from "@/lib/api";
 import { loadSession } from "@/lib/session";
 
@@ -47,13 +47,17 @@ function remove(path: string): Promise<unknown> {
 export function ModelsAdmin() {
   const t = useTranslations("models");
   const [providers, setProviders] = useState<Provider[]>([]);
+  const providerNames = useMemo(
+    () => new Map(providers.map((provider) => [provider.id, provider.name])),
+    [providers],
+  );
   const [models, setModels] = useState<Model[]>([]);
   const [aliases, setAliases] = useState<Alias[]>([]);
   const [standard, setStandard] = useState<StandardAlias[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState<DisplayError>("");
+  const [error, setError] = useState<DisplayError>("");
   const [tests, setTests] = useState<Tests>({});
   const [advanced, setAdvanced] = useState(false);
 
@@ -61,7 +65,10 @@ export function ModelsAdmin() {
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [kind, setKind] = useState(PROVIDER_KINDS[0] ?? "");
-  const [adding, setAdding] = useState(false);
+  const [pending, setPending] = useState(false);
+  const changing = useRef(false);
+  const stale = useRef(false);
+  const [recovery, setRecovery] = useState("");
 
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [modelTarget, setModelTarget] = useState<{
@@ -95,7 +102,7 @@ export function ModelsAdmin() {
       setCanManage((session.permissions ?? []).includes("models:manage"));
       await refresh();
     } catch (caught) {
-      setLoadError(caught instanceof Error ? caught.message : t("error"));
+      setLoadError(caught instanceof Error ? caught : t("error"));
     } finally {
       setLoading(false);
     }
@@ -110,23 +117,53 @@ export function ModelsAdmin() {
     window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
   }
 
-  /** Run a change made straight from the page, show why it failed, and reload. */
-  async function act(change: () => Promise<unknown>) {
+  // One coordinator keeps all editors on the same confirmed registry snapshot.
+  async function save(change: () => Promise<unknown>): Promise<boolean> {
+    if (changing.current || stale.current) throw new Error(t("refreshRequired"));
+    changing.current = true;
+    setPending(true);
     setError("");
+    let acknowledged = false;
+    let refreshed = false;
     try {
       await change();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
+      acknowledged = true;
+    } finally {
+      try {
+        await refresh();
+        refreshed = true;
+      } catch {
+        stale.current = true;
+        setRecovery(t(acknowledged ? "savedRefreshFailed" : "unconfirmedRefreshFailed"));
+      } finally {
+        changing.current = false;
+        setPending(false);
+      }
     }
-    await refresh().catch(() => undefined);
+    return refreshed;
   }
 
-  /** Run a change made in a dialog. A failure stays in the dialog. */
-  async function save(change: () => Promise<unknown>) {
+  async function act(change: () => Promise<unknown>) {
     try {
-      await change();
+      await save(change);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught : t("error"));
+    }
+  }
+
+  async function retryRefresh() {
+    if (changing.current) return;
+    changing.current = true;
+    setPending(true);
+    try {
+      await refresh();
+      stale.current = false;
+      setRecovery("");
+    } catch {
+      // Keep the outcome of the original write visible. Retry only reads metadata.
     } finally {
-      await refresh().catch(() => undefined);
+      changing.current = false;
+      setPending(false);
     }
   }
 
@@ -136,33 +173,30 @@ export function ModelsAdmin() {
       const result = await post<TestResult>(path);
       setTests((current) => ({ ...current, [key]: result }));
     } catch (caught) {
-      const output = caught instanceof Error ? caught.message : t("error");
-      setTests((current) => ({ ...current, [key]: { ok: false, output, latencyMs: 0 } }));
+      const output = caught instanceof Error ? caught : new Error(t("error"));
+      setTests((current) => ({ ...current, [key]: output }));
     }
   }
 
   async function addProvider(event: FormEvent) {
     event.preventDefault();
-    const secret = apiKey;
-    setAdding(true);
-    setError("");
+    if (changing.current || stale.current) return;
+    let created: Provider | undefined;
     try {
-      const created = await post<Provider>("/api/v1/model-providers", {
-        name: name.trim(),
-        kind,
-        baseUrl: baseUrl.trim(),
-        ...(secret ? { apiKey: secret } : {}),
+      const refreshed = await save(async () => {
+        created = await post<Provider>("/api/v1/model-providers", {
+          name: name.trim(),
+          kind,
+          baseUrl: baseUrl.trim(),
+          ...(apiKey ? { apiKey } : {}),
+        });
+        setName("");
+        setBaseUrl("");
+        setApiKey("");
       });
-      setName("");
-      setBaseUrl("");
-      setApiKey("");
-      await refresh();
-      // The next step is a model, so the person is taken straight to it.
-      setModelTarget({ provider: created, model: null });
+      if (refreshed && created) setModelTarget({ provider: created, model: null });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
-    } finally {
-      setAdding(false);
+      setError(caught instanceof Error ? caught : t("error"));
     }
   }
 
@@ -204,11 +238,21 @@ export function ModelsAdmin() {
       providerId: target.provider.id,
       kind: change.kind,
     });
+    const incomplete: string[] = [];
     for (const alias of change.useFor) {
       const item = standard.find((entry) => entry.alias === alias);
-      if (item) {
-        await point(item, created.id);
+      if (!item) {
+        incomplete.push(alias);
+        continue;
       }
+      try {
+        await point(item, created.id);
+      } catch {
+        incomplete.push(t(`uses.${item.alias}.title`));
+      }
+    }
+    if (incomplete.length) {
+      setError(t("modelSavedDefaultsIncomplete", { names: incomplete.join(", ") }));
     }
   }
 
@@ -273,66 +317,31 @@ export function ModelsAdmin() {
             </Button>
           }
         >
-          {loadError}
+          <ErrorMessage error={loadError} />
         </Problem>
       ) : null}
 
       {!loading && !loadError ? (
-        <ManagementLayout
-          form={
-            canManage ? (
-              <form className="grid gap-4" onSubmit={(event) => void addProvider(event)}>
-                <Field id="provider-name" label={t("name")}>
-                  <Input
-                    id="provider-name"
-                    onChange={(event) => setName(event.target.value)}
-                    required
-                    value={name}
-                  />
-                </Field>
-                <Field hint={t("urlHint")} id="provider-url" label={t("url")}>
-                  <Input
-                    aria-describedby="provider-url-hint"
-                    id="provider-url"
-                    inputMode="url"
-                    onChange={(event) => setBaseUrl(event.target.value)}
-                    required
-                    value={baseUrl}
-                  />
-                </Field>
-                <Field hint={t("apiKeyHint")} id="provider-key" label={t("apiKey")}>
-                  <Input
-                    aria-describedby="provider-key-hint"
-                    autoComplete="off"
-                    id="provider-key"
-                    onChange={(event) => setApiKey(event.target.value)}
-                    type="password"
-                    value={apiKey}
-                  />
-                </Field>
-                {advanced ? (
-                  <Field hint={t("providerKindHint")} id="provider-kind" label={t("kind")}>
-                    <Select id="provider-kind" onChange={setKind} value={kind}>
-                      {PROVIDER_KINDS.map((item) => (
-                        <option key={item} value={item}>
-                          {t(`providerKinds.${item}`)}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                ) : null}
-                <Button className="justify-self-start" disabled={adding} type="submit">
-                  {t("addProvider")}
-                </Button>
-              </form>
-            ) : (
-              <p className="text-sm leading-relaxed text-[var(--muted-foreground)]">
-                {t("readOnly")}
-              </p>
-            )
-          }
-          formTitle={t("addProviderTitle")}
-        >
+        <div className="mx-auto max-w-5xl">
+          <ActionStatus busy={pending} />
+          {recovery ? (
+            <div className="mb-6">
+              <Problem
+                action={
+                  <Button
+                    disabled={pending}
+                    onClick={() => void retryRefresh()}
+                    type="button"
+                    variant="outline"
+                  >
+                    {t("refreshRegistry")}
+                  </Button>
+                }
+              >
+                {recovery}
+              </Problem>
+            </div>
+          ) : null}
           {error ? (
             <div className="mb-6">
               <Problem
@@ -342,111 +351,198 @@ export function ModelsAdmin() {
                   </Button>
                 }
               >
-                {error}
+                <ErrorMessage error={error} />
               </Problem>
             </div>
           ) : null}
-          <UsesSection
-            advanced={advanced}
-            canManage={canManage}
-            models={models}
-            onClear={(item) =>
-              setRemoval({
-                title: t("clearTitle", { name: t(`uses.${item.alias}.title`) }),
-                body: t("clearBody"),
-                run: () => remove(`/api/v1/model-aliases/${item.aliasId}`).then(() => undefined),
-              })
-            }
-            onOptions={(aliasId) => setAliasTarget({ alias: byId(aliasId) })}
-            onPoint={(item, modelId) => void act(() => point(item, modelId))}
-            onTest={(aliasId) =>
-              void runTest(`alias:${aliasId}`, `/api/v1/model-aliases/${aliasId}:test`)
-            }
-            standard={standard}
-            tests={tests}
-          />
-          <ProvidersSection
-            advanced={advanced}
-            canManage={canManage}
-            models={models}
-            onAddModel={(provider) => setModelTarget({ provider, model: null })}
-            onEditModel={(provider, model) => setModelTarget({ provider, model })}
-            onEditProvider={setEditingProvider}
-            onRemoveModel={(model) =>
-              setRemoval({
-                title: t("removeTitle", { name: model.name }),
-                body: t("removeModelBody"),
-                run: () => remove(`/api/v1/models/${model.id}`).then(() => undefined),
-              })
-            }
-            onRemoveProvider={(provider) =>
-              setRemoval({
-                title: t("removeTitle", { name: provider.name }),
-                body: t("removeProviderBody"),
-                run: () => remove(`/api/v1/model-providers/${provider.id}`).then(() => undefined),
-              })
-            }
-            onTestModel={(model) =>
-              void runTest(`model:${model.id}`, `/api/v1/models/${model.id}:test`)
-            }
-            onTestProvider={(provider) =>
-              void runTest(`provider:${provider.id}`, `/api/v1/model-providers/${provider.id}:test`)
-            }
-            providers={providers}
-            tests={tests}
-          />
-          {advanced ? (
-            <AliasesSection
-              aliases={otherAliases}
+          <fieldset
+            aria-label={t("title")}
+            disabled={pending || Boolean(recovery)}
+            className="min-w-0"
+          >
+            <details
+              className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+              open={providers.length === 0 ? true : undefined}
+            >
+              <summary className="cursor-pointer text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+                {t("addProviderTitle")}
+              </summary>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[var(--muted-foreground)]">
+                {t("setupOrder")}
+              </p>
+              <div className="mt-5 max-w-xl">
+                {canManage ? (
+                  <form className="grid gap-4" onSubmit={(event) => void addProvider(event)}>
+                    <Field id="provider-name" label={t("name")}>
+                      <Input
+                        id="provider-name"
+                        onChange={(event) => setName(event.target.value)}
+                        required
+                        value={name}
+                      />
+                    </Field>
+                    <Field hint={t("urlHint")} id="provider-url" label={t("url")}>
+                      <Input
+                        aria-describedby="provider-url-hint"
+                        id="provider-url"
+                        inputMode="url"
+                        onChange={(event) => setBaseUrl(event.target.value)}
+                        required
+                        value={baseUrl}
+                      />
+                    </Field>
+                    <Field hint={t("apiKeyHint")} id="provider-key" label={t("apiKey")}>
+                      <Input
+                        aria-describedby="provider-key-hint"
+                        autoComplete="off"
+                        id="provider-key"
+                        onChange={(event) => setApiKey(event.target.value)}
+                        type="password"
+                        value={apiKey}
+                      />
+                    </Field>
+                    {advanced ? (
+                      <Field hint={t("providerKindHint")} id="provider-kind" label={t("kind")}>
+                        <Select id="provider-kind" onChange={setKind} value={kind}>
+                          {PROVIDER_KINDS.map((item) => (
+                            <option key={item} value={item}>
+                              {t(`providerKinds.${item}`)}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    ) : null}
+                    <Button className="justify-self-start" disabled={pending} type="submit">
+                      {t("addProvider")}
+                    </Button>
+                  </form>
+                ) : (
+                  <p className="text-sm leading-relaxed text-[var(--muted-foreground)]">
+                    {t("readOnly")}
+                  </p>
+                )}
+              </div>
+            </details>
+            <ProvidersSection
+              advanced={advanced}
               canManage={canManage}
               models={models}
-              onAdd={() => setAliasTarget({ alias: null })}
-              onEdit={(alias) => setAliasTarget({ alias })}
-              onRemove={(alias) =>
+              onAddModel={(provider) => setModelTarget({ provider, model: null })}
+              onEditModel={(provider, model) => setModelTarget({ provider, model })}
+              onEditProvider={setEditingProvider}
+              onRemoveModel={(model) =>
                 setRemoval({
-                  title: t("removeTitle", { name: alias.alias }),
-                  body: t("removeAliasBody"),
-                  run: () => remove(`/api/v1/model-aliases/${alias.id}`).then(() => undefined),
+                  title: t("removeTitle", { name: model.name }),
+                  body: t("removeModelBody"),
+                  run: () => remove(`/api/v1/models/${model.id}`).then(() => undefined),
                 })
               }
-              onTest={(alias) =>
-                void runTest(`alias:${alias.id}`, `/api/v1/model-aliases/${alias.id}:test`)
+              onRemoveProvider={(provider) =>
+                setRemoval({
+                  title: t("removeTitle", { name: provider.name }),
+                  body: t("removeProviderBody"),
+                  run: () => remove(`/api/v1/model-providers/${provider.id}`).then(() => undefined),
+                })
               }
+              onTestModel={(model) =>
+                void runTest(`model:${model.id}`, `/api/v1/models/${model.id}:test`)
+              }
+              onTestProvider={(provider) =>
+                void runTest(
+                  `provider:${provider.id}`,
+                  `/api/v1/model-providers/${provider.id}:test`,
+                )
+              }
+              providers={providers}
               tests={tests}
             />
-          ) : null}
-        </ManagementLayout>
+            <UsesSection
+              providerNames={providerNames}
+              advanced={advanced}
+              canManage={canManage}
+              models={models}
+              onClear={(item) =>
+                setRemoval({
+                  title: t("clearTitle", { name: t(`uses.${item.alias}.title`) }),
+                  body: t("clearBody"),
+                  run: () => remove(`/api/v1/model-aliases/${item.aliasId}`).then(() => undefined),
+                })
+              }
+              onOptions={(aliasId) => setAliasTarget({ alias: byId(aliasId) })}
+              onPoint={(item, modelId) => void act(() => point(item, modelId))}
+              onTest={(aliasId) =>
+                void runTest(`alias:${aliasId}`, `/api/v1/model-aliases/${aliasId}:test`)
+              }
+              standard={standard}
+              tests={tests}
+            />
+            {advanced ? (
+              <AliasesSection
+                aliases={otherAliases}
+                canManage={canManage}
+                models={models}
+                onAdd={() => setAliasTarget({ alias: null })}
+                onEdit={(alias) => setAliasTarget({ alias })}
+                onRemove={(alias) =>
+                  setRemoval({
+                    title: t("removeTitle", { name: alias.alias }),
+                    body: t("removeAliasBody"),
+                    run: () => remove(`/api/v1/model-aliases/${alias.id}`).then(() => undefined),
+                  })
+                }
+                onTest={(alias) =>
+                  void runTest(`alias:${alias.id}`, `/api/v1/model-aliases/${alias.id}:test`)
+                }
+                tests={tests}
+              />
+            ) : null}
+          </fieldset>
+        </div>
       ) : null}
 
       <ProviderDialog
+        blocked={Boolean(recovery)}
         onClose={() => setEditingProvider(null)}
         onSave={(change) =>
-          save(() => (editingProvider ? saveProvider(editingProvider, change) : Promise.resolve()))
+          save(() =>
+            editingProvider ? saveProvider(editingProvider, change) : Promise.resolve(),
+          ).then(() => undefined)
         }
         provider={editingProvider}
       />
       <ModelDialog
+        blocked={Boolean(recovery)}
         advanced={advanced}
         onClose={() => setModelTarget(null)}
         onSave={(change) =>
-          save(() => (modelTarget ? saveModel(modelTarget, change) : Promise.resolve()))
+          save(() => (modelTarget ? saveModel(modelTarget, change) : Promise.resolve())).then(
+            () => undefined,
+          )
         }
         standard={standard}
         target={modelTarget}
       />
       <AliasDialog
+        blocked={Boolean(recovery)}
+        providerNames={providerNames}
+        standard={standard}
         models={models}
         onClose={() => setAliasTarget(null)}
         onSave={(change) =>
-          save(() => (aliasTarget ? saveAlias(aliasTarget, change) : Promise.resolve()))
+          save(() => (aliasTarget ? saveAlias(aliasTarget, change) : Promise.resolve())).then(
+            () => undefined,
+          )
         }
         target={aliasTarget}
       />
       <ConfirmDialog
+        blocked={Boolean(recovery)}
         body={removal?.body ?? ""}
         confirmLabel={t("remove")}
         onClose={() => setRemoval(null)}
-        onConfirm={() => save(() => (removal ? removal.run() : Promise.resolve()))}
+        onConfirm={() =>
+          save(() => (removal ? removal.run() : Promise.resolve())).then(() => undefined)
+        }
         open={removal !== null}
         title={removal?.title ?? ""}
       />

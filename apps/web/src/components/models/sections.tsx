@@ -1,9 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useMemo, useState } from "react";
 
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState } from "@/components/common/management-layout";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -14,9 +18,10 @@ import {
   TableScroll,
 } from "@/components/ui/table";
 
-import { RowActions, Select, SmallButton, TestLine } from "./parts";
+import { ModelPicker, RowActions, Select, SmallButton, TestLine } from "./parts";
 import {
   type Alias,
+  MODEL_KINDS,
   type Model,
   modelsFor,
   type Provider,
@@ -28,6 +33,7 @@ const CARD = "rounded-xl border border-[var(--border)] bg-[var(--card)]";
 
 /** The names the product asks for, each with the model the tenant pointed it at. */
 export function UsesSection({
+  providerNames,
   standard,
   models,
   canManage,
@@ -38,6 +44,7 @@ export function UsesSection({
   onClear,
   onOptions,
 }: {
+  providerNames: ReadonlyMap<string, string>;
   standard: StandardAlias[];
   models: Model[];
   canManage: boolean;
@@ -63,7 +70,9 @@ export function UsesSection({
             <TableRow>
               <TableHead scope="col">{t("useColumn")}</TableHead>
               <TableHead scope="col">{t("modelColumn")}</TableHead>
-              <TableHead scope="col">{t("statusColumn")}</TableHead>
+              <TableHead scope="col" className="min-w-40">
+                {t("statusColumn")}
+              </TableHead>
               <TableHead scope="col">
                 <span className="sr-only">{t("actionsColumn")}</span>
               </TableHead>
@@ -72,15 +81,18 @@ export function UsesSection({
           <TableBody>
             {standard.map((item) => {
               const choices = modelsFor(item, models);
+              const incompatible = item.set && !choices.some((model) => model.id === item.modelId);
               const own = item.set && !item.platform;
               return (
                 <TableRow key={item.alias}>
                   <TableCell className="min-w-56 align-top">
                     <p className="flex flex-wrap items-center gap-2 font-medium">
                       {t(`uses.${item.alias}.title`)}
-                      <code className="text-xs font-normal text-[var(--muted-foreground)]">
-                        {item.alias}
-                      </code>
+                      {advanced ? (
+                        <code className="text-xs font-normal text-[var(--muted-foreground)]">
+                          {item.alias}
+                        </code>
+                      ) : null}
                     </p>
                     <p className="mt-1 leading-relaxed text-[var(--muted-foreground)]">
                       {t(`uses.${item.alias}.body`)}
@@ -88,20 +100,24 @@ export function UsesSection({
                     {item.aliasId ? <TestLine result={tests[`alias:${item.aliasId}`]} /> : null}
                   </TableCell>
                   <TableCell className="min-w-56 align-top">
-                    <Select
-                      disabled={!canManage || choices.length === 0}
-                      id={`use-${item.alias}`}
-                      label={t("modelFor", { use: t(`uses.${item.alias}.title`) })}
-                      onChange={(next) => (next ? onPoint(item, next) : undefined)}
+                    <ModelPicker
+                      models={choices}
+                      providerNames={providerNames}
                       value={item.modelId ?? ""}
-                    >
-                      <option value="">{t("chooseModel")}</option>
-                      {choices.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                        </option>
-                      ))}
-                    </Select>
+                      selectionName={item.modelName}
+                      disabled={!canManage || choices.length === 0}
+                      hideLabel
+                      clearable={false}
+                      required={item.required}
+                      label={t("modelFor", { use: t(`uses.${item.alias}.title`) })}
+                      help={t("pickerImmediateHelp")}
+                      onChange={(next) => (next ? onPoint(item, next) : undefined)}
+                    />
+                    {incompatible ? (
+                      <p className="mt-2 text-xs leading-relaxed text-[var(--destructive)]">
+                        {t("incompatibleAssignment")}
+                      </p>
+                    ) : null}
                     {choices.length === 0 ? (
                       <p className="mt-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
                         {item.capability
@@ -110,9 +126,13 @@ export function UsesSection({
                       </p>
                     ) : null}
                   </TableCell>
-                  <TableCell className="align-top">
+                  <TableCell className="min-w-40 align-top">
                     <div className="flex flex-wrap gap-1.5 pt-2">
-                      {item.set ? <Badge tone="success">{t("set")}</Badge> : null}
+                      {item.set ? (
+                        <Badge tone={incompatible ? "danger" : "success"}>
+                          {t(incompatible ? "needsAttention" : "set")}
+                        </Badge>
+                      ) : null}
                       {!item.set && item.required ? (
                         <Badge tone="danger">{t("notSetRequired")}</Badge>
                       ) : null}
@@ -193,6 +213,38 @@ export function ProvidersSection({
   onRemoveModel: (model: Model) => void;
 }) {
   const t = useTranslations("models");
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState("");
+  const byProvider = useMemo(() => {
+    const byProvider = new Map<string, Model[]>();
+    for (const model of models) {
+      const rows = byProvider.get(model.providerId);
+      if (rows) rows.push(model);
+      else byProvider.set(model.providerId, [model]);
+    }
+    return byProvider;
+  }, [models]);
+  const groups = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase();
+    return providers.flatMap((provider) => {
+      const providerMatches = [provider.name, provider.baseUrl, provider.id, provider.kind].some(
+        (value) => value.toLocaleLowerCase().includes(term),
+      );
+      const owned = byProvider.get(provider.id) ?? [];
+      const matched = owned.filter(
+        (model) =>
+          (!kind || model.kind === kind) &&
+          (providerMatches ||
+            [model.name, model.upstreamModel, model.id, model.kind].some((value) =>
+              value.toLocaleLowerCase().includes(term),
+            )),
+      );
+      if (matched.length === 0 && (!providerMatches || kind)) return [];
+      return [{ provider, models: matched }];
+    });
+  }, [providers, byProvider, query, kind]);
+  const filterKey = JSON.stringify([query, kind]);
+  const page = usePagedRows(groups, filterKey);
   return (
     <section aria-labelledby="models-providers" className="mb-10">
       <h2 className="text-base font-semibold" id="models-providers">
@@ -201,130 +253,238 @@ export function ProvidersSection({
       <p className="mb-4 mt-1 max-w-2xl text-sm leading-relaxed text-[var(--muted-foreground)]">
         {t("providersBody")}
       </p>
-      {providers.length === 0 ? <EmptyState title={t("empty")} /> : null}
-      <ul className="grid gap-4">
-        {providers.map((provider) => {
-          const owned = models.filter((model) => model.providerId === provider.id);
-          const editable = canManage && !provider.platform;
-          return (
-            <li className={CARD} key={provider.id}>
-              <div className="flex flex-wrap items-start gap-3 p-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-semibold">{provider.name}</h3>
-
-                    {provider.platform ? <Badge>{t("platform")}</Badge> : null}
-                    <Badge tone={provider.hasApiKey ? "success" : "warning"}>
-                      {provider.hasApiKey ? t("keyStored") : t("noKey")}
-                    </Badge>
-                    {advanced ? (
-                      <Badge>
-                        {t.has(`providerKinds.${provider.kind}`)
-                          ? t(`providerKinds.${provider.kind}`)
-                          : provider.kind}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 break-all text-sm text-[var(--muted-foreground)]">
-                    {provider.baseUrl}
-                  </p>
-                  <TestLine result={tests[`provider:${provider.id}`]} />
-                </div>
-                <RowActions>
-                  <SmallButton
-                    disabled={!canManage}
-                    label={t("testNamed", { name: provider.name })}
-                    onClick={() => onTestProvider(provider)}
-                  >
-                    {t("test")}
-                  </SmallButton>
-                  {editable ? (
-                    <>
-                      <SmallButton
-                        label={t("editNamed", { name: provider.name })}
-                        onClick={() => onEditProvider(provider)}
-                      >
-                        {t("edit")}
-                      </SmallButton>
-                      <SmallButton
-                        label={t("removeNamed", { name: provider.name })}
-                        onClick={() => onRemoveProvider(provider)}
-                      >
-                        {t("remove")}
-                      </SmallButton>
-                    </>
-                  ) : null}
-                </RowActions>
-              </div>
-              <ul className="divide-y divide-[var(--border)] border-t border-[var(--border)]">
-                {owned.length === 0 ? (
-                  <li className="px-4 py-3 text-sm text-[var(--muted-foreground)]">
-                    {t("noModels")}
-                  </li>
-                ) : null}
-                {owned.map((model) => (
-                  <li className="flex flex-wrap items-start gap-3 px-4 py-3" key={model.id}>
-                    <div className="min-w-0 flex-1">
-                      <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                        {model.name}
-                        <Badge>{t(`kinds.${model.kind}`)}</Badge>
-                        {(model.capabilities ?? []).includes("vision") ? (
-                          <Badge>{t("readsImages")}</Badge>
-                        ) : null}
-                        {model.embeddingDimensions ? (
-                          <Badge>
-                            {t("dimensionsBadge", { count: model.embeddingDimensions })}
-                          </Badge>
-                        ) : null}
-                      </p>
-                      <p className="mt-1 break-all text-xs text-[var(--muted-foreground)]">
-                        {model.upstreamModel}
-                      </p>
-                      <TestLine result={tests[`model:${model.id}`]} />
-                    </div>
-                    <RowActions>
-                      <SmallButton
-                        disabled={!canManage}
-                        label={t("testNamed", { name: model.name })}
-                        onClick={() => onTestModel(model)}
-                      >
-                        {t("test")}
-                      </SmallButton>
-                      {editable ? (
-                        <>
-                          <SmallButton
-                            label={t("editNamed", { name: model.name })}
-                            onClick={() => onEditModel(provider, model)}
-                          >
-                            {t("edit")}
-                          </SmallButton>
-                          <SmallButton
-                            label={t("removeNamed", { name: model.name })}
-                            onClick={() => onRemoveModel(model)}
-                          >
-                            {t("remove")}
-                          </SmallButton>
-                        </>
-                      ) : null}
-                    </RowActions>
-                  </li>
-                ))}
-              </ul>
-              {editable ? (
-                <div className="border-t border-[var(--border)] p-3">
-                  <SmallButton
-                    label={t("addModelNamed", { provider: provider.name })}
-                    onClick={() => onAddModel(provider)}
-                  >
-                    {t("addModel")}
-                  </SmallButton>
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
+      {providers.length > 0 ? (
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          <label htmlFor="provider-model-search" className="min-w-0 flex-1 basis-64">
+            <span className="sr-only">{t("findProviderModel")}</span>
+            <Input
+              id="provider-model-search"
+              type="search"
+              value={query}
+              placeholder={t("findProviderModel")}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <div className="min-w-40">
+            <label htmlFor="provider-model-kind" className="mb-1 block text-sm">
+              {t("modelTypeFilter")}
+            </label>
+            <Select id="provider-model-kind" value={kind} onChange={setKind}>
+              <option value="">{t("allModelKinds")}</option>
+              {MODEL_KINDS.map((value) => (
+                <option key={value} value={value}>
+                  {t(`kinds.${value}`)}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {query || kind ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setQuery("");
+                setKind("");
+              }}
+            >
+              {t("clearFilters")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {providers.length === 0 ? (
+        <EmptyState title={t("empty")} />
+      ) : groups.length === 0 ? (
+        <EmptyState title={t("noRegistryMatches")} />
+      ) : null}
+      <ul className="grid gap-4" aria-label={t("providers")}>
+        {page.rows.map(({ provider, models: owned }) => (
+          <ProviderCard
+            key={`${provider.id}:${filterKey}`}
+            provider={provider}
+            models={owned}
+            defaultExpanded={groups.length === 1}
+            filtered={Boolean(query.trim() || kind)}
+            canManage={canManage}
+            advanced={advanced}
+            tests={tests}
+            onTestProvider={onTestProvider}
+            onEditProvider={onEditProvider}
+            onRemoveProvider={onRemoveProvider}
+            onAddModel={onAddModel}
+            onTestModel={onTestModel}
+            onEditModel={onEditModel}
+            onRemoveModel={onRemoveModel}
+          />
+        ))}
       </ul>
+      {providers.length > 0 ? <ListPagination {...page} label={t("providerPages")} /> : null}
     </section>
+  );
+}
+
+type ProviderCardProps = Omit<Parameters<typeof ProvidersSection>[0], "providers"> & {
+  provider: Provider;
+  defaultExpanded: boolean;
+  filtered: boolean;
+};
+
+function ProviderCard({
+  provider,
+  models: owned,
+  defaultExpanded,
+  filtered,
+  canManage,
+  advanced,
+  tests,
+  onTestProvider,
+  onEditProvider,
+  onRemoveProvider,
+  onAddModel,
+  onTestModel,
+  onEditModel,
+  onRemoveModel,
+}: ProviderCardProps) {
+  const t = useTranslations("models");
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const modelPage = usePagedRows(owned);
+  const editable = canManage && !provider.platform;
+  return (
+    <li className={CARD}>
+      <div className="flex flex-col items-start gap-3 p-4 sm:flex-row">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="min-w-0 break-words text-sm font-semibold">{provider.name}</h3>
+
+            {provider.platform ? <Badge>{t("platform")}</Badge> : null}
+            <Badge tone={provider.hasApiKey ? "success" : "warning"}>
+              {provider.hasApiKey ? t("keyStored") : t("noKey")}
+            </Badge>
+            {advanced ? (
+              <Badge>
+                {t.has(`providerKinds.${provider.kind}`)
+                  ? t(`providerKinds.${provider.kind}`)
+                  : provider.kind}
+              </Badge>
+            ) : null}
+          </div>
+          <p className="mt-1 break-all text-sm text-[var(--muted-foreground)]">
+            {provider.baseUrl}
+          </p>
+          <TestLine result={tests[`provider:${provider.id}`]} />
+        </div>
+        <RowActions>
+          <SmallButton
+            disabled={!canManage}
+            label={t("testNamed", { name: provider.name })}
+            onClick={() => onTestProvider(provider)}
+          >
+            {t("test")}
+          </SmallButton>
+          {editable ? (
+            <>
+              <SmallButton
+                label={t("editNamed", { name: provider.name })}
+                onClick={() => onEditProvider(provider)}
+              >
+                {t("edit")}
+              </SmallButton>
+              <SmallButton
+                label={t("removeNamed", { name: provider.name })}
+                onClick={() => onRemoveProvider(provider)}
+              >
+                {t("remove")}
+              </SmallButton>
+            </>
+          ) : null}
+        </RowActions>
+      </div>
+      <details open={expanded} onToggle={(event) => setExpanded(event.currentTarget.open)}>
+        <summary className="cursor-pointer border-t border-[var(--border)] px-4 py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
+          {t(filtered ? "matchingModelCount" : "modelCount", { count: owned.length })}
+        </summary>
+        {expanded ? (
+          <>
+            <ul
+              aria-label={t("modelsForProvider", { provider: provider.name })}
+              className="divide-y divide-[var(--border)] border-t border-[var(--border)]"
+            >
+              {owned.length === 0 ? (
+                <li className="px-4 py-3 text-sm text-[var(--muted-foreground)]">
+                  {t("noModels")}
+                </li>
+              ) : null}
+              {modelPage.rows.map((model) => (
+                <li
+                  className="flex flex-col items-start gap-3 px-4 py-3 sm:flex-row"
+                  key={model.id}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                      <span className="min-w-0 break-all">{model.name}</span>
+                      <Badge>{t(`kinds.${model.kind}`)}</Badge>
+                      {(model.capabilities ?? []).includes("vision") ? (
+                        <Badge>{t("readsImages")}</Badge>
+                      ) : null}
+                      {model.embeddingDimensions ? (
+                        <Badge>{t("dimensionsBadge", { count: model.embeddingDimensions })}</Badge>
+                      ) : null}
+                    </p>
+                    <p className="mt-1 break-all text-xs text-[var(--muted-foreground)]">
+                      {model.upstreamModel}
+                    </p>
+                    <TestLine result={tests[`model:${model.id}`]} />
+                  </div>
+                  <RowActions>
+                    <SmallButton
+                      disabled={!canManage}
+                      label={t("testNamed", { name: model.name })}
+                      onClick={() => onTestModel(model)}
+                    >
+                      {t("test")}
+                    </SmallButton>
+                    {editable && !model.platform ? (
+                      <>
+                        <SmallButton
+                          label={t("editNamed", { name: model.name })}
+                          onClick={() => onEditModel(provider, model)}
+                        >
+                          {t("edit")}
+                        </SmallButton>
+                        <SmallButton
+                          label={t("removeNamed", { name: model.name })}
+                          onClick={() => onRemoveModel(model)}
+                        >
+                          {t("remove")}
+                        </SmallButton>
+                      </>
+                    ) : null}
+                  </RowActions>
+                </li>
+              ))}
+            </ul>
+            {owned.length > modelPage.pageSize ? (
+              <div className="border-t border-[var(--border)] p-3">
+                <ListPagination
+                  {...modelPage}
+                  compact
+                  label={t("modelsForProvider", { provider: provider.name })}
+                />
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </details>
+      {editable ? (
+        <div className="border-t border-[var(--border)] p-3">
+          <SmallButton
+            label={t("addModelNamed", { provider: provider.name })}
+            onClick={() => onAddModel(provider)}
+          >
+            {t("addModel")}
+          </SmallButton>
+        </div>
+      ) : null}
+    </li>
   );
 }
 
@@ -349,7 +509,20 @@ export function AliasesSection({
   onRemove: (alias: Alias) => void;
 }) {
   const t = useTranslations("models");
-  const nameOf = (id: string) => models.find((model) => model.id === id)?.name ?? t("modelGone");
+  const [query, setQuery] = useState("");
+  const byId = useMemo(() => new Map(models.map((model) => [model.id, model])), [models]);
+  const term = query.trim().toLocaleLowerCase();
+  const filtered = aliases.filter((alias) =>
+    [
+      alias.alias,
+      alias.kind,
+      alias.primaryModelId,
+      byId.get(alias.primaryModelId)?.name,
+      byId.get(alias.primaryModelId)?.upstreamModel,
+    ].some((value) => value?.toLocaleLowerCase().includes(term)),
+  );
+  const page = usePagedRows(filtered, query);
+  const nameOf = (id: string) => byId.get(id)?.name ?? t("modelGone");
   return (
     <section aria-labelledby="models-aliases" className="mb-10">
       <h2 className="text-base font-semibold" id="models-aliases">
@@ -358,15 +531,29 @@ export function AliasesSection({
       <p className="mb-4 mt-1 max-w-2xl text-sm leading-relaxed text-[var(--muted-foreground)]">
         {t("aliasesBody")}
       </p>
-      <ul className={`${CARD} divide-y divide-[var(--border)]`}>
-        {aliases.length === 0 ? (
-          <li className="px-4 py-3 text-sm text-[var(--muted-foreground)]">{t("noAliases")}</li>
+      {aliases.length > 0 ? (
+        <label htmlFor="model-alias-search" className="mb-4 block">
+          <span className="sr-only">{t("findAlias")}</span>
+          <Input
+            id="model-alias-search"
+            type="search"
+            value={query}
+            placeholder={t("findAlias")}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+      ) : null}
+      <ul aria-label={t("aliasesTitle")} className={`${CARD} divide-y divide-[var(--border)]`}>
+        {filtered.length === 0 ? (
+          <li className="px-4 py-3 text-sm text-[var(--muted-foreground)]">
+            {t(aliases.length === 0 ? "noAliases" : "noRegistryMatches")}
+          </li>
         ) : null}
-        {aliases.map((alias) => (
-          <li className="flex flex-wrap items-start gap-3 px-4 py-3" key={alias.id}>
+        {page.rows.map((alias) => (
+          <li className="flex flex-col items-start gap-3 px-4 py-3 sm:flex-row" key={alias.id}>
             <div className="min-w-0 flex-1">
               <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                <code>{alias.alias}</code>
+                <code className="min-w-0 break-all">{alias.alias}</code>
                 <Badge>{t(`kinds.${alias.kind}`)}</Badge>
                 {alias.platform ? <Badge>{t("platform")}</Badge> : null}
               </p>
@@ -403,6 +590,7 @@ export function AliasesSection({
           </li>
         ))}
       </ul>
+      {aliases.length > 0 ? <ListPagination {...page} label={t("aliasesTitle")} /> : null}
       {canManage ? (
         <div className="mt-3">
           <SmallButton onClick={onAdd}>{t("addAlias")}</SmallButton>

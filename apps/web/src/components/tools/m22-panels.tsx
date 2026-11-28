@@ -29,9 +29,7 @@ export function M22Panels({ tools, onChanged }: { tools: Row[]; onChanged: () =>
   const [specConnection, setSpecConnection] = useState("");
   const [operations, setOperations] = useState<Row[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
-  const [sentence, setSentence] = useState(
-    "GET https://api.github.com/zen and return the plain text.",
-  );
+  const [sentence, setSentence] = useState("");
   const [draft, setDraft] = useState<Row | null>(null);
   const [testResult, setTestResult] = useState("");
 

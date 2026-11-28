@@ -1,10 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus } from "@/components/common/detail-state";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
 import { Badge, statusTone } from "@/components/ui/badge";
@@ -28,6 +29,8 @@ function proofLabel(
 
 export function ToolsScreen() {
   const t = useTranslations("tools");
+  const [serverQuery, setServerQuery] = useState("");
+  const [callQuery, setCallQuery] = useState("");
   const [servers, setServers] = useState<Row[]>([]);
   const [tools, setTools] = useState<Row[]>([]);
   const [calls, setCalls] = useState<Row[]>([]);
@@ -173,6 +176,29 @@ export function ToolsScreen() {
     }
   }
 
+  const matchingServers = useMemo(
+    () =>
+      servers.filter((row) =>
+        [row.name, row.slug, row.kind, row.status]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(serverQuery.trim().toLocaleLowerCase()),
+      ),
+    [servers, serverQuery],
+  );
+  const matchingCalls = useMemo(
+    () =>
+      calls.filter((row) =>
+        [row.qualifiedName, row.status]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(callQuery.trim().toLocaleLowerCase()),
+      ),
+    [calls, callQuery],
+  );
+  const serverPage = usePagedRows(matchingServers, serverQuery);
+  const callPage = usePagedRows(matchingCalls, callQuery);
+
   return (
     <AppShell>
       <ActionStatus busy={busy} />
@@ -266,8 +292,25 @@ export function ToolsScreen() {
           ) : null}
           {!loading && !error && servers.length === 0 ? <EmptyState title={t("empty")} /> : null}
           {!loading && servers.length > 0 ? (
+            <label className="mb-4 block text-sm" htmlFor="server-search">
+              {t("findServer")}
+              <Input
+                className="mt-2"
+                id="server-search"
+                type="search"
+                value={serverQuery}
+                onChange={(event) => setServerQuery(event.target.value)}
+              />
+            </label>
+          ) : null}
+          {!loading && servers.length > 0 && !matchingServers.length ? (
+            <p role="status" className="mb-4 text-sm text-[var(--muted-foreground)]">
+              {t("noMatches")}
+            </p>
+          ) : null}
+          {!loading && servers.length > 0 ? (
             <ul className="row-list mb-8">
-              {servers.map((server) => (
+              {serverPage.rows.map((server) => (
                 <li className="px-4 py-3" key={String(server.id)}>
                   <h2 className="text-base font-semibold">{String(server.name)}</h2>
                   <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[var(--muted-foreground)]">
@@ -277,6 +320,11 @@ export function ToolsScreen() {
                 </li>
               ))}
             </ul>
+          ) : null}
+          {!loading && !error && servers.length > 0 ? (
+            <div className="mb-8">
+              <ListPagination {...serverPage} label={t("listTitle")} />
+            </div>
           ) : null}
           <section className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
             <h2 className="text-lg font-medium">{t("generalTitle")}</h2>
@@ -341,11 +389,28 @@ export function ToolsScreen() {
           <M22Panels onChanged={load} tools={tools} />
           <section>
             <h2 className="mb-2 text-lg font-medium">{t("calls")}</h2>
+            {calls.length > 0 ? (
+              <label className="mb-4 block text-sm" htmlFor="call-search">
+                {t("findCall")}
+                <Input
+                  className="mt-2"
+                  id="call-search"
+                  type="search"
+                  value={callQuery}
+                  onChange={(event) => setCallQuery(event.target.value)}
+                />
+              </label>
+            ) : null}
+            {calls.length > 0 && !matchingCalls.length ? (
+              <p role="status" className="mb-4 text-sm text-[var(--muted-foreground)]">
+                {t("noMatches")}
+              </p>
+            ) : null}
             {calls.length === 0 ? (
               <p className="text-sm text-[var(--muted-foreground)]">{t("noCalls")}</p>
             ) : null}
             <ul className="row-list">
-              {calls.slice(0, 8).map((call) => (
+              {callPage.rows.map((call) => (
                 <li className="px-3 py-2 text-sm" key={String(call.id)}>
                   <p>{String(call.qualifiedName ?? "")}</p>
                   <p className="text-[var(--muted-foreground)]">{String(call.status ?? "")}</p>
@@ -353,6 +418,7 @@ export function ToolsScreen() {
                 </li>
               ))}
             </ul>
+            {calls.length > 0 ? <ListPagination {...callPage} label={t("calls")} /> : null}
           </section>
         </ManagementLayout>
       </fieldset>

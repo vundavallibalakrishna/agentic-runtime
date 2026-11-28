@@ -42,8 +42,9 @@ test("connections, imports and the registry are usable", async ({ page }) => {
   await signIn(page);
   await page.goto("/connections");
   await expect(page.getByRole("heading", { name: "Saved connections" })).toBeVisible();
+  await page.getByText("Add a service connection", { exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("demo");
-  await page.getByLabel("Secret", { exact: true }).fill("not-a-real-secret");
+  await page.getByLabel("Bearer token", { exact: true }).fill("not-a-real-secret");
   await page.getByRole("button", { name: "Save connection" }).click();
   await expect(page.getByText("Saved. The secret is not shown again.")).toBeVisible();
   await expect(page.getByText("not-a-real-secret")).toHaveCount(0);
@@ -66,7 +67,9 @@ test("connections, imports and the registry are usable", async ({ page }) => {
   const rows = body.items ?? body.data ?? [];
   const assistant = rows.find((row) => row.slug === "assistant") ?? rows[0];
   await page.goto(`/agents/${assistant?.id ?? ""}`);
-  await expect(page.getByText("MCP, OpenAPI and custom tools")).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.locator("summary").filter({ hasText: "MCP, OpenAPI and custom tools" }),
+  ).toBeVisible({ timeout: 20_000 });
   await capture(page, "editor");
 
   const axe = await new AxeBuilder({ page }).analyze();

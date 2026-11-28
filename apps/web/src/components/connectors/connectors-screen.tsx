@@ -1,5 +1,6 @@
 "use client";
 
+import { Plug } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -7,6 +8,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus } from "@/components/common/detail-state";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +39,7 @@ function proofLabel(
 
 export function ConnectorsScreen({ slug }: { slug?: string }) {
   const t = useTranslations("connectors");
+  const connections = useTranslations("connections");
   const params = useParams<{ slug?: string }>();
   const selected = slug ?? params.slug;
   const [rows, setRows] = useState<Row[]>([]);
@@ -86,10 +89,33 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
   );
   const visible = rows.filter((row) => {
     const text = `${row.name} ${row.summary} ${row.category}`.toLowerCase();
-    if (query && !text.includes(query.toLowerCase())) return false;
+    if (query.trim() && !text.includes(query.trim().toLowerCase())) return false;
     if (category && row.category !== category) return false;
     return true;
   });
+
+  const pagination = usePagedRows(visible, `${query}::${category}`);
+  const groups = new Map<string, Row[]>();
+  for (const row of pagination.rows) {
+    const group = String(row.category || t("uncategorized"));
+    groups.set(group, [...(groups.get(group) ?? []), row]);
+  }
+  const authLabel = (value: string) => {
+    switch (value) {
+      case "api_key":
+        return connections("authKinds.api_key");
+      case "bearer":
+        return connections("authKinds.bearer");
+      case "basic":
+        return connections("authKinds.basic");
+      case "oauth_authorization_code":
+        return connections("authKinds.oauth_authorization_code");
+      case "oauth_client_credentials":
+        return connections("authKinds.oauth_client_credentials");
+      default:
+        return value;
+    }
+  };
 
   async function install(event: FormEvent) {
     event.preventDefault();
@@ -224,6 +250,7 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
               <Input
                 className="mt-1"
                 id="connector-search"
+                type="search"
                 onChange={(event) => setQuery(event.target.value)}
                 value={query}
               />
@@ -246,33 +273,48 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
             </label>
           </div>
           {!error && visible.length === 0 ? <EmptyState title={t("empty")} /> : null}
-          <p className="mb-4 text-sm text-[var(--muted-foreground)]">{t("proofHint")}</p>
-          <ul className="grid gap-3 md:grid-cols-2">
-            {visible.map((row) => {
-              const rowSlug = String(row.slug);
-              const proof = proofOf(row);
-              return (
-                <li key={rowSlug}>
-                  <Link
-                    className="block rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 hover:bg-[var(--muted)]"
-                    href={`/connectors/${rowSlug}`}
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{String(row.name)}</span>
-                      <Badge>{proofLabel(t, proof)}</Badge>
-                      {proof !== "live" ? <Badge>{t("notOffered")}</Badge> : null}
-                      {row.installed ? <Badge>{t("installed")}</Badge> : null}
-                    </div>
-                    <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                      {String(row.summary)}
-                    </p>
-                    <p className="mt-2 text-sm">{String(row.verificationNote ?? "")}</p>
-                    <p className="mt-3 text-sm underline">{t("open")}</p>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <details className="mb-5 text-sm text-[var(--muted-foreground)]">
+            <summary className="cursor-pointer font-medium text-[var(--foreground)]">
+              {t("proofDetails")}
+            </summary>
+            <p className="mt-2 max-w-3xl">{t("proofHint")}</p>
+          </details>
+          <div className="space-y-7">
+            {[...groups].map(([group, items]) => (
+              <section key={group} aria-label={group}>
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                  <Plug size={16} aria-hidden="true" />
+                  {group}
+                </h2>
+                <ul className="grid gap-3 md:grid-cols-2">
+                  {items.map((row) => {
+                    const rowSlug = String(row.slug);
+                    const proof = proofOf(row);
+                    return (
+                      <li key={rowSlug}>
+                        <Link
+                          className="flex h-full flex-col rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 hover:bg-[var(--muted)]"
+                          href={`/connectors/${rowSlug}`}
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">{String(row.name)}</span>
+                            <Badge>{proofLabel(t, proof)}</Badge>
+                            {proof !== "live" ? <Badge>{t("notOffered")}</Badge> : null}
+                            {row.installed ? <Badge>{t("installed")}</Badge> : null}
+                          </div>
+                          <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                            {String(row.summary)}
+                          </p>
+                          <p className="mt-auto pt-3 text-sm underline">{t("open")}</p>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
+          {rows.length > 0 ? <ListPagination {...pagination} /> : null}
         </>
       ) : null}
       {!loading && selected && detail ? (
@@ -423,7 +465,7 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
                     {(Array.isArray(detail.authKinds) ? (detail.authKinds as string[]) : []).map(
                       (item) => (
                         <option key={item} value={item}>
-                          {item}
+                          {authLabel(item)}
                         </option>
                       ),
                     )}
@@ -452,7 +494,15 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
                   </label>
                 ) : null}
                 <label className="text-sm" htmlFor="connector-secret">
-                  {t("secret")}
+                  {kind === "basic"
+                    ? connections("servicePassword")
+                    : kind.startsWith("oauth")
+                      ? connections("serviceClientSecret")
+                      : kind === "api_key"
+                        ? connections("serviceApiKey")
+                        : kind === "bearer"
+                          ? connections("serviceBearer")
+                          : t("secret")}
                   <Input
                     className="mt-1"
                     id="connector-secret"

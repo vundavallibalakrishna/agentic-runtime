@@ -54,9 +54,17 @@ test("register a server, connect, and let the desk agent act", async ({ page }) 
   await expect(page.getByRole("heading", { name: slug, exact: true })).toBeVisible();
 
   await page.goto("/connections");
-  await expect(page.getByRole("heading", { name: "Tickets" })).toBeVisible();
-  await expect(page.getByText("Connected").first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Warehouse" })).toBeVisible();
+  await page.getByRole("tab", { name: "Personal accounts", exact: true }).click();
+  const accounts = page.getByRole("tabpanel", { name: "Personal accounts" });
+  const tickets = accounts.getByRole("listitem").filter({ hasText: "Tickets" });
+  await expect(tickets.getByText("Tickets", { exact: true })).toBeVisible();
+  await expect(tickets.getByText("Connected", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Database connections", exact: true }).click();
+  await expect(
+    page
+      .getByRole("tabpanel", { name: "Database connections" })
+      .getByText("Warehouse", { exact: true }),
+  ).toBeVisible();
   const connections = await new AxeBuilder({ page }).analyze();
   expect(connections.violations).toEqual([]);
 

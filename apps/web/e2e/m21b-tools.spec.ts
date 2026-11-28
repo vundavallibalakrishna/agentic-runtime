@@ -47,10 +47,15 @@ test("general tools are visible in the catalogue, the builder and chat", async (
 
   await page.goto("/agents/new");
   await expect(page.getByRole("heading", { name: "New agent" })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: "Run Python" })).toBeChecked();
-  await page.getByLabel("Name").fill("Field analyst");
+  await page.getByText("Or fill in the agent yourself", { exact: true }).click();
   await page
-    .getByLabel("Instructions")
+    .locator("summary")
+    .filter({ hasText: /^General tools/ })
+    .click();
+  await expect(page.getByRole("checkbox", { name: "Run Python" })).toBeChecked();
+  await page.getByLabel("Name", { exact: true }).fill("Field analyst");
+  await page
+    .getByLabel("Instructions", { exact: true })
     .fill("Analyse files with code and bring a downloadable result.");
   await page.getByRole("checkbox", { name: "Web search" }).uncheck();
   await capture(page, "builder");
@@ -63,10 +68,10 @@ test("general tools are visible in the catalogue, the builder and chat", async (
   const rows = body.items ?? body.data ?? [];
   const assistant = rows.find((row) => row.slug === "assistant") ?? rows[0];
   await page.goto(`/agents/${assistant?.id ?? ""}`);
-  await expect(page.getByRole("checkbox", { name: "Call an API" })).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(page.getByText("General tools").first()).toBeVisible();
+  const generalTools = page.locator("summary").filter({ hasText: "General tools" });
+  await expect(generalTools).toBeVisible({ timeout: 20_000 });
+  await generalTools.click();
+  await expect(page.getByRole("checkbox", { name: "Call an API" })).toBeVisible();
   await capture(page, "editor");
 
   await page.goto("/chat");

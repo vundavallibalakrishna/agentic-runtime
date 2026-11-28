@@ -63,7 +63,7 @@ test("chart a spreadsheet and review computers", async ({ page }) => {
     content: "button,a,input,textarea{transition:none !important}",
   });
   await page.getByRole("button", { name: "Advanced" }).click();
-  await expect(page.getByLabel("Allow package installs")).toBeVisible();
+  await expect(page.getByLabel("Package installs", { exact: true })).toBeVisible();
   await page.evaluate(() => {
     for (const animation of document.getAnimations()) {
       animation.finish();

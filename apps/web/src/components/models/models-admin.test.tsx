@@ -118,6 +118,20 @@ describe("Models admin", () => {
     window.localStorage.clear();
   });
 
+  it("shows an incompatible existing assignment without hiding the assigned model", async () => {
+    const state = registry();
+    state.models.push({ id: "chat-1", name: "Text model", kind: "chat", capabilities: [] });
+    state.aliases.push({ id: "vision-1", alias: "vision", primaryModelId: "chat-1" });
+    render(wrap(<ModelsAdmin />));
+
+    expect(await screen.findByText("Needs attention")).toBeTruthy();
+    const selector = screen.getByRole("button", { name: /^Model for Images:/ });
+    expect(selector.textContent).toContain("Text model");
+    expect(selector.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/The assigned model does not meet/)).toBeTruthy();
+    expect(state.calls).toEqual([]);
+  });
+
   it("starts empty: no provider, nothing set, and no value filled in for the person", async () => {
     registry();
     render(wrap(<ModelsAdmin />));
@@ -184,6 +198,54 @@ describe("Models admin", () => {
     expect(screen.getByText("pong (12 ms)")).toBeTruthy();
   });
 
+  it("distinguishes a refused test request from an actual model result", async () => {
+    const state = registry();
+    state.providers.push({
+      id: "prov-1",
+      name: "Main",
+      kind: "openai_compatible",
+      baseUrl: "https://model.example/v1",
+      hasApiKey: true,
+      platform: false,
+    });
+    state.models.push({
+      id: "model-1",
+      providerId: "prov-1",
+      name: "Chat",
+      upstreamModel: "chat",
+      kind: "chat",
+    });
+    state.aliases.push({
+      id: "alias-1",
+      alias: "reasoning",
+      kind: "chat",
+      primaryModelId: "model-1",
+    });
+    let writes = 0;
+    server.use(
+      http.post("*/api/v1/model-aliases/:id\\:test", () => {
+        writes += 1;
+        return HttpResponse.json(
+          { detail: "Origin rejected", code: "csrf_failed" },
+          { status: 403 },
+        );
+      }),
+    );
+    render(wrap(<ModelsAdmin />));
+    fireEvent.click(await screen.findByRole("button", { name: "Test Answers" }));
+    await screen.findByText(messages.models.testUnavailable);
+    expect(screen.getByText(messages.apiErrors.csrf)).toBeTruthy();
+    expect(screen.queryByText(messages.models.testFailed)).toBeNull();
+    expect(screen.queryByText("Origin rejected")).toBeNull();
+    const details = screen
+      .getByText(messages.apiErrors.details)
+      .closest("details") as HTMLDetailsElement;
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+    expect(screen.getByText("Origin rejected")).toBeTruthy();
+    expect(writes).toBe(1);
+  });
+
   it("offers the images name only to a chat model marked as able to read images", async () => {
     const state = registry();
     state.providers.push({
@@ -207,19 +269,21 @@ describe("Models admin", () => {
     );
     render(wrap(<ModelsAdmin />));
 
-    const images = (await screen.findByLabelText("Model for Images")) as HTMLSelectElement;
-    expect(Array.from(images.options).map((option) => option.text)).toEqual([
-      "Choose a model",
-      "Eyes",
-    ]);
-    const answers = screen.getByLabelText("Model for Answers") as HTMLSelectElement;
-    expect(Array.from(answers.options).map((option) => option.text)).toEqual([
-      "Choose a model",
-      "Plain",
-      "Eyes",
-    ]);
+    const images = await screen.findByRole("button", { name: /^Model for Images:/ });
     expect(screen.getByText("Reads images")).toBeTruthy();
-    fireEvent.change(images, { target: { value: "m-2" } });
+    fireEvent.click(images);
+    let picker = within(screen.getByRole("dialog", { name: "Model for Images" }));
+    expect(picker.getByText("Eyes · Main")).toBeTruthy();
+    expect(picker.queryByText("Plain · Main")).toBeNull();
+    fireEvent.click(picker.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Model for Answers:/ }));
+    picker = within(screen.getByRole("dialog", { name: "Model for Answers" }));
+    expect(picker.getByText("Plain · Main")).toBeTruthy();
+    expect(picker.getByText("Eyes · Main")).toBeTruthy();
+    fireEvent.click(picker.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(images);
+    picker = within(screen.getByRole("dialog", { name: "Model for Images" }));
+    fireEvent.click(picker.getByText("Eyes · Main"));
     await waitFor(() =>
       expect(state.calls.at(-1)).toMatchObject({
         path: "/api/v1/model-aliases",
@@ -356,6 +420,165 @@ describe("Models admin", () => {
     expect(screen.queryByRole("button", { name: "Add provider" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Remove Main" })).toBeNull();
     expect(screen.getByText(/Changing them needs the permission/)).toBeTruthy();
-    expect((screen.getByLabelText("Model for Answers") as HTMLSelectElement).disabled).toBe(true);
+    expect(
+      screen.getByRole("button", { name: /^Model for Answers:/ }).hasAttribute("disabled"),
+    ).toBe(true);
+  });
+  it("keeps an acknowledged provider save distinct from a failed refresh, and retries reads only", async () => {
+    const state = registry();
+    render(wrap(<ModelsAdmin />));
+    await screen.findByText(/No provider yet/);
+    let failRead = true;
+    server.use(
+      http.get("*/api/v1/models", () =>
+        failRead
+          ? HttpResponse.json({ detail: "Registry offline" }, { status: 503 })
+          : HttpResponse.json({ items: state.models }),
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Saved provider" } });
+    fireEvent.change(screen.getByLabelText("Base URL"), {
+      target: { value: "https://models.example.com/v1" },
+    });
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "submitted-secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add provider" }));
+    expect(await screen.findByText(messages.models.savedRefreshFailed)).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect((screen.getByLabelText("API key") as HTMLInputElement).value).toBe("");
+    expect(screen.getByRole("button", { name: "Add provider" }).matches(":disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh registry" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Refresh registry" }).matches(":disabled")).toBe(
+        false,
+      ),
+    );
+    expect(screen.getByText(messages.models.savedRefreshFailed)).toBeTruthy();
+    failRead = false;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh registry" }));
+    expect(await screen.findByRole("heading", { name: "Saved provider" })).toBeTruthy();
+    expect(screen.queryByText(messages.models.savedRefreshFailed)).toBeNull();
+    expect(state.calls).toHaveLength(1);
+  });
+
+  it("freezes conflicting page controls and guards duplicate provider submission while a request is pending", async () => {
+    registry();
+    render(wrap(<ModelsAdmin />));
+    await screen.findByText(/No provider yet/);
+    let release = () => {};
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let writes = 0;
+    server.use(
+      http.post("*/api/v1/model-providers", async () => {
+        writes += 1;
+        await waiting;
+        return HttpResponse.json({ detail: "Connection unavailable" }, { status: 503 });
+      }),
+    );
+    const button = screen.getByRole("button", { name: "Add provider" });
+    const form = button.closest("form");
+    if (!form) throw new Error("Provider form missing");
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(writes).toBe(1));
+    expect(button.matches(":disabled")).toBe(true);
+    expect(screen.getByLabelText("Name").matches(":disabled")).toBe(true);
+    release();
+    expect(await screen.findByText("Connection unavailable")).toBeTruthy();
+    await waitFor(() => expect(button.matches(":disabled")).toBe(false));
+  });
+
+  it("closes a saved model form when a default assignment fails, without offering to create it twice", async () => {
+    const state = registry();
+    state.providers.push({
+      id: "prov-1",
+      name: "Main",
+      kind: "openai_compatible",
+      baseUrl: "https://models.example.com/v1",
+      platform: false,
+    });
+    server.use(
+      http.post("*/api/v1/model-aliases", () =>
+        HttpResponse.json({ detail: "Assignment unavailable" }, { status: 503 }),
+      ),
+    );
+    render(wrap(<ModelsAdmin />));
+    fireEvent.click(await screen.findByRole("button", { name: "Add model to Main" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Model id"), {
+      target: { value: "saved-model" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add model" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      screen.getByText(
+        /The model was saved, but these default assignments could not be confirmed: Answers/,
+      ),
+    ).toBeTruthy();
+    expect(state.models).toHaveLength(1);
+    expect(state.aliases).toHaveLength(0);
+    expect(state.calls.filter((call) => call.path === "/api/v1/models")).toHaveLength(1);
+    expect(screen.getAllByText("saved-model").length).toBeGreaterThan(0);
+  });
+
+  it("blocks a failed dialog submission after refresh also fails until a read recovers", async () => {
+    const state = registry();
+    state.providers.push({
+      id: "prov-1",
+      name: "Main",
+      kind: "openai_compatible",
+      baseUrl: "https://models.example.com/v1",
+      platform: false,
+    });
+    render(wrap(<ModelsAdmin />));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Main" }));
+    server.use(
+      http.get("*/api/v1/models", () =>
+        HttpResponse.json({ detail: "Read unavailable" }, { status: 503 }),
+      ),
+    );
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+    expect(await within(dialog).findByText(messages.models.refreshRequired)).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Remove" }).matches(":disabled")).toBe(true);
+    const form = within(dialog).getByRole("button", { name: "Remove" }).closest("form");
+    if (!form) throw new Error("Removal form missing");
+    fireEvent.submit(form);
+    expect(state.calls).toHaveLength(1);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText(messages.models.unconfirmedRefreshFailed)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Refresh registry" }).matches(":disabled")).toBe(
+      false,
+    );
+  });
+  it("closes an acknowledged dialog save even when its metadata refresh fails", async () => {
+    const state = registry();
+    state.providers.push({
+      id: "prov-1",
+      name: "Main",
+      kind: "openai_compatible",
+      baseUrl: "https://models.example.com/v1",
+      platform: false,
+    });
+    render(wrap(<ModelsAdmin />));
+    fireEvent.click(await screen.findByRole("button", { name: "Add model to Main" }));
+    const dialog = await screen.findByRole("dialog");
+    server.use(
+      http.get("*/api/v1/models", () =>
+        HttpResponse.json({ detail: "Read unavailable" }, { status: 503 }),
+      ),
+    );
+    fireEvent.change(within(dialog).getByLabelText("Model id"), {
+      target: { value: "saved-model" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add model" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByText(messages.models.savedRefreshFailed)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add model to Main" }).matches(":disabled")).toBe(
+      true,
+    );
+    expect(state.models).toHaveLength(1);
+    expect(state.aliases).toHaveLength(1);
   });
 });

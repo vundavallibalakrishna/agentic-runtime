@@ -44,6 +44,34 @@ describe("tool screens", () => {
     cleanup();
   });
 
+  it("finds calls beyond the old eight-row cutoff without rendering the whole history", async () => {
+    installToolCatalogue();
+    server.use(
+      http.get("*/api/v1/auth/session", () => HttpResponse.json({ permissions: ["tools:read"] })),
+      http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/tool-servers", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/tool-calls", () =>
+        HttpResponse.json({
+          items: Array.from({ length: 30 }, (_, index) => ({
+            id: `call-${index}`,
+            qualifiedName: `service.operation_${index}`,
+            status: "succeeded",
+          })),
+        }),
+      ),
+    );
+    renderExpanded(wrap(<ToolsScreen />));
+    await screen.findByText("service.operation_0");
+    expect(screen.queryByText("service.operation_29")).toBeNull();
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Find a call by tool name or status" }),
+      { target: { value: "operation_29" } },
+    );
+    expect(screen.getByText("service.operation_29")).toBeTruthy();
+    expect(screen.queryByText("service.operation_0")).toBeNull();
+    expect(screen.getByText("1–1 of 1")).toBeTruthy();
+  });
+
   it("shows a tool result and a connect link", () => {
     renderExpanded(
       wrap(
@@ -397,7 +425,9 @@ describe("tool screens", () => {
 
   it("shows a connected account and the warehouse", async () => {
     server.use(
-      http.get("*/api/v1/auth/session", () => HttpResponse.json({})),
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({ permissions: ["connections:manage_own", "tools:read"] }),
+      ),
       http.get("*/api/v1/connections", () =>
         HttpResponse.json({
           items: [{ id: "g1", providerId: "p1", status: "active" }],
@@ -412,9 +442,17 @@ describe("tool screens", () => {
       http.get("*/api/v1/service-connections", () => HttpResponse.json({ items: [] })),
       http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
     );
-    renderView(wrap(<ConnectionsScreen />));
-    expect(await screen.findByRole("heading", { name: "Tickets" })).toBeTruthy();
-    expect(screen.getByText("Connected")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Warehouse" })).toBeTruthy();
+    renderExpanded(wrap(<ConnectionsScreen />));
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Personal accounts" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    expect(await screen.findByText("Tickets", { exact: true })).toBeTruthy();
+    expect(screen.getByText("Connected", { selector: "p" })).toBeTruthy();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Database connections" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    expect(screen.getByText("Warehouse", { exact: true })).toBeTruthy();
   });
 });

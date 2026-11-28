@@ -38,7 +38,7 @@ async function capture(page: Page, name: string) {
 test("guest access and the pack frame stay usable", async ({ page }) => {
   await signIn(page);
   await page.goto("/packs/records");
-  await expect(page.getByText("This pack is not enabled")).toBeVisible();
+  await expect(page.getByText("Pack not found in this workspace", { exact: true })).toBeVisible();
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations).toEqual([]);
   await capture(page, "pack");
