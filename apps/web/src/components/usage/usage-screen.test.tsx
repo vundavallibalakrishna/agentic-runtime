@@ -48,7 +48,8 @@ describe("usage screens", () => {
     );
     render(wrap(<UsageScreen />));
     expect(await screen.findByRole("heading", { name: "Usage" })).toBeTruthy();
-    expect(await screen.findByText("36,000")).toBeTruthy();
+    expect(await screen.findByRole("cell", { name: "36,000" })).toBeTruthy();
+    expect(screen.getAllByText("36,000")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeTruthy();
   });
 
@@ -69,13 +70,15 @@ describe("usage screens", () => {
               limitValue: 100000,
               used: 36000,
               implicit: false,
+              action: "block",
+              warnAtPct: 80,
             },
           ],
         }),
       ),
     );
     render(wrap(<QuotasScreen />));
-    expect(await screen.findByRole("heading", { name: "model_tokens · day" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Model tokens · Day" })).toBeTruthy();
     expect(screen.getByText("Dev Admin")).toBeTruthy();
     expect(screen.getByRole("progressbar")).toBeTruthy();
   });

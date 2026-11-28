@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus } from "@/components/common/detail-state";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
+import { ReferencePicker } from "@/components/common/reference-picker";
+import { ScheduleFields } from "@/components/common/schedule-fields";
 import { PageHeader } from "@/components/page-header";
 import {
   type DeliveryChoice,
@@ -18,7 +22,9 @@ import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isAvailableAgent } from "@/lib/agent-availability";
 import { api } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 
 type Routine = {
   id: string;
@@ -31,26 +37,45 @@ type Routine = {
   consecutiveFailures?: number;
 };
 
-type Agent = { id: string; name: string; slug?: string };
+type Agent = { id: string; name: string; slug?: string; status?: string; disabled?: boolean };
 type Preview = { valid: boolean; description: string; next: string[] };
 
 export function RoutinesScreen() {
   const t = useTranslations("routines");
+  const locale = useLocale();
+  const availability = useTranslations("agentAvailability");
+  const router = useRouter();
   const [rows, setRows] = useState<Routine[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogueReady, setCatalogueReady] = useState(false);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [cron, setCron] = useState("0 9 * * 1");
   const [timezone, setTimezone] = useState("UTC");
   const [agentId, setAgentId] = useState("");
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryChoice>(NO_DELIVERY);
 
+  const filtered = rows.filter(
+    (row) =>
+      (!status || row.status === status) &&
+      [row.name, row.description, row.triggerSummary, row.id].some((value) =>
+        value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+      ),
+  );
+  const pagination = usePagedRows(filtered, `${query}::${status}`);
+  const statuses = [
+    ...new Set(rows.map((row) => row.status).filter((value): value is string => Boolean(value))),
+  ].sort();
+
   const load = useCallback(async () => {
     setLoading(true);
+    setCatalogueReady(false);
     setError("");
     try {
       const [page, agentPage] = await Promise.all([
@@ -58,9 +83,12 @@ export function RoutinesScreen() {
         api<{ items: Agent[] }>("/api/v1/agents"),
       ]);
       setRows(page.items ?? []);
-      const list = agentPage.items ?? [];
+      const list = (agentPage.items ?? []).filter(isAvailableAgent);
       setAgents(list);
-      setAgentId((current) => current || list[0]?.id || "");
+      setAgentId((current) =>
+        current ? (list.some((agent) => agent.id === current) ? current : "") : list[0]?.id || "",
+      );
+      setCatalogueReady(true);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
@@ -90,21 +118,28 @@ export function RoutinesScreen() {
   }
 
   async function createRoutine() {
+    if (
+      busy ||
+      !catalogueReady ||
+      !name.trim() ||
+      !instructions.trim() ||
+      !agents.some((agent) => agent.id === agentId)
+    )
+      return;
     setBusy(true);
     setError("");
     try {
       const created = await api<Routine>("/api/v1/routines", {
         method: "POST",
         body: JSON.stringify({
-          name,
-          description: t("seedDescription"),
+          name: name.trim(),
           agentId,
           instructions,
           trigger: { type: "schedule", cron, timezone },
           delivery: deliveryTargets(delivery),
         }),
       });
-      window.location.assign(`/routines/${created.id}`);
+      router.push(`/routines/${created.id}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
@@ -130,7 +165,13 @@ export function RoutinesScreen() {
           title={t("listTitle")}
           formTitle={t("create")}
           form={
-            <section className="space-y-1">
+            <form
+              className="space-y-1"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void createRoutine();
+              }}
+            >
               <label className="mt-3 block text-sm" htmlFor="routine-name">
                 {t("name")}
               </label>
@@ -139,22 +180,27 @@ export function RoutinesScreen() {
                 id="routine-name"
                 onChange={(event) => setName(event.target.value)}
                 value={name}
+                required
               />
-              <label className="mt-3 block text-sm" htmlFor="routine-agent">
-                {t("agent")}
-              </label>
-              <select
-                className="mt-1 max-w-md rounded-lg border border-[var(--border)] bg-[var(--card)] p-2 text-sm"
-                id="routine-agent"
-                onChange={(event) => setAgentId(event.target.value)}
-                value={agentId}
-              >
-                {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-3 max-w-md">
+                <ReferencePicker
+                  label={t("agent")}
+                  items={agents}
+                  getDescription={(agent) => agent.slug || agent.id}
+                  required
+                  help={availability("help")}
+                  emptyMessage={availability("empty")}
+                  clearable={false}
+                  disabled={busy || !catalogueReady || agents.length === 0}
+                  onChange={setAgentId}
+                  value={agentId}
+                />
+                {!loading && !error && agents.length === 0 ? (
+                  <p className="mt-2 text-sm text-[var(--muted-foreground)]" role="status">
+                    {availability("empty")}
+                  </p>
+                ) : null}
+              </div>
               <label className="mt-3 block text-sm" htmlFor="routine-instructions">
                 {t("instructions")}
               </label>
@@ -163,30 +209,21 @@ export function RoutinesScreen() {
                 id="routine-instructions"
                 onChange={(event) => setInstructions(event.target.value)}
                 value={instructions}
+                required
               />
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm" htmlFor="routine-cron">
-                    {t("cron")}
-                  </label>
-                  <Input
-                    className="mt-1"
-                    id="routine-cron"
-                    onChange={(event) => setCron(event.target.value)}
-                    value={cron}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm" htmlFor="routine-timezone">
-                    {t("timezone")}
-                  </label>
-                  <Input
-                    className="mt-1"
-                    id="routine-timezone"
-                    onChange={(event) => setTimezone(event.target.value)}
-                    value={timezone}
-                  />
-                </div>
+              <div className="mt-4">
+                <ScheduleFields
+                  cron={cron}
+                  timezone={timezone}
+                  onCronChange={(value) => {
+                    setCron(value);
+                    setPreview(null);
+                  }}
+                  onTimezoneChange={(value) => {
+                    setTimezone(value);
+                    setPreview(null);
+                  }}
+                />
               </div>
               <DeliveryFields idPrefix="routine" onChange={setDelivery} value={delivery} />
               <div className="mt-3 flex flex-wrap gap-2">
@@ -194,9 +231,10 @@ export function RoutinesScreen() {
                   {t("preview")}
                 </Button>
                 <Button
-                  disabled={busy || !name.trim() || !instructions.trim() || !agentId}
-                  onClick={() => void createRoutine()}
-                  type="button"
+                  disabled={
+                    busy || !catalogueReady || !name.trim() || !instructions.trim() || !agentId
+                  }
+                  type="submit"
                 >
                   {t("create")}
                 </Button>
@@ -206,12 +244,14 @@ export function RoutinesScreen() {
                   <p>{preview.valid ? preview.description : t("invalidSchedule")}</p>
                   <ul className="mt-1 list-disc pl-5">
                     {preview.next.map((stamp) => (
-                      <li key={stamp}>{stamp}</li>
+                      <li key={stamp}>
+                        <time dateTime={stamp}>{formatDateTime(stamp, locale)}</time>
+                      </li>
                     ))}
                   </ul>
                 </div>
               ) : null}
-            </section>
+            </form>
           }
         >
           {loading ? (
@@ -221,8 +261,36 @@ export function RoutinesScreen() {
             </div>
           ) : null}
           {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
+          {!loading && rows.length > 0 ? (
+            <div className="mb-4 flex flex-wrap gap-3">
+              <Input
+                aria-label={t("search")}
+                placeholder={t("search")}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="min-w-0 flex-1"
+                type="search"
+              />
+              <select
+                aria-label={t("status")}
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+                className="h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-sm"
+              >
+                <option value="">{t("allStatuses")}</option>
+                {statuses.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          {!loading && rows.length > 0 && filtered.length === 0 ? (
+            <EmptyState title={t("noMatches")} />
+          ) : null}
           <ul className="row-list">
-            {rows.map((routine) => (
+            {pagination.rows.map((routine) => (
               <li className="p-4" key={routine.id}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -242,6 +310,7 @@ export function RoutinesScreen() {
               </li>
             ))}
           </ul>
+          {!loading && rows.length > 0 ? <ListPagination {...pagination} /> : null}
         </ManagementLayout>
       </fieldset>
     </AppShell>

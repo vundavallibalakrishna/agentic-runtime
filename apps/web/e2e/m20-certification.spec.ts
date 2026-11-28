@@ -88,7 +88,15 @@ test.describe("M20 walkthrough", () => {
         await expect(dialog).toBeHidden();
         await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
       }
-      await page.getByLabel("Model for Answers").selectOption({ label: model });
+      await page.getByRole("button", { name: /^Model for Answers:/ }).click();
+      const answerPicker = page.getByRole("dialog", { name: "Model for Answers", exact: true });
+      await answerPicker.getByRole("searchbox").fill(model);
+      await answerPicker
+        .getByRole("list")
+        .getByRole("button")
+        .filter({ hasText: model })
+        .first()
+        .click();
       await page.getByRole("button", { name: "Test Answers" }).click();
       await expect(page.getByText("It answered.").first()).toBeVisible({ timeout: 90_000 });
       expect(await page.locator("main").innerText()).not.toContain(key);

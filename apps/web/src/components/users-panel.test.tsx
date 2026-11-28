@@ -15,9 +15,9 @@ function wrap(children: ReactNode) {
 }
 
 const people: UserRow[] = [
-  { id: "1", email: "admin@x.test", displayName: "Ada Admin", status: "active" },
-  { id: "2", email: "mo@x.test", displayName: "Mo Member", status: "active" },
-  { id: "3", email: "sam@x.test", displayName: "Sam Gone", status: "suspended" },
+  { id: "1", email: "admin@x.test", displayName: "Ada Admin", status: "active", lastLoginAt: null },
+  { id: "2", email: "mo@x.test", displayName: "Mo Member", status: "active", lastLoginAt: null },
+  { id: "3", email: "sam@x.test", displayName: "Sam Gone", status: "suspended", lastLoginAt: null },
 ];
 
 describe("the people of a workspace", () => {
@@ -26,7 +26,7 @@ describe("the people of a workspace", () => {
   });
 
   it("shows each person's status, and no actions to someone who may only read", () => {
-    render(wrap(<UsersPanel status="ready" users={people} />));
+    render(wrap(<UsersPanel users={people} />));
     expect(screen.getAllByText("Active")).toHaveLength(2);
     expect(screen.getByText("Suspended")).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();
@@ -35,7 +35,7 @@ describe("the people of a workspace", () => {
 
   it("asks before suspending, and suspends only on yes", async () => {
     const onStatus = vi.fn(async () => {});
-    render(wrap(<UsersPanel onStatus={onStatus} selfId="1" status="ready" users={people} />));
+    render(wrap(<UsersPanel onStatus={onStatus} selfId="1" users={people} />));
     fireEvent.click(screen.getByRole("button", { name: "Suspend Mo Member" }));
     expect(screen.getByText(/signed out at once/)).toBeTruthy();
     expect(onStatus).not.toHaveBeenCalled();
@@ -47,14 +47,14 @@ describe("the people of a workspace", () => {
   });
 
   it("offers no action on the viewer's own row", () => {
-    render(wrap(<UsersPanel onStatus={async () => {}} selfId="1" status="ready" users={people} />));
+    render(wrap(<UsersPanel onStatus={async () => {}} selfId="1" users={people} />));
     expect(screen.getByText("(You)")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Suspend Ada Admin" })).toBeNull();
   });
 
   it("lets a suspended person back in with one press", async () => {
     const onStatus = vi.fn(async () => {});
-    render(wrap(<UsersPanel onStatus={onStatus} selfId="1" status="ready" users={people} />));
+    render(wrap(<UsersPanel onStatus={onStatus} selfId="1" users={people} />));
     fireEvent.click(screen.getByRole("button", { name: "Let Sam Gone back in" }));
     await waitFor(() => expect(onStatus).toHaveBeenCalledWith(people[2], "active"));
   });
@@ -63,18 +63,11 @@ describe("the people of a workspace", () => {
     const onStatus = vi.fn(async () => {
       throw new Error("you cannot suspend this person");
     });
-    render(wrap(<UsersPanel onStatus={onStatus} selfId="1" status="ready" users={people} />));
+    render(wrap(<UsersPanel onStatus={onStatus} selfId="1" users={people} />));
     fireEvent.click(screen.getByRole("button", { name: "Suspend Mo Member" }));
     fireEvent.click(screen.getByRole("button", { name: "Yes, suspend" }));
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toContain("you cannot suspend this person"),
     );
-  });
-
-  it("offers another try when the list could not be loaded", () => {
-    const onRetry = vi.fn();
-    render(wrap(<UsersPanel onRetry={onRetry} status="error" users={[]} />));
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(onRetry).toHaveBeenCalled();
   });
 });

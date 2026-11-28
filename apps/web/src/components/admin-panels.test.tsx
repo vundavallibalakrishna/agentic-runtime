@@ -22,22 +22,26 @@ describe("admin panels", () => {
     expect(screen.queryByText("secret")).toBeNull();
   });
 
-  it("renders loading, empty, error and a camelCase user row", () => {
-    const { rerender } = render(wrap(<UsersPanel status="loading" users={[]} />));
-    expect(screen.getByText("Loading users")).toBeTruthy();
-    rerender(wrap(<UsersPanel status="empty" users={[]} />));
-    expect(screen.getByText(/No users yet/)).toBeTruthy();
-    rerender(wrap(<UsersPanel status="error" users={[]} />));
-    expect(screen.getByText(/could not be loaded/)).toBeTruthy();
-    rerender(
+  it("renders returned account metadata without inventing a sign-in time", () => {
+    render(
       wrap(
         <UsersPanel
-          status="ready"
-          users={[{ id: "1", email: "admin@dev.local", displayName: "Dev Admin" }]}
+          users={[
+            {
+              id: "1",
+              email: "admin@dev.local",
+              displayName: "Dev Admin",
+              status: "active",
+              lastLoginAt: null,
+            },
+          ]}
         />,
       ),
     );
     expect(screen.getByText("Dev Admin")).toBeTruthy();
     expect(screen.getByText("admin@dev.local")).toBeTruthy();
+    expect(screen.getByText("Active")).toBeTruthy();
+    expect(screen.getByText("No recorded sign-in")).toBeTruthy();
+    expect(screen.getAllByRole("columnheader")).toHaveLength(4);
   });
 });

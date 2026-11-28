@@ -35,7 +35,7 @@ async function capture(page: Page, name: string) {
   await page.setViewportSize({ width: 1280, height: 800 });
 }
 
-test("channels list, test connection, link profile, and stay accessible", async ({ page }) => {
+test("channel catalogue and profile setup controls stay accessible", async ({ page }) => {
   await signIn(page);
   await page.getByRole("button", { name: "Dev Admin" }).click();
   await page.getByRole("menuitem", { name: "Profile" }).click();
@@ -47,24 +47,34 @@ test("channels list, test connection, link profile, and stay accessible", async 
   await expect(
     page.getByRole("heading", { name: "Channels", exact: true, level: 1 }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Workspace Slack" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Workspace Slack", exact: true })).toBeVisible();
   await expect(page.getByText("The weekly digest is ready for #platform.")).toBeVisible();
   await capture(page, "list");
 
-  await page.getByRole("button", { name: "Advanced" }).click();
-  await expect(page.getByLabel("Routing")).toBeVisible();
-  await page.getByRole("button", { name: "Simple" }).click();
+  await page.getByRole("button", { name: "Advanced", exact: true }).click();
+  await expect(page.getByLabel("App-level token · Optional")).toBeVisible();
+  await page.getByRole("button", { name: "Simple", exact: true }).click();
+  await expect(page.getByLabel("Signing secret", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Default agent: Choose existing", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save channel", exact: true })).toBeDisabled();
+  // The connection probe is not offered until it calls the provider (OQ-162).
+  await expect(page.getByRole("button", { name: "Test connection", exact: true })).toHaveCount(0);
+  await capture(page, "setup-controls");
 
-  await page.getByLabel("Name").fill("Desk Slack");
-  await page.getByLabel("Bot token").fill("xoxb-desk");
-  await page.getByLabel("Signing secret").fill("desk-signing-secret");
-  await page.getByRole("button", { name: "Save channel" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Desk Slack");
+  await page.getByLabel("Bot token", { exact: true }).fill("xoxb-desk");
+  await page.getByLabel("Signing secret", { exact: true }).fill("desk-signing-secret");
+  await page.getByRole("button", { name: "Default agent: Choose existing", exact: true }).click();
+  await page.getByRole("dialog").getByRole("list").getByRole("button").first().click();
+  await page.getByRole("button", { name: "Save channel", exact: true }).click();
   await expect(page.getByText("Channel saved.")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Desk Slack" })).toBeVisible();
-
-  await page.getByRole("button", { name: "Test connection" }).first().click();
-  await expect(page.getByText("Connection checked.")).toBeVisible();
-  await capture(page, "tested");
+  await expect(page.getByRole("heading", { name: "Desk Slack", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Setup · Desk Slack", exact: true }),
+  ).toBeVisible();
+  await capture(page, "saved");
 
   const result = await new AxeBuilder({ page }).analyze();
   expect(result.violations).toEqual([]);

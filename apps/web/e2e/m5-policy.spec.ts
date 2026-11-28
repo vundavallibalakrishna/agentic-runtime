@@ -99,7 +99,7 @@ test("author and activate a policy", async ({ page }) => {
   ).toBeVisible();
   await page.getByLabel("Name").fill("Deletes wait");
   await page.getByRole("button", { name: "Advanced" }).click();
-  await page.getByLabel("Document").fill(
+  await page.getByLabel("Rule document (JSON)", { exact: true }).fill(
     JSON.stringify({
       rules: [
         {

@@ -78,6 +78,8 @@ Removes the integration with its linked identities, threads and posts. Conversat
 #### POST /api/v1/channel-integrations/{integration_id}:test
 Calls `channels` `POST /internal/v1/integrations/{id}:test` (Slack `auth.test`, Teams token acquisition, IMAP login + SMTP NOOP) → `{ok, detail}`.
 
+Implementation gap: the current `ChannelBook.test` uses credential-string checks, and the internal service endpoint returns a prepared success. Neither proves the calls above. The setup UI does not expose that check or present stored configuration as verified connectivity. The required real implementation and typed-routing follow-up are tracked in [OQ-162](../open-questions.md).
+
 #### GET /api/v1/channel-integrations/{integration_id}/manifest
 Slack: generated app manifest (YAML) with scopes (`app_mentions:read`, `chat:write`, `files:read`, `files:write`, `im:history`, `im:read`, `im:write`, `users:read`, `users:read.email`, `commands`, `channels:history`, `groups:history`) and request URLs; Teams: app package (zip with `manifest.json` and icons). Used by admins to install the app in their workspace.
 

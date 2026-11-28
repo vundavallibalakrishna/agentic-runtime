@@ -43,7 +43,11 @@ test("schedules, inbox, runs and agent call selection", async ({ page }) => {
   await signIn(page);
   await page.goto("/schedules");
   await expect(page.getByRole("heading", { name: "Schedules", exact: true })).toBeVisible();
-  await expect(page.getByText("Cron is evaluated in this time zone.")).toBeVisible();
+  const whenToRun = page.getByRole("group", { name: "When to run", exact: true });
+  await expect(whenToRun.getByRole("combobox", { name: "Timezone", exact: true })).toBeVisible();
+  await expect(
+    whenToRun.getByText(/^Times use this timezone, including its daylight saving changes\./),
+  ).toBeVisible();
   await capture(page, "schedules");
   const schedulesAxe = await new AxeBuilder({ page }).analyze();
   expect(schedulesAxe.violations).toEqual([]);
