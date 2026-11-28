@@ -515,7 +515,10 @@ export function AppShell({
         <main
           id="main-content"
           tabIndex={-1}
-          className={cn("min-h-0 min-w-0 flex-1", flush ? "overflow-hidden" : "overflow-auto")}
+          className={cn(
+            "relative min-h-0 min-w-0 flex-1",
+            flush ? "overflow-hidden" : "overflow-auto",
+          )}
         >
           {blocked ? (
             <div className="mx-auto w-full max-w-xl p-5 md:p-10">

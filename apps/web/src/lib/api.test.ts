@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { server } from "@/test/server";
 
-import { api } from "./api";
+import { ApiError, api, apiErrorGuidance } from "./api";
 
 describe("api", () => {
   it("shares one in-flight GET and sends the next one", async () => {
@@ -23,5 +23,28 @@ describe("api", () => {
     expect(calls).toBe(1);
     await api("/api/v1/agents");
     expect(calls).toBe(2);
+  });
+  it("accepts an empty successful response without treating it as invalid JSON", async () => {
+    server.use(http.post("*/api/v1/accepted", () => new HttpResponse(null, { status: 202 })));
+    await expect(api("/api/v1/accepted", { method: "POST" })).resolves.toBeUndefined();
+  });
+  it("retains a refused write's code, status and message without retrying it", async () => {
+    let writes = 0;
+    server.use(
+      http.post("*/api/v1/refused-write", () => {
+        writes += 1;
+        return HttpResponse.json(
+          { detail: "Origin rejected", code: "csrf_failed" },
+          { status: 403 },
+        );
+      }),
+    );
+    const error = await api("/api/v1/refused-write", { method: "POST" }).catch(
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ message: "Origin rejected", code: "csrf_failed", status: 403 });
+    expect(apiErrorGuidance(error as ApiError)).toBe("csrf");
+    expect(writes).toBe(1);
   });
 });

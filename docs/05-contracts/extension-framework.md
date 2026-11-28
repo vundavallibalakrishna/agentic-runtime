@@ -27,3 +27,5 @@ For domain tables, HTTP routes, permissions, audit actions, agent templates, and
 | Testing kit | `ar_testing.packs.install_fixture(pack_id)` installs a signed fixture manifest against a test database, runs that pack's Alembic, and asserts core `alembic heads` is still one head. Connector conformance stays in the connector SDK. |
 
 A pack calls core services. Core never imports a pack.
+
+The generic `/packs/[packId]` web frame reads the existing tenant catalogue. It distinguishes a missing entry, a disabled installation and a request failure with retry, and displays returned identity/version/enablement metadata. Enablement alone does not establish agent tool access; grants and workspace policy still apply. The frame does not substitute for pack-contributed screens or activate a pack.

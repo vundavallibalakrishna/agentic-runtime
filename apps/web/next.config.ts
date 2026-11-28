@@ -4,6 +4,7 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1", "[::1]"],
   output: "standalone",
   ...(process.env.AR_NEXT_DIST ? { distDir: process.env.AR_NEXT_DIST } : {}),
   agentRules: false,

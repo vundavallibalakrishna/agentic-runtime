@@ -40,8 +40,9 @@ async function capture(page: Page, name: string) {
 
 test("chat is home, an agent can be created, and GRC stays parked", async ({ page }) => {
   await signIn(page);
-  await expect(page.locator("#agent-picker")).toBeVisible();
-  await expect(page.locator("#model-picker")).toBeVisible();
+  await page.getByText("Chat options", { exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Agent:/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Model:/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "GRC" })).toHaveCount(0);
   await capture(page, "chat");
 
