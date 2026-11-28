@@ -56,3 +56,9 @@ regexes = [
   '''^AAT103f-consistency$''',
   '''^AAT059-sampling$''',
 ]
+
+[[allowlists]]
+description = "Computers state test, commit a404f17d. A fixture's scopeKey held the scope name conversation-1, which read as a credential because the field name ends in Key. It is a conversation scope name; the fixture now uses same-conversation. Allowlisted so history scans do not treat it as a live key."
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = ['''^conversation-1$''']
