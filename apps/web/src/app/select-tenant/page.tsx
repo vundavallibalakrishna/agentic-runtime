@@ -8,7 +8,7 @@ export default async function SelectTenantPage() {
   return (
     <AuthCard body={t("body")} title={t("title")}>
       <Button asChild className="h-10 w-full">
-        <a href="/api/v1/auth/login?tenant=dev">{t("continue")}</a>
+        <a href="/login">{t("continue")}</a>
       </Button>
     </AuthCard>
   );

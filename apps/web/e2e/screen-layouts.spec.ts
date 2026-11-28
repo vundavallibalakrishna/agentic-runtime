@@ -1,26 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "./support/harness";
+import { managementScreens } from "./support/management-screens";
 import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/screen-layouts";
-const screens = [
-  ["/tools", "Tools"],
-  ["/knowledge", "Knowledge"],
-  ["/memory", "Memory"],
-  ["/skills", "Skills"],
-  ["/routines", "Routines"],
-  ["/admin/channels", "Channels"],
-  ["/approvals", "Approvals"],
-  ["/runs", "Runs"],
-  ["/admin/models", "Models"],
-  ["/admin/sandboxes", "Computers"],
-  ["/admin/usage", "Usage"],
-  ["/admin/quotas", "Quotas"],
-  ["/admin/users", "Users"],
-  ["/admin/policies", "Policies"],
-  ["/reviews", "Reviews"],
-  ["/connections", "Connections"],
-] as const;
+const screens = managementScreens;
 
 async function signIn(page: Page) {
   await page.goto("/login");

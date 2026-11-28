@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import { AuthCard, AuthFooterLink } from "@/components/auth-card";
+import { AuthAlert, AuthCard, AuthFooterLink } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -16,6 +16,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("");
 
   async function submit() {
+    if (busy || !email.trim()) return;
     setBusy(true);
     setError("");
     try {
@@ -38,6 +39,7 @@ export default function ForgotPasswordPage() {
       footer={<AuthFooterLink href="/login">{t("title")}</AuthFooterLink>}
       title={t("forgotTitle")}
     >
+      {error ? <AuthAlert>{error}</AuthAlert> : null}
       {sent ? (
         <p className="rounded-lg bg-[var(--muted)] px-3 py-2 text-center text-sm" role="status">
           {t("forgotSent")}
@@ -56,6 +58,7 @@ export default function ForgotPasswordPage() {
             </label>
             <Input
               autoComplete="username"
+              disabled={busy}
               id="reset-email"
               onChange={(event) => setEmail(event.target.value)}
               required
@@ -63,13 +66,8 @@ export default function ForgotPasswordPage() {
               value={email}
             />
           </div>
-          {error ? (
-            <p className="text-sm text-[var(--destructive)]" role="alert">
-              {error}
-            </p>
-          ) : null}
           <Button className="h-10 w-full" disabled={busy} type="submit">
-            {t("forgotSubmit")}
+            {busy ? t("forgotSending") : t("forgotSubmit")}
           </Button>
         </form>
       )}

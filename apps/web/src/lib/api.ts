@@ -60,20 +60,39 @@ async function send<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set("x-csrf-token", token);
   }
   const response = await fetch(path, { ...init, headers, credentials: "include" });
-  if (!response.ok) {
-    let detail = response.statusText;
-    let code = "";
-    try {
-      const problem = (await response.json()) as { detail?: unknown; code?: unknown };
-      if (typeof problem.detail === "string" && problem.detail) detail = problem.detail;
-      if (typeof problem.code === "string") code = problem.code;
-    } catch {
-      detail = response.statusText;
-    }
-    throw new ApiError(detail || "Request failed", response.status, code);
-  }
+  if (!response.ok) throw await readApiError(response);
   if (response.status === 204) {
     return undefined as T;
   }
-  return (await response.json()) as T;
+  const body = await response.text();
+  return body.trim() ? (JSON.parse(body) as T) : (undefined as T);
+}
+
+/** Shared error decoding for JSON requests and existing file downloads. */
+async function readApiError(response: Response): Promise<ApiError> {
+  let detail = response.statusText;
+  let code = "";
+  try {
+    const problem = (await response.json()) as { detail?: unknown; code?: unknown };
+    if (typeof problem.detail === "string" && problem.detail) detail = problem.detail;
+    if (typeof problem.code === "string") code = problem.code;
+  } catch {
+    detail = response.statusText;
+  }
+  return new ApiError(detail || "Request failed", response.status, code);
+}
+
+/** Presentation retains the original error; request and authorisation behaviour stay with callers. */
+export type DisplayError = string | Error;
+export type ErrorGuidance = "csrf" | "unauthenticated" | "rateLimited" | "unavailable" | "internal";
+
+export function apiErrorGuidance(error: DisplayError): ErrorGuidance | null {
+  if (!(error instanceof ApiError)) return null;
+  if (error.code === "csrf_failed") return "csrf";
+  if (error.code === "unauthenticated" || error.status === 401) return "unauthenticated";
+  if (isRateLimited(error)) return "rateLimited";
+  if (["unavailable", "upstream_error", "upstream_timeout"].includes(error.code))
+    return "unavailable";
+  if (error.code === "internal_error") return "internal";
+  return null;
 }
