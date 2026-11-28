@@ -168,7 +168,10 @@ test("delete a pet behind the new policy", async ({ page }) => {
   await signIn(page, "approver@dev.local");
   await page.goto("/approvals");
   await page.getByRole("link", { name: "petstore.delete_pet" }).click();
-  await expect(page.getByRole("button", { name: "Confirm it is you" })).toBeVisible();
+  // The session is confirmed when the decision is sent.
+  await expect(
+    page.getByText("Your session will be confirmed before this decision is sent."),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(page.getByText("approved").first()).toBeVisible({ timeout: 20_000 });
   await signIn(page);

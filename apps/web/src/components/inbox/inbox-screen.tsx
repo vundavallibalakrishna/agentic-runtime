@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { ListPagination, usePagedRows } from "@/components/common/list-pagination";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,16 @@ export function InboxScreen() {
   const [notice, setNotice] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState("");
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState("");
+  const filtered = rows.filter(
+    (row) =>
+      (!kind || row.type === kind) &&
+      [row.question, row.qualifiedName, row.id, row.runId].some((value) =>
+        value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+      ),
+  );
+  const pagination = usePagedRows(filtered, `${query}::${kind}`);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +61,8 @@ export function InboxScreen() {
 
   async function send(row: Item) {
     const text = answers[row.id] ?? row.options?.[0] ?? "";
+    if (busy || !text.trim()) return;
+    setNotice("");
     setBusy(row.id);
     setError("");
     try {
@@ -58,6 +71,11 @@ export function InboxScreen() {
         body: JSON.stringify({ text }),
       });
       setNotice(t("sent"));
+      setAnswers((current) => {
+        const next = { ...current };
+        delete next[row.id];
+        return next;
+      });
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
@@ -89,13 +107,45 @@ export function InboxScreen() {
         </div>
       ) : null}
       {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
+      {!loading && rows.length > 0 ? (
+        <div className="mb-4 flex flex-wrap gap-3">
+          <Input
+            type="search"
+            className="min-w-0 flex-1"
+            aria-label={t("search")}
+            placeholder={t("search")}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <select
+            aria-label={t("type")}
+            className="h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-sm"
+            value={kind}
+            onChange={(event) => setKind(event.target.value)}
+          >
+            <option value="">{t("allTypes")}</option>
+            <option value="question">{t("question")}</option>
+            <option value="approval">{t("approval")}</option>
+          </select>
+        </div>
+      ) : null}
+      {!loading && rows.length > 0 && filtered.length === 0 ? (
+        <EmptyState title={t("noMatches")} />
+      ) : null}
       <ul className="row-list">
-        {rows.map((row) => (
+        {(loading ? [] : pagination.rows).map((row) => (
           <li className="p-4" key={row.id}>
             <p className="text-sm font-medium">
               {row.type === "approval" ? t("approval") : t("question")}
             </p>
             <p className="mt-2 text-sm">{row.question || row.qualifiedName}</p>
+            {row.type === "approval" ? (
+              <p className="mt-3 text-sm">
+                <Link className="underline" href={`/approvals/${row.id}`}>
+                  {t("reviewApproval")}
+                </Link>
+              </p>
+            ) : null}
             {row.runId ? (
               <p className="mt-2 text-sm">
                 <Link className="underline" href={`/runs/${row.runId}`}>
@@ -111,45 +161,55 @@ export function InboxScreen() {
                   void send(row);
                 }}
               >
-                {row.options && row.options.length > 0 ? (
-                  <label className="text-sm" htmlFor={`answer-${row.id}`}>
-                    {t("answer")}
-                    <select
-                      className="mt-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 text-sm"
-                      id={`answer-${row.id}`}
-                      onChange={(event) =>
-                        setAnswers((current) => ({ ...current, [row.id]: event.target.value }))
-                      }
-                      value={answers[row.id] ?? row.options[0]}
-                    >
-                      {row.options.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : (
-                  <label className="text-sm" htmlFor={`answer-${row.id}`}>
-                    {t("answer")}
-                    <Input
-                      className="mt-1"
-                      id={`answer-${row.id}`}
-                      onChange={(event) =>
-                        setAnswers((current) => ({ ...current, [row.id]: event.target.value }))
-                      }
-                      value={answers[row.id] ?? ""}
-                    />
-                  </label>
-                )}
-                <Button disabled={busy === row.id} type="submit">
-                  {busy === row.id ? t("sending") : t("send")}
-                </Button>
+                <fieldset
+                  disabled={Boolean(busy)}
+                  className="flex min-w-0 flex-wrap items-end gap-2"
+                >
+                  {row.options && row.options.length > 0 ? (
+                    <label className="min-w-0 flex-1 text-sm" htmlFor={`answer-${row.id}`}>
+                      {t("answer")}
+                      <select
+                        className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 text-sm"
+                        id={`answer-${row.id}`}
+                        onChange={(event) =>
+                          setAnswers((current) => ({ ...current, [row.id]: event.target.value }))
+                        }
+                        value={answers[row.id] ?? row.options[0]}
+                      >
+                        {row.options.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <label className="min-w-0 flex-1 text-sm" htmlFor={`answer-${row.id}`}>
+                      {t("answer")}
+                      <textarea
+                        className="mt-1 min-h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+                        required
+                        id={`answer-${row.id}`}
+                        onChange={(event) =>
+                          setAnswers((current) => ({ ...current, [row.id]: event.target.value }))
+                        }
+                        value={answers[row.id] ?? ""}
+                      />
+                    </label>
+                  )}
+                  <Button
+                    disabled={Boolean(busy) || !(answers[row.id] ?? row.options?.[0] ?? "").trim()}
+                    type="submit"
+                  >
+                    {busy === row.id ? t("sending") : t("send")}
+                  </Button>
+                </fieldset>
               </form>
             ) : null}
           </li>
         ))}
       </ul>
+      {!loading && rows.length > 0 ? <ListPagination {...pagination} /> : null}
     </AppShell>
   );
 }

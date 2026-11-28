@@ -215,15 +215,15 @@ describe("detail flow failures", () => {
           id: "approval",
           qualifiedName: "tickets.create",
           status,
-          canDecide: true,
           argsHash: "hash",
+          canDecide: status === "pending",
         }),
       ),
       http.post("*/api/v1/approvals/approval:decide", async () => {
         decisions++;
         await delay(100);
         status = "approved";
-        return HttpResponse.json({});
+        return HttpResponse.json({ id: "approval", status, argsHash: "hash", canDecide: false });
       }),
     );
     render(wrap(<ApprovalDetail approvalId="approval" />));
